@@ -18,6 +18,9 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body,#root{width:100%;height:100%;overflow:hidden}
@@ -39,6 +42,30 @@
   </div>
   <div id="root" style="width:100%;height:100%"></div>
   <script type="text/babel" data-presets="react">
+/* ═══════════════════════════════════════════════════════════
+   FIREBASE CONFIG — paste your values here after setup
+   Leave as-is if you haven't set up Firebase yet
+═══════════════════════════════════════════════════════════ */
+var FIREBASE_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+/* ═══════════════════════════════════════════════════════════ */
+
+var _db = null;
+(function(){
+  try {
+    if (FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith("YOUR_")) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      _db = firebase.firestore();
+    }
+  } catch(e) { console.warn("Firebase not configured:", e.message); }
+})();
+
 const { useState, useEffect, useRef } = React;
 
 /* ─── INJECT CSS ─────────────────────────────────────────────────────────── */
@@ -2780,8 +2807,25 @@ function App() {
   var [reportHTML, setReportHTML] = useState(null);
   var [showQR, setShowQR] = useState(false);
 
-  useEffect(function() { try { localStorage.setItem("cm_cands", JSON.stringify(cands)); } catch(e){} }, [cands]);
-  useEffect(function() { try { localStorage.setItem("cm_advisors", JSON.stringify(advisors)); } catch(e){} }, [advisors]);
+  // Firebase real-time sync (when configured), otherwise localStorage
+  useEffect(function() {
+    if (!_db) {
+      try { var a = JSON.parse(localStorage.getItem("cm_advisors")||"[]"); if(a.length) setAdvisors(a); } catch(e){}
+      try { var c = JSON.parse(localStorage.getItem("cm_cands")||"[]"); if(c.length) setCands(c); } catch(e){}
+      return;
+    }
+    var unsubA = _db.collection("advisors").onSnapshot(function(snap) {
+      setAdvisors(snap.docs.map(function(d){ return Object.assign({ _docId: d.id }, d.data()); }));
+    }, function(e){ console.error("advisors snap:", e); });
+    var unsubC = _db.collection("candidates").onSnapshot(function(snap) {
+      setCands(snap.docs.map(function(d){ return Object.assign({ _docId: d.id }, d.data()); }));
+    }, function(e){ console.error("candidates snap:", e); });
+    return function(){ unsubA(); unsubC(); };
+  }, []);
+
+  // localStorage fallback persistence (only when no Firebase)
+  useEffect(function() { if (!_db) { try { localStorage.setItem("cm_cands", JSON.stringify(cands)); } catch(e){} } }, [cands]);
+  useEffect(function() { if (!_db) { try { localStorage.setItem("cm_advisors", JSON.stringify(advisors)); } catch(e){} } }, [advisors]);
 
   function setLangDir(l) {
     setLang(l);
@@ -2824,8 +2868,15 @@ function App() {
       name: user.name, id: user.id, code: code,
       profile: Object.assign({}, profile || {}, { name:user.name, id:user.id }),
       scores: sc,
+      savedAt: new Date().toISOString()
     };
-    setCands(function(p) { return p.concat([rec]); });
+    if (_db) {
+      _db.collection("candidates").add(rec).catch(function(e){ console.error("save candidate:", e); });
+      // onSnapshot will update cands automatically; also set locally for instant UI
+      setCands(function(p) { return p.concat([rec]); });
+    } else {
+      setCands(function(p) { return p.concat([rec]); });
+    }
     setScreen("code");
   }
 
@@ -2891,8 +2942,21 @@ function App() {
   </div>);
   if (screen === "admin")   return wrap(<div style={{ position:"relative", flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
     <AdminDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout} cands={cands} onView={onView} advisors={advisors}
-      onAddAdvisor={function(a){ setAdvisors(function(p){ return p.concat([a]); }); }}
-      onDeleteAdvisor={function(i){ setAdvisors(function(p){ return p.filter(function(_,x){ return x!==i; }); }); }}
+      onAddAdvisor={function(a){
+        if (_db) {
+          _db.collection("advisors").add(a).catch(function(e){ alert("Error saving advisor: " + e.message); });
+        } else {
+          setAdvisors(function(p){ return p.concat([a]); });
+        }
+      }}
+      onDeleteAdvisor={function(i){
+        var adv = advisors[i];
+        if (_db && adv && adv._docId) {
+          _db.collection("advisors").doc(adv._docId).delete().catch(function(e){ alert("Error deleting: " + e.message); });
+        } else {
+          setAdvisors(function(p){ return p.filter(function(_,x){ return x!==i; }); });
+        }
+      }}
       onShowReport={showReport}/>
     {viewer}
   </div>);
