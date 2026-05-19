@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#06111f"/>
+  <!-- Teal ring -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#1aabaa" stroke-width="18"/>
+  <!-- Compass rose -->
+  <!-- North arrow (teal) -->
+  <polygon points="256,80 240,256 256,236 272,256" fill="#1aabaa"/>
+  <!-- South arrow (dark) -->
+  <polygon points="256,432 240,256 256,276 272,256" fill="#0d7a79"/>
+  <!-- East arrow (dark) -->
+  <polygon points="432,256 256,240 276,256 256,272" fill="#0d7a79"/>
+  <!-- West arrow (dark) -->
+  <polygon points="80,256 256,240 236,256 256,272" fill="#1aabaa"/>
+  <!-- Center dot -->
+  <circle cx="256" cy="256" r="18" fill="#f0f4f8"/>
+  <circle cx="256" cy="256" r="8" fill="#1aabaa"/>
+  <!-- N label -->
+  <text x="256" y="62" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="36" fill="#1aabaa">N</text>
+</svg>

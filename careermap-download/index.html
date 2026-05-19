@@ -4,6 +4,15 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <title>CareerMap — Orientation Professionnelle</title>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1aabaa"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="CareerMap"/>
+  <link rel="apple-touch-icon" href="icon.svg"/>
+  <meta name="description" content="Career guidance and assessment platform"/>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -2825,6 +2834,14 @@ _root.render(React.createElement(App));
       var l = document.getElementById('cm-loading');
       if(l) l.style.display = 'none';
     }, 5000);
+  </script>
+  <script>
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', function(){
+        navigator.serviceWorker.register('sw.js')
+          .catch(function(e){ console.warn('SW registration failed', e); });
+      });
+    }
   </script>
 </body>
 </html>
