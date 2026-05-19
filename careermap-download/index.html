@@ -2435,7 +2435,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
         </div>
       </div>
         {tab === "candidates" && (
-          <div>
+          <div style={{ flex:1, overflowY:"auto", padding:"12px 0" }}>
             <Card>
               <SectionHead icon="👥" title="All Candidates"/>
               <div style={{ display:"flex", gap:8, marginBottom:11, alignItems:"center" }}>
@@ -2493,7 +2493,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
         )}
 
         {tab === "advisors" && (
-          <div>
+          <div style={{ flex:1, overflowY:"auto", padding:"12px 0" }}>
             <Card>
               <SectionHead icon="➕" title="Create Advisor Account"/>
               <p style={{ fontSize:10, color:C.mu, marginBottom:10, lineHeight:1.6 }}>
@@ -2550,7 +2550,9 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
         )}
 
         {tab === "stats" && (
-          <AdminStats src={src} lang={lang} ar={ar}/>
+          <div style={{ flex:1, overflowY:"auto", padding:"12px 0" }}>
+            <AdminStats src={src} lang={lang} ar={ar}/>
+          </div>
         )}
       </div>
       {localReport && <ReportViewer html={localReport} onClose={function(){ setLocalReport(null); }}/>}
