@@ -2548,7 +2548,10 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                           style={{ padding:"4px 10px", background:copied===adv.code?C.grG:C.cardB, color:copied===adv.code?C.gr:C.muB, border:"1px solid "+(copied===adv.code?C.gr:C.bdr), borderRadius:7, fontSize:9, fontWeight:700 }}>
                           {copied === adv.code ? "Copied ✓" : "Copy"}
                         </button>
-                        <button onClick={function() { onDeleteAdvisor(i); }}
+                        <button onClick={function() {
+                            if (!window.confirm('Delete advisor "' + adv.name + '"?\nThis cannot be undone.')) return;
+                            onDeleteAdvisor(i);
+                          }}
                           style={{ padding:"4px 8px", background:"rgba(220,76,60,.1)", color:C.re, border:"1px solid "+C.re+"33", borderRadius:7, fontSize:9, fontWeight:700 }}>
                           Del
                         </button>
