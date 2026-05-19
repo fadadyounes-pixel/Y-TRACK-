@@ -4,6 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <title>CareerMap — Orientation Professionnelle</title>
+  <!-- QR Code library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#1aabaa"/>
@@ -2706,6 +2708,61 @@ function AdminStats({ src, lang, ar }) {
     </div>
   );
 }
+function ShareQRModal({ onClose }) {
+  var canvasRef = React.useRef(null);
+  var url = (function() {
+    var u = window.location.href.replace(/[?#].*$/, '').replace(/index\.html$/, '');
+    return u.endsWith('/') ? u : u + '/';
+  })();
+
+  useEffect(function() {
+    if (!canvasRef.current || !window.QRCode) return;
+    QRCode.toCanvas(canvasRef.current, url, {
+      width: 240, margin: 2,
+      color: { dark: '#06111f', light: '#ffffff' }
+    });
+  }, []);
+
+  return (
+    <div onClick={onClose} style={{
+      position:'fixed', inset:0, zIndex:99999,
+      background:'#06111f',
+      display:'flex', flexDirection:'column',
+      alignItems:'center', justifyContent:'center',
+      gap:20, cursor:'pointer'
+    }}>
+      {/* Compass icon */}
+      <svg width="64" height="64" viewBox="0 0 512 512">
+        <circle cx="256" cy="256" r="248" fill="none" stroke="#1aabaa" strokeWidth="18"/>
+        <polygon points="256,90 242,256 256,240 270,256" fill="#1aabaa"/>
+        <polygon points="256,422 242,256 256,272 270,256" fill="#0d7a79"/>
+        <polygon points="422,256 256,242 272,256 256,270" fill="#0d7a79"/>
+        <polygon points="90,256 256,242 240,256 256,270" fill="#1aabaa"/>
+        <circle cx="256" cy="256" r="18" fill="#f0f4f8"/>
+        <circle cx="256" cy="256" r="8" fill="#1aabaa"/>
+      </svg>
+
+      <div style={{ color:'#1aabaa', fontSize:30, fontWeight:700, letterSpacing:3, textTransform:'uppercase' }}>
+        CareerMap
+      </div>
+
+      <div style={{ background:'#fff', borderRadius:16, padding:14, border:'3px solid #1aabaa', boxShadow:'0 0 40px #1aabaa44' }}>
+        <canvas ref={canvasRef}/>
+      </div>
+
+      <div style={{ color:'#6b8aaa', fontSize:14, letterSpacing:1 }}>Scan to open the app</div>
+
+      <div style={{
+        marginTop:24, color:'#1a3a55', fontSize:12,
+        border:'1px solid #1a3a55', borderRadius:20,
+        padding:'6px 18px', letterSpacing:1
+      }}>
+        tap anywhere to close
+      </div>
+    </div>
+  );
+}
+
 function App() {
   injectCSS();
   var [lang, setLang] = useState("en");
@@ -2718,6 +2775,7 @@ function App() {
   var [advisors, setAdvisors] = useState(function() { try { return JSON.parse(localStorage.getItem("cm_advisors")||"[]"); } catch(e){ return []; } });
   var [resultCode, setResultCode] = useState("");
   var [reportHTML, setReportHTML] = useState(null);
+  var [showQR, setShowQR] = useState(false);
 
   useEffect(function() { try { localStorage.setItem("cm_cands", JSON.stringify(cands)); } catch(e){} }, [cands]);
   useEffect(function() { try { localStorage.setItem("cm_advisors", JSON.stringify(advisors)); } catch(e){} }, [advisors]);
@@ -2782,8 +2840,31 @@ function App() {
 
   function wrap(el) {
     return (
-      <div style={{ width:"100%", height:"100%", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={{ width:"100%", height:"100%", display:"flex", flexDirection:"column", overflow:"hidden", position:"relative" }}>
         {el}
+        {/* Floating QR share button */}
+        <button
+          onClick={function(){ setShowQR(true); }}
+          title="Share QR Code"
+          style={{
+            position:"fixed", bottom:20, right:20, zIndex:9000,
+            width:48, height:48, borderRadius:"50%",
+            background:"#1aabaa", border:"none", cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            boxShadow:"0 4px 16px #1aabaa66",
+            padding:0
+          }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06111f" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="3" height="3"/>
+            <rect x="18" y="14" width="3" height="3"/>
+            <rect x="14" y="18" width="3" height="3"/>
+            <rect x="18" y="18" width="3" height="3"/>
+          </svg>
+        </button>
+        {showQR && <ShareQRModal onClose={function(){ setShowQR(false); }}/>}
       </div>
     );
   }
