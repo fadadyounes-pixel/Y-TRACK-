@@ -55,6 +55,7 @@ function injectCSS() {
     "button:active{transform:scale(.95)!important}",
     "input,select,textarea{font-family:inherit}",
     "input:focus,select:focus,textarea:focus{outline:none}",
+    "select option{background:#0d1f33;color:#f0f4f8}",
     "@media print{.noprint{display:none!important}html,body,#root{height:auto!important;overflow:visible!important}body{background:#fff!important}}",
   ].join("");
   document.head.appendChild(el);
@@ -2701,11 +2702,14 @@ function App() {
   var [user, setUser] = useState(null);
   var [profile, setProfile] = useState(null);
   var [scores, setScores] = useState({ h:{}, b:{}, s:{} });
-  var [cands, setCands] = useState([]);
+  var [cands, setCands] = useState(function() { try { return JSON.parse(localStorage.getItem("cm_cands")||"[]"); } catch(e){ return []; } });
   var [viewIdx, setViewIdx] = useState(null);
-  var [advisors, setAdvisors] = useState([]);
+  var [advisors, setAdvisors] = useState(function() { try { return JSON.parse(localStorage.getItem("cm_advisors")||"[]"); } catch(e){ return []; } });
   var [resultCode, setResultCode] = useState("");
   var [reportHTML, setReportHTML] = useState(null);
+
+  useEffect(function() { try { localStorage.setItem("cm_cands", JSON.stringify(cands)); } catch(e){} }, [cands]);
+  useEffect(function() { try { localStorage.setItem("cm_advisors", JSON.stringify(advisors)); } catch(e){} }, [advisors]);
 
   function setLangDir(l) {
     setLang(l);
