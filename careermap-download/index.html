@@ -2809,18 +2809,22 @@ function App() {
 
   // Firebase real-time sync (when configured), otherwise localStorage
   useEffect(function() {
-    if (!_db) {
-      try { var a = JSON.parse(localStorage.getItem("cm_advisors")||"[]"); if(a.length) setAdvisors(a); } catch(e){}
-      try { var c = JSON.parse(localStorage.getItem("cm_cands")||"[]"); if(c.length) setCands(c); } catch(e){}
-      return;
+    var unsubA, unsubC;
+    try {
+      if (!_db) throw new Error("no db");
+      unsubA = _db.collection("advisors").onSnapshot(
+        function(snap) { try { setAdvisors(snap.docs.map(function(d){ return Object.assign({ _docId: d.id }, d.data()); })); } catch(e){} },
+        function(e){ console.error("advisors:", e); }
+      );
+      unsubC = _db.collection("candidates").onSnapshot(
+        function(snap) { try { setCands(snap.docs.map(function(d){ return Object.assign({ _docId: d.id }, d.data()); })); } catch(e){} },
+        function(e){ console.error("candidates:", e); }
+      );
+    } catch(e) {
+      try { var a = JSON.parse(localStorage.getItem("cm_advisors")||"[]"); if(a.length) setAdvisors(a); } catch(err){}
+      try { var c = JSON.parse(localStorage.getItem("cm_cands")||"[]"); if(c.length) setCands(c); } catch(err){}
     }
-    var unsubA = _db.collection("advisors").onSnapshot(function(snap) {
-      setAdvisors(snap.docs.map(function(d){ return Object.assign({ _docId: d.id }, d.data()); }));
-    }, function(e){ console.error("advisors snap:", e); });
-    var unsubC = _db.collection("candidates").onSnapshot(function(snap) {
-      setCands(snap.docs.map(function(d){ return Object.assign({ _docId: d.id }, d.data()); }));
-    }, function(e){ console.error("candidates snap:", e); });
-    return function(){ unsubA(); unsubC(); };
+    return function(){ try { if(unsubA) unsubA(); if(unsubC) unsubC(); } catch(e){} };
   }, []);
 
   // localStorage fallback persistence (only when no Firebase)
