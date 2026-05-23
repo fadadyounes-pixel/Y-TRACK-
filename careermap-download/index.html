@@ -1115,6 +1115,7 @@ function TopBar({ lang, setLang, user, onLogout }) {
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
         <CareerMapLogo size={34}/>
         <span className="sy" style={{ fontSize:15, fontWeight:900, color:C.wh }}>Career<span style={{ color:C.teal }}>Map</span></span>
+        {_db && <span style={{ fontSize:9, color:C.gr, background:C.grG+"22", border:"1px solid "+C.gr+"44", borderRadius:99, padding:"2px 7px", fontWeight:700 }}>☁ SYNC</span>}
       </div>
       <LangBtn lang={lang} set={setLang}/>
       {user && (
@@ -2349,7 +2350,7 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
 }
 
 /* ─── ADMIN DASHBOARD ────────────────────────────────────────────────────── */
-function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onAddAdvisor, onDeleteAdvisor, onShowReport }) {
+function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onAddAdvisor, onDeleteAdvisor, onDeleteCand, onShowReport }) {
   var ar = lang === "ar";
   var [tab, setTab] = useState("candidates");
   var [search, setSearch] = useState("");
@@ -2393,6 +2394,20 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
       var url = URL.createObjectURL(blob);
       var a = document.createElement("a");
       a.href=url; a.download="CareerMap-Candidates.csv";
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},200);
+    } catch(e) { alert("Export failed: "+e.message); }
+  }
+
+  function exportAdvisors() {
+    var csv = "﻿" + ["Name,Code,Created"].concat(advisors.map(function(a){
+      return [a.name, a.code, a.createdAt||""].join(",");
+    })).join("\n");
+    try {
+      var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href=url; a.download="CareerMap-Advisors.csv";
       document.body.appendChild(a); a.click();
       setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},200);
     } catch(e) { alert("Export failed: "+e.message); }
@@ -2491,7 +2506,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:10 }}>
                   <thead>
                     <tr style={{ borderBottom:"1px solid "+C.bdr }}>
-                      {["Nom","ID","Email","Code","Holland","Empl.","Rapports"].map(function(hd) {
+                      {["Nom","ID","Email","Code","Holland","Empl.","Rapports",""].map(function(hd) {
                         return <th key={hd} style={{ padding:"8px 10px", textAlign:"left", color:C.mu, fontWeight:700 }}>{hd}</th>;
                       })}
                     </tr>
@@ -2502,7 +2517,10 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                       var suAvg = avg(c.scores.s);
                       return (
                         <tr key={i} style={{ borderBottom:"1px solid "+C.bdr }}>
-                          <td style={{ padding:"8px 10px", fontWeight:600, color:C.wh }}>{c.name}</td>
+                          <td style={{ padding:"8px 10px" }}>
+                            <div style={{ fontWeight:600, color:C.wh }}>{c.name}</div>
+                            {c.savedAt && <div style={{ fontSize:8, color:C.mu, marginTop:2 }}>{new Date(c.savedAt).toLocaleString()}</div>}
+                          </td>
                           <td style={{ padding:"8px 10px", color:C.mu, fontFamily:"monospace", fontSize:9 }}>{c.id}</td>
                           <td style={{ padding:"8px 10px", color:C.mu, fontSize:9 }}>{(c.profile&&c.profile.email)||"—"}</td>
                           <td style={{ padding:"8px 10px" }}><code style={{ color:C.goldL, fontSize:9 }}>{c.code||"—"}</code></td>
@@ -2519,6 +2537,12 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                                 🔒 Conseiller
                               </button>
                             </div>
+                          </td>
+                          <td style={{ padding:"8px 6px" }}>
+                            {cands.length > 0 && <button onClick={function(){
+                              if (!window.confirm('Delete "'+c.name+'" from the list?\nThis cannot be undone.')) return;
+                              onDeleteCand(c);
+                            }} style={{ padding:"4px 8px", background:"rgba(220,76,60,.1)", color:C.re, border:"1px solid "+C.re+"33", borderRadius:7, fontSize:9, fontWeight:700, cursor:"pointer" }}>Del</button>}
                           </td>
                         </tr>
                       );
@@ -2559,7 +2583,13 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
             </Card>
 
             <Card>
-              <SectionHead icon="👔" title="Advisor Accounts"/>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                <SectionHead icon="👔" title="Advisor Accounts"/>
+                {advisors.length > 0 && <button onClick={exportAdvisors}
+                  style={{ padding:"6px 12px", background:"linear-gradient(135deg,#16a34a,#15803d)", color:"#fff", border:"none", borderRadius:7, fontSize:10, fontWeight:700, cursor:"pointer" }}>
+                  📊 Export CSV
+                </button>}
+              </div>
               {advisors.length === 0
                 ? <p style={{ fontSize:11, color:C.mu, textAlign:"center", padding:"16px 0" }}>No advisor accounts yet.</p>
                 : advisors.map(function(adv, i) {
@@ -2864,8 +2894,18 @@ function App() {
     setScreen("welcome");
   }
 
+  function onDeleteCand(c) {
+    if (_db && c._docId) {
+      _db.collection("candidates").doc(c._docId).delete().catch(function(e){ alert("Error: "+e.message); });
+    } else {
+      setCands(function(p){ return p.filter(function(x){ return x.id !== c.id; }); });
+    }
+  }
+
   function onFinish(sc) {
     var code = "RPT-" + user.id;
+    var duplicate = cands.some(function(x){ return x.id === user.id; });
+    if (duplicate && !window.confirm('This candidate already has a result. Save a new one?')) { setScreen("code"); setResultCode(code); return; }
     setScores(sc);
     setResultCode(code);
     var rec = {
@@ -2945,7 +2985,7 @@ function App() {
     {viewer}
   </div>);
   if (screen === "admin")   return wrap(<div style={{ position:"relative", flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-    <AdminDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout} cands={cands} onView={onView} advisors={advisors}
+    <AdminDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout} cands={cands} onView={onView} advisors={advisors} onDeleteCand={onDeleteCand}
       onAddAdvisor={function(a){
         if (_db) {
           _db.collection("advisors").add(a).catch(function(e){ alert("Error saving advisor: " + e.message); });
