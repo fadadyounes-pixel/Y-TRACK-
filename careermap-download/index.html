@@ -1145,30 +1145,39 @@ function ReportViewer({ profile, scores, role, onClose }) {
     setSaving(true);
     var name = (profile && (profile.name || profile.id)) || "CareerMap";
     var filename = "CareerMap-" + name + "-" + lang.toUpperCase() + ".pdf";
-    // Write the full HTML (including <head><style>) into a hidden iframe
-    // so CSS is applied correctly before html2pdf captures it
-    var iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;height:1123px;border:none;visibility:hidden";
-    document.body.appendChild(iframe);
-    var doc = iframe.contentDocument || iframe.contentWindow.document;
-    doc.open(); doc.write(html); doc.close();
-    // Give the browser time to render styles before capturing
+
+    // Extract body content — all report elements use inline style="" so
+    // we only need the base font/color from body, not the full document
+    var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    var bodyContent = bodyMatch ? bodyMatch[1] : html;
+
+    // Inject into main document so html2canvas captures without offset issues
+    var wrap = document.createElement("div");
+    wrap.style.cssText = [
+      "position:fixed","top:0","left:0","width:840px",
+      "font-family:Arial,sans-serif","color:#1e293b","background:#fff",
+      "padding:24px 32px","font-size:12px","line-height:1.7",
+      "z-index:99999","box-sizing:border-box"
+    ].join(";");
+    wrap.innerHTML = bodyContent;
+    document.body.appendChild(wrap);
+
+    var cleanup = function() {
+      if (document.body.contains(wrap)) document.body.removeChild(wrap);
+      setSaving(false);
+    };
+
     setTimeout(function() {
       var opt = {
         margin: [8, 8, 8, 8],
         filename: filename,
         image: { type:"jpeg", quality:0.97 },
-        html2canvas: { scale:2, useCORS:true, logging:false, windowWidth:794 },
+        html2canvas: { scale:2, useCORS:true, logging:false, scrollX:0, scrollY:0 },
         jsPDF: { unit:"mm", format:"a4", orientation:"portrait" }
       };
-      window.html2pdf().set(opt).from(doc.body).save().then(function() {
-        document.body.removeChild(iframe);
-        setSaving(false);
-      }).catch(function() {
-        document.body.removeChild(iframe);
-        setSaving(false);
-      });
-    }, 800);
+      window.html2pdf().set(opt).from(wrap).save()
+        .then(cleanup).catch(cleanup);
+    }, 400);
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
