@@ -3,7 +3,7 @@
   "short_name": "CareerMap",
   "description": "Career guidance and assessment platform",
   "start_url": "/careerMap/",
-  "scope": "/careerMap/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#1aabaa",
