@@ -1146,15 +1146,22 @@ function ReportViewer({ profile, scores, role, onClose }) {
     var name = (profile && (profile.name || profile.id)) || "CareerMap";
     var filename = "CareerMap-" + name + "-" + lang.toUpperCase() + ".pdf";
 
-    // Extract body content — all report styling is inline so no <head> CSS needed
     var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
     var bodyContent = bodyMatch ? bodyMatch[1] : html;
 
-    // Plain block div — NO position:fixed/absolute (html2canvas fails on fixed elements)
-    // html2canvas captures the element directly regardless of viewport visibility
     var wrap = document.createElement("div");
-    wrap.style.cssText = "width:840px;font-family:Arial,sans-serif;color:#1e293b;background:#fff;font-size:12px;line-height:1.7;padding:24px 32px;box-sizing:border-box";
+    wrap.style.cssText = "width:794px;font-family:Arial,sans-serif;color:#1e293b;background:#fff;font-size:12px;line-height:1.7;padding:16px 24px;box-sizing:border-box";
     wrap.innerHTML = bodyContent;
+
+    // Remove page-break and viewport-height constraints — these create blank pages in html2pdf
+    Array.from(wrap.querySelectorAll("*")).forEach(function(el) {
+      if (el.style.pageBreakAfter)  el.style.pageBreakAfter  = "auto";
+      if (el.style.pageBreakBefore) el.style.pageBreakBefore = "auto";
+      if (el.style.pageBreakInside) el.style.pageBreakInside = "auto";
+      if (el.style.minHeight && el.style.minHeight.indexOf("vh") !== -1) el.style.minHeight = "";
+      if (el.style.height   && el.style.height.indexOf("vh")   !== -1) el.style.height   = "";
+    });
+
     document.body.appendChild(wrap);
 
     var cleanup = function() {
@@ -1164,7 +1171,7 @@ function ReportViewer({ profile, scores, role, onClose }) {
 
     setTimeout(function() {
       var opt = {
-        margin: [8, 8, 8, 8],
+        margin: [10, 10, 10, 10],
         filename: filename,
         image: { type:"jpeg", quality:0.97 },
         html2canvas: { scale:2, useCORS:true, logging:false, scrollX:0, scrollY:0 },
