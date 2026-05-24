@@ -2974,7 +2974,7 @@ function LandingPage({ onStart, lang, setLang }) {
   ];
 
   return (
-    <div dir={ar?"rtl":"ltr"} style={{ fontFamily:"Arial,sans-serif", background:C.bg, color:C.wh, overflowX:"hidden", minHeight:"100%", overflowY:"auto" }}>
+    <div dir={ar?"rtl":"ltr"} style={{ fontFamily:"Arial,sans-serif", background:C.bg, color:C.wh, overflowX:"hidden", height:"100%", overflowY:"auto" }}>
 
       {/* ── NAV ── */}
       <nav style={{ position:"fixed", top:0, left:0, right:0, zIndex:100,
@@ -3239,7 +3239,7 @@ function LandingPage({ onStart, lang, setLang }) {
 function App() {
   injectCSS();
   var [lang, setLang] = useState("en");
-  var [screen, setScreen] = useState("login");
+  var [screen, setScreen] = useState("landing");
   var [user, setUser] = useState(null);
   var [profile, setProfile] = useState(null);
   var [scores, setScores] = useState({ h:{}, b:{}, s:{} });
@@ -3381,6 +3381,7 @@ function App() {
   }
 
   var viewer = reportHTML ? <ReportViewer html={reportHTML} onClose={function(){ setReportHTML(null); }}/> : null;
+  if (screen === "landing") return wrap(<LandingPage lang={lang} setLang={setLangDir} onStart={function(){ setScreen("login"); }}/>);
   if (screen === "login")   return wrap(<Login lang={lang} setLang={setLangDir} onLogin={onLogin} advisors={advisors}/>);
   if (screen === "profile") return wrap(<ProfileForm lang={lang} setLang={setLangDir} user={user} onNext={onProfile} onLogout={onLogout}/>);
   if (screen === "welcome") return wrap(<Welcome lang={lang} setLang={setLangDir} user={user} onStart={function(){ setScreen("assess"); }} onLogout={onLogout}/>);
