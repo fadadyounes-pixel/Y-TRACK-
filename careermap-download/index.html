@@ -2405,77 +2405,258 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
 }
 
 /* ─── ADMIN DASHBOARD ────────────────────────────────────────────────────── */
+/* ─── ADMIN DASHBOARD ──────────────────────────────────────────────────────── */
+
+function ScoreBar({ label, value, max, col, icon }) {
+  max = max || 100;
+  var w = Math.round((value / max) * 100);
+  col = col || C.teal;
+  return (
+    <div style={{ marginBottom:9 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+        <span style={{ fontSize:11, color:C.muB, fontWeight:600 }}>{icon && icon+" "}{label}</span>
+        <span style={{ fontSize:12, fontWeight:800, color:col }}>{value}</span>
+      </div>
+      <div style={{ height:6, background:"rgba(255,255,255,.07)", borderRadius:99, overflow:"hidden" }}>
+        <div style={{ height:"100%", width:w+"%", background:"linear-gradient(90deg,"+col+"99,"+col+")", borderRadius:99, transition:"width .7s cubic-bezier(.4,0,.2,1)" }}/>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ icon, label, value, sub, col, trend }) {
+  col = col || C.teal;
+  return (
+    <div style={{ background:"linear-gradient(135deg,"+col+"12,"+col+"06)", borderRadius:16,
+        padding:"18px 16px", border:"1px solid "+col+"30",
+        boxShadow:"0 4px 24px "+col+"18", position:"relative", overflow:"hidden" }}>
+      <div style={{ position:"absolute", top:-10, right:-10, fontSize:42, opacity:.08 }}>{icon}</div>
+      <div style={{ fontSize:24, marginBottom:6 }}>{icon}</div>
+      <div style={{ fontSize:28, fontWeight:900, color:col, lineHeight:1 }}>{value}</div>
+      <div style={{ fontSize:11, fontWeight:700, color:C.wh, marginTop:4 }}>{label}</div>
+      {sub && <div style={{ fontSize:9, color:C.mu, marginTop:3 }}>{sub}</div>}
+      {trend != null && <div style={{ fontSize:9, color:trend>=0?C.gr:C.re, marginTop:3, fontWeight:700 }}>
+        {trend>=0?"▲":"▼"} {Math.abs(trend)}%
+      </div>}
+    </div>
+  );
+}
+
+function CandidateDetailModal({ c, rptLang, onClose, onDelete, onReport, isReal }) {
+  var p  = c.profile || { name:c.name, id:c.id };
+  var h  = (c.scores && c.scores.h) || {};
+  var b5 = (c.scores && c.scores.b) || {};
+  var su = (c.scores && c.scores.s) || {};
+  var ht = ranked(h);
+  var empAvg = avg(su);
+  var initials = ((p.firstName||p.name||"?")[0]||"?").toUpperCase() + ((p.lastName||"")[0]||"").toUpperCase();
+  var avatarCol = C.hc[ht[0]] || C.teal;
+
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:9999,
+        background:"rgba(6,17,31,.9)", backdropFilter:"blur(8px)",
+        display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+      <div onClick={function(e){e.stopPropagation();}}
+        style={{ width:"100%", maxWidth:520, maxHeight:"92vh",
+          background:C.sur, borderRadius:"20px 20px 0 0", border:"1px solid "+C.bdr,
+          display:"flex", flexDirection:"column", overflow:"hidden",
+          boxShadow:"0 -8px 60px rgba(0,0,0,.6)" }}>
+
+        {/* Modal header */}
+        <div style={{ background:"linear-gradient(135deg,"+avatarCol+"20,transparent)",
+            padding:"20px 18px 14px", borderBottom:"1px solid "+C.bdr, flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+            <div style={{ width:52, height:52, borderRadius:14, background:avatarCol+"28",
+                border:"2px solid "+avatarCol+"60", display:"flex", alignItems:"center",
+                justifyContent:"center", fontSize:18, fontWeight:900, color:avatarCol, flexShrink:0 }}>
+              {initials}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:16, fontWeight:800, color:C.wh, marginBottom:2 }}>{p.name||p.firstName||c.name}</div>
+              <div style={{ fontSize:10, color:C.mu, fontFamily:"monospace" }}>{c.id}</div>
+              <div style={{ display:"flex", gap:6, marginTop:5, flexWrap:"wrap" }}>
+                <span style={{ padding:"2px 8px", borderRadius:99, background:avatarCol+"20",
+                    color:avatarCol, fontSize:9, fontWeight:700, border:"1px solid "+avatarCol+"40" }}>
+                  {ht[0]||"?"}{ht[1]||""} — {HN[ht[0]]||""}
+                </span>
+                <span style={{ padding:"2px 8px", borderRadius:99,
+                    background:(empAvg>=65?C.gr:empAvg>=45?C.am:C.re)+"20",
+                    color:empAvg>=65?C.gr:empAvg>=45?C.am:C.re, fontSize:9, fontWeight:700 }}>
+                  ⚡ {empAvg}% Employability
+                </span>
+              </div>
+            </div>
+            <button onClick={onClose} style={{ background:"rgba(255,255,255,.07)", border:"none",
+                color:C.mu, fontSize:18, width:32, height:32, borderRadius:8, cursor:"pointer",
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>×</button>
+          </div>
+        </div>
+
+        {/* Scrollable content */}
+        <div style={{ flex:1, overflowY:"auto", padding:"16px 18px" }}>
+
+          {/* Profile grid */}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:C.mu, textTransform:"uppercase",
+                letterSpacing:1, marginBottom:8 }}>Profile Information</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              {[
+                ["👤","Name", p.name||p.firstName||c.name],
+                ["📧","Email", p.email||"—"],
+                ["📱","Phone", p.phone||"—"],
+                ["🎂","Age",   p.age||"—"],
+                ["⚧","Gender",p.gender||"—"],
+                ["🎓","Education",p.edu||"—"],
+                ["📍","Region",p.region||"—"],
+                ["💼","Status",p.status||"—"],
+              ].filter(function(row){ return row[2]; }).map(function(row){
+                return (
+                  <div key={row[1]} style={{ background:"rgba(255,255,255,.04)", borderRadius:10,
+                      padding:"8px 10px", border:"1px solid "+C.bdr }}>
+                    <div style={{ fontSize:8, color:C.mu, marginBottom:2 }}>{row[0]} {row[1]}</div>
+                    <div style={{ fontSize:11, color:C.wh, fontWeight:600, wordBreak:"break-word" }}>{row[2]}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Holland Scores */}
+          {Object.keys(h).length > 0 && (
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.mu, textTransform:"uppercase",
+                  letterSpacing:1, marginBottom:8 }}>🎯 Holland Career Profile (RIASEC)</div>
+              {["R","I","A","S","E","C"].map(function(k){
+                return <ScoreBar key={k} label={k+" — "+(HN[k]||k)} value={h[k]||0} col={C.hc[k]}/>;
+              })}
+            </div>
+          )}
+
+          {/* Big Five */}
+          {Object.keys(b5).length > 0 && (
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.mu, textTransform:"uppercase",
+                  letterSpacing:1, marginBottom:8 }}>🧠 Big Five Personality</div>
+              {["O","C2","E2","A2","N"].map(function(k){
+                return <ScoreBar key={k} label={B5N[k]||k} value={b5[k]||0} col={C.b5[k]}/>;
+              })}
+            </div>
+          )}
+
+          {/* Skill-Up */}
+          {Object.keys(su).length > 0 && (
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.mu, textTransform:"uppercase",
+                  letterSpacing:1, marginBottom:8 }}>⚡ Skill-Up Employability</div>
+              {["A","E","C","R"].map(function(k){
+                return <ScoreBar key={k} label={SUN[k]||k} value={su[k]||0} col={C.su[k]}/>;
+              })}
+            </div>
+          )}
+
+          {/* Code */}
+          {c.code && (
+            <div style={{ background:"rgba(255,255,255,.04)", borderRadius:10, padding:"10px 12px",
+                border:"1px solid "+C.bdr, marginBottom:16 }}>
+              <div style={{ fontSize:8, color:C.mu, marginBottom:3 }}>Access Code</div>
+              <code style={{ fontSize:13, color:C.goldL, fontWeight:700 }}>{c.code}</code>
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ padding:"14px 18px", borderTop:"1px solid "+C.bdr,
+            background:C.bg, flexShrink:0, display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={function(){ onReport(c,"candidate"); }}
+            style={{ flex:1, minWidth:120, padding:"10px 12px",
+              background:"linear-gradient(135deg,"+C.teal+",#158585)",
+              color:"#fff", border:"none", borderRadius:10, fontSize:11, fontWeight:800, cursor:"pointer" }}>
+            🎓 Candidate Report
+          </button>
+          <button onClick={function(){ onReport(c,"advisor"); }}
+            style={{ flex:1, minWidth:120, padding:"10px 12px",
+              background:"linear-gradient(135deg,"+C.pu+",#6030a0)",
+              color:"#fff", border:"none", borderRadius:10, fontSize:11, fontWeight:800, cursor:"pointer" }}>
+            🔒 Advisor Report
+          </button>
+          {isReal && (
+            <button onClick={function(){
+                if(!window.confirm('Delete "'+c.name+'" permanently?')) return;
+                onDelete(c); onClose();
+              }}
+              style={{ padding:"10px 14px", background:"rgba(220,76,60,.12)",
+                color:C.re, border:"1px solid "+C.re+"44", borderRadius:10,
+                fontSize:11, fontWeight:800, cursor:"pointer" }}>
+              🗑 Delete
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onAddAdvisor, onDeleteAdvisor, onDeleteCand, onShowReport }) {
   var ar = lang === "ar";
-  var [tab, setTab] = useState("candidates");
-  var [search, setSearch] = useState("");
+  var [tab, setTab]         = useState("overview");
+  var [search, setSearch]   = useState("");
+  var [filterGender, setFilterGender] = useState("");
+  var [filterHolland, setFilterHolland] = useState("");
   var [newName, setNewName] = useState("");
-  var [copied, setCopied] = useState(null);
+  var [copied, setCopied]   = useState(null);
   var [localReport, setLocalReport] = useState(null);
-  var [rptLang, setRptLang]         = useState("fr");
+  var [rptLang, setRptLang] = useState("fr");
+  var [detailCand, setDetailCand] = useState(null);
+  var [detailIsReal, setDetailIsReal] = useState(false);
 
   var DEMO = [
-    { name:"Ahmed Benali", id:"BJ367307", code:"RPT-BJ367307", profile:{name:"Ahmed Benali",age:"21–24",gender:"Male",edu:"Bachelor (Bac+3)",region:"Rabat-Salé-Kénitra"}, scores:{h:{R:45,I:78,A:62,S:55,E:40,C:50},b:{O:72,C2:65,E2:48,A2:80,N:35},s:{A:68,E:55,C:72,R:60}} },
-    { name:"Fatima Zahra", id:"FZ291045", code:"RPT-FZ291045", profile:{name:"Fatima Zahra",age:"18–20",gender:"Female",edu:"Baccalaureate",region:"Casablanca-Settat",prefecture:"Anfa"}, scores:{h:{R:30,I:55,A:88,S:75,E:60,C:42},b:{O:90,C2:50,E2:78,A2:70,N:45},s:{A:82,E:65,C:70,R:74}} },
+    { name:"Ahmed Benali", id:"BJ367307", code:"RPT-BJ367307", savedAt:new Date(Date.now()-172800000).toISOString(),
+      profile:{name:"Ahmed Benali",firstName:"Ahmed",lastName:"Benali",age:"21–24",gender:"Male",edu:"Bachelor (Bac+3)",region:"Rabat-Sal\xe9-K\xe9nitra",phone:"+212612345678",status:"University Student",email:"ahmed@example.com"},
+      scores:{h:{R:45,I:78,A:62,S:55,E:40,C:50},b:{O:72,C2:65,E2:48,A2:80,N:35},s:{A:68,E:55,C:72,R:60}} },
+    { name:"Fatima Zahra", id:"FZ291045", code:"RPT-FZ291045", savedAt:new Date(Date.now()-86400000).toISOString(),
+      profile:{name:"Fatima Zahra",firstName:"Fatima",lastName:"Zahra",age:"18–20",gender:"Female",edu:"Baccalaureate",region:"Casablanca-Settat",phone:"+212661234567",status:"High School Student",email:"fatima@example.com",prefecture:"Anfa"},
+      scores:{h:{R:30,I:55,A:88,S:75,E:60,C:42},b:{O:90,C2:50,E2:78,A2:70,N:45},s:{A:82,E:65,C:70,R:74}} },
+    { name:"Youssef Alami", id:"YA103822", code:"RPT-YA103822", savedAt:new Date(Date.now()-3600000).toISOString(),
+      profile:{name:"Youssef Alami",firstName:"Youssef",lastName:"Alami",age:"25–29",gender:"Male",edu:"Master (Bac+5)",region:"F\xe8s-Mekn\xe8s",phone:"+212698765432",status:"Job Seeker",email:"youssef@example.com"},
+      scores:{h:{R:60,I:50,A:30,S:45,E:85,C:70},b:{O:55,C2:80,E2:75,A2:60,N:30},s:{A:72,E:80,C:65,R:88}} },
   ];
 
-  var src = cands.length ? cands : DEMO;
-  var list = src.filter(function(c) {
-    var q = search.toLowerCase();
-    return c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q);
-  });
+  var isUsingDemo = cands.length === 0;
+  var src = isUsingDemo ? DEMO : cands;
 
+  /* ── utility ── */
   function exportExcel() {
-    var headers = ["Prénom","Nom","ID","Email","Téléphone","Age","Genre","Education","Situation","Region","Prefecture","Code","Holland","Employabilite","R","I","A","S","E","C","O","C2","E2","A2","N","Autonomie","Economique","Collaboration","Readiness"];
+    var headers = ["Pr\xe9nom","Nom","ID","Email","T\xe9l\xe9phone","Age","Genre","Education","Situation","Region","Prefecture","Code","Holland","Employabilite","R","I","A","S","E","C","O","C2","E2","A2","N","Autonomie","Economique","Collaboration","Readiness"];
     var rows = src.map(function(c) {
       var ht = ranked(c.scores&&c.scores.h||{});
       var sv = Object.values(c.scores&&c.scores.s||{});
       var emp = sv.length ? Math.round(sv.reduce(function(a,b){return a+b;},0)/sv.length) : 0;
-      var h = c.scores&&c.scores.h||{};
-      var b5 = c.scores&&c.scores.b||{};
-      var s = c.scores&&c.scores.s||{};
-      var p = c.profile||{};
+      var h = c.scores&&c.scores.h||{}; var b5 = c.scores&&c.scores.b||{}; var s = c.scores&&c.scores.s||{}; var p = c.profile||{};
       return [p.firstName||c.name,p.lastName||"",c.id,p.email||"",p.phone||"",p.age||"",p.gender||"",p.edu||"",p.status||"",p.region||"",p.prefecture||"",c.code||"",
-              (ht[0]||"")+(ht[1]||""),emp,
-              h.R||0,h.I||0,h.A||0,h.S||0,h.E||0,h.C||0,
-              b5.O||0,b5.C2||0,b5.E2||0,b5.A2||0,b5.N||0,
-              s.A||0,s.E||0,s.C||0,s.R||0];
+              (ht[0]||"")+(ht[1]||""),emp,h.R||0,h.I||0,h.A||0,h.S||0,h.E||0,h.C||0,b5.O||0,b5.C2||0,b5.E2||0,b5.A2||0,b5.N||0,s.A||0,s.E||0,s.C||0,s.R||0];
     });
-    var csv = "\uFEFF" + [headers].concat(rows).map(function(row){
-      return row.join(";");
-    }).join("\n");
+    var csv = "﻿" + [headers].concat(rows).map(function(row){ return row.join(";"); }).join("\n");
     try {
-      var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href=url; a.download="CareerMap-Candidates.csv";
-      document.body.appendChild(a); a.click();
-      setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},200);
+      var blob = new Blob([csv],{type:"text/csv;charset=utf-8"}); var url = URL.createObjectURL(blob);
+      var a = document.createElement("a"); a.href=url; a.download="CareerMap-Candidates.csv";
+      document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},200);
     } catch(e) { alert("Export failed: "+e.message); }
   }
 
   function exportAdvisors() {
-    var csv = "﻿" + ["Name,Code,Created"].concat(advisors.map(function(a){
-      return [a.name, a.code, a.createdAt||""].join(",");
-    })).join("\n");
+    var csv = "﻿" + ["Name,Code,Created"].concat(advisors.map(function(a){ return [a.name,a.code,a.createdAt||""].join(","); })).join("\n");
     try {
-      var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href=url; a.download="CareerMap-Advisors.csv";
-      document.body.appendChild(a); a.click();
-      setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},200);
+      var blob = new Blob([csv],{type:"text/csv;charset=utf-8"}); var url = URL.createObjectURL(blob);
+      var a = document.createElement("a"); a.href=url; a.download="CareerMap-Advisors.csv";
+      document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},200);
     } catch(e) { alert("Export failed: "+e.message); }
   }
 
   function genCode(name) {
     var parts = name.trim().split(/\s+/);
-    var last = (parts[parts.length-1] || parts[0]).toLowerCase().replace(/[^a-z]/g, "");
-    var base = "@" + last + "ADV";
-    var code = base, n = 2;
-    while (advisors.some(function(a) { return a.code.toLowerCase() === code.toLowerCase(); })) {
-      code = base.replace("ADV", n + "ADV"); n++;
-    }
+    var last = (parts[parts.length-1]||parts[0]).toLowerCase().replace(/[^a-z]/g,"");
+    var base = "@"+last+"ADV"; var code = base; var n = 2;
+    while (advisors.some(function(a){ return a.code.toLowerCase()===code.toLowerCase(); })) { code = base.replace("ADV",n+"ADV"); n++; }
     return code;
   }
 
@@ -2487,200 +2668,442 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
 
   function copyCode(code) {
     try { navigator.clipboard.writeText(code); } catch(e) {}
-    setCopied(code);
-    setTimeout(function() { setCopied(null); }, 2000);
+    setCopied(code); setTimeout(function(){ setCopied(null); }, 2000);
   }
 
   function downloadReport(c, role) {
     try {
-      var p  = c.profile || { name:c.name, id:c.id, age:"-", gender:"-", edu:"-", region:"-" };
-      var sc = c.scores  || { h:{}, b:{}, s:{} };
+      var p = c.profile || { name:c.name, id:c.id, age:"-", gender:"-", edu:"-", region:"-" };
+      var sc = c.scores || { h:{}, b:{}, s:{} };
       setLocalReport(buildReportHTML(p, sc, role, rptLang));
     } catch(err) { alert("Erreur: " + err.message); }
   }
 
+  function openDetail(c, isReal) {
+    setDetailCand(c);
+    setDetailIsReal(isReal);
+  }
+
+  /* ── computed ── */
+  var filtered = src.filter(function(c) {
+    var q = search.toLowerCase();
+    var nameMatch = c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q) || (c.profile&&c.profile.email||"").toLowerCase().includes(q);
+    var p = c.profile||{};
+    var gMatch = !filterGender || (p.gender||"").toLowerCase() === filterGender.toLowerCase();
+    var ht = ranked(c.scores&&c.scores.h||{});
+    var hMatch = !filterHolland || (ht[0]||"") === filterHolland;
+    return nameMatch && gMatch && hMatch;
+  });
+
+  /* ── overview stats ── */
+  var totalCands = src.length;
+  var totalAdvisors = advisors.length;
+  var avgEmpl = Math.round(src.reduce(function(sum,c){
+    var v = Object.values(c.scores&&c.scores.s||{});
+    return sum + (v.length ? v.reduce(function(a,b){return a+b;},0)/v.length : 0);
+  }, 0) / (totalCands||1));
+  var hollandCount = {};
+  src.forEach(function(c){ var k = ranked(c.scores&&c.scores.h||{})[0]||"?"; hollandCount[k]=(hollandCount[k]||0)+1; });
+  var topHolland = Object.keys(hollandCount).sort(function(a,b){ return hollandCount[b]-hollandCount[a]; })[0]||"—";
+  var recent = src.slice().sort(function(a,b){ return new Date(b.savedAt||0)-new Date(a.savedAt||0); }).slice(0,5);
+
+  /* ── TABS ── */
+  var TABS = [
+    ["overview", "🏠 Overview", ""],
+    ["candidates", "👥 Candidates", totalCands],
+    ["advisors", "👔 Advisors", totalAdvisors],
+    ["analytics", "📊 Analytics", ""],
+  ];
+
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
       <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
-      <div style={{ background:"linear-gradient(135deg,#0a1a0a,#142814)", borderBottom:"1px solid #204020", padding:"12px 16px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:11 }}>
-          <div style={{ fontSize:20 }}>⚙️</div>
+
+      {/* Dashboard header */}
+      <div style={{ background:"linear-gradient(135deg,#071d35,#0a2a1a)", borderBottom:"1px solid "+C.bdr, padding:"14px 16px 0", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+          <div style={{ width:40, height:40, borderRadius:12, background:"linear-gradient(135deg,"+C.teal+","+C.gold+")", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>
+            ⚙️
+          </div>
           <div style={{ flex:1 }}>
-            <h2 className="sy" style={{ fontSize:14, fontWeight:800, color:C.wh }}>
-              {ar ? "لوحة المدير" : "Administrator Panel"}
-            </h2>
-            <p style={{ fontSize:9, color:C.mu, marginTop:1 }}>@adminyfadad · Full access</p>
+            <div style={{ fontSize:15, fontWeight:900, color:C.wh, letterSpacing:.3 }}>Admin Dashboard</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:2 }}>
+              <div style={{ width:6, height:6, borderRadius:99, background:C.gr, boxShadow:"0 0 8px "+C.gr }}/>
+              <span style={{ fontSize:9, color:C.mu }}>Live \xb7 {totalCands} candidates \xb7 {totalAdvisors} advisors</span>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:4 }}>
+            <span style={{ fontSize:8, color:C.mu }}>Report:</span>
+            {["fr","en","ar"].map(function(l){
+              return (
+                <button key={l} onClick={function(){setRptLang(l);}}
+                  style={{ padding:"3px 8px", borderRadius:99, fontFamily:"inherit", fontSize:9, fontWeight:700,
+                    background:rptLang===l?C.teal:"transparent", color:rptLang===l?"#fff":C.mu,
+                    border:"1.5px solid "+(rptLang===l?C.teal:C.bdr), cursor:"pointer" }}>
+                  {l.toUpperCase()}
+                </button>
+              );
+            })}
           </div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", margin:"10px 0 0" }}>
-          <div style={{ display:"flex" }}>
-          {[["candidates","👥 Candidates",src.length],["advisors","👔 Advisors",advisors.length],["stats","📊 Statistics",""]].map(function(item) {
+
+        {/* Tab bar */}
+        <div style={{ display:"flex", gap:2, overflowX:"auto" }}>
+          {TABS.map(function(t){
+            var active = tab===t[0];
             return (
-              <button key={item[0]} onClick={function() { setTab(item[0]); }}
-                style={{ flex:1, padding:"7px 6px", border:"none",
-                  borderBottom:"2.5px solid "+(tab===item[0]?C.goldL:"transparent"),
-                  background:"transparent", color:tab===item[0]?C.goldL:C.mu,
-                  fontFamily:"inherit", fontSize:11, fontWeight:700 }}>
-                {item[1]}{" "}<span style={{ background:"rgba(255,255,255,.07)", borderRadius:99, padding:"1px 7px", fontSize:9 }}>{item[2]}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div style={{ display:"flex", gap:5, alignItems:"center", paddingRight:8 }}>
-          <span style={{ fontSize:9, color:C.mu }}>Rapport:</span>
-          {["fr","en","ar"].map(function(l){
-            return (
-              <button key={l} onClick={function(){setRptLang(l);}}
-                style={{ padding:"3px 9px", borderRadius:99, fontFamily:"inherit",
-                  fontSize:10, fontWeight:700, cursor:"pointer",
-                  background: rptLang===l ? C.teal : "transparent",
-                  color: rptLang===l ? "#fff" : C.mu,
-                  border: "1.5px solid "+(rptLang===l ? C.teal : C.bdr) }}>
-                {l.toUpperCase()}
+              <button key={t[0]} onClick={function(){ setTab(t[0]); }}
+                style={{ flexShrink:0, padding:"9px 14px", border:"none", cursor:"pointer",
+                  borderBottom:"3px solid "+(active?C.teal:"transparent"),
+                  background:"transparent", fontFamily:"inherit",
+                  color:active?C.teal:C.mu, fontSize:11, fontWeight:active?800:600,
+                  transition:"all .2s" }}>
+                {t[1]}
+                {t[2]!=="" && <span style={{ marginLeft:5, padding:"1px 6px", borderRadius:99, fontSize:9,
+                    background:active?C.teal+"22":"rgba(255,255,255,.06)",
+                    color:active?C.teal:C.mu }}>{t[2]}</span>}
               </button>
             );
           })}
         </div>
       </div>
-        {tab === "candidates" && (
-          <div style={{ flex:1, overflowY:"auto", padding:"12px 0" }}>
-            <Card>
-              <SectionHead icon="👥" title="All Candidates"/>
-              <div style={{ display:"flex", gap:8, marginBottom:11, alignItems:"center" }}>
-                <input value={search} onChange={function(e) { setSearch(e.target.value); }}
-                  placeholder="Search by name or ID…"
-                  style={{ flex:1, padding:"8px 11px", background:"rgba(255,255,255,.04)", border:"1.5px solid "+C.bdr, borderRadius:8, color:C.wh, fontSize:11 }}/>
-                <button onClick={exportExcel}
-                  style={{ padding:"8px 14px", background:"linear-gradient(135deg,#16a34a,#15803d)",
-                    color:"#fff", border:"none", borderRadius:8, fontSize:10, fontWeight:700,
-                    cursor:"pointer", whiteSpace:"nowrap", boxShadow:"0 2px 8px rgba(22,163,74,.3)" }}>
-                  📊 Export Excel
+
+      {/* Tab content */}
+      <div style={{ flex:1, overflowY:"auto" }}>
+
+        {/* ── OVERVIEW ── */}
+        {tab === "overview" && (
+          <div style={{ padding:"14px 14px" }}>
+            {isUsingDemo && (
+              <div style={{ background:"rgba(212,163,40,.1)", border:"1px solid "+C.gold+"44",
+                  borderRadius:10, padding:"8px 12px", marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:12 }}>⚠️</span>
+                <span style={{ fontSize:10, color:C.gold }}>Showing demo data — no real candidates yet.</span>
+              </div>
+            )}
+
+            {/* KPI cards */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+              <KpiCard icon="👥" label="Candidates" value={totalCands} col={C.teal} sub="Total assessments"/>
+              <KpiCard icon="👔" label="Advisors" value={totalAdvisors} col={C.pu} sub="Active accounts"/>
+              <KpiCard icon="⚡" label="Avg Employability" value={avgEmpl+"%"}
+                col={avgEmpl>=65?C.gr:avgEmpl>=45?C.am:C.re} sub="Skill-Up average"/>
+              <KpiCard icon="🎯" label="Top Holland" value={topHolland}
+                col={C.hc[topHolland]||C.gold} sub={HN[topHolland]||"Profile"}/>
+            </div>
+
+            {/* Recent assessments */}
+            <div style={{ background:C.card, borderRadius:16, border:"1px solid "+C.bdr, marginBottom:12, overflow:"hidden" }}>
+              <div style={{ padding:"12px 14px", borderBottom:"1px solid "+C.bdr,
+                  display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ fontSize:12, fontWeight:800, color:C.wh }}>🕒 Recent Assessments</span>
+                <button onClick={function(){ setTab("candidates"); }}
+                  style={{ background:"transparent", border:"none", color:C.teal, fontSize:10, cursor:"pointer", fontWeight:700 }}>
+                  View all →
                 </button>
               </div>
-              <div style={{ overflowX:"auto" }}>
-                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:10 }}>
-                  <thead>
-                    <tr style={{ borderBottom:"1px solid "+C.bdr }}>
-                      {["Nom","ID","Email","Code","Holland","Empl.","Rapports",""].map(function(hd) {
-                        return <th key={hd} style={{ padding:"8px 10px", textAlign:"left", color:C.mu, fontWeight:700 }}>{hd}</th>;
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {list.map(function(c, i) {
-                      var ht = ranked(c.scores.h);
-                      var suAvg = avg(c.scores.s);
-                      return (
-                        <tr key={i} style={{ borderBottom:"1px solid "+C.bdr }}>
-                          <td style={{ padding:"8px 10px" }}>
-                            <div style={{ fontWeight:600, color:C.wh }}>{c.name}</div>
-                            {c.savedAt && <div style={{ fontSize:8, color:C.mu, marginTop:2 }}>{new Date(c.savedAt).toLocaleString()}</div>}
-                          </td>
-                          <td style={{ padding:"8px 10px", color:C.mu, fontFamily:"monospace", fontSize:9 }}>{c.id}</td>
-                          <td style={{ padding:"8px 10px", color:C.mu, fontSize:9 }}>{(c.profile&&c.profile.email)||"—"}</td>
-                          <td style={{ padding:"8px 10px" }}><code style={{ color:C.goldL, fontSize:9 }}>{c.code||"—"}</code></td>
-                          <td style={{ padding:"8px 10px" }}><span className="sy" style={{ color:C.teal, fontWeight:800, fontSize:12 }}>{ht[0]||"—"}{ht[1]||""}</span></td>
-                          <td style={{ padding:"8px 10px" }}><span style={{ color:suAvg>=65?C.gr:suAvg>=45?C.am:C.re, fontWeight:700 }}>{suAvg}%</span></td>
-                          <td style={{ padding:"8px 10px" }}>
-                            <div style={{ display:"flex", gap:6 }}>
-                              <button onClick={function() { downloadReport(c, "candidate"); }}
-                                style={{ padding:"6px 12px", background:C.teal+"18", color:C.teal, border:"1px solid "+C.teal+"44", borderRadius:7, fontSize:10, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
-                                🎓 Candidat
-                              </button>
-                              <button onClick={function() { downloadReport(c, "advisor"); }}
-                                style={{ padding:"6px 12px", background:C.re+"18", color:C.re, border:"1px solid "+C.re+"44", borderRadius:7, fontSize:10, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
-                                🔒 Conseiller
-                              </button>
-                            </div>
-                          </td>
-                          <td style={{ padding:"8px 6px" }}>
-                            {cands.length > 0 && <button onClick={function(){
-                              if (!window.confirm('Delete "'+c.name+'" from the list?\nThis cannot be undone.')) return;
-                              onDeleteCand(c);
-                            }} style={{ padding:"4px 8px", background:"rgba(220,76,60,.1)", color:C.re, border:"1px solid "+C.re+"33", borderRadius:7, fontSize:9, fontWeight:700, cursor:"pointer" }}>Del</button>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {tab === "advisors" && (
-          <div style={{ flex:1, overflowY:"auto", padding:"12px 0" }}>
-            <Card>
-              <SectionHead icon="➕" title="Create Advisor Account"/>
-              <p style={{ fontSize:10, color:C.mu, marginBottom:10, lineHeight:1.6 }}>
-                Enter the advisor{"'"}s last name. A unique <code style={{ color:C.pu }}>@lastnameADV</code> login code will be generated.
-              </p>
-              <div style={{ display:"flex", gap:8 }}>
-                <input value={newName} onChange={function(e) { setNewName(e.target.value); }}
-                  onKeyDown={function(e) { if (e.key === "Enter") createAdvisor(); }}
-                  placeholder="Advisor full name"
-                  style={{ flex:1, padding:"10px 12px", background:"rgba(255,255,255,.04)", border:"1.5px solid "+C.bdr, borderRadius:9, color:C.wh, fontSize:12 }}/>
-                <button onClick={createAdvisor} disabled={!newName.trim()}
-                  style={{ padding:"10px 18px",
-                    background: newName.trim() ? "linear-gradient(135deg,"+C.pu+","+C.pu+"cc)" : "rgba(255,255,255,.06)",
-                    color: newName.trim() ? C.wh : C.mu, border:"none", borderRadius:9,
-                    fontFamily:"inherit", fontSize:12, fontWeight:800,
-                    cursor: newName.trim() ? "pointer" : "default" }}>
-                  Create
-                </button>
-              </div>
-              {newName.trim() && (
-                <p style={{ fontSize:9, color:C.pu, marginTop:6 }}>
-                  Will generate: <strong>{genCode(newName)}</strong>
-                </p>
-              )}
-            </Card>
-
-            <Card>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                <SectionHead icon="👔" title="Advisor Accounts"/>
-                {advisors.length > 0 && <button onClick={exportAdvisors}
-                  style={{ padding:"6px 12px", background:"linear-gradient(135deg,#16a34a,#15803d)", color:"#fff", border:"none", borderRadius:7, fontSize:10, fontWeight:700, cursor:"pointer" }}>
-                  📊 Export CSV
-                </button>}
-              </div>
-              {advisors.length === 0
-                ? <p style={{ fontSize:11, color:C.mu, textAlign:"center", padding:"16px 0" }}>No advisor accounts yet.</p>
-                : advisors.map(function(adv, i) {
+              {recent.length === 0
+                ? <div style={{ padding:"20px", textAlign:"center", color:C.mu, fontSize:11 }}>No assessments yet</div>
+                : recent.map(function(c, i) {
+                    var ht = ranked(c.scores&&c.scores.h||{});
+                    var empV = avg(c.scores&&c.scores.s||{});
+                    var avatarCol = C.hc[ht[0]]||C.teal;
+                    var initials = ((c.profile&&c.profile.firstName||c.name||"?")[0]||"?").toUpperCase() + ((c.profile&&c.profile.lastName||"")[0]||"").toUpperCase();
                     return (
-                      <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,.04)", borderRadius:11, marginBottom:8, border:"1px solid "+C.bdr }}>
-                        <div style={{ width:34, height:34, borderRadius:9, background:C.pu+"18", border:"1px solid "+C.pu+"44", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>👔</div>
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontWeight:700, fontSize:12, color:C.wh }}>{adv.name}</div>
-                          <code style={{ fontSize:11, color:C.pu }}>{adv.code}</code>
-                          <span style={{ fontSize:9, color:C.mu, marginLeft:8 }}>{adv.createdAt}</span>
+                      <div key={i} onClick={function(){ openDetail(c,!isUsingDemo); }}
+                        style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+                          borderBottom:i<recent.length-1?"1px solid "+C.bdr:"none",
+                          cursor:"pointer", transition:"background .15s" }}
+                        onMouseEnter={function(e){ e.currentTarget.style.background="rgba(255,255,255,.03)"; }}
+                        onMouseLeave={function(e){ e.currentTarget.style.background="transparent"; }}>
+                        <div style={{ width:34, height:34, borderRadius:10, background:avatarCol+"22",
+                            border:"1.5px solid "+avatarCol+"50", display:"flex", alignItems:"center",
+                            justifyContent:"center", fontSize:12, fontWeight:800, color:avatarCol, flexShrink:0 }}>
+                          {initials}
                         </div>
-                        <button onClick={function() { copyCode(adv.code); }}
-                          style={{ padding:"4px 10px", background:copied===adv.code?C.grG:C.cardB, color:copied===adv.code?C.gr:C.muB, border:"1px solid "+(copied===adv.code?C.gr:C.bdr), borderRadius:7, fontSize:9, fontWeight:700 }}>
-                          {copied === adv.code ? "Copied ✓" : "Copy"}
-                        </button>
-                        <button onClick={function() {
-                            if (!window.confirm('Delete advisor "' + adv.name + '"?\nThis cannot be undone.')) return;
-                            onDeleteAdvisor(i);
-                          }}
-                          style={{ padding:"4px 8px", background:"rgba(220,76,60,.1)", color:C.re, border:"1px solid "+C.re+"33", borderRadius:7, fontSize:9, fontWeight:700 }}>
-                          Del
-                        </button>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:12, fontWeight:700, color:C.wh, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.name}</div>
+                          <div style={{ fontSize:9, color:C.mu }}>{c.savedAt ? new Date(c.savedAt).toLocaleDateString() : "—"}</div>
+                        </div>
+                        <div style={{ textAlign:"right", flexShrink:0 }}>
+                          <div style={{ fontSize:11, fontWeight:800, color:avatarCol }}>{ht[0]||"?"}{ht[1]||""}</div>
+                          <div style={{ fontSize:9, color:empV>=65?C.gr:empV>=45?C.am:C.re, fontWeight:700 }}>{empV}%</div>
+                        </div>
                       </div>
                     );
                   })
               }
-            </Card>
+            </div>
+
+            {/* Holland distribution */}
+            <div style={{ background:C.card, borderRadius:16, border:"1px solid "+C.bdr, padding:"14px", marginBottom:12 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:C.wh, marginBottom:12 }}>🎯 Holland Distribution</div>
+              {["R","I","A","S","E","C"].map(function(k){
+                var n = hollandCount[k]||0; var w = totalCands ? Math.round(n/totalCands*100) : 0;
+                return (
+                  <div key={k} style={{ marginBottom:8 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, marginBottom:3 }}>
+                      <span style={{ color:C.muB, fontWeight:600 }}>{k} — {HN[k]}</span>
+                      <span style={{ color:C.hc[k], fontWeight:800 }}>{n} ({w}%)</span>
+                    </div>
+                    <div style={{ height:6, background:"rgba(255,255,255,.06)", borderRadius:99, overflow:"hidden" }}>
+                      <div style={{ height:"100%", width:w+"%", background:C.hc[k], borderRadius:99, transition:"width .8s" }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Employability bands */}
+            <div style={{ background:C.card, borderRadius:16, border:"1px solid "+C.bdr, padding:"14px" }}>
+              <div style={{ fontSize:12, fontWeight:800, color:C.wh, marginBottom:12 }}>⚡ Employability Bands</div>
+              {[{label:"High (65+%)", col:C.gr, test:function(v){return v>=65;}},
+                {label:"Medium (45–64%)", col:C.am, test:function(v){return v>=45&&v<65;}},
+                {label:"Low (<45%)", col:C.re, test:function(v){return v<45;}}].map(function(band){
+                var n = src.filter(function(c){ return band.test(avg(c.scores&&c.scores.s||{})); }).length;
+                var w = totalCands ? Math.round(n/totalCands*100) : 0;
+                return (
+                  <div key={band.label} style={{ marginBottom:8 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, marginBottom:3 }}>
+                      <span style={{ color:C.muB }}>{band.label}</span>
+                      <span style={{ color:band.col, fontWeight:800 }}>{n} ({w}%)</span>
+                    </div>
+                    <div style={{ height:7, background:"rgba(255,255,255,.06)", borderRadius:99, overflow:"hidden" }}>
+                      <div style={{ height:"100%", width:w+"%", background:band.col, borderRadius:99 }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {tab === "stats" && (
-          <div style={{ flex:1, overflowY:"auto", padding:"12px 0" }}>
+        {/* ── CANDIDATES ── */}
+        {tab === "candidates" && (
+          <div style={{ padding:"14px" }}>
+            {/* Search + filter bar */}
+            <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
+              <input value={search} onChange={function(e){ setSearch(e.target.value); }}
+                placeholder="🔍 Search name, ID or email…"
+                style={{ flex:1, minWidth:160, padding:"10px 12px", background:C.card,
+                  border:"1.5px solid "+C.bdr, borderRadius:10, color:C.wh, fontSize:11 }}/>
+              <select value={filterGender} onChange={function(e){ setFilterGender(e.target.value); }}
+                style={{ padding:"10px 10px", background:C.card, border:"1.5px solid "+C.bdr,
+                  borderRadius:10, color:filterGender?C.wh:C.mu, fontSize:11 }}>
+                <option value="">⚓ Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+              <select value={filterHolland} onChange={function(e){ setFilterHolland(e.target.value); }}
+                style={{ padding:"10px 10px", background:C.card, border:"1.5px solid "+C.bdr,
+                  borderRadius:10, color:filterHolland?C.wh:C.mu, fontSize:11 }}>
+                <option value="">🎯 Holland</option>
+                {["R","I","A","S","E","C"].map(function(k){ return <option key={k} value={k}>{k} — {HN[k]}</option>; })}
+              </select>
+              <button onClick={exportExcel}
+                style={{ padding:"10px 14px", background:"linear-gradient(135deg,#16a34a,#15803d)",
+                  color:"#fff", border:"none", borderRadius:10, fontSize:10, fontWeight:800,
+                  cursor:"pointer", whiteSpace:"nowrap", boxShadow:"0 2px 12px rgba(22,163,74,.3)" }}>
+                📊 Export CSV
+              </button>
+            </div>
+
+            {isUsingDemo && (
+              <div style={{ background:"rgba(212,163,40,.08)", border:"1px solid "+C.gold+"33",
+                  borderRadius:10, padding:"8px 12px", marginBottom:10 }}>
+                <span style={{ fontSize:10, color:C.gold }}>⚠️ Demo data — awaiting real candidates.</span>
+              </div>
+            )}
+
+            {/* Result count */}
+            <div style={{ fontSize:10, color:C.mu, marginBottom:10 }}>
+              Showing {filtered.length} of {totalCands} candidates
+              {(filterGender||filterHolland) && <button onClick={function(){ setFilterGender(""); setFilterHolland(""); setSearch(""); }}
+                style={{ marginLeft:8, background:"transparent", border:"none", color:C.teal, fontSize:10, cursor:"pointer" }}>
+                Clear filters
+              </button>}
+            </div>
+
+            {/* Candidate cards grid */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              {filtered.map(function(c, i) {
+                var p  = c.profile || {};
+                var ht = ranked(c.scores&&c.scores.h||{});
+                var empV = avg(c.scores&&c.scores.s||{});
+                var avatarCol = C.hc[ht[0]]||C.teal;
+                var empCol = empV>=65?C.gr:empV>=45?C.am:C.re;
+                var initials = ((p.firstName||c.name||"?")[0]||"?").toUpperCase() + ((p.lastName||"")[0]||"").toUpperCase();
+                return (
+                  <div key={i} onClick={function(){ openDetail(c,!isUsingDemo); }}
+                    style={{ background:C.card, borderRadius:14, border:"1px solid "+C.bdr,
+                      padding:"14px 12px", cursor:"pointer", transition:"all .2s",
+                      boxShadow:"0 2px 12px rgba(0,0,0,.2)" }}
+                    onMouseEnter={function(e){ e.currentTarget.style.borderColor=avatarCol+"60"; e.currentTarget.style.transform="translateY(-2px)"; }}
+                    onMouseLeave={function(e){ e.currentTarget.style.borderColor=C.bdr; e.currentTarget.style.transform="translateY(0)"; }}>
+
+                    {/* Avatar + name */}
+                    <div style={{ display:"flex", alignItems:"flex-start", gap:10, marginBottom:10 }}>
+                      <div style={{ width:38, height:38, borderRadius:10, background:avatarCol+"22",
+                          border:"2px solid "+avatarCol+"50", display:"flex", alignItems:"center",
+                          justifyContent:"center", fontSize:13, fontWeight:900, color:avatarCol, flexShrink:0 }}>
+                        {initials}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:12, fontWeight:800, color:C.wh, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.name}</div>
+                        <div style={{ fontSize:9, color:C.mu, fontFamily:"monospace", marginTop:1 }}>{c.id}</div>
+                      </div>
+                    </div>
+
+                    {/* Holland badge */}
+                    <div style={{ display:"flex", gap:6, marginBottom:10, flexWrap:"wrap" }}>
+                      <span style={{ padding:"2px 8px", borderRadius:99, background:avatarCol+"20",
+                          color:avatarCol, fontSize:9, fontWeight:800, border:"1px solid "+avatarCol+"40" }}>
+                        {ht[0]||"?"}{ht[1]||""}
+                      </span>
+                      {p.region && <span style={{ padding:"2px 7px", borderRadius:99,
+                          background:"rgba(255,255,255,.06)", color:C.mu, fontSize:9 }}>
+                        📍 {(p.region||"").split("-")[0].trim()}
+                      </span>}
+                    </div>
+
+                    {/* Employability bar */}
+                    <div>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:9, marginBottom:3 }}>
+                        <span style={{ color:C.mu }}>Employability</span>
+                        <span style={{ color:empCol, fontWeight:800 }}>{empV}%</span>
+                      </div>
+                      <div style={{ height:4, background:"rgba(255,255,255,.06)", borderRadius:99, overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:empV+"%", background:empCol, borderRadius:99 }}/>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {filtered.length === 0 && (
+              <div style={{ textAlign:"center", padding:"40px 20px", color:C.mu }}>
+                <div style={{ fontSize:32, marginBottom:8 }}>🔍</div>
+                <div style={{ fontSize:13, fontWeight:700 }}>No candidates match your filters</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ADVISORS ── */}
+        {tab === "advisors" && (
+          <div style={{ padding:"14px" }}>
+            {/* Create form */}
+            <div style={{ background:C.card, borderRadius:16, border:"1px solid "+C.bdr, padding:"16px", marginBottom:12 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:C.wh, marginBottom:4 }}>➕ Create Advisor Account</div>
+              <p style={{ fontSize:10, color:C.mu, marginBottom:12, lineHeight:1.6 }}>
+                Enter the advisor’s full name to generate a unique login code.
+              </p>
+              <div style={{ display:"flex", gap:8 }}>
+                <input value={newName} onChange={function(e){ setNewName(e.target.value); }}
+                  onKeyDown={function(e){ if(e.key==="Enter") createAdvisor(); }}
+                  placeholder="Advisor full name"
+                  style={{ flex:1, padding:"11px 13px", background:"rgba(255,255,255,.04)",
+                    border:"1.5px solid "+C.bdr, borderRadius:10, color:C.wh, fontSize:12 }}/>
+                <button onClick={createAdvisor} disabled={!newName.trim()}
+                  style={{ padding:"11px 18px",
+                    background:newName.trim()?"linear-gradient(135deg,"+C.pu+",#6030a0)":"rgba(255,255,255,.06)",
+                    color:newName.trim()?C.wh:C.mu, border:"none", borderRadius:10,
+                    fontFamily:"inherit", fontSize:12, fontWeight:800,
+                    cursor:newName.trim()?"pointer":"default", whiteSpace:"nowrap" }}>
+                  Create
+                </button>
+              </div>
+              {newName.trim() && (
+                <div style={{ marginTop:8, padding:"8px 12px", background:"rgba(144,80,208,.1)",
+                    borderRadius:8, border:"1px solid "+C.pu+"33" }}>
+                  <span style={{ fontSize:10, color:C.mu }}>Will generate: </span>
+                  <code style={{ fontSize:11, color:C.pu, fontWeight:700 }}>{genCode(newName)}</code>
+                </div>
+              )}
+            </div>
+
+            {/* Advisors list */}
+            <div style={{ background:C.card, borderRadius:16, border:"1px solid "+C.bdr, overflow:"hidden" }}>
+              <div style={{ padding:"12px 14px", borderBottom:"1px solid "+C.bdr,
+                  display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ fontSize:12, fontWeight:800, color:C.wh }}>👔 Advisor Accounts ({advisors.length})</span>
+                {advisors.length > 0 && (
+                  <button onClick={exportAdvisors}
+                    style={{ padding:"6px 12px", background:"linear-gradient(135deg,#16a34a,#15803d)",
+                      color:"#fff", border:"none", borderRadius:8, fontSize:10, fontWeight:700, cursor:"pointer" }}>
+                    📊 Export CSV
+                  </button>
+                )}
+              </div>
+              {advisors.length === 0
+                ? <div style={{ padding:"30px 20px", textAlign:"center", color:C.mu }}>
+                    <div style={{ fontSize:28, marginBottom:8 }}>👔</div>
+                    <div style={{ fontSize:12 }}>No advisor accounts yet.</div>
+                  </div>
+                : advisors.map(function(adv, i) {
+                    var firstLetter = (adv.name||"?")[0].toUpperCase();
+                    return (
+                      <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px",
+                          borderBottom:i<advisors.length-1?"1px solid "+C.bdr:"none" }}>
+                        <div style={{ width:40, height:40, borderRadius:11, background:C.pu+"22",
+                            border:"1.5px solid "+C.pu+"50", display:"flex", alignItems:"center",
+                            justifyContent:"center", fontSize:15, fontWeight:900, color:C.pu, flexShrink:0 }}>
+                          {firstLetter}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontWeight:700, fontSize:13, color:C.wh }}>{adv.name}</div>
+                          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:2 }}>
+                            <code style={{ fontSize:11, color:C.pu }}>{adv.code}</code>
+                            {adv.createdAt && <span style={{ fontSize:9, color:C.mu }}>{adv.createdAt}</span>}
+                          </div>
+                        </div>
+                        <div style={{ display:"flex", gap:6 }}>
+                          <button onClick={function(){ copyCode(adv.code); }}
+                            style={{ padding:"6px 11px",
+                              background:copied===adv.code?C.grG:"rgba(255,255,255,.06)",
+                              color:copied===adv.code?C.gr:C.muB,
+                              border:"1px solid "+(copied===adv.code?C.gr:C.bdr),
+                              borderRadius:8, fontSize:9, fontWeight:700, cursor:"pointer" }}>
+                            {copied===adv.code?"✓ Copied":"Copy"}
+                          </button>
+                          <button onClick={function(){
+                              if(!window.confirm('Delete advisor "'+adv.name+'"?\nThis cannot be undone.')) return;
+                              onDeleteAdvisor(i);
+                            }}
+                            style={{ padding:"6px 9px", background:"rgba(220,76,60,.1)",
+                              color:C.re, border:"1px solid "+C.re+"33", borderRadius:8, fontSize:9, cursor:"pointer" }}>
+                            🗑
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+              }
+            </div>
+          </div>
+        )}
+
+        {/* ── ANALYTICS ── */}
+        {tab === "analytics" && (
+          <div style={{ padding:"14px" }}>
             <AdminStats src={src} lang={lang} ar={ar}/>
           </div>
         )}
       </div>
+
+      {/* Detail modal */}
+      {detailCand && (
+        <CandidateDetailModal
+          c={detailCand}
+          rptLang={rptLang}
+          isReal={detailIsReal}
+          onClose={function(){ setDetailCand(null); }}
+          onDelete={onDeleteCand}
+          onReport={function(c,role){ downloadReport(c,role); setDetailCand(null); }}
+        />
+      )}
+
       {localReport && <ReportViewer html={localReport} onClose={function(){ setLocalReport(null); }}/>}
     </div>
   );
@@ -2688,69 +3111,72 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
 
 function AdminStats({ src, lang, ar }) {
   if (!src || src.length === 0) {
-    return <Card><p style={{ textAlign:"center", color:C.mu, padding:20 }}>No candidate data yet.</p></Card>;
-  }
-
-  /* ── Compute stats ── */
-  function count(arr) {
-    var m = {};
-    arr.forEach(function(v){ m[v] = (m[v]||0) + 1; });
-    return m;
-  }
-  function pct(n, total) { return total ? Math.round(n/total*100) : 0; }
-
-  var total = src.length;
-  var genders  = count(src.map(function(c){ return (c.profile&&c.profile.gender)||"Unknown"; }));
-  var ages     = count(src.map(function(c){ return (c.profile&&c.profile.age)||"Unknown"; }));
-  var regions  = count(src.map(function(c){ return (c.profile&&c.profile.region)||"Unknown"; }));
-  var edus     = count(src.map(function(c){ return (c.profile&&c.profile.edu)||"Unknown"; }));
-  var hollands = count(src.map(function(c){
-    var h = c.scores&&c.scores.h||{};
-    return Object.keys(h).sort(function(a,b){ return (h[b]||0)-(h[a]||0); })[0]||"?";
-  }));
-  var avgEmpl = Math.round(src.reduce(function(sum,c){
-    var s=c.scores&&c.scores.s||{};
-    var v=Object.values(s);
-    return sum+(v.length?v.reduce(function(a,b){return a+b;},0)/v.length:0);
-  },0)/total);
-
-  var HN = {R:"Realistic",I:"Investigative",A:"Artistic",S:"Social",E:"Enterprising",C:"Conventional"};
-  var HC = {R:"#4080e0",I:"#4080e0",A:"#d4a328",S:"#20b060",E:"#9050d0",C:"#20a0b0"};
-  var AGE_ORDER = ["Under 18","18–20","21–24","25–29","30–35","36+"];
-  var EDU_SHORT = {
-    "No formal education":"None","Primary (1st-6th)":"Primary",
-    "Lower Secondary / College (7th-9th)":"College","Upper Secondary / Lycee":"Lycee",
-    "Baccalaureate (Bac)":"Bac","Vocational Training / OFPPT":"OFPPT",
-    "Advanced Technician / BTS":"BTS","Bachelor Degree (Bac+3)":"Licence",
-    "Master Degree (Bac+5)":"Master","PhD / Doctorat":"PhD",
-    "Baccalaureate":"Bac","Bachelor (Bac+3)":"Licence","Master (Bac+5)":"Master",
-  };
-
-  function StatCard({ icon, label, value, sub, col }) {
-    col = col || C.teal;
     return (
-      <div style={{ background:C.card, borderRadius:12, padding:"14px 12px",
-          border:"1px solid "+C.bdr, textAlign:"center",
-          boxShadow:"0 0 16px "+col+"18" }}>
-        <div style={{ fontSize:22, marginBottom:4 }}>{icon}</div>
-        <div style={{ fontSize:24, fontWeight:900, color:col }}>{value}</div>
-        <div style={{ fontSize:10, fontWeight:700, color:C.wh, marginTop:2 }}>{label}</div>
-        {sub && <div style={{ fontSize:9, color:C.mu, marginTop:2 }}>{sub}</div>}
+      <div style={{ background:C.card, borderRadius:16, border:"1px solid "+C.bdr, padding:"40px 20px", textAlign:"center" }}>
+        <div style={{ fontSize:32, marginBottom:10 }}>📊</div>
+        <div style={{ fontSize:13, color:C.mu }}>No candidate data yet.</div>
       </div>
     );
   }
 
-  function BarRow({ label, n, total, col }) {
-    var w = pct(n, total);
-    col = col || C.teal;
+  function countBy(arr) { var m={}; arr.forEach(function(v){ m[v]=(m[v]||0)+1; }); return m; }
+  function pct(n,t) { return t ? Math.round(n/t*100) : 0; }
+
+  var total = src.length;
+  var genders  = countBy(src.map(function(c){ return (c.profile&&c.profile.gender)||"Unknown"; }));
+  var ages     = countBy(src.map(function(c){ return (c.profile&&c.profile.age)||"Unknown"; }));
+  var regions  = countBy(src.map(function(c){ return (c.profile&&c.profile.region)||"Unknown"; }));
+  var edus     = countBy(src.map(function(c){ return (c.profile&&c.profile.edu)||"Unknown"; }));
+  var statuses = countBy(src.map(function(c){ return (c.profile&&c.profile.status)||"Unknown"; }));
+  var hollands = countBy(src.map(function(c){ return ranked(c.scores&&c.scores.h||{})[0]||"?"; }));
+
+  var avgEmpl = Math.round(src.reduce(function(s,c){ var v=Object.values(c.scores&&c.scores.s||{}); return s+(v.length?v.reduce(function(a,b){return a+b;},0)/v.length:0); },0)/total);
+  var avgH = {}; ["R","I","A","S","E","C"].forEach(function(k){ avgH[k]=Math.round(src.reduce(function(s,c){ return s+((c.scores&&c.scores.h&&c.scores.h[k])||0); },0)/total); });
+  var avgB5 = {}; ["O","C2","E2","A2","N"].forEach(function(k){ avgB5[k]=Math.round(src.reduce(function(s,c){ return s+((c.scores&&c.scores.b&&c.scores.b[k])||0); },0)/total); });
+  var avgSU = {}; ["A","E","C","R"].forEach(function(k){ avgSU[k]=Math.round(src.reduce(function(s,c){ return s+((c.scores&&c.scores.s&&c.scores.s[k])||0); },0)/total); });
+
+  var AGE_ORDER = ["Under 18","18–20","21–24","25–29","30–35","36+"];
+  var EDU_MAP = {
+    "No formal education":"None","Primary":"Primary","Lower secondary":"College","Upper secondary":"Lyc\xe9e",
+    "Baccalaureate":"Bac","Technician / Diploma":"Diploma","Bachelor (Bac+3)":"Licence",
+    "Master (Bac+5)":"Master","PhD":"PhD","Baccalaureate (Bac)":"Bac",
+    "Bachelor Degree (Bac+3)":"Licence","Master Degree (Bac+5)":"Master","PhD / Doctorat":"PhD",
+  };
+
+  function Section({ title, children }) {
+    return (
+      <div style={{ background:C.card, borderRadius:16, border:"1px solid "+C.bdr, padding:"16px", marginBottom:12 }}>
+        <div style={{ fontSize:12, fontWeight:800, color:C.wh, marginBottom:12 }}>{title}</div>
+        {children}
+      </div>
+    );
+  }
+
+  function Bar({ label, n, t, col }) {
+    var w = pct(n,t); col = col||C.teal;
     return (
       <div style={{ marginBottom:8 }}>
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, marginBottom:3 }}>
-          <span style={{ color:C.wh, fontWeight:600 }}>{label}</span>
+          <span style={{ color:C.muB, fontWeight:600 }}>{label}</span>
           <span style={{ color:col, fontWeight:800 }}>{n} ({w}%)</span>
         </div>
+        <div style={{ height:6, background:"rgba(255,255,255,.06)", borderRadius:99, overflow:"hidden" }}>
+          <div style={{ height:"100%", width:w+"%", background:"linear-gradient(90deg,"+col+"88,"+col+")", borderRadius:99, transition:"width .7s" }}/>
+        </div>
+      </div>
+    );
+  }
+
+  function AvgBar({ label, value, col }) {
+    col = col||C.teal;
+    return (
+      <div style={{ marginBottom:8 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, marginBottom:3 }}>
+          <span style={{ color:C.muB, fontWeight:600 }}>{label}</span>
+          <span style={{ color:col, fontWeight:800 }}>{value}/100</span>
+        </div>
         <div style={{ height:7, background:"rgba(255,255,255,.06)", borderRadius:99, overflow:"hidden" }}>
-          <div style={{ height:"100%", width:w+"%", background:col, borderRadius:99, transition:"width .6s" }}/>
+          <div style={{ height:"100%", width:value+"%", background:"linear-gradient(90deg,"+col+"88,"+col+")", borderRadius:99 }}/>
         </div>
       </div>
     );
@@ -2758,68 +3184,101 @@ function AdminStats({ src, lang, ar }) {
 
   return (
     <div>
-      {/* Overview */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:14 }}>
-        <StatCard icon="👥" label="Total Candidates" value={total} col={C.teal}/>
-        <StatCard icon="⚡" label="Avg Employability" value={avgEmpl+"%"}
-          col={avgEmpl>=65?C.gr:avgEmpl>=45?C.am:C.re}/>
-        <StatCard icon="🎯" label="Top Holland Type"
-          value={Object.keys(hollands).sort(function(a,b){return hollands[b]-hollands[a];})[0]||"—"}
-          col={C.gold}/>
+      {/* KPI row */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12 }}>
+        {[
+          { icon:"👥", label:"Candidates", value:total, col:C.teal },
+          { icon:"⚡", label:"Avg Empl.", value:avgEmpl+"%", col:avgEmpl>=65?C.gr:avgEmpl>=45?C.am:C.re },
+          { icon:"🎯", label:"Top Holland", value:Object.keys(hollands).sort(function(a,b){return hollands[b]-hollands[a];})[0]||"—", col:C.gold },
+        ].map(function(k){
+          return (
+            <div key={k.label} style={{ background:"linear-gradient(135deg,"+k.col+"15,"+k.col+"06)",
+                borderRadius:14, padding:"14px 10px", textAlign:"center",
+                border:"1px solid "+k.col+"30" }}>
+              <div style={{ fontSize:20 }}>{k.icon}</div>
+              <div style={{ fontSize:20, fontWeight:900, color:k.col, margin:"4px 0 2px" }}>{k.value}</div>
+              <div style={{ fontSize:9, color:C.mu, fontWeight:700 }}>{k.label}</div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Gender */}
-      <Card>
-        <SectionHead icon="🧑" title="Gender Distribution"/>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-          {["Male","Female"].map(function(g){
-            var gc={"Male":C.teal,"Female":"#e879a0"};
-            var gi={"Male":"👤","Female":"👩"};
+      <Section title="♂️ Gender Distribution">
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          {[["Male",C.teal,"👤"],["Female","#e879a0","👩"]].map(function(g){
+            var n=genders[g[0]]||0;
             return (
-              <div key={g} style={{ textAlign:"center", padding:"10px 6px",
-                  background:gc[g]+"14", borderRadius:10, border:"1px solid "+gc[g]+"33" }}>
-                <div style={{ fontSize:20 }}>{gi[g]}</div>
-                <div style={{ fontSize:18, fontWeight:900, color:gc[g] }}>{genders[g]||0}</div>
-                <div style={{ fontSize:9, color:C.mu }}>{g} ({pct(genders[g]||0,total)}%)</div>
+              <div key={g[0]} style={{ textAlign:"center", padding:"12px 8px",
+                  background:g[1]+"14", borderRadius:12, border:"1px solid "+g[1]+"33" }}>
+                <div style={{ fontSize:22 }}>{g[2]}</div>
+                <div style={{ fontSize:22, fontWeight:900, color:g[1], margin:"4px 0 2px" }}>{n}</div>
+                <div style={{ fontSize:9, color:C.mu }}>{g[0]} — {pct(n,total)}%</div>
               </div>
             );
           })}
         </div>
-      </Card>
+      </Section>
 
       {/* Age */}
-      <Card>
-        <SectionHead icon="📅" title="Age Distribution"/>
-        {AGE_ORDER.map(function(a){
-          var cols = {"Under 18":C.teal,"18–20":"#4ade80","21–24":C.gold,"25–29":C.am,"30–35":C.re,"36+":C.pu};
-          return <BarRow key={a} label={a} n={ages[a]||0} total={total} col={cols[a]||C.teal}/>;
+      <Section title="📅 Age Distribution">
+        {AGE_ORDER.map(function(a,i){
+          var cols=[C.teal,"#4ade80",C.gold,C.am,C.re,C.pu];
+          return <Bar key={a} label={a} n={ages[a]||0} t={total} col={cols[i%cols.length]}/>;
         })}
-      </Card>
+      </Section>
 
-      {/* Holland */}
-      <Card>
-        <SectionHead icon="🎯" title="Holland Career Profile (Top Code)"/>
+      {/* Holland top codes */}
+      <Section title="🎯 Holland Top Codes">
         {["R","I","A","S","E","C"].map(function(k){
-          return <BarRow key={k} label={k+" — "+(HN[k]||k)} n={hollands[k]||0} total={total} col={HC[k]||C.teal}/>;
+          return <Bar key={k} label={k+" — "+(HN[k]||k)} n={hollands[k]||0} t={total} col={C.hc[k]}/>;
         })}
-      </Card>
+      </Section>
+
+      {/* Holland averages */}
+      <Section title="📊 Holland Score Averages (All Candidates)">
+        {["R","I","A","S","E","C"].map(function(k){
+          return <AvgBar key={k} label={k+" — "+(HN[k]||k)} value={avgH[k]||0} col={C.hc[k]}/>;
+        })}
+      </Section>
+
+      {/* Big Five averages */}
+      <Section title="🧠 Big Five Personality Averages">
+        {["O","C2","E2","A2","N"].map(function(k){
+          return <AvgBar key={k} label={B5N[k]||k} value={avgB5[k]||0} col={C.b5[k]}/>;
+        })}
+      </Section>
+
+      {/* Skill-Up averages */}
+      <Section title="⚡ Skill-Up Employability Averages">
+        <AvgBar label="Overall Average" value={avgEmpl} col={avgEmpl>=65?C.gr:avgEmpl>=45?C.am:C.re}/>
+        {["A","E","C","R"].map(function(k){
+          return <AvgBar key={k} label={SUN[k]||k} value={avgSU[k]||0} col={C.su[k]}/>;
+        })}
+      </Section>
 
       {/* Education */}
-      <Card>
-        <SectionHead icon="🎓" title="Education Level"/>
-        {Object.keys(edus).sort(function(a,b){ return edus[b]-edus[a]; }).map(function(e){
-          return <BarRow key={e} label={EDU_SHORT[e]||e} n={edus[e]} total={total} col={C.teal}/>;
+      <Section title="🎓 Education Level">
+        {Object.keys(edus).sort(function(a,b){return edus[b]-edus[a];}).map(function(e){
+          return <Bar key={e} label={EDU_MAP[e]||e} n={edus[e]} t={total} col={C.teal}/>;
         })}
-      </Card>
+      </Section>
 
-      {/* Top Regions */}
-      <Card>
-        <SectionHead icon="📍" title="Top Regions"/>
-        {Object.keys(regions).sort(function(a,b){ return regions[b]-regions[a]; }).slice(0,8).map(function(r,i){
-          var cols=[C.teal,C.gold,C.pu,C.gr,C.am,C.re,"#4080e0","#20a0b0"];
-          return <BarRow key={r} label={r} n={regions[r]} total={total} col={cols[i%cols.length]}/>;
+      {/* Occupation status */}
+      <Section title="💼 Occupation Status">
+        {Object.keys(statuses).sort(function(a,b){return statuses[b]-statuses[a];}).map(function(s,i){
+          var cols=[C.teal,C.pu,C.gold,C.gr,C.am,C.re];
+          return <Bar key={s} label={s} n={statuses[s]} t={total} col={cols[i%cols.length]}/>;
         })}
-      </Card>
+      </Section>
+
+      {/* Top regions */}
+      <Section title="📍 Top Regions">
+        {Object.keys(regions).sort(function(a,b){return regions[b]-regions[a];}).slice(0,10).map(function(r,i){
+          var cols=[C.teal,C.gold,C.pu,C.gr,C.am,C.re,"#4080e0","#20a0b0","#e879a0","#f59e0b"];
+          return <Bar key={r} label={r} n={regions[r]} t={total} col={cols[i%cols.length]}/>;
+        })}
+      </Section>
     </div>
   );
 }
