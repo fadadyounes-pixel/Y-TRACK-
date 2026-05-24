@@ -1565,15 +1565,6 @@ function Login({ lang, setLang, onLogin, advisors }) {
 }
 
 /* ─── PROFILE FORM HELPERS ──────────────────────────────────────────────── */
-function SectionHead({ icon, label }) {
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, marginTop:4,
-        paddingBottom:8, borderBottom:"1px solid rgba(255,255,255,.07)" }}>
-      <span style={{ fontSize:15 }}>{icon}</span>
-      <span style={{ fontSize:9, fontWeight:800, color:C.mu, letterSpacing:1.2, textTransform:"uppercase" }}>{label}</span>
-    </div>
-  );
-}
 function FloatInput({ label, value, onChange, placeholder, type, ok, err, autoFocus }) {
   var col = err ? C.re : ok ? C.gr : C.bdr;
   var lCol = err ? C.re : ok ? C.gr : C.mu;
@@ -1731,7 +1722,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
         <div style={{ maxWidth:480, margin:"0 auto" }}>
 
           {/* ── Identity ── */}
-          <SectionHead icon="👤" label={ar?"الهوية":lang==="fr"?"Identité":"Identity"}/>
+          <SectionHead icon="👤" title={ar?"الهوية":lang==="fr"?"Identité":"Identity"}/>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
             <FloatInput label={ar?"الاسم الشخصي":lang==="fr"?"Prénom":"First Name"}
               value={pf.firstName} placeholder={ar?"الاسم":lang==="fr"?"Prénom":"First"} autoFocus
@@ -1744,7 +1735,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
           </div>
 
           {/* ── Contact ── */}
-          <SectionHead icon="📬" label={ar?"التواصل":lang==="fr"?"Contact":"Contact"}/>
+          <SectionHead icon="📬" title={ar?"التواصل":lang==="fr"?"Contact":"Contact"}/>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
             <FloatInput label="Email" value={pf.email} type="email" placeholder="name@email.com"
               ok={!!pf.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email)}
@@ -1758,7 +1749,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
           </div>
 
           {/* ── Profile ── */}
-          <SectionHead icon="📊" label={ar?"البيانات الشخصية":lang==="fr"?"Profil":"Profile"}/>
+          <SectionHead icon="📊" title={ar?"البيانات الشخصية":lang==="fr"?"Profil":"Profile"}/>
 
           {/* Gender toggle */}
           <div style={{ marginBottom:14 }}>
@@ -1837,7 +1828,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
           </div>
 
           {/* ── Location ── */}
-          <SectionHead icon="📍" label={ar?"الموقع الجغرافي":lang==="fr"?"Localisation":"Location"}/>
+          <SectionHead icon="📍" title={ar?"الموقع الجغرافي":lang==="fr"?"Localisation":"Location"}/>
 
           <div style={{ marginBottom: isCasa ? 14 : 0 }}>
             <FieldLabel>{ar?"الجهة":lang==="fr"?"Région":"Region"}</FieldLabel>
