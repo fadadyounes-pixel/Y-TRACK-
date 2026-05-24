@@ -174,7 +174,7 @@ const C = {
 
 /* ─── AUTH ───────────────────────────────────────────────────────────────── */
 const ADMIN_CODE   = "@adminyfadad";
-const RE_CANDIDATE = /^[A-Za-z]{2}\d+$/;
+const RE_CANDIDATE = /^[A-Z]{2}\d{3,}$/;
 const RE_ADVISOR   = /^@[A-Za-z]{2,}ADV$/i;
 
 function detectRole(raw) {
@@ -1538,13 +1538,16 @@ function Login({ lang, setLang, onLogin, advisors }) {
         </label>
         <input
           autoFocus value={val}
-          onChange={function(e) { setVal(e.target.value); setErr(""); }}
+          onChange={function(e) { var v = e.target.value; if (!v.startsWith("@")) v = v.toUpperCase(); setVal(v); setErr(""); }}
           onKeyDown={function(e) { if (e.key === "Enter") submit(); }}
-          placeholder=""
+          placeholder={ar?"مثال: AB123":lang==="fr"?"Ex : AB123":"e.g. AB123"}
           style={{ width:"100%", padding:"13px 14px", background:"rgba(255,255,255,.04)",
-            border:"2px solid "+borderColor, borderRadius:11, fontSize:14,
-            color:C.wh, marginBottom:12, transition:"border-color .2s" }}
+            border:"2px solid "+borderColor, borderRadius:11, fontSize:14, fontFamily:"monospace",
+            color:C.wh, marginBottom:6, transition:"border-color .2s", letterSpacing:1 }}
         />
+        <p style={{ fontSize:9, color:C.mu, marginBottom:10, letterSpacing:.4 }}>
+          {ar?"صيغة المترشح: حرفان كبيران + 3 أرقام أو أكثر (مثال: AB123)":lang==="fr"?"Candidat : 2 majuscules + 3 chiffres min. (ex: AB123)":"Candidate: 2 uppercase letters + 3+ digits (e.g. AB123)"}
+        </p>
 
         {err && <p style={{ color:C.re, fontSize:11, marginBottom:10 }}>{err}</p>}
 
@@ -1557,6 +1560,42 @@ function Login({ lang, setLang, onLogin, advisors }) {
 
 
       </div>
+    </div>
+  );
+}
+
+/* ─── PROFILE FORM HELPERS ──────────────────────────────────────────────── */
+function SectionHead({ icon, label }) {
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, marginTop:4,
+        paddingBottom:8, borderBottom:"1px solid rgba(255,255,255,.07)" }}>
+      <span style={{ fontSize:15 }}>{icon}</span>
+      <span style={{ fontSize:9, fontWeight:800, color:C.mu, letterSpacing:1.2, textTransform:"uppercase" }}>{label}</span>
+    </div>
+  );
+}
+function FloatInput({ label, value, onChange, placeholder, type, ok, err, autoFocus }) {
+  var col = err ? C.re : ok ? C.gr : C.bdr;
+  var lCol = err ? C.re : ok ? C.gr : C.mu;
+  return (
+    <div>
+      <div style={{ fontSize:9, fontWeight:700, color:lCol, marginBottom:5, letterSpacing:.8,
+          textTransform:"uppercase", display:"flex", alignItems:"center", gap:3 }}>
+        {label} {ok && <span style={{ color:C.gr }}>✓</span>} <span style={{ color:C.re }}>*</span>
+      </div>
+      <input type={type||"text"} value={value} placeholder={placeholder} autoFocus={autoFocus}
+        onChange={function(e){ onChange(e.target.value); }}
+        style={{ width:"100%", padding:"12px 13px", background:"rgba(255,255,255,.04)",
+          border:"1.5px solid "+col, borderRadius:10, color:C.wh, fontSize:13,
+          transition:"border-color .2s", boxSizing:"border-box" }}/>
+    </div>
+  );
+}
+function FieldLabel({ children }) {
+  return (
+    <div style={{ fontSize:9, fontWeight:700, color:C.mu, marginBottom:6,
+        letterSpacing:.8, textTransform:"uppercase" }}>
+      {children} <span style={{ color:C.re }}>*</span>
     </div>
   );
 }
@@ -1630,178 +1669,229 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
     <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
       <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
 
-      {/* ── STICKY TOP BAR with Next button ── */}
-      <div style={{ background:C.sur, borderBottom:"1px solid "+C.bdr, padding:"12px 16px", flexShrink:0 }}>
+      {/* ── HEADER ── */}
+      <div style={{ background:"linear-gradient(160deg,"+C.sur+","+C.cardB+")", borderBottom:"1px solid "+C.bdr, padding:"14px 16px", flexShrink:0 }}>
         <div style={{ maxWidth:480, margin:"0 auto" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
             <div>
-              <p style={{ fontSize:10, color:C.mu }}>
-                {ar?"رقمك:":lang==="fr"?"ID:":"ID:"}{" "}
-                <strong style={{ color:C.teal, fontFamily:"monospace" }}>{user.id}</strong>
-              </p>
-              <p className="sy" style={{ fontSize:13, fontWeight:800, color:C.wh }}>
-                {ar?"أكمل ملفك الشخصي":lang==="fr"?"Complétez votre profil":"Complete Your Profile"}
-              </p>
+              <div style={{ fontSize:10, color:C.mu, marginBottom:2, letterSpacing:.5 }}>
+                {ar?"رقمك":lang==="fr"?"Votre ID":"Your ID"}{" · "}
+                <span style={{ color:C.teal, fontFamily:"monospace", fontWeight:700 }}>{user.id}</span>
+              </div>
+              <div className="sy" style={{ fontSize:15, fontWeight:800, color:C.wh }}>
+                {ar?"معلوماتك الشخصية":lang==="fr"?"Vos informations":"Your Information"}
+              </div>
             </div>
-
-            {/* NEXT BUTTON — top right, always visible */}
-            <button onClick={handleNext}
-              style={{ padding:"12px 22px",
-                background: ok
-                  ? "linear-gradient(135deg,"+C.gold+","+C.goldL+")"
-                  : "linear-gradient(135deg,"+C.teal+","+C.teal+"aa)",
-                color:C.bg, border:"none", borderRadius:11,
-                fontFamily:"inherit", fontSize:14, fontWeight:800,
-                cursor:"pointer", flexShrink:0,
-                boxShadow: ok ? "0 4px 18px "+C.goldG : "0 4px 14px "+C.tealG,
-                display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:16 }}>{ok?"✅":"➡️"}</span>
-              <span>{ar?"التالي":lang==="fr"?"Suivant":"Next"}</span>
+            <button onClick={handleNext} style={{
+              padding:"11px 20px",
+              background: ok ? "linear-gradient(135deg,"+C.gold+","+C.goldL+")" : "rgba(255,255,255,.08)",
+              color: ok ? C.bg : C.mu,
+              border: ok ? "none" : "1.5px solid "+C.bdr,
+              borderRadius:12, fontFamily:"inherit", fontSize:13, fontWeight:800,
+              cursor:"pointer", display:"flex", alignItems:"center", gap:6,
+              transition:"all .2s", boxShadow: ok ? "0 4px 18px "+C.goldG : "none"
+            }}>
+              {ok && <span>✓</span>}
+              <span>{ar?"التالي →":lang==="fr"?"Suivant →":"Next →"}</span>
             </button>
           </div>
 
-          {/* Progress pills */}
-          <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-            {[
-              [pf.firstName, ar?"الاسم":"First Name"],
-              [pf.lastName,  ar?"اسم العائلة":"Last Name"],
-              [pf.email,     "Email"],
-              [pf.phone,     ar?"الهاتف":"Phone"],
-              [pf.age,       ar?"العمر":"Age"],
-              [pf.gender,    ar?"الجنس":"Gender"],
-              [pf.edu,       ar?"التعليم":"Edu"],
-              [pf.status,    ar?"الوضعية":"Status"],
-              [pf.region,    ar?"الجهة":"Region"],
-              ...(isCasa ? [[pf.prefecture, ar?"المقاطعة":"Prefecture"]] : []),
-            ].map(function(item, i) {
-              return (
-                <span key={i} style={{ fontSize:8, fontWeight:700, padding:"2px 8px", borderRadius:99,
-                  background: item[0] ? C.gr+"22" : "rgba(255,255,255,.05)",
-                  color: item[0] ? C.gr : C.mu,
-                  border:"1px solid "+(item[0] ? C.gr+"44" : C.bdr) }}>
-                  {item[0] ? "✓ " : ""}{item[1]}
-                </span>
-              );
-            })}
-          </div>
+          {/* Progress bar */}
+          {(function(){
+            var total = isCasa ? 10 : 9;
+            var filled = [pf.firstName,pf.lastName,pf.email,pf.phone,pf.age,pf.gender,pf.edu,pf.status,pf.region].concat(isCasa?[pf.prefecture]:[]).filter(Boolean).length;
+            var pct = Math.round(filled/total*100);
+            return (
+              <div style={{ marginTop:10 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <span style={{ fontSize:8, color:C.mu, letterSpacing:.5 }}>
+                    {filled}/{total}{" "}{ar?"مكتملة":lang==="fr"?"complétés":"fields"}
+                  </span>
+                  <span style={{ fontSize:8, color: pct===100 ? C.gr : C.gold, fontWeight:700 }}>{pct}%</span>
+                </div>
+                <div style={{ height:3, background:"rgba(255,255,255,.08)", borderRadius:99 }}>
+                  <div style={{ height:"100%", width:pct+"%", borderRadius:99, transition:"width .35s",
+                    background: pct===100 ? C.gr : "linear-gradient(90deg,"+C.teal+","+C.gold+")" }}/>
+                </div>
+              </div>
+            );
+          })()}
 
-          {/* Error message */}
           {submitErr && (
             <div style={{ marginTop:8, padding:"7px 12px", background:C.re+"18",
-                border:"1px solid "+C.re+"44", borderRadius:8, fontSize:10, color:C.re }}>
+                border:"1px solid "+C.re+"40", borderRadius:8, fontSize:10, color:C.re }}>
               ⚠️ {submitErr}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── SCROLLABLE FORM FIELDS ── */}
-      <div ref={scrollRef} style={{ flex:1, overflowY:"auto", padding:"14px 15px 40px", maxWidth:480, margin:"0 auto", width:"100%" }}>
-        <Card>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-            <div>
-              <label style={lStyle}>{ar?"الاسم الشخصي":lang==="fr"?"Prénom":"First Name"} <span style={{ color:C.re }}>*</span></label>
-              <input style={Object.assign({}, iStyle, { borderColor: pf.firstName ? C.gr : C.bdr })}
-                value={pf.firstName} autoFocus
-                placeholder={ar?"الاسم":lang==="fr"?"Prénom":"First name"}
-                onChange={function(e){ setField("firstName")(e.target.value); setSubmitErr(""); }}/>
-            </div>
-            <div>
-              <label style={lStyle}>{ar?"اسم العائلة":lang==="fr"?"Nom de famille":"Last Name"} <span style={{ color:C.re }}>*</span></label>
-              <input style={Object.assign({}, iStyle, { borderColor: pf.lastName ? C.gr : C.bdr })}
-                value={pf.lastName}
-                placeholder={ar?"اسم العائلة":lang==="fr"?"Nom":"Last name"}
-                onChange={function(e){ setField("lastName")(e.target.value); setSubmitErr(""); }}/>
+      {/* ── SCROLLABLE FORM ── */}
+      <div ref={scrollRef} style={{ flex:1, overflowY:"auto", padding:"16px 15px 40px" }}>
+        <div style={{ maxWidth:480, margin:"0 auto" }}>
+
+          {/* ── Identity ── */}
+          <SectionHead icon="👤" label={ar?"الهوية":lang==="fr"?"Identité":"Identity"}/>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
+            <FloatInput label={ar?"الاسم الشخصي":lang==="fr"?"Prénom":"First Name"}
+              value={pf.firstName} placeholder={ar?"الاسم":lang==="fr"?"Prénom":"First"} autoFocus
+              ok={!!pf.firstName}
+              onChange={function(v){ setField("firstName")(v); setSubmitErr(""); }}/>
+            <FloatInput label={ar?"اسم العائلة":lang==="fr"?"Nom":"Last Name"}
+              value={pf.lastName} placeholder={ar?"اسم العائلة":lang==="fr"?"Nom":"Last"}
+              ok={!!pf.lastName}
+              onChange={function(v){ setField("lastName")(v); setSubmitErr(""); }}/>
+          </div>
+
+          {/* ── Contact ── */}
+          <SectionHead icon="📬" label={ar?"التواصل":lang==="fr"?"Contact":"Contact"}/>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
+            <FloatInput label="Email" value={pf.email} type="email" placeholder="name@email.com"
+              ok={!!pf.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email)}
+              err={!!pf.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email)}
+              onChange={function(v){ setField("email")(v); setSubmitErr(""); }}/>
+            <FloatInput label={ar?"الهاتف":lang==="fr"?"Téléphone":"Phone"} value={pf.phone} type="tel"
+              placeholder="+212 6XX..."
+              ok={!!pf.phone && /^[+]?[\d\s\-().]{8,15}$/.test(pf.phone)}
+              err={!!pf.phone && !/^[+]?[\d\s\-().]{8,15}$/.test(pf.phone)}
+              onChange={function(v){ setField("phone")(v); setSubmitErr(""); }}/>
+          </div>
+
+          {/* ── Profile ── */}
+          <SectionHead icon="📊" label={ar?"البيانات الشخصية":lang==="fr"?"Profil":"Profile"}/>
+
+          {/* Gender toggle */}
+          <div style={{ marginBottom:14 }}>
+            <FieldLabel>{ar?"الجنس":lang==="fr"?"Genre":"Gender"}</FieldLabel>
+            <div style={{ display:"flex", gap:8 }}>
+              {genderList.map(function(g){
+                var sel = pf.gender === g;
+                return (
+                  <button key={g} onClick={function(){ setField("gender")(g); setSubmitErr(""); }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:11, cursor:"pointer",
+                      border:"1.5px solid "+(sel ? C.teal : C.bdr),
+                      background: sel ? C.teal+"22" : "rgba(255,255,255,.03)",
+                      color: sel ? C.teal : C.mu, fontSize:13, fontWeight:700,
+                      transition:"all .15s" }}>
+                    {g}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-            <div>
-              <label style={lStyle}>{ar?"البريد الإلكتروني":lang==="fr"?"Email":"Email"} <span style={{ color:C.re }}>*</span></label>
-              <input style={Object.assign({}, iStyle, { borderColor: pf.email ? (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email) ? C.gr : C.re) : C.bdr })}
-                type="email" value={pf.email} placeholder="example@email.com"
-                onChange={function(e){ setField("email")(e.target.value); setSubmitErr(""); }}/>
-            </div>
-            <div>
-              <label style={lStyle}>{ar?"رقم الهاتف":lang==="fr"?"Téléphone":"Phone"} <span style={{ color:C.re }}>*</span></label>
-              <input style={Object.assign({}, iStyle, { borderColor: pf.phone ? (/^[+]?[\d\s\-().]{8,15}$/.test(pf.phone) ? C.gr : C.re) : C.bdr })}
-                type="tel" value={pf.phone} placeholder="+212 6XX XXX XXX"
-                onChange={function(e){ setField("phone")(e.target.value); setSubmitErr(""); }}/>
+
+          {/* Age pills */}
+          <div style={{ marginBottom:14 }}>
+            <FieldLabel>{ar?"الفئة العمرية":lang==="fr"?"Tranche d'âge":"Age Group"}</FieldLabel>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:7 }}>
+              {AGES.map(function(a){
+                var sel = pf.age === a;
+                return (
+                  <button key={a} onClick={function(){ setField("age")(a); setSubmitErr(""); }}
+                    style={{ padding:"10px 0", borderRadius:10, cursor:"pointer",
+                      border:"1.5px solid "+(sel ? C.gold : C.bdr),
+                      background: sel ? C.gold+"22" : "rgba(255,255,255,.03)",
+                      color: sel ? C.gold : C.mu, fontSize:11, fontWeight:700,
+                      transition:"all .15s" }}>
+                    {a}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-            <div>
-              <label style={lStyle}>{ar?"الفئة العمرية":lang==="fr"?"Tranche d'âge":"Age Group"} <span style={{ color:C.re }}>*</span></label>
-              <select value={pf.age} onChange={function(e){ setField("age")(e.target.value); setSubmitErr(""); }}
-                style={Object.assign({}, iStyle, { cursor:"pointer", borderColor: pf.age ? C.gr : C.bdr })}>
-                <option value="">—</option>
-                {AGES.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+
+          {/* Status pills 2-col */}
+          <div style={{ marginBottom:14 }}>
+            <FieldLabel>{ar?"الوضعية":lang==="fr"?"Situation":"Status"}</FieldLabel>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
+              {statusList.map(function(s){
+                var sel = pf.status === s;
+                return (
+                  <button key={s} onClick={function(){ setField("status")(s); setSubmitErr(""); }}
+                    style={{ padding:"10px 8px", borderRadius:10, cursor:"pointer",
+                      border:"1.5px solid "+(sel ? C.pu : C.bdr),
+                      background: sel ? C.pu+"22" : "rgba(255,255,255,.03)",
+                      color: sel ? "#c090ff" : C.mu, fontSize:11, fontWeight:700,
+                      transition:"all .15s", textAlign:"center", lineHeight:1.3 }}>
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Education styled select */}
+          <div style={{ marginBottom:14 }}>
+            <FieldLabel>{ar?"المستوى الدراسي":lang==="fr"?"Niveau d'études":"Education"}</FieldLabel>
+            <div style={{ position:"relative" }}>
+              <select value={pf.edu} onChange={function(e){ setField("edu")(e.target.value); setSubmitErr(""); }}
+                style={{ width:"100%", padding:"13px 36px 13px 14px", appearance:"none", WebkitAppearance:"none",
+                  background:"rgba(255,255,255,.04)", border:"1.5px solid "+(pf.edu ? C.gr : C.bdr),
+                  borderRadius:11, color: pf.edu ? C.wh : C.mu, fontSize:13, cursor:"pointer", boxSizing:"border-box" }}>
+                <option value="">{ar?"اختر المستوى":lang==="fr"?"Choisir...":"Select..."}</option>
+                {eduList.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
               </select>
+              <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
+                color:C.mu, pointerEvents:"none", fontSize:14 }}>▾</span>
             </div>
-            <div>
-              <label style={lStyle}>{ar?"الجنس":lang==="fr"?"Genre":"Gender"} <span style={{ color:C.re }}>*</span></label>
-              <select value={pf.gender} onChange={function(e){ setField("gender")(e.target.value); setSubmitErr(""); }}
-                style={Object.assign({}, iStyle, { cursor:"pointer", borderColor: pf.gender ? C.gr : C.bdr })}>
-                <option value="">—</option>
-                {genderList.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+          </div>
+
+          {/* ── Location ── */}
+          <SectionHead icon="📍" label={ar?"الموقع الجغرافي":lang==="fr"?"Localisation":"Location"}/>
+
+          <div style={{ marginBottom: isCasa ? 14 : 0 }}>
+            <FieldLabel>{ar?"الجهة":lang==="fr"?"Région":"Region"}</FieldLabel>
+            <div style={{ position:"relative" }}>
+              <select value={pf.region} onChange={function(e){ setField("region")(e.target.value); setSubmitErr(""); }}
+                style={{ width:"100%", padding:"13px 36px 13px 14px", appearance:"none", WebkitAppearance:"none",
+                  background:"rgba(255,255,255,.04)", border:"1.5px solid "+(pf.region ? C.gr : C.bdr),
+                  borderRadius:11, color: pf.region ? C.wh : C.mu, fontSize:13, cursor:"pointer", boxSizing:"border-box" }}>
+                <option value="">{ar?"اختر الجهة":lang==="fr"?"Choisir...":"Select..."}</option>
+                {regionList.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
               </select>
+              <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
+                color:C.mu, pointerEvents:"none", fontSize:14 }}>▾</span>
             </div>
           </div>
-          <div style={{ marginBottom:12 }}>
-            <label style={lStyle}>{ar?"المستوى الدراسي":lang==="fr"?"Niveau d'études":"Education Level"} <span style={{ color:C.re }}>*</span></label>
-            <select value={pf.edu} onChange={function(e){ setField("edu")(e.target.value); setSubmitErr(""); }}
-              style={Object.assign({}, iStyle, { cursor:"pointer", borderColor: pf.edu ? C.gr : C.bdr })}>
-              <option value="">—</option>
-              {eduList.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
-            </select>
-          </div>
-          <div style={{ marginBottom:12 }}>
-            <label style={lStyle}>{ar?"الوضعية المهنية":lang==="fr"?"Situation professionnelle":"Occupation Status"} <span style={{ color:C.re }}>*</span></label>
-            <select value={pf.status} onChange={function(e){ setField("status")(e.target.value); setSubmitErr(""); }}
-              style={Object.assign({}, iStyle, { cursor:"pointer", borderColor: pf.status ? C.gr : C.bdr })}>
-              <option value="">—</option>
-              {statusList.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
-            </select>
-          </div>
-          <div style={{ marginBottom: isCasa ? 12 : 0 }}>
-            <label style={lStyle}>{ar?"الجهة (المغرب)":lang==="fr"?"Région (Maroc)":"Region (Morocco)"} <span style={{ color:C.re }}>*</span></label>
-            <select value={pf.region} onChange={function(e){ setField("region")(e.target.value); setSubmitErr(""); }}
-              style={Object.assign({}, iStyle, { cursor:"pointer", borderColor: pf.region ? C.gr : C.bdr })}>
-              <option value="">—</option>
-              {regionList.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
-            </select>
-          </div>
+
           {isCasa && (
-            <div ref={prefRef} style={{ marginTop:12 }}>
-              <div style={{ padding:"6px 10px", background:C.goldP, borderRadius:8,
-                  border:"1px solid "+C.gold+"30", marginBottom:8 }}>
-                <p style={{ fontSize:9, color:C.goldL }}>
-                  🏙️ {ar?"حدد العمالة/الإقليم داخل جهة الدار البيضاء-سطات:":lang==="fr"?"Précisez votre préfecture au sein de Casablanca-Settat:":"Select your prefecture within Casablanca-Settat:"}
+            <div ref={prefRef} style={{ marginTop:14 }}>
+              <div style={{ padding:"8px 12px", background:C.goldP, borderRadius:10,
+                  border:"1px solid "+C.gold+"30", marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
+                <span>🏙️</span>
+                <p style={{ fontSize:10, color:C.goldL }}>
+                  {ar?"حدد العمالة/الإقليم داخل جهة الدار البيضاء-سطات:":lang==="fr"?"Précisez votre préfecture:":"Select your prefecture within Casablanca-Settat:"}
                 </p>
               </div>
-              <label style={lStyle}>{ar?"العمالة / المقاطعة":lang==="fr"?"Préfecture / Province":"Prefecture / Province"} <span style={{ color:C.re }}>*</span></label>
-              <select value={pf.prefecture} onChange={function(e){ setField("prefecture")(e.target.value); setSubmitErr(""); }}
-                style={Object.assign({}, iStyle, { cursor:"pointer", borderColor: pf.prefecture ? C.gr : C.gold })}>
-                <option value="">—</option>
-                {CASA_OPTIONS.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
-              </select>
+              <FieldLabel>{ar?"العمالة / المقاطعة":lang==="fr"?"Préfecture":"Prefecture"}</FieldLabel>
+              <div style={{ position:"relative" }}>
+                <select value={pf.prefecture} onChange={function(e){ setField("prefecture")(e.target.value); setSubmitErr(""); }}
+                  style={{ width:"100%", padding:"13px 36px 13px 14px", appearance:"none", WebkitAppearance:"none",
+                    background:"rgba(255,255,255,.04)", border:"1.5px solid "+(pf.prefecture ? C.gr : C.gold),
+                    borderRadius:11, color: pf.prefecture ? C.wh : C.mu, fontSize:13, cursor:"pointer", boxSizing:"border-box" }}>
+                  <option value="">{ar?"اختر":lang==="fr"?"Choisir...":"Select..."}</option>
+                  {CASA_OPTIONS.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+                </select>
+                <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
+                  color:C.mu, pointerEvents:"none", fontSize:14 }}>▾</span>
+              </div>
             </div>
           )}
-        </Card>
 
-        {/* Repeat Next at bottom for convenience */}
-        <button onClick={handleNext}
-          style={{ width:"100%", padding:15,
-            background: ok
-              ? "linear-gradient(135deg,"+C.gold+","+C.goldL+")"
-              : "linear-gradient(135deg,"+C.teal+","+C.teal+"aa)",
-            color:C.bg, border:"none", borderRadius:12,
-            fontFamily:"inherit", fontSize:15, fontWeight:800,
-            cursor:"pointer",
-            boxShadow: ok ? "0 6px 22px "+C.goldG : "0 4px 14px "+C.tealG,
-            display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
-          <span style={{ fontSize:18 }}>{ok?"✅":"➡️"}</span>
-          <span>{ar?"التالي":lang==="fr"?"Suivant":"Next"} →</span>
-        </button>
+          {/* Bottom CTA */}
+          <button onClick={handleNext} style={{
+            width:"100%", marginTop:24, padding:16,
+            background: ok ? "linear-gradient(135deg,"+C.gold+","+C.goldL+")" : "rgba(255,255,255,.06)",
+            color: ok ? C.bg : C.mu,
+            border: ok ? "none" : "1.5px solid "+C.bdr,
+            borderRadius:14, fontFamily:"inherit", fontSize:15, fontWeight:800,
+            cursor:"pointer", boxShadow: ok ? "0 6px 24px "+C.goldG : "none",
+            transition:"all .25s", display:"flex", alignItems:"center", justifyContent:"center", gap:10
+          }}>
+            {ok && <span>✓</span>}
+            <span>{ar?"التالي →":lang==="fr"?"Suivant →":"Next →"}</span>
+          </button>
+        </div>
       </div>
     </div>
   );
