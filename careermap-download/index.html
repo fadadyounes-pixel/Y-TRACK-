@@ -174,6 +174,11 @@ function detectRole(raw) {
 /* ─── PROFILE OPTIONS ────────────────────────────────────────────────────── */
 const AGES = ["Under 18","18–20","21–24","25–29","30–35","36+"];
 const GENDERS = { en:["Male","Female"], fr:["Homme","Femme"], ar:["ذكر","أنثى"] };
+const STATUSES = {
+  en:["High School Student","University Student","Job Seeker","Employee","Self-employed","Other"],
+  fr:["Lycéen(ne)","Étudiant(e)","Chercheur(se) d'emploi","Salarié(e)","Auto-entrepreneur(se)","Autre"],
+  ar:["تلميذ/ة","طالب/ة جامعي/ة","باحث/ة عن عمل","موظف/ة","مقاول/ة ذاتي/ة","أخرى"]
+};
 const EDUS_EN = ["No formal education","Primary","Lower secondary","Upper secondary",
   "Baccalaureate","Technician / Diploma","Bachelor (Bac+3)","Master (Bac+5)","PhD"];
 const EDUS_FR = ["Sans diplôme","Primaire","Collège","Lycée","Baccalauréat",
@@ -542,7 +547,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
       advReport:"RAPPORT CONSEILLER — CONFIDENTIEL",
       platform:"CareerMap Assessment Platform",
       confidential:"Confidentiel",
-      age:"Âge", gender:"Genre", edu:"Niveau d'études", region:"Région",
+      age:"Âge", gender:"Genre", edu:"Niveau d'études", region:"Région", phone:"Téléphone", status:"Situation",
       sec1:"I. Profil de Carrière — Test Holland (RIASEC)",
       sec2:"II. Profil de Personnalité — Big Five (OCEAN)",
       sec3:"III. Profil d'Employabilité — Skill Up",
@@ -571,7 +576,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
       advReport:"ADVISOR REPORT — CONFIDENTIAL",
       platform:"CareerMap Assessment Platform",
       confidential:"Confidential",
-      age:"Age", gender:"Gender", edu:"Education", region:"Region",
+      age:"Age", gender:"Gender", edu:"Education", region:"Region", phone:"Phone", status:"Status",
       sec1:"I. Career Profile — Holland Test (RIASEC)",
       sec2:"II. Personality Profile — Big Five (OCEAN)",
       sec3:"III. Employability Profile — Skill Up",
@@ -600,7 +605,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
       advReport:"تقرير المستشار — سري",
       platform:"منصة CareerMap للتقييم",
       confidential:"سري",
-      age:"العمر", gender:"الجنس", edu:"المستوى الدراسي", region:"الجهة",
+      age:"العمر", gender:"الجنس", edu:"المستوى الدراسي", region:"الجهة", phone:"الهاتف", status:"الوضعية",
       sec1:"I. الملف المهني — اختبار هولاند (RIASEC)",
       sec2:"II. ملف الشخصية — العوامل الخمسة الكبرى (OCEAN)",
       sec3:"III. ملف التوظيف — Skill Up",
@@ -680,8 +685,8 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Profile banner
   body += '<div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:14px;padding:18px 22px;margin-bottom:22px">';
   body += '<div style="font-size:20px;font-weight:800;color:#0f172a;margin-bottom:8px">' + (profile.name || profile.id) + '</div>';
-  body += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:12px">';
-  [[L.age, profile.age||"—"], [L.gender, profile.gender||"—"], [L.edu, profile.edu||"—"], [L.region, profile.region||"—"]].forEach(function(item) {
+  body += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px">';
+  [[L.age, profile.age||"—"], [L.gender, profile.gender||"—"], [L.edu, profile.edu||"—"], [L.status, profile.status||"—"], [L.region, profile.region||"—"], [L.phone, profile.phone||"—"]].forEach(function(item) {
     body += '<div style="background:rgba(255,255,255,.7);border-radius:8px;padding:8px"><div style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase">' + item[0] + '</div><div style="font-weight:600">' + item[1] + '</div></div>';
   });
   body += '</div></div>';
@@ -1399,9 +1404,9 @@ function Login({ lang, setLang, onLogin, advisors }) {
 /* ─── PROFILE FORM ───────────────────────────────────────────────────────── */
 function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
   var ar = lang === "ar";
-  var [pf, setPf] = useState({ firstName:"", email:"", age:"", gender:"", edu:"", region:"", prefecture:"" });
+  var [pf, setPf] = useState({ firstName:"", lastName:"", email:"", phone:"", age:"", gender:"", edu:"", region:"", prefecture:"", status:"" });
   var isCasa = pf.region === "Casablanca-Settat";
-  var ok = pf.firstName && pf.email && pf.age && pf.gender && pf.edu && pf.region && (!isCasa || pf.prefecture);
+  var ok = pf.firstName && pf.lastName && pf.email && pf.phone && pf.age && pf.gender && pf.edu && pf.region && pf.status && (!isCasa || pf.prefecture);
 
   /* scroll refs */
   var scrollRef    = useRef(null);   // the scrollable container
@@ -1432,19 +1437,25 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
     border:"1.5px solid "+C.bdr, borderRadius:10, color:C.wh, fontSize:13 };
   var lStyle = { display:"block", fontSize:9, fontWeight:700, color:C.mu,
     marginBottom:5, letterSpacing:.8, textTransform:"uppercase" };
-  var regionList = MOROCCO_REGIONS;
-  var genderList = GENDERS[lang] || GENDERS.en;
-  var eduList    = EDUS[lang] || EDUS.en;
+  var regionList  = MOROCCO_REGIONS;
+  var genderList  = GENDERS[lang]  || GENDERS.en;
+  var eduList     = EDUS[lang]     || EDUS.en;
+  var statusList  = STATUSES[lang] || STATUSES.en;
 
   function handleNext() {
     var missing = [];
     if (!pf.firstName) missing.push(ar ? "الاسم الشخصي" : lang==="fr" ? "Prénom" : "First Name");
+    if (!pf.lastName)  missing.push(ar ? "اسم العائلة" : lang==="fr" ? "Nom de famille" : "Last Name");
     var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email);
     if (!pf.email)     missing.push(ar ? "البريد الإلكتروني" : lang==="fr" ? "Email" : "Email");
     else if (!emailOk) missing.push(ar ? "صيغة البريد غير صحيحة" : lang==="fr" ? "Format email invalide (ex: nom@email.com)" : "Invalid email (e.g. name@email.com)");
+    var phoneOk = /^[+]?[\d\s\-().]{8,15}$/.test(pf.phone);
+    if (!pf.phone)     missing.push(ar ? "رقم الهاتف" : lang==="fr" ? "Téléphone" : "Phone");
+    else if (!phoneOk) missing.push(ar ? "رقم الهاتف غير صحيح" : lang==="fr" ? "Numéro invalide" : "Invalid phone number");
     if (!pf.age)       missing.push(ar ? "الفئة العمرية" : lang==="fr" ? "Tranche d'âge" : "Age Group");
     if (!pf.gender)    missing.push(ar ? "الجنس" : lang==="fr" ? "Genre" : "Gender");
     if (!pf.edu)       missing.push(ar ? "المستوى الدراسي" : lang==="fr" ? "Niveau d'études" : "Education Level");
+    if (!pf.status)    missing.push(ar ? "الوضعية المهنية" : lang==="fr" ? "Situation professionnelle" : "Occupation Status");
     if (!pf.region)    missing.push(ar ? "الجهة" : lang==="fr" ? "Région" : "Region");
     if (isCasa && !pf.prefecture) missing.push(ar ? "العمالة/المقاطعة" : lang==="fr" ? "Préfecture" : "Prefecture");
     if (missing.length > 0) {
@@ -1492,11 +1503,14 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
           {/* Progress pills */}
           <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
             {[
-              [pf.firstName, ar?"الاسم":"Name"],
+              [pf.firstName, ar?"الاسم":"First Name"],
+              [pf.lastName,  ar?"اسم العائلة":"Last Name"],
               [pf.email,     "Email"],
+              [pf.phone,     ar?"الهاتف":"Phone"],
               [pf.age,       ar?"العمر":"Age"],
               [pf.gender,    ar?"الجنس":"Gender"],
               [pf.edu,       ar?"التعليم":"Edu"],
+              [pf.status,    ar?"الوضعية":"Status"],
               [pf.region,    ar?"الجهة":"Region"],
               ...(isCasa ? [[pf.prefecture, ar?"المقاطعة":"Prefecture"]] : []),
             ].map(function(item, i) {
@@ -1524,18 +1538,35 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
       {/* ── SCROLLABLE FORM FIELDS ── */}
       <div ref={scrollRef} style={{ flex:1, overflowY:"auto", padding:"14px 15px 40px", maxWidth:480, margin:"0 auto", width:"100%" }}>
         <Card>
-          <div style={{ marginBottom:12 }}>
-            <label style={lStyle}>{ar?"الاسم الشخصي":lang==="fr"?"Prénom":"First Name"} <span style={{ color:C.re }}>*</span></label>
-            <input style={Object.assign({}, iStyle, { borderColor: pf.firstName ? C.gr : C.bdr })}
-              value={pf.firstName} autoFocus
-              placeholder={ar?"اسمك الشخصي":lang==="fr"?"Votre prénom":"Your first name"}
-              onChange={function(e){ setField("firstName")(e.target.value); setSubmitErr(""); }}/>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+            <div>
+              <label style={lStyle}>{ar?"الاسم الشخصي":lang==="fr"?"Prénom":"First Name"} <span style={{ color:C.re }}>*</span></label>
+              <input style={Object.assign({}, iStyle, { borderColor: pf.firstName ? C.gr : C.bdr })}
+                value={pf.firstName} autoFocus
+                placeholder={ar?"الاسم":lang==="fr"?"Prénom":"First name"}
+                onChange={function(e){ setField("firstName")(e.target.value); setSubmitErr(""); }}/>
+            </div>
+            <div>
+              <label style={lStyle}>{ar?"اسم العائلة":lang==="fr"?"Nom de famille":"Last Name"} <span style={{ color:C.re }}>*</span></label>
+              <input style={Object.assign({}, iStyle, { borderColor: pf.lastName ? C.gr : C.bdr })}
+                value={pf.lastName}
+                placeholder={ar?"اسم العائلة":lang==="fr"?"Nom":"Last name"}
+                onChange={function(e){ setField("lastName")(e.target.value); setSubmitErr(""); }}/>
+            </div>
           </div>
-          <div style={{ marginBottom:12 }}>
-            <label style={lStyle}>{ar?"البريد الإلكتروني":lang==="fr"?"Email":"Email Address"} <span style={{ color:C.re }}>*</span></label>
-            <input style={Object.assign({}, iStyle, { borderColor: pf.email ? (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email) ? C.gr : C.re) : C.bdr })}
-              type="email" value={pf.email} placeholder="example@email.com"
-              onChange={function(e){ setField("email")(e.target.value); setSubmitErr(""); }}/>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+            <div>
+              <label style={lStyle}>{ar?"البريد الإلكتروني":lang==="fr"?"Email":"Email"} <span style={{ color:C.re }}>*</span></label>
+              <input style={Object.assign({}, iStyle, { borderColor: pf.email ? (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email) ? C.gr : C.re) : C.bdr })}
+                type="email" value={pf.email} placeholder="example@email.com"
+                onChange={function(e){ setField("email")(e.target.value); setSubmitErr(""); }}/>
+            </div>
+            <div>
+              <label style={lStyle}>{ar?"رقم الهاتف":lang==="fr"?"Téléphone":"Phone"} <span style={{ color:C.re }}>*</span></label>
+              <input style={Object.assign({}, iStyle, { borderColor: pf.phone ? (/^[+]?[\d\s\-().]{8,15}$/.test(pf.phone) ? C.gr : C.re) : C.bdr })}
+                type="tel" value={pf.phone} placeholder="+212 6XX XXX XXX"
+                onChange={function(e){ setField("phone")(e.target.value); setSubmitErr(""); }}/>
+            </div>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
             <div>
@@ -1561,6 +1592,14 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
               style={Object.assign({}, iStyle, { cursor:"pointer", borderColor: pf.edu ? C.gr : C.bdr })}>
               <option value="">—</option>
               {eduList.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
+            </select>
+          </div>
+          <div style={{ marginBottom:12 }}>
+            <label style={lStyle}>{ar?"الوضعية المهنية":lang==="fr"?"Situation professionnelle":"Occupation Status"} <span style={{ color:C.re }}>*</span></label>
+            <select value={pf.status} onChange={function(e){ setField("status")(e.target.value); setSubmitErr(""); }}
+              style={Object.assign({}, iStyle, { cursor:"pointer", borderColor: pf.status ? C.gr : C.bdr })}>
+              <option value="">—</option>
+              {statusList.map(function(o){ return <option key={o} value={o}>{o}</option>; })}
             </select>
           </div>
           <div style={{ marginBottom: isCasa ? 12 : 0 }}>
@@ -2376,7 +2415,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   });
 
   function exportExcel() {
-    var headers = ["Nom","ID","Email","Age","Genre","Education","Region","Code","Holland","Employabilite","R","I","A","S","E","C","O","C2","E2","A2","N","Autonomie","Economique","Collaboration","Readiness"];
+    var headers = ["Prénom","Nom","ID","Email","Téléphone","Age","Genre","Education","Situation","Region","Prefecture","Code","Holland","Employabilite","R","I","A","S","E","C","O","C2","E2","A2","N","Autonomie","Economique","Collaboration","Readiness"];
     var rows = src.map(function(c) {
       var ht = ranked(c.scores&&c.scores.h||{});
       var sv = Object.values(c.scores&&c.scores.s||{});
@@ -2385,7 +2424,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
       var b5 = c.scores&&c.scores.b||{};
       var s = c.scores&&c.scores.s||{};
       var p = c.profile||{};
-      return [c.name,c.id,p.email||"",p.age||"",p.gender||"",p.edu||"",p.region||"",c.code||"",
+      return [p.firstName||c.name,p.lastName||"",c.id,p.email||"",p.phone||"",p.age||"",p.gender||"",p.edu||"",p.status||"",p.region||"",p.prefecture||"",c.code||"",
               (ht[0]||"")+(ht[1]||""),emp,
               h.R||0,h.I||0,h.A||0,h.S||0,h.E||0,h.C||0,
               b5.O||0,b5.C2||0,b5.E2||0,b5.A2||0,b5.N||0,
@@ -2892,7 +2931,7 @@ function App() {
   }
 
   function onProfile(pf) {
-    var displayName = pf.firstName || user.id;
+    var displayName = [pf.firstName, pf.lastName].filter(Boolean).join(" ") || user.id;
     var fullProfile = Object.assign({}, pf, { name:displayName, id:user.id });
     setProfile(fullProfile);
     setUser(function(u) { return Object.assign({}, u, { name:displayName }); });
