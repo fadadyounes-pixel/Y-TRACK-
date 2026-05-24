@@ -67,7 +67,7 @@ var _db = null;
   } catch(e) { console.warn("Firebase not configured:", e.message); }
 })();
 
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useMemo } = React;
 
 /* ─── INJECT CSS ─────────────────────────────────────────────────────────── */
 function injectCSS() {
