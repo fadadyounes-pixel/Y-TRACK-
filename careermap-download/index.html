@@ -1146,19 +1146,14 @@ function ReportViewer({ profile, scores, role, onClose }) {
     var name = (profile && (profile.name || profile.id)) || "CareerMap";
     var filename = "CareerMap-" + name + "-" + lang.toUpperCase() + ".pdf";
 
-    // Extract body content — all report elements use inline style="" so
-    // we only need the base font/color from body, not the full document
+    // Extract body content — all report styling is inline so no <head> CSS needed
     var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
     var bodyContent = bodyMatch ? bodyMatch[1] : html;
 
-    // Inject into main document so html2canvas captures without offset issues
+    // Plain block div — NO position:fixed/absolute (html2canvas fails on fixed elements)
+    // html2canvas captures the element directly regardless of viewport visibility
     var wrap = document.createElement("div");
-    wrap.style.cssText = [
-      "position:fixed","top:0","left:0","width:840px",
-      "font-family:Arial,sans-serif","color:#1e293b","background:#fff",
-      "padding:24px 32px","font-size:12px","line-height:1.7",
-      "z-index:99999","box-sizing:border-box"
-    ].join(";");
+    wrap.style.cssText = "width:840px;font-family:Arial,sans-serif;color:#1e293b;background:#fff;font-size:12px;line-height:1.7;padding:24px 32px;box-sizing:border-box";
     wrap.innerHTML = bodyContent;
     document.body.appendChild(wrap);
 
@@ -1177,7 +1172,7 @@ function ReportViewer({ profile, scores, role, onClose }) {
       };
       window.html2pdf().set(opt).from(wrap).save()
         .then(cleanup).catch(cleanup);
-    }, 400);
+    }, 300);
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
