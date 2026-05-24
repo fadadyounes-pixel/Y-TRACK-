@@ -1401,7 +1401,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
   var ar = lang === "ar";
   var [pf, setPf] = useState({ firstName:"", email:"", age:"", gender:"", edu:"", region:"", prefecture:"" });
   var isCasa = pf.region === "Casablanca-Settat";
-  var ok = pf.firstName && pf.age && pf.edu && pf.region && (!isCasa || pf.prefecture);
+  var ok = pf.firstName && pf.email && pf.age && pf.gender && pf.edu && pf.region && (!isCasa || pf.prefecture);
 
   /* scroll refs */
   var scrollRef    = useRef(null);   // the scrollable container
@@ -1439,9 +1439,11 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
   function handleNext() {
     var missing = [];
     if (!pf.firstName) missing.push(ar ? "الاسم الشخصي" : lang==="fr" ? "Prénom" : "First Name");
-    var emailOk = !pf.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email);
-    if (pf.email && !emailOk) missing.push(ar ? "صيغة البريد غير صحيحة" : lang==="fr" ? "Format email invalide (ex: nom@email.com)" : "Invalid email (e.g. name@email.com)");
+    var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email);
+    if (!pf.email)     missing.push(ar ? "البريد الإلكتروني" : lang==="fr" ? "Email" : "Email");
+    else if (!emailOk) missing.push(ar ? "صيغة البريد غير صحيحة" : lang==="fr" ? "Format email invalide (ex: nom@email.com)" : "Invalid email (e.g. name@email.com)");
     if (!pf.age)       missing.push(ar ? "الفئة العمرية" : lang==="fr" ? "Tranche d'âge" : "Age Group");
+    if (!pf.gender)    missing.push(ar ? "الجنس" : lang==="fr" ? "Genre" : "Gender");
     if (!pf.edu)       missing.push(ar ? "المستوى الدراسي" : lang==="fr" ? "Niveau d'études" : "Education Level");
     if (!pf.region)    missing.push(ar ? "الجهة" : lang==="fr" ? "Région" : "Region");
     if (isCasa && !pf.prefecture) missing.push(ar ? "العمالة/المقاطعة" : lang==="fr" ? "Préfecture" : "Prefecture");
@@ -1491,7 +1493,9 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
           <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
             {[
               [pf.firstName, ar?"الاسم":"Name"],
+              [pf.email,     "Email"],
               [pf.age,       ar?"العمر":"Age"],
+              [pf.gender,    ar?"الجنس":"Gender"],
               [pf.edu,       ar?"التعليم":"Edu"],
               [pf.region,    ar?"الجهة":"Region"],
               ...(isCasa ? [[pf.prefecture, ar?"المقاطعة":"Prefecture"]] : []),
@@ -1528,7 +1532,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
               onChange={function(e){ setField("firstName")(e.target.value); setSubmitErr(""); }}/>
           </div>
           <div style={{ marginBottom:12 }}>
-            <label style={lStyle}>{ar?"البريد الإلكتروني":lang==="fr"?"Email":"Email Address"} <span style={{ color:C.mu, fontSize:8 }}>({ar?"اختياري":lang==="fr"?"optionnel":"optional"})</span></label>
+            <label style={lStyle}>{ar?"البريد الإلكتروني":lang==="fr"?"Email":"Email Address"} <span style={{ color:C.re }}>*</span></label>
             <input style={Object.assign({}, iStyle, { borderColor: pf.email ? (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email) ? C.gr : C.re) : C.bdr })}
               type="email" value={pf.email} placeholder="example@email.com"
               onChange={function(e){ setField("email")(e.target.value); setSubmitErr(""); }}/>
@@ -1543,7 +1547,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
               </select>
             </div>
             <div>
-              <label style={lStyle}>{ar?"الجنس":lang==="fr"?"Genre":"Gender"} <span style={{ color:C.mu, fontSize:8 }}>({ar?"اختياري":lang==="fr"?"optionnel":"optional"})</span></label>
+              <label style={lStyle}>{ar?"الجنس":lang==="fr"?"Genre":"Gender"} <span style={{ color:C.re }}>*</span></label>
               <select value={pf.gender} onChange={function(e){ setField("gender")(e.target.value); setSubmitErr(""); }}
                 style={Object.assign({}, iStyle, { cursor:"pointer", borderColor: pf.gender ? C.gr : C.bdr })}>
                 <option value="">—</option>
