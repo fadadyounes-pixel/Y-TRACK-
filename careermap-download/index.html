@@ -1540,14 +1540,11 @@ function Login({ lang, setLang, onLogin, advisors }) {
           autoFocus value={val}
           onChange={function(e) { var v = e.target.value; if (!v.startsWith("@")) v = v.toUpperCase(); setVal(v); setErr(""); }}
           onKeyDown={function(e) { if (e.key === "Enter") submit(); }}
-          placeholder={ar?"مثال: AB123":lang==="fr"?"Ex : AB123":"e.g. AB123"}
+          placeholder=""
           style={{ width:"100%", padding:"13px 14px", background:"rgba(255,255,255,.04)",
             border:"2px solid "+borderColor, borderRadius:11, fontSize:14, fontFamily:"monospace",
-            color:C.wh, marginBottom:6, transition:"border-color .2s", letterSpacing:1 }}
+            color:C.wh, marginBottom:12, transition:"border-color .2s", letterSpacing:1 }}
         />
-        <p style={{ fontSize:9, color:C.mu, marginBottom:10, letterSpacing:.4 }}>
-          {ar?"صيغة المترشح: حرفان كبيران + 3 أرقام أو أكثر (مثال: AB123)":lang==="fr"?"Candidat : 2 majuscules + 3 chiffres min. (ex: AB123)":"Candidate: 2 uppercase letters + 3+ digits (e.g. AB123)"}
-        </p>
 
         {err && <p style={{ color:C.re, fontSize:11, marginBottom:10 }}>{err}</p>}
 
