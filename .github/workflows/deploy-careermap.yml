@@ -1,0 +1,39 @@
+name: Deploy CareerMap to careermaponline.org
+
+on:
+  push:
+    branches:
+      - claude/publish-careermap-pages-nf29c
+    paths:
+      - 'careermap-download/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Deploy to careermaponline/careerMap
+        env:
+          GH_PAT: ${{ secrets.CAREERMAP_DEPLOY_TOKEN }}
+        run: |
+          git config --global user.email "deploy-bot@careermaponline.org"
+          git config --global user.name "CareerMap Deploy Bot"
+
+          # Clone the live repo
+          git clone https://x-access-token:${GH_PAT}@github.com/careermaponline/careerMap.git /tmp/target
+
+          # Copy all files from careermap-download/ into the live repo root
+          cp -r careermap-download/. /tmp/target/
+
+          # Commit and push only if there are changes
+          cd /tmp/target
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to deploy."
+          else
+            git commit -m "Auto-deploy $(date '+%Y-%m-%d %H:%M UTC')"
+            git push
+            echo "Deployed successfully."
+          fi
