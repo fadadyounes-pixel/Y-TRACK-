@@ -1157,14 +1157,15 @@ function ReportViewer({ profile, scores, role, onClose }) {
     wrap.innerHTML = bodyContent;
 
     // Remove page-break-after/before (caused blank pages from old pageFtr divs).
-    // Set page-break-inside:avoid on p/li so paragraphs don't get cut mid-sentence.
+    // Apply page-break-inside:avoid to all content blocks (cards are DIVs, not just P/LI).
     Array.from(wrap.querySelectorAll("*")).forEach(function(el) {
       try { el.style.pageBreakAfter  = "auto"; } catch(e) {}
       try { el.style.pageBreakBefore = "auto"; } catch(e) {}
       try { el.style.breakAfter  = "auto"; } catch(e) {}
       try { el.style.breakBefore = "auto"; } catch(e) {}
       var tag = el.tagName;
-      if (tag === "P" || tag === "LI") {
+      var hasBg = !!(el.style.background || el.style.backgroundColor);
+      if (tag === "P" || tag === "LI" || tag === "H2" || tag === "H3" || tag === "H4" || (tag === "DIV" && hasBg)) {
         try { el.style.pageBreakInside = "avoid"; } catch(e) {}
         try { el.style.breakInside     = "avoid"; } catch(e) {}
       } else {
@@ -1187,9 +1188,9 @@ function ReportViewer({ profile, scores, role, onClose }) {
         margin: [10, 10, 10, 10],
         filename: filename,
         image: { type:"jpeg", quality:0.97 },
-        html2canvas: { scale:2, useCORS:true, logging:false, scrollX:0, scrollY:0 },
+        html2canvas: { scale:2, useCORS:true, logging:false, scrollX:0, scrollY:0, windowWidth:794 },
         jsPDF: { unit:"mm", format:"a4", orientation:"portrait" },
-        pagebreak: { mode: ['css'] }
+        pagebreak: { mode: ['avoid-all'] }
       };
       window.html2pdf().set(opt).from(wrap).save()
         .then(cleanup).catch(cleanup);
