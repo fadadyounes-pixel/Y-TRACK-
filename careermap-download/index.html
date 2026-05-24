@@ -6,6 +6,7 @@
   <title>CareerMap — Orientation Professionnelle</title>
   <!-- QR Code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#1aabaa"/>
@@ -693,8 +694,8 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Header
   body += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;padding-bottom:14px;border-bottom:3px solid #0f172a">';
   body += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><svg viewBox=\'0 0 100 100\' width=\'80\' height=\'80\' xmlns=\'http://www.w3.org/2000/svg\'><defs><radialGradient id=\'cvb\' cx=\'50%\' cy=\'50%\' r=\'50%\'><stop offset=\'0%\' stop-color=\'#0d2540\'/><stop offset=\'100%\' stop-color=\'#06111f\'/></radialGradient><linearGradient id=\'cvr\' x1=\'0%\' y1=\'0%\' x2=\'100%\' y2=\'100%\'><stop offset=\'0%\' stop-color=\'#1aabaa\'/><stop offset=\'100%\' stop-color=\'#d4a328\'/></linearGradient></defs><circle cx=\'50\' cy=\'50\' r=\'48\' fill=\'url(#cvb)\'/><circle cx=\'50\' cy=\'50\' r=\'38\' fill=\'none\' stroke=\'#1a3a55\' stroke-width=\'.8\'/><line x1=\'50\' y1=\'12\' x2=\'50\' y2=\'88\' stroke=\'#1a3a55\' stroke-width=\'.5\'/><line x1=\'12\' y1=\'50\' x2=\'88\' y2=\'50\' stroke=\'#1a3a55\' stroke-width=\'.5\'/><path d=\'M 50 12 Q 78 22 88 50 Q 78 78 50 88 Q 22 78 12 50 Q 22 22 50 12\' fill=\'none\' stroke=\'url(#cvr)\' stroke-width=\'2.5\' stroke-linecap=\'round\'/><polygon points=\'50,19 53,50 50,47 47,50\' fill=\'#d4a328\'/><polygon points=\'50,81 53,50 50,53 47,50\' fill=\'#1aabaa\' opacity=\'.9\'/><circle cx=\'50\' cy=\'50\' r=\'3.5\' fill=\'#06111f\' stroke=\'#d4a328\' stroke-width=\'1.2\'/><circle cx=\'50\' cy=\'50\' r=\'1.5\' fill=\'#d4a328\'/><circle cx=\'50\' cy=\'12\' r=\'2\' fill=\'#1aabaa\'/></svg><div style="font-size:28px;font-weight:900;font-family:Arial,sans-serif;letter-spacing:-1px;color:#0f172a">Career<span style="color:#1aabaa">Map</span></div></div>';
-  body += '<div style="font-size:11px;color:#6b7280;margin-top:2px">CAREER & PERSONALITY ASSESSMENT PLATFORM</div></div>';
-  body += '<div style="text-align:right;font-size:11px;color:#6b7280"><div style="font-weight:700;font-size:13px;color:#0f172a">' + (role === "advisor" ? "ADVISOR REPORT" : "CANDIDATE REPORT") + '</div>';
+  body += '<div style="font-size:11px;color:#6b7280;margin-top:2px">' + L.platform + '</div></div>';
+  body += '<div style="text-align:right;font-size:11px;color:#6b7280"><div style="font-weight:700;font-size:13px;color:#0f172a">' + (role === "advisor" ? L.advReport : L.candReport) + '</div>';
   body += '<div>' + new Date().toLocaleDateString("en-GB") + '</div><div>ID: ' + (profile.id || "—") + '</div></div></div>';
 
   // Profile banner
@@ -894,7 +895,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Holland
   body += pageFtr();
   body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">' + L.sec1 + '</h2>';
-  body += '<p style="font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px">Le modèle RIASEC de John Holland identifie six types de personnalité professionnelle. L\'analyse de votre profil permet d\'identifier vos orientations naturelles et de définir un code Holland personnel qui guidera vos choix académiques et professionnels.</p>';
+  body += '<p style="font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px">' + L.hollandIntro + '</p>';
   ["R","I","A","S","E","C"].forEach(function(code) {
     var v = h[code]||0;
     body += '<div style="margin-bottom:16px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">';
@@ -908,7 +909,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Big Five
   body += pageFtr();
   body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">' + L.sec2 + '</h2>';
-  body += '<p style="font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px">Le modèle des Cinq Grands Facteurs (Big Five) est l\'outil psychométrique le plus validé scientifiquement pour mesurer la personnalité. Il permet de prédire avec précision la performance professionnelle, les préférences de travail et les dynamiques relationnelles.</p>';
+  body += '<p style="font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px">' + L.b5Intro + '</p>';
   ["O","C2","E2","A2","N"].forEach(function(t) {
     var v = b[t]||0;
     body += '<div style="margin-bottom:16px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">';
@@ -921,8 +922,8 @@ function buildReportHTML(profile, scores, role, reportLang) {
 
   // Skill Up
   body += pageFtr();
-  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">III. Profil d\'Employabilité — Skill Up</h2>';
-  body += '<p style="font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px">Le test Skill Up évalue quatre dimensions complémentaires de votre préparation au marché du travail marocain et international. Ces dimensions constituent le socle de votre employabilité et guident les recommandations de développement professionnel.</p>';
+  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">' + L.sec3 + '</h2>';
+  body += '<p style="font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px">' + L.suIntro + '</p>';
   ["A","E","C","R"].forEach(function(d) {
     var v = s[d]||0;
     body += '<div style="margin-bottom:16px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">';
@@ -945,14 +946,14 @@ function buildReportHTML(profile, scores, role, reportLang) {
 
   // Academic
   body += pageFtr();
-  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">V. Academic Orientation</h2>';
+  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">' + L.sec5 + '</h2>';
   acList.forEach(function(p) {
     body += '<div style="padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;margin-bottom:6px;font-size:12px">🎓 ' + p + '</div>';
   });
 
   // E-learning
   body += pageFtr();
-  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">VI. E-Learning Roadmap</h2>';
+  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">' + L.sec6 + '</h2>';
   body += '<p style="font-size:12px;margin-bottom:8px">' + L.platforms + ' <strong>' + el.p + '</strong></p>';
   el.cs.forEach(function(course) {
     body += '<div style="padding:7px 12px;background:#fefce8;border:1px solid #fde68a;border-radius:8px;margin-bottom:5px;font-size:12px">💻 ' + course + '</div>';
@@ -961,7 +962,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
 
   // Career Roadmap
   body += pageFtr();
-  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">VII. Career Roadmap</h2>';
+  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">' + L.sec7 + '</h2>';
   var roadmapCols = ["#e05050","#4080e0","#d4a328","#20b060","#9050d0"];
   rm.forEach(function(step, i) {
     body += '<div style="display:flex;gap:11px;margin-bottom:9px">';
@@ -971,7 +972,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
 
   // INDH
   body += pageFtr();
-  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">VIII. INDH Program Recommendations 🇲🇦</h2>';
+  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">' + L.sec8 + ' 🇲🇦</h2>';
   indh.forEach(function(rec) {
     body += '<div style="padding:11px 14px;background:' + rec.col + '0f;border:1px solid ' + rec.col + '44;border-radius:10px;margin-bottom:8px">';
     body += '<div style="font-weight:700;color:' + rec.col + ';font-size:12px;margin-bottom:4px">' + rec.icon + ' ' + rec.prog + '</div>';
@@ -982,37 +983,117 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Advisor section
   if (role === "advisor") {
     body += pageFtr();
-    body += '<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:10px;padding:14px 18px;margin-top:20px;margin-bottom:16px">';
-    body += '<div style="font-weight:800;color:#dc2626;font-size:12px;letter-spacing:1px">🔒 CONFIDENTIAL — ADVISOR / ADMIN USE ONLY</div></div>';
-    body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #dc2626;padding-left:10px;margin:16px 0 12px">IX. Clinical Intervention Plan</h2>';
-    body += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
-    body += '<thead><tr style="background:#f1f5f9"><th style="padding:7px 9px;text-align:left;font-weight:700;color:#475569">Dimension</th><th style="padding:7px 9px;text-align:left;font-weight:700;color:#475569">Score</th><th style="padding:7px 9px;text-align:left;font-weight:700;color:#475569">Priority</th><th style="padding:7px 9px;text-align:left;font-weight:700;color:#475569">Action</th></tr></thead>';
-    body += '<tbody>';
-    Object.keys(h).forEach(function(k) {
-      var v = h[k]||0, pi = v<45?0:v<65?1:2;
-      var pris = ["🔴 High","🟡 Moderate","🟢 Strength"];
-      var acts = ["Targeted intervention","Monitor & support","Leverage as asset"];
-      body += row("Holland: " + (HN[k]||k) + " (" + k + ")", v, C.hc[k]||"#888", pris[pi], acts[pi]);
+    body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #7c3aed;padding-left:10px;margin:16px 0 12px">' + L.sec9 + '</h2>';
+
+    // Clinical narrative helpers per lang
+    var clinHolland = {
+      fr:{
+        hi:function(k,v){return "Le candidat affiche un score élevé ("+v+"%) sur la dimension Holland <strong>"+HL[k]+"</strong>. Ce résultat traduit une orientation professionnelle affirmée vers ce domaine. Il convient de valoriser cette force comme levier principal d'orientation. Le conseiller pourra s'appuyer sur cette dimension pour proposer des formations et débouchés cohérents, et renforcer la confiance du candidat dans ses choix.";},
+        med:function(k,v){return "Le score intermédiaire ("+v+"%) sur la dimension Holland <strong>"+HL[k]+"</strong> suggère un intérêt secondaire mais réel. Le conseiller devra explorer avec le candidat dans quelle mesure ce domaine peut compléter ses axes principaux, sans en faire une priorité unique. Des exercices d'exploration professionnelle ciblés permettront de clarifier le positionnement.";},
+        lo:function(k,v){return "Le faible score ("+v+"%) sur la dimension Holland <strong>"+HL[k]+"</strong> indique que ce domaine ne constitue pas une orientation naturelle pour le candidat. Il ne nécessite pas d'intervention spécifique, mais le conseiller veillera à ne pas orienter le candidat vers des environnements fortement centrés sur ce type."}
+      },
+      en:{
+        hi:function(k,v){return "The candidate shows a high score ("+v+"%) on the Holland <strong>"+HL[k]+"</strong> dimension. This reflects a strong professional orientation toward this domain. The advisor should leverage this as a primary orientation driver, proposing aligned training paths and careers that will reinforce the candidate's confidence.";},
+        med:function(k,v){return "The intermediate score ("+v+"%) on the Holland <strong>"+HL[k]+"</strong> dimension suggests a real but secondary interest. The advisor should explore whether this domain can complement the candidate's primary axes. Targeted career exploration exercises will help clarify positioning.";},
+        lo:function(k,v){return "The low score ("+v+"%) on the Holland <strong>"+HL[k]+"</strong> dimension indicates this is not a natural orientation for the candidate. No specific intervention is needed, but the advisor should avoid steering the candidate toward environments strongly centered on this type."}
+      },
+      ar:{
+        hi:function(k,v){return "يُظهر المترشح درجة عالية ("+v+"%) في بُعد هولاند <strong>"+HL[k]+"</strong>. يعكس هذا توجهاً مهنياً راسخاً نحو هذا المجال. على المستشار توظيف هذه القوة كمحرك رئيسي للتوجيه، واقتراح مسارات تدريبية ومهنية متناسقة تعزز ثقة المترشح في خياراته.";},
+        med:function(k,v){return "تُشير الدرجة المتوسطة ("+v+"%) في بُعد هولاند <strong>"+HL[k]+"</strong> إلى اهتمام ثانوي حقيقي. ينبغي للمستشار استكشاف كيفية تكامل هذا المجال مع المحاور الرئيسية للمترشح. تمارين الاستكشاف المهني ستساعد على توضيح التموضع.";},
+        lo:function(k,v){return "تُشير الدرجة المنخفضة ("+v+"%) في بُعد هولاند <strong>"+HL[k]+"</strong> إلى أن هذا المجال ليس توجهاً طبيعياً للمترشح. لا يستلزم تدخلاً خاصاً، لكن على المستشار تجنب توجيهه نحو بيئات مُركّزة بشكل قوي على هذا النوع."}
+      }
+    };
+    var clinB5 = {
+      fr:{
+        hi:function(k,v){return "Le score élevé ("+v+"%) en <strong>"+BL[k]+"</strong> constitue un atout psychologique solide. Le conseiller devra veiller à ce que le candidat valorise cette ressource dans ses démarches, notamment en ciblant des environnements professionnels cohérents avec ce trait.";},
+        lo:function(k,v){return "Le score de "+v+"% en <strong>"+BL[k]+"</strong> indique un axe de développement prioritaire. Le conseiller est invité à proposer un accompagnement structuré pour renforcer cette compétence : ateliers, coaching, ou mentorat adapté. Une progression mesurable sur 3 à 6 mois est un objectif réaliste."}
+      },
+      en:{
+        hi:function(k,v){return "The high score ("+v+"%) in <strong>"+BL[k]+"</strong> is a strong psychological asset. The advisor should help the candidate leverage this resource, particularly by targeting professional environments consistent with this trait.";},
+        lo:function(k,v){return "The score of "+v+"% in <strong>"+BL[k]+"</strong> represents a priority development area. The advisor should propose structured support to strengthen this competency: workshops, coaching, or adapted mentoring. A measurable progression over 3 to 6 months is a realistic goal."}
+      },
+      ar:{
+        hi:function(k,v){return "تُعدّ الدرجة العالية ("+v+"%) في <strong>"+BL[k]+"</strong> أصلاً نفسياً قوياً. على المستشار مساعدة المترشح على توظيف هذه الموارد، ولا سيما باستهداف البيئات المهنية المتسقة مع هذه السمة.";},
+        lo:function(k,v){return "تُمثّل درجة "+v+"% في <strong>"+BL[k]+"</strong> محوراً أولوياً للتطوير. يُنصح المستشار باقتراح دعم منظم لتعزيز هذه الكفاءة: ورش عمل، تدريب، أو إرشاد ملائم. التقدم القابل للقياس خلال 3 إلى 6 أشهر هدف واقعي."}
+      }
+    };
+    var clinSU = {
+      fr:{
+        hi:function(k,v){return "Le score élevé ("+v+"%) en <strong>"+SL[k]+"</strong> démontre un niveau de préparation solide sur cette dimension de l'employabilité. Le conseiller veillera à renforcer encore ce point fort et à l'intégrer dans le discours du candidat lors des entretiens et démarches professionnelles.";},
+        med:function(k,v){return "Le score intermédiaire ("+v+"%) en <strong>"+SL[k]+"</strong> indique une marge de progression significative. Le conseiller proposera un plan d'action concret avec des étapes mesurables à court terme pour faire progresser cette dimension de manière structurée.";},
+        lo:function(k,v){return "Le score faible ("+v+"%) en <strong>"+SL[k]+"</strong> signale une fragilité importante sur cette dimension. Une intervention prioritaire est recommandée : bilan de compétences, programme renforcé, et suivi régulier de la progression du candidat."}
+      },
+      en:{
+        hi:function(k,v){return "The high score ("+v+"%) in <strong>"+SL[k]+"</strong> demonstrates solid preparation on this employability dimension. The advisor should reinforce this strength and help the candidate articulate it effectively in professional interviews and applications.";},
+        med:function(k,v){return "The intermediate score ("+v+"%) in <strong>"+SL[k]+"</strong> indicates meaningful room for growth. The advisor should propose a concrete action plan with measurable short-term milestones to develop this dimension in a structured way.";},
+        lo:function(k,v){return "The low score ("+v+"%) in <strong>"+SL[k]+"</strong> signals a significant vulnerability on this dimension. A priority intervention is recommended: skills assessment, enhanced support program, and regular progress monitoring."}
+      },
+      ar:{
+        hi:function(k,v){return "تُظهر الدرجة العالية ("+v+"%) في <strong>"+SL[k]+"</strong> استعداداً متيناً في هذا البُعد من قابلية التوظيف. على المستشار تعزيز هذه القوة ومساعدة المترشح على التعبير عنها بفاعلية في المقابلات والتقدمات المهنية.";},
+        med:function(k,v){return "تُشير الدرجة المتوسطة ("+v+"%) في <strong>"+SL[k]+"</strong> إلى هامش تقدم ملموس. يُقترح على المستشار تقديم خطة عمل ملموسة بمراحل قابلة للقياس على المدى القصير لتطوير هذا البُعد بشكل منظم.";},
+        lo:function(k,v){return "تُنبّه الدرجة المنخفضة ("+v+"%) في <strong>"+SL[k]+"</strong> إلى هشاشة مهمة في هذا البُعد. يُوصى بتدخل أولوي: بلاغ كفاءات، برنامج دعم معزّز، ومتابعة منتظمة لتقدم المترشح."}
+      }
+    };
+
+    var cHL = clinHolland[reportLang]||clinHolland.fr;
+    var cBL = clinB5[reportLang]||clinB5.fr;
+    var cSL = clinSU[reportLang]||clinSU.fr;
+
+    // Holland clinical paragraphs
+    body += '<h3 style="font-size:13px;font-weight:700;color:#7c3aed;margin:14px 0 8px">RIASEC — Holland</h3>';
+    ["R","I","A","S","E","C"].forEach(function(k) {
+      var v = h[k]||0;
+      var narr = v>=65 ? cHL.hi(k,v) : v>=40 ? cHL.med(k,v) : cHL.lo(k,v);
+      var badgeCol = v<45?"#dc2626":v<65?"#d97706":"#16a34a";
+      var badgeTxt = v<45?(reportLang==="ar"?"أولوية":reportLang==="en"?"Priority":"Prioritaire"):v<65?(reportLang==="ar"?"متابعة":reportLang==="en"?"Monitor":"Suivi"):(reportLang==="ar"?"قوة":reportLang==="en"?"Strength":"Atout");
+      body += '<div style="margin-bottom:12px;padding:13px 15px;background:#faf5ff;border:1px solid #c4b5fd;border-radius:10px">';
+      body += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">';
+      body += '<span style="font-weight:800;font-size:12px;color:'+C.hc[k]+'">'+k+' — '+(HL[k]||k)+'</span>';
+      body += '<span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px;background:'+badgeCol+'22;color:'+badgeCol+'">'+v+'% · '+badgeTxt+'</span></div>';
+      body += '<p style="font-size:11px;color:#374151;line-height:1.85">'+narr+'</p></div>';
     });
-    Object.keys(b).forEach(function(k) {
-      var v = b[k]||0, pi = v<45?0:v<65?1:2;
-      var pris = ["🔴 High","🟡 Moderate","🟢 Strength"];
-      var acts = ["Targeted intervention","Monitor & support","Leverage as asset"];
-      body += row("Big Five: " + (B5N[k]||k), v, C.b5[k]||"#888", pris[pi], acts[pi]);
+
+    // Big Five clinical paragraphs
+    body += '<h3 style="font-size:13px;font-weight:700;color:#7c3aed;margin:18px 0 8px">OCEAN — Big Five</h3>';
+    ["O","C2","E2","A2","N"].forEach(function(k) {
+      var v = b[k]||0;
+      var narr = v>=55 ? cBL.hi(k,v) : cBL.lo(k,v);
+      var badgeCol = v>=55 ? "#16a34a" : "#dc2626";
+      var badgeTxt = v>=55?(reportLang==="ar"?"قوة":reportLang==="en"?"Strength":"Atout"):(reportLang==="ar"?"تطوير":reportLang==="en"?"Develop":"Développer");
+      body += '<div style="margin-bottom:12px;padding:13px 15px;background:#faf5ff;border:1px solid #c4b5fd;border-radius:10px">';
+      body += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">';
+      body += '<span style="font-weight:800;font-size:12px;color:'+C.b5[k]+'">'+(BL[k]||k)+'</span>';
+      body += '<span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px;background:'+badgeCol+'22;color:'+badgeCol+'">'+v+'% · '+badgeTxt+'</span></div>';
+      body += '<p style="font-size:11px;color:#374151;line-height:1.85">'+narr+'</p></div>';
     });
-    Object.keys(s).forEach(function(k) {
-      var v = s[k]||0, pi = v<45?0:v<65?1:2;
-      var pris = ["🔴 High","🟡 Moderate","🟢 Strength"];
-      var acts = ["Targeted intervention","Monitor & support","Leverage as asset"];
-      body += row("Skill Up: " + (SUN[k]||k), v, C.su[k]||"#888", pris[pi], acts[pi]);
+
+    // Skill Up clinical paragraphs
+    body += '<h3 style="font-size:13px;font-weight:700;color:#7c3aed;margin:18px 0 8px">Skill Up — ' + (reportLang==="ar"?"قابلية التوظيف":reportLang==="en"?"Employability":"Employabilité") + '</h3>';
+    ["A","E","C","R"].forEach(function(k) {
+      var v = s[k]||0;
+      var narr = v>=65 ? cSL.hi(k,v) : v>=45 ? cSL.med(k,v) : cSL.lo(k,v);
+      var badgeCol = v<45?"#dc2626":v<65?"#d97706":"#16a34a";
+      var badgeTxt = v<45?(reportLang==="ar"?"تدخل عاجل":reportLang==="en"?"Urgent":"Urgent"):v<65?(reportLang==="ar"?"تطوير":reportLang==="en"?"Develop":"Développer"):(reportLang==="ar"?"قوة":reportLang==="en"?"Strength":"Atout");
+      body += '<div style="margin-bottom:12px;padding:13px 15px;background:#faf5ff;border:1px solid #c4b5fd;border-radius:10px">';
+      body += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">';
+      body += '<span style="font-weight:800;font-size:12px;color:'+C.su[k]+'">'+(SL[k]||k)+'</span>';
+      body += '<span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px;background:'+badgeCol+'22;color:'+badgeCol+'">'+v+'% · '+badgeTxt+'</span></div>';
+      body += '<p style="font-size:11px;color:#374151;line-height:1.85">'+narr+'</p></div>';
     });
-    body += '</tbody></table>';
+
+    // Synthesis note
+    var synthNote = {
+      fr:"<strong>Note de synthèse :</strong> Ce plan d'intervention est élaboré sur la base des données psychométriques recueillies lors de l'évaluation CareerMap. Il constitue un outil d'aide à la décision pour le conseiller, et non un diagnostic clinique. Les recommandations doivent être contextualisées en fonction de l'entretien individuel, de l'histoire du candidat et des ressources disponibles localement.",
+      en:"<strong>Synthesis note:</strong> This intervention plan is developed from psychometric data collected during the CareerMap assessment. It is a decision-support tool for the advisor, not a clinical diagnosis. Recommendations should be contextualized based on the individual interview, candidate history, and locally available resources.",
+      ar:"<strong>ملاحظة تركيبية:</strong> تم إعداد خطة التدخل هذه انطلاقاً من البيانات القياسية النفسية التي جُمعت خلال تقييم CareerMap. وهي أداة مساعدة على اتخاذ القرار للمستشار، وليست تشخيصاً سريرياً. ينبغي تأطير التوصيات في ضوء المقابلة الفردية وتاريخ المترشح والموارد المتاحة محلياً."
+    };
+    body += '<div style="margin-top:18px;padding:13px 15px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;font-size:11px;color:#374151;line-height:1.85">'+(synthNote[reportLang]||synthNote.fr)+'</div>';
   }
 
   body += '<div style="margin-top:28px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center">CareerMap · ' + new Date().toISOString().split("T")[0] + '</div>';
 
   body += pageFtr();
-  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CareerMap — ' + (profile.name||profile.id) + '</title>' +
+  return '<!DOCTYPE html><html dir="'+dir+'" lang="'+(isAr?'ar':isEn?'en':'fr')+'"><head><meta charset="UTF-8"><title>CareerMap — ' + (profile.name||profile.id) + '</title>' +
     '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1e293b;background:#fff;padding:24px 32px 32px;max-width:840px;margin:0 auto;font-size:12px;line-height:1.7}h2{margin:18px 0 10px}p{margin-bottom:10px}@page{size:A4;margin:18mm 14mm}@media print{body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page-break{page-break-before:always}}</style>' +
     '</head><body>' + body + '</body></html>';
 }
@@ -1052,47 +1133,83 @@ function openReport(html, filename) {
   } catch(e3) {}
 }
 
-function ReportViewer({ html, onClose }) {
-  var ifrRef = useRef(null);
+function ReportViewer({ profile, scores, role, onClose }) {
+  var [lang, setLang] = useState("fr");
+  var [saving, setSaving] = useState(false);
+  var html = useMemo(function() {
+    return buildReportHTML(profile, scores, role, lang);
+  }, [profile, scores, role, lang]);
 
-  function doPrint() {
-    if (ifrRef.current && ifrRef.current.contentWindow) {
-      ifrRef.current.contentWindow.print();
-    }
+  function savePDF() {
+    if (saving) return;
+    setSaving(true);
+    var container = document.createElement("div");
+    container.style.cssText = "position:fixed;left:-9999px;top:0;width:210mm;background:#fff;z-index:99999";
+    container.innerHTML = html;
+    document.body.appendChild(container);
+    var name = (profile && (profile.name || profile.id)) || "CareerMap";
+    var filename = "CareerMap-" + name + "-" + lang.toUpperCase() + ".pdf";
+    var opt = {
+      margin: [10, 8, 10, 8],
+      filename: filename,
+      image: { type:"jpeg", quality:0.97 },
+      html2canvas: { scale:2, useCORS:true, logging:false },
+      jsPDF: { unit:"mm", format:"a4", orientation:"portrait" }
+    };
+    window.html2pdf().set(opt).from(container).save().then(function() {
+      document.body.removeChild(container);
+      setSaving(false);
+    }).catch(function() {
+      document.body.removeChild(container);
+      setSaving(false);
+    });
   }
 
-  function doDownload() { openReport(html, "CareerMap-Report.html"); }
+  var langLabels = { fr:"FR", en:"EN", ar:"ع" };
+  var titleLabel = { fr:"Aperçu du rapport", en:"Report Preview", ar:"معاينة التقرير" };
 
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0,
         background:"rgba(6,17,31,.97)", zIndex:9999, display:"flex", flexDirection:"column" }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-          padding:"10px 18px", background:"#0d1f33", borderBottom:"1px solid #1a3a55", flexShrink:0 }}>
+          padding:"10px 18px", background:"#0d1f33", borderBottom:"1px solid #1a3a55",
+          flexShrink:0, flexWrap:"wrap", gap:8 }}>
         <span style={{ fontWeight:900, fontSize:16, color:"#f0f4f8" }}>
           Career<span style={{ color:"#1aabaa" }}>Map</span>
-          <span style={{ fontSize:11, color:"#6b8aaa", fontWeight:400, marginLeft:10 }}>Report Preview</span>
+          <span style={{ fontSize:11, color:"#6b8aaa", fontWeight:400, marginLeft:10 }}>
+            {titleLabel[lang]||titleLabel.fr}
+          </span>
         </span>
-        <div style={{ display:"flex", gap:8 }}>
-          <button onClick={doPrint}
-            style={{ padding:"8px 16px", background:"#1aabaa", color:"#06111f",
-                border:"none", borderRadius:8, fontFamily:"inherit", fontSize:13, fontWeight:800 }}>
-            🖨 Save as PDF
-          </button>
-          <button onClick={doDownload}
-            style={{ padding:"8px 14px", background:"rgba(255,255,255,.08)",
-                border:"1px solid #1a3a55", color:"#8fadc8",
-                borderRadius:8, fontFamily:"inherit", fontSize:13 }}>
-            ⬇ HTML
+        <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+          <div style={{ display:"flex", gap:4, marginRight:4 }}>
+            {["fr","en","ar"].map(function(l) {
+              return (
+                <button key={l} onClick={function(){ setLang(l); }}
+                  style={{ padding:"6px 12px", borderRadius:99, fontFamily:"inherit",
+                    fontSize:12, fontWeight:700, cursor:"pointer", transition:"all .2s",
+                    background: lang===l ? "#d4a328" : "rgba(255,255,255,.07)",
+                    color: lang===l ? "#06111f" : "#6b8aaa",
+                    border: "1.5px solid " + (lang===l ? "#d4a328" : "#1a3a55") }}>
+                  {langLabels[l]}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={savePDF} disabled={saving}
+            style={{ padding:"8px 16px", background: saving ? "#0d7a79" : "#1aabaa",
+                color:"#06111f", border:"none", borderRadius:8,
+                fontFamily:"inherit", fontSize:13, fontWeight:800, cursor: saving ? "wait" : "pointer" }}>
+            {saving ? "..." : "⬇ PDF"}
           </button>
           <button onClick={onClose}
             style={{ padding:"8px 14px", background:"rgba(255,255,255,.05)",
                 border:"1px solid #1a3a55", color:"#8fadc8",
-                borderRadius:8, fontFamily:"inherit", fontSize:13 }}>
-            ✕ Close
+                borderRadius:8, fontFamily:"inherit", fontSize:13, cursor:"pointer" }}>
+            ✕
           </button>
         </div>
       </div>
-      <iframe ref={ifrRef} srcDoc={html}
+      <iframe srcDoc={html}
         style={{ flex:1, border:"none", background:"#fff" }}
         title="CareerMap Report"/>
     </div>
@@ -2295,8 +2412,7 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
   var [inp, setInp] = useState("");
   var [err, setErr] = useState("");
   var [found, setFound] = useState(null);
-  var [rpt, setRpt]           = useState(null);
-  var [rptLang, setRptLang]   = useState("fr");
+  var [rpt, setRpt] = useState(null);
 
   function doEnroll() {
     var v = inp.trim().toUpperCase();
@@ -2313,7 +2429,7 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
     try {
       var p  = found.profile||{name:found.name,id:found.id,age:"-",gender:"-",edu:"-",region:"-"};
       var sc = found.scores||{h:{},b:{},s:{}};
-      setRpt(buildReportHTML(p,sc,role,rptLang));
+      setRpt({profile:p, scores:sc, role:role});
     } catch(e){ alert("Erreur: "+e.message); }
   }
 
@@ -2364,23 +2480,6 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
                   <div style={{ fontSize:10, color:C.mu, fontFamily:"monospace" }}>{found.id}</div>
                 </div>
               </div>
-              <p style={{ fontSize:11, color:C.mu, textAlign:"center", marginBottom:8 }}>
-                {lang==="fr"?"Langue du rapport :":"Report language:"}
-              </p>
-              <div style={{ display:"flex", gap:6, justifyContent:"center", marginBottom:12 }}>
-                {["fr","en","ar"].map(function(l){
-                  return (
-                    <button key={l} onClick={function(){setRptLang(l);}}
-                      style={{ padding:"6px 16px", borderRadius:99, fontFamily:"inherit",
-                        fontSize:12, fontWeight:700, cursor:"pointer",
-                        background: rptLang===l ? C.teal : "rgba(255,255,255,.07)",
-                        color: rptLang===l ? "#fff" : C.mu,
-                        border: "1.5px solid "+(rptLang===l ? C.teal : C.bdr) }}>
-                      {l.toUpperCase()}
-                    </button>
-                  );
-                })}
-              </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                 <button onClick={function(){openRep("candidate");}}
                   style={{ padding:"16px 8px", textAlign:"center",
@@ -2403,7 +2502,7 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
           )}
         </div>
       </div>
-      {rpt&&<ReportViewer html={rpt} onClose={function(){setRpt(null);}}/>}
+      {rpt&&<ReportViewer profile={rpt.profile} scores={rpt.scores} role={rpt.role} onClose={function(){setRpt(null);}}/>}
     </div>
   );
 }
@@ -2611,7 +2710,6 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   var [newName, setNewName]   = useState("");
   var [copied, setCopied]     = useState(null);
   var [localReport, setLocalReport] = useState(null);
-  var [rptLang, setRptLang]   = useState("fr");
   var [sortCol, setSortCol]   = useState("savedAt");
   var [sortDir, setSortDir]   = useState("desc");
   var [detailCand, setDetailCand] = useState(null);
@@ -2686,7 +2784,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
     try {
       var p=c.profile||{name:c.name,id:c.id,age:"-",gender:"-",edu:"-",region:"-"};
       var sc=c.scores||{h:{},b:{},s:{}};
-      setLocalReport(buildReportHTML(p,sc,role,rptLang));
+      setLocalReport({profile:p, scores:sc, role:role});
     } catch(err){ alert("Erreur: "+err.message); }
   }
   function toggleSort(col) {
@@ -2799,15 +2897,6 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
               {typeof _db !== "undefined" && _db && <span style={{ fontSize:8,color:C.gr,background:C.gr+"18",border:"1px solid "+C.gr+"33",borderRadius:99,padding:"1px 6px",fontWeight:700 }}>☁ LIVE</span>}
               <span style={{ fontSize:8,color:C.mu }}>{total} candidates · {advisors.length} advisors</span>
             </div>
-          </div>
-          <div style={{ display:"flex",gap:4 }}>
-            <span style={{ fontSize:8,color:C.mu,alignSelf:"center" }}>Report:</span>
-            {["fr","en","ar"].map(function(l){
-              return <button key={l} onClick={function(){setRptLang(l);}}
-                style={{ padding:"3px 8px",borderRadius:99,fontSize:9,fontWeight:700,
-                  background:rptLang===l?C.teal:"transparent",color:rptLang===l?C.bg:C.mu,
-                  border:"1px solid "+(rptLang===l?C.teal:C.bdr) }}>{l.toUpperCase()}</button>;
-            })}
           </div>
           <button onClick={onLogout} style={{ padding:"6px 11px",borderRadius:8,background:"rgba(255,255,255,.06)",color:C.mu,border:"1px solid "+C.bdr,fontSize:11,fontWeight:700 }}>↩</button>
         </div>
@@ -3048,7 +3137,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
         {tab==="analytics" && <AdminStats src={src} lang={lang} ar={ar}/>}
       </div>
       {detailCand && <CandDetail c={detailCand} onClose={function(){setDetailCand(null);}}/>}
-      {localReport && <ReportViewer html={localReport} onClose={function(){setLocalReport(null);}}/>}
+      {localReport && <ReportViewer profile={localReport.profile} scores={localReport.scores} role={localReport.role} onClose={function(){setLocalReport(null);}}/>}
     </div>
   );
 }
@@ -3490,7 +3579,7 @@ function App() {
   }
 
   function showReport(p, sc, role) {
-    setReportHTML(buildReportHTML(p||{name:user.name,id:user.id,age:'-',gender:'-',edu:'-',region:'-'},sc||{h:{},b:{},s:{}},role));
+    setReportHTML({profile:p||{name:user.name,id:user.id,age:'-',gender:'-',edu:'-',region:'-'},scores:sc||{h:{},b:{},s:{}},role:role});
   }
 
   function onProfile(pf) {
@@ -3574,7 +3663,7 @@ function App() {
     );
   }
 
-  var viewer = reportHTML ? <ReportViewer html={reportHTML} onClose={function(){ setReportHTML(null); }}/> : null;
+  var viewer = reportHTML ? <ReportViewer profile={reportHTML.profile} scores={reportHTML.scores} role={reportHTML.role} onClose={function(){ setReportHTML(null); }}/> : null;
   if (screen === "landing") return wrap(<LandingPage lang={lang} setLang={setLangDir} onStart={function(){ setScreen("login"); }}/>);
   if (screen === "login")   return wrap(<Login lang={lang} setLang={setLangDir} onLogin={onLogin} advisors={advisors}/>);
   if (screen === "profile") return wrap(<ProfileForm lang={lang} setLang={setLangDir} user={user} onNext={onProfile} onLogout={onLogout}/>);
