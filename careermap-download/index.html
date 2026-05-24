@@ -560,7 +560,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     fr: {
       evalTitle:"Évaluation Carrière et Personnalité",
       candReport:"RAPPORT CANDIDAT",
-      advReport:"RAPPORT CONSEILLER — CONFIDENTIEL",
+      advReport:"RAPPORT CONSEILLER",
       platform:"CareerMap Assessment Platform",
       confidential:"Confidentiel",
       age:"Âge", gender:"Genre", edu:"Niveau d'études", region:"Région", phone:"Téléphone", status:"Situation",
@@ -589,7 +589,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     en: {
       evalTitle:"Career & Personality Assessment",
       candReport:"CANDIDATE REPORT",
-      advReport:"ADVISOR REPORT — CONFIDENTIAL",
+      advReport:"ADVISOR REPORT",
       platform:"CareerMap Assessment Platform",
       confidential:"Confidential",
       age:"Age", gender:"Gender", edu:"Education", region:"Region", phone:"Phone", status:"Status",
@@ -618,7 +618,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     ar: {
       evalTitle:"تقييم المسار المهني والشخصية",
       candReport:"تقرير المترشح",
-      advReport:"تقرير المستشار — سري",
+      advReport:"تقرير المستشار",
       platform:"منصة CareerMap للتقييم",
       confidential:"سري",
       age:"العمر", gender:"الجنس", edu:"المستوى الدراسي", region:"الجهة", phone:"الهاتف", status:"الوضعية",
@@ -674,21 +674,27 @@ function buildReportHTML(profile, scores, role, reportLang) {
     var h = '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding-top:8px;border-top:1.5px solid #e2e8f0;page-break-after:always">' + '<svg viewBox="0 0 100 100" width="22" height="22" xmlns="http://www.w3.org/2000/svg">' + '<defs>' + '<radialGradient id="pfb'+uid+'" cx="50%" cy="50%" r="50%">' + '<stop offset="0%" stop-color="#0d2540"/><stop offset="100%" stop-color="#06111f"/>' + '</radialGradient>' + '<linearGradient id="pfr'+uid+'" x1="0%" y1="0%" x2="100%" y2="100%">' + '<stop offset="0%" stop-color="#1aabaa"/><stop offset="100%" stop-color="#d4a328"/>' + '</linearGradient></defs>' + '<circle cx="50" cy="50" r="48" fill="url(#pfb'+uid+')"/>' + '<circle cx="50" cy="50" r="38" fill="none" stroke="#1a3a55" stroke-width=".8"/>' + '<path d="M 50 12 Q 78 22 88 50 Q 78 78 50 88 Q 22 78 12 50 Q 22 22 50 12"' + ' fill="none" stroke="url(#pfr'+uid+')" stroke-width="2.5" stroke-linecap="round"/>' + '<polygon points="50,19 53,50 50,47 47,50" fill="#d4a328"/>' + '<polygon points="50,81 53,50 50,53 47,50" fill="#1aabaa"/>' + '<circle cx="50" cy="50" r="3" fill="#06111f" stroke="#d4a328" stroke-width="1"/>' + '<circle cx="50" cy="50" r="1.2" fill="#d4a328"/>' + '</svg>' + '<span style="font-size:12px;font-weight:900;font-family:Arial;color:#0f172a">Career<span style="color:#1aabaa">Map</span></span>' + '<span style="font-size:9px;color:#94a3b8;font-family:Arial">Page ' + pg + '</span>' + '</div>';
     pg++; return h;
   }
-  body += '<div style="page-break-after:always;min-height:100vh;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;padding:50px 40px;font-family:Arial,sans-serif;background:linear-gradient(160deg,#f8fafc 0%,#eef4fb 100%)">';
-  body += '<div style="width:100%;display:flex;justify-content:space-between;padding-bottom:12px;border-bottom:2px solid #0f172a;font-size:10px;color:#6b7280">' + L.evalTitle + '<span>' + date + '</span></div>';
-  body += '<div style="display:flex;flex-direction:column;align-items:center;gap:18px">';
-  // Big compass logo
+  body += '<div style="page-break-after:always;min-height:100vh;display:flex;flex-direction:column;align-items:center;text-align:center;padding:40px 40px 32px;font-family:Arial,sans-serif;background:linear-gradient(160deg,#f8fafc 0%,#eef4fb 100%)">';
+  // TOP: small logo + date bar
+  body += '<div style="width:100%;display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:2px solid #0f172a;margin-bottom:40px">';
+  body += '<div style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 100 100" width="32" height="32" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="tlbg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#0d2540"/><stop offset="100%" stop-color="#06111f"/></radialGradient><linearGradient id="tlrg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1aabaa"/><stop offset="100%" stop-color="#d4a328"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#tlbg)"/><path d="M 50 14 Q 76 24 86 50 Q 76 76 50 86 Q 24 76 14 50 Q 24 24 50 14" fill="none" stroke="url(#tlrg)" stroke-width="2.5" stroke-linecap="round"/><polygon points="50,19 53,50 50,47 47,50" fill="#d4a328"/><polygon points="50,81 53,50 50,53 47,50" fill="#1aabaa" opacity=".9"/><circle cx="50" cy="50" r="3.5" fill="#06111f" stroke="#d4a328" stroke-width="1.2"/><circle cx="50" cy="50" r="1.5" fill="#d4a328"/></svg>';
+  body += '<span style="font-size:18px;font-weight:900;font-family:Arial;letter-spacing:-0.5px;color:#0f172a">Career<span style="color:#1aabaa">Map</span></span></div>';
+  body += '<span style="font-size:10px;color:#94a3b8">' + date + '</span></div>';
+  // CENTER: big compass + branding + name + badge
+  body += '<div style="display:flex;flex-direction:column;align-items:center;gap:16px;flex:1;justify-content:center">';
   body += '<svg viewBox="0 0 100 100" width="200" height="200" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="cvbg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#0d2540"/><stop offset="100%" stop-color="#06111f"/></radialGradient><linearGradient id="cvrg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1aabaa"/><stop offset="100%" stop-color="#d4a328"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#cvbg)"/><circle cx="50" cy="50" r="42" fill="none" stroke="#1a3a55" stroke-width="0.6"/><circle cx="50" cy="50" r="36" fill="none" stroke="#1a3a55" stroke-width="0.4"/><line x1="50" y1="10" x2="50" y2="90" stroke="#1a3a55" stroke-width="0.4"/><line x1="10" y1="50" x2="90" y2="50" stroke="#1a3a55" stroke-width="0.4"/><path d="M 50 14 Q 76 24 86 50 Q 76 76 50 86 Q 24 76 14 50 Q 24 24 50 14" fill="none" stroke="url(#cvrg)" stroke-width="2" stroke-linecap="round"/><polygon points="50,20 53.5,50 50,46 46.5,50" fill="#d4a328"/><polygon points="50,80 53.5,50 50,54 46.5,50" fill="#1aabaa" opacity="0.9"/><polygon points="20,50 50,46.5 46,50 50,53.5" fill="#1aabaa"/><polygon points="80,50 50,46.5 54,50 50,53.5" fill="#d4a328" opacity="0.7"/><circle cx="50" cy="50" r="4" fill="#06111f" stroke="#d4a328" stroke-width="1.2"/><circle cx="50" cy="50" r="1.8" fill="#d4a328"/><circle cx="50" cy="20" r="2" fill="#1aabaa"/><text x="50" y="9" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="6" fill="#1aabaa">N</text><text x="50" y="97" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="5" fill="#475569">S</text><text x="93" y="53" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="5" fill="#475569">E</text><text x="7" y="53" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="5" fill="#475569">W</text></svg>';
-  // CareerMap branding
-  body += '<div style="font-size:48px;font-weight:900;font-family:Arial;line-height:1;letter-spacing:-2px;margin-top:-8px"><span style="color:#0f172a">Career</span><span style="color:#1aabaa">Map</span></div>';
+  body += '<div style="font-size:48px;font-weight:900;font-family:Arial;line-height:1;letter-spacing:-2px"><span style="color:#0f172a">Career</span><span style="color:#1aabaa">Map</span></div>';
   body += '<div style="width:60px;height:3px;background:#d4a328;border-radius:2px"></div>';
-  // Candidate name — normal readable size
-  body += '<div style="font-size:26px;font-weight:700;color:#0f172a;line-height:1.2;margin-top:6px">' + (profile.name||profile.id||'-') + '</div>';
+  body += '<div style="font-size:28px;font-weight:700;color:#0f172a;line-height:1.2;margin-top:4px">' + (profile.name||profile.id||'-') + '</div>';
   body += '<div style="font-size:11px;color:#94a3b8;font-family:monospace;letter-spacing:1px">ID : ' + (profile.id||'-') + '</div>';
-  // Role badge under name
-  body += '<div style="padding:9px 34px;border-radius:99px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-top:4px;' + (role==="advisor"?'background:#fef2f2;border:2px solid #fca5a5;color:#dc2626':'background:#f0f9ff;border:2px solid #7dd3fc;color:#0369a1') + '">' + (role==="advisor" ? L.advReport : L.candReport) + '</div>';
+  // Role badge — clean, no red, no "confidentiel"
+  var badgeStyle = role==="advisor"
+    ? 'background:#0d2540;border:2px solid #1aabaa;color:#1aabaa'
+    : 'background:#f0f9ff;border:2px solid #7dd3fc;color:#0369a1';
+  body += '<div style="padding:9px 34px;border-radius:99px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;'+badgeStyle+'">' + (role==="advisor" ? L.advReport : L.candReport) + '</div>';
   body += '</div>';
-  body += '<div style="width:100%;display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8">' + L.platform + '<span>' + new Date().toISOString().split('T')[0] + '</span>' + L.confidential + '</div>';
+  // BOTTOM: platform + date only, no "Confidentiel"
+  body += '<div style="width:100%;display:flex;justify-content:space-between;padding-top:16px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;margin-top:32px">' + L.platform + '<span>' + new Date().toISOString().split('T')[0] + '</span></div>';
   body += '</div>';
 
   // Header
