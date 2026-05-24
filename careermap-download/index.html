@@ -572,7 +572,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
       sec6:"VI. Parcours E-Learning",
       sec7:"VII. Feuille de Route Carrière",
       sec8:"VIII. Programmes INDH",
-      sec9:"IX. Plan d'Intervention Clinique — CONFIDENTIEL",
+      sec9:"IX. Plan d'Intervention Clinique",
       hollandIntro:"Le modèle RIASEC identifie six types de personnalité professionnelle. Vos scores reflètent votre affinité naturelle avec chaque type.",
       b5Intro:"Le Big Five est l'outil psychométrique le plus validé pour mesurer la personnalité. Il prédit la performance professionnelle et les dynamiques relationnelles.",
       suIntro:"Le test Skill Up évalue votre niveau de préparation au marché du travail à travers quatre dimensions complémentaires.",
@@ -601,7 +601,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
       sec6:"VI. E-Learning Roadmap",
       sec7:"VII. Career Roadmap",
       sec8:"VIII. INDH Programs",
-      sec9:"IX. Clinical Intervention Plan — CONFIDENTIAL",
+      sec9:"IX. Clinical Intervention Plan",
       hollandIntro:"The RIASEC model identifies six professional personality types. Your scores reflect your natural affinity with each type.",
       b5Intro:"The Big Five is the most scientifically validated tool for measuring personality. It predicts professional performance and relational dynamics.",
       suIntro:"The Skill Up test evaluates your level of preparation for the job market through four complementary dimensions.",
@@ -630,7 +630,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
       sec6:"VI. مسار التعلم الإلكتروني",
       sec7:"VII. خارطة الطريق المهنية",
       sec8:"VIII. برامج المبادرة الوطنية",
-      sec9:"IX. خطة التدخل السريري — سري",
+      sec9:"IX. خطة التدخل السريري",
       hollandIntro:"يحدد نموذج RIASEC ستة أنماط من الشخصية المهنية. تعكس درجاتك تقاربك الطبيعي مع كل نوع.",
       b5Intro:"العوامل الخمسة الكبرى هي الأداة الأكثر صلاحية علمياً لقياس الشخصية وتوقع الأداء المهني.",
       suIntro:"يقيّم اختبار Skill Up مستوى استعدادك لسوق العمل من خلال أربعة أبعاد متكاملة.",
@@ -668,11 +668,8 @@ function buildReportHTML(profile, scores, role, reportLang) {
   }
 
   let body = '';
-  var pg = 1;
   function pageFtr() {
-    var uid = 'p' + pg;
-    var h = '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding-top:8px;border-top:1.5px solid #e2e8f0;page-break-after:always">' + '<svg viewBox="0 0 100 100" width="22" height="22" xmlns="http://www.w3.org/2000/svg">' + '<defs>' + '<radialGradient id="pfb'+uid+'" cx="50%" cy="50%" r="50%">' + '<stop offset="0%" stop-color="#0d2540"/><stop offset="100%" stop-color="#06111f"/>' + '</radialGradient>' + '<linearGradient id="pfr'+uid+'" x1="0%" y1="0%" x2="100%" y2="100%">' + '<stop offset="0%" stop-color="#1aabaa"/><stop offset="100%" stop-color="#d4a328"/>' + '</linearGradient></defs>' + '<circle cx="50" cy="50" r="48" fill="url(#pfb'+uid+')"/>' + '<circle cx="50" cy="50" r="38" fill="none" stroke="#1a3a55" stroke-width=".8"/>' + '<path d="M 50 12 Q 78 22 88 50 Q 78 78 50 88 Q 22 78 12 50 Q 22 22 50 12"' + ' fill="none" stroke="url(#pfr'+uid+')" stroke-width="2.5" stroke-linecap="round"/>' + '<polygon points="50,19 53,50 50,47 47,50" fill="#d4a328"/>' + '<polygon points="50,81 53,50 50,53 47,50" fill="#1aabaa"/>' + '<circle cx="50" cy="50" r="3" fill="#06111f" stroke="#d4a328" stroke-width="1"/>' + '<circle cx="50" cy="50" r="1.2" fill="#d4a328"/>' + '</svg>' + '<span style="font-size:12px;font-weight:900;font-family:Arial;color:#0f172a">Career<span style="color:#1aabaa">Map</span></span>' + '<span style="font-size:9px;color:#94a3b8;font-family:Arial">Page ' + pg + '</span>' + '</div>';
-    pg++; return h;
+    return '<div style="margin:24px 0 20px;border-top:1.5px solid #e2e8f0"></div>';
   }
   body += '<div style="page-break-after:always;min-height:100vh;display:flex;flex-direction:column;align-items:center;text-align:center;padding:40px 40px 32px;font-family:Arial,sans-serif;background:linear-gradient(160deg,#f8fafc 0%,#eef4fb 100%)">';
   // TOP: small logo + date bar
@@ -1159,15 +1156,21 @@ function ReportViewer({ profile, scores, role, onClose }) {
     wrap.style.cssText = "width:794px;font-family:Arial,sans-serif;color:#1e293b;background:#fff;font-size:12px;line-height:1.7;padding:16px 24px;box-sizing:border-box";
     wrap.innerHTML = bodyContent;
 
-    // Strip BOTH legacy (page-break-*) and modern (break-*) CSS break properties
-    // AND remove viewport-height values — both cause blank pages in html2canvas rendering
+    // Remove page-break-after/before (caused blank pages from old pageFtr divs).
+    // Set page-break-inside:avoid on p/li so paragraphs don't get cut mid-sentence.
     Array.from(wrap.querySelectorAll("*")).forEach(function(el) {
       try { el.style.pageBreakAfter  = "auto"; } catch(e) {}
       try { el.style.pageBreakBefore = "auto"; } catch(e) {}
-      try { el.style.pageBreakInside = "auto"; } catch(e) {}
       try { el.style.breakAfter  = "auto"; } catch(e) {}
       try { el.style.breakBefore = "auto"; } catch(e) {}
-      try { el.style.breakInside = "auto"; } catch(e) {}
+      var tag = el.tagName;
+      if (tag === "P" || tag === "LI") {
+        try { el.style.pageBreakInside = "avoid"; } catch(e) {}
+        try { el.style.breakInside     = "avoid"; } catch(e) {}
+      } else {
+        try { el.style.pageBreakInside = "auto"; } catch(e) {}
+        try { el.style.breakInside     = "auto"; } catch(e) {}
+      }
       if ((el.style.minHeight || "").indexOf("vh") !== -1) el.style.minHeight = "";
       if ((el.style.height    || "").indexOf("vh") !== -1) el.style.height    = "";
     });
@@ -1186,7 +1189,7 @@ function ReportViewer({ profile, scores, role, onClose }) {
         image: { type:"jpeg", quality:0.97 },
         html2canvas: { scale:2, useCORS:true, logging:false, scrollX:0, scrollY:0 },
         jsPDF: { unit:"mm", format:"a4", orientation:"portrait" },
-        pagebreak: { mode: [] }
+        pagebreak: { mode: ['css'] }
       };
       window.html2pdf().set(opt).from(wrap).save()
         .then(cleanup).catch(cleanup);
