@@ -6,6 +6,7 @@ on:
       - claude/publish-careermap-pages-nf29c
     paths:
       - 'careermap-download/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
