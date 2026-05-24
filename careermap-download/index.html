@@ -1153,13 +1153,17 @@ function ReportViewer({ profile, scores, role, onClose }) {
     wrap.style.cssText = "width:794px;font-family:Arial,sans-serif;color:#1e293b;background:#fff;font-size:12px;line-height:1.7;padding:16px 24px;box-sizing:border-box";
     wrap.innerHTML = bodyContent;
 
-    // Remove page-break and viewport-height constraints — these create blank pages in html2pdf
+    // Strip BOTH legacy (page-break-*) and modern (break-*) CSS break properties
+    // AND remove viewport-height values — both cause blank pages in html2canvas rendering
     Array.from(wrap.querySelectorAll("*")).forEach(function(el) {
-      if (el.style.pageBreakAfter)  el.style.pageBreakAfter  = "auto";
-      if (el.style.pageBreakBefore) el.style.pageBreakBefore = "auto";
-      if (el.style.pageBreakInside) el.style.pageBreakInside = "auto";
-      if (el.style.minHeight && el.style.minHeight.indexOf("vh") !== -1) el.style.minHeight = "";
-      if (el.style.height   && el.style.height.indexOf("vh")   !== -1) el.style.height   = "";
+      try { el.style.pageBreakAfter  = "auto"; } catch(e) {}
+      try { el.style.pageBreakBefore = "auto"; } catch(e) {}
+      try { el.style.pageBreakInside = "auto"; } catch(e) {}
+      try { el.style.breakAfter  = "auto"; } catch(e) {}
+      try { el.style.breakBefore = "auto"; } catch(e) {}
+      try { el.style.breakInside = "auto"; } catch(e) {}
+      if ((el.style.minHeight || "").indexOf("vh") !== -1) el.style.minHeight = "";
+      if ((el.style.height    || "").indexOf("vh") !== -1) el.style.height    = "";
     });
 
     document.body.appendChild(wrap);
@@ -1175,7 +1179,8 @@ function ReportViewer({ profile, scores, role, onClose }) {
         filename: filename,
         image: { type:"jpeg", quality:0.97 },
         html2canvas: { scale:2, useCORS:true, logging:false, scrollX:0, scrollY:0 },
-        jsPDF: { unit:"mm", format:"a4", orientation:"portrait" }
+        jsPDF: { unit:"mm", format:"a4", orientation:"portrait" },
+        pagebreak: { mode: [] }
       };
       window.html2pdf().set(opt).from(wrap).save()
         .then(cleanup).catch(cleanup);
