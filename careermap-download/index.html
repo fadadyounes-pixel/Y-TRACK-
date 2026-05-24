@@ -1143,26 +1143,32 @@ function ReportViewer({ profile, scores, role, onClose }) {
   function savePDF() {
     if (saving) return;
     setSaving(true);
-    var container = document.createElement("div");
-    container.style.cssText = "position:fixed;left:-9999px;top:0;width:210mm;background:#fff;z-index:99999";
-    container.innerHTML = html;
-    document.body.appendChild(container);
     var name = (profile && (profile.name || profile.id)) || "CareerMap";
     var filename = "CareerMap-" + name + "-" + lang.toUpperCase() + ".pdf";
-    var opt = {
-      margin: [10, 8, 10, 8],
-      filename: filename,
-      image: { type:"jpeg", quality:0.97 },
-      html2canvas: { scale:2, useCORS:true, logging:false },
-      jsPDF: { unit:"mm", format:"a4", orientation:"portrait" }
-    };
-    window.html2pdf().set(opt).from(container).save().then(function() {
-      document.body.removeChild(container);
-      setSaving(false);
-    }).catch(function() {
-      document.body.removeChild(container);
-      setSaving(false);
-    });
+    // Write the full HTML (including <head><style>) into a hidden iframe
+    // so CSS is applied correctly before html2pdf captures it
+    var iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;height:1123px;border:none;visibility:hidden";
+    document.body.appendChild(iframe);
+    var doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open(); doc.write(html); doc.close();
+    // Give the browser time to render styles before capturing
+    setTimeout(function() {
+      var opt = {
+        margin: [8, 8, 8, 8],
+        filename: filename,
+        image: { type:"jpeg", quality:0.97 },
+        html2canvas: { scale:2, useCORS:true, logging:false, windowWidth:794 },
+        jsPDF: { unit:"mm", format:"a4", orientation:"portrait" }
+      };
+      window.html2pdf().set(opt).from(doc.body).save().then(function() {
+        document.body.removeChild(iframe);
+        setSaving(false);
+      }).catch(function() {
+        document.body.removeChild(iframe);
+        setSaving(false);
+      });
+    }, 800);
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
