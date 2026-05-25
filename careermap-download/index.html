@@ -1156,13 +1156,9 @@ function ReportViewer({ profile, scores, role, onClose }) {
     wrap.style.cssText = "width:794px;font-family:Arial,sans-serif;color:#1e293b;background:#fff;font-size:12px;line-height:1.7;padding:16px 24px;box-sizing:border-box";
     wrap.innerHTML = bodyContent;
 
-    // Remove page-break-after/before (caused blank pages from old pageFtr divs).
-    // Apply page-break-inside:avoid to all content blocks (cards are DIVs, not just P/LI).
+    // Apply page-break-inside:avoid to content blocks so cards/paragraphs don't split mid-page.
+    // Do NOT reset breakAfter/Before — the cover page needs its page-break-after:always preserved.
     Array.from(wrap.querySelectorAll("*")).forEach(function(el) {
-      try { el.style.pageBreakAfter  = "auto"; } catch(e) {}
-      try { el.style.pageBreakBefore = "auto"; } catch(e) {}
-      try { el.style.breakAfter  = "auto"; } catch(e) {}
-      try { el.style.breakBefore = "auto"; } catch(e) {}
       var tag = el.tagName;
       var hasBg = !!(el.style.background || el.style.backgroundColor);
       if (tag === "P" || tag === "LI" || tag === "H2" || tag === "H3" || tag === "H4" || (tag === "DIV" && hasBg)) {
@@ -1172,7 +1168,8 @@ function ReportViewer({ profile, scores, role, onClose }) {
         try { el.style.pageBreakInside = "auto"; } catch(e) {}
         try { el.style.breakInside     = "auto"; } catch(e) {}
       }
-      if ((el.style.minHeight || "").indexOf("vh") !== -1) el.style.minHeight = "";
+      // Convert vh heights to fixed px (1122px ≈ A4 page height) so the cover fills one full page.
+      if ((el.style.minHeight || "").indexOf("vh") !== -1) el.style.minHeight = "1122px";
       if ((el.style.height    || "").indexOf("vh") !== -1) el.style.height    = "";
     });
 
