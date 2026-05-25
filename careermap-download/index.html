@@ -1102,7 +1102,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '</td></tr></tbody></table>';
   return '<!DOCTYPE html><html dir="'+dir+'" lang="'+(isAr?'ar':isEn?'en':'fr')+'"><head><meta charset="UTF-8"><title>CareerMap — ' + (profile.name||profile.id) + '</title>' +
     '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1e293b;background:#fff;padding:24px 32px 32px;max-width:840px;margin:0 auto;font-size:12px;line-height:1.7}h2{margin:18px 0 10px}p{margin-bottom:10px}@page{size:A4;margin:14mm}@media print{thead{display:table-header-group;-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody{display:table-row-group}body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}p,li{break-inside:avoid;page-break-inside:avoid}h2,h3,h4{break-after:avoid;page-break-after:avoid;break-inside:avoid;page-break-inside:avoid}div[style*="background"]{break-inside:avoid;page-break-inside:avoid}}</style>' +
-    '</head><body>' + body + '</body></html>';
+    '</head><body>' + body + '<script>if(window===window.top){window.addEventListener("load",function(){setTimeout(window.print,600)})}<\/script></body></html>';
 }
 
 function openPDF(profile, scores, role) {
@@ -1148,10 +1148,15 @@ function ReportViewer({ profile, scores, role, onClose }) {
   }, [profile, scores, role, lang]);
 
   function savePDF() {
-    var iw = iframeRef.current && iframeRef.current.contentWindow;
-    if (!iw) return;
-    iw.focus();
-    iw.print();
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
