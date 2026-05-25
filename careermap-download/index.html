@@ -1097,7 +1097,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
 
   body += pageFtr();
   return '<!DOCTYPE html><html dir="'+dir+'" lang="'+(isAr?'ar':isEn?'en':'fr')+'"><head><meta charset="UTF-8"><title>CareerMap — ' + (profile.name||profile.id) + '</title>' +
-    '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1e293b;background:#fff;padding:24px 32px 32px;max-width:840px;margin:0 auto;font-size:12px;line-height:1.7}h2{margin:18px 0 10px}p{margin-bottom:10px}@page{size:A4;margin:18mm 14mm}@media print{body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page-break{page-break-before:always}}</style>' +
+    '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1e293b;background:#fff;padding:24px 32px 32px;max-width:840px;margin:0 auto;font-size:12px;line-height:1.7}h2{margin:18px 0 10px}p{margin-bottom:10px}@page{size:A4;margin:18mm 14mm}@media print{body{padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}p,li{break-inside:avoid;page-break-inside:avoid}h2,h3,h4{break-after:avoid;page-break-after:avoid;break-inside:avoid;page-break-inside:avoid}tr{break-inside:avoid;page-break-inside:avoid}div[style*="background"]{break-inside:avoid;page-break-inside:avoid}}</style>' +
     '</head><body>' + body + '</body></html>';
 }
 
@@ -1138,60 +1138,16 @@ function openReport(html, filename) {
 
 function ReportViewer({ profile, scores, role, onClose }) {
   var [lang, setLang] = useState("fr");
-  var [saving, setSaving] = useState(false);
+  var iframeRef = React.useRef(null);
   var html = useMemo(function() {
     return buildReportHTML(profile, scores, role, lang);
   }, [profile, scores, role, lang]);
 
   function savePDF() {
-    if (saving) return;
-    setSaving(true);
-    var name = (profile && (profile.name || profile.id)) || "CareerMap";
-    var filename = "CareerMap-" + name + "-" + lang.toUpperCase() + ".pdf";
-
-    var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-    var bodyContent = bodyMatch ? bodyMatch[1] : html;
-
-    var wrap = document.createElement("div");
-    wrap.style.cssText = "width:794px;font-family:Arial,sans-serif;color:#1e293b;background:#fff;font-size:12px;line-height:1.7;padding:16px 24px;box-sizing:border-box";
-    wrap.innerHTML = bodyContent;
-
-    // Apply page-break-inside:avoid to content blocks so cards/paragraphs don't split mid-page.
-    // Do NOT reset breakAfter/Before — the cover page needs its page-break-after:always preserved.
-    Array.from(wrap.querySelectorAll("*")).forEach(function(el) {
-      var tag = el.tagName;
-      var hasBg = !!(el.style.background || el.style.backgroundColor);
-      if (tag === "P" || tag === "LI" || tag === "H2" || tag === "H3" || tag === "H4" || (tag === "DIV" && hasBg)) {
-        try { el.style.pageBreakInside = "avoid"; } catch(e) {}
-        try { el.style.breakInside     = "avoid"; } catch(e) {}
-      } else {
-        try { el.style.pageBreakInside = "auto"; } catch(e) {}
-        try { el.style.breakInside     = "auto"; } catch(e) {}
-      }
-      // Convert vh heights to fixed px (1122px ≈ A4 page height) so the cover fills one full page.
-      if ((el.style.minHeight || "").indexOf("vh") !== -1) el.style.minHeight = "1122px";
-      if ((el.style.height    || "").indexOf("vh") !== -1) el.style.height    = "";
-    });
-
-    document.body.appendChild(wrap);
-
-    var cleanup = function() {
-      if (document.body.contains(wrap)) document.body.removeChild(wrap);
-      setSaving(false);
-    };
-
-    setTimeout(function() {
-      var opt = {
-        margin: [10, 10, 10, 10],
-        filename: filename,
-        image: { type:"jpeg", quality:0.97 },
-        html2canvas: { scale:2, useCORS:true, logging:false, scrollX:0, scrollY:0 },
-        jsPDF: { unit:"mm", format:"a4", orientation:"portrait" },
-        pagebreak: { mode: ['avoid-all'] }
-      };
-      window.html2pdf().set(opt).from(wrap).save()
-        .then(cleanup).catch(cleanup);
-    }, 300);
+    var iw = iframeRef.current && iframeRef.current.contentWindow;
+    if (!iw) return;
+    iw.focus();
+    iw.print();
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
@@ -1238,7 +1194,7 @@ function ReportViewer({ profile, scores, role, onClose }) {
           </button>
         </div>
       </div>
-      <iframe srcDoc={html}
+      <iframe ref={iframeRef} srcDoc={html}
         style={{ flex:1, border:"none", background:"#fff" }}
         title="CareerMap Report"/>
     </div>
