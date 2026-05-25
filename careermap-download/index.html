@@ -1184,11 +1184,11 @@ function ReportViewer({ profile, scores, role, onClose }) {
               );
             })}
           </div>
-          <button onClick={savePDF} disabled={saving}
-            style={{ padding:"8px 16px", background: saving ? "#0d7a79" : "#1aabaa",
+          <button onClick={savePDF}
+            style={{ padding:"8px 16px", background:"#1aabaa",
                 color:"#06111f", border:"none", borderRadius:8,
-                fontFamily:"inherit", fontSize:13, fontWeight:800, cursor: saving ? "wait" : "pointer" }}>
-            {saving ? "..." : "⬇ PDF"}
+                fontFamily:"inherit", fontSize:13, fontWeight:800, cursor:"pointer" }}>
+            ⬇ PDF
           </button>
           <button onClick={onClose}
             style={{ padding:"8px 14px", background:"rgba(255,255,255,.05)",
