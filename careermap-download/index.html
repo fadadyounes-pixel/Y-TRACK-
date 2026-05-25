@@ -682,6 +682,9 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '<svg viewBox="0 0 100 100" width="200" height="200" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="cvbg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#0d2540"/><stop offset="100%" stop-color="#06111f"/></radialGradient><linearGradient id="cvrg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1aabaa"/><stop offset="100%" stop-color="#d4a328"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#cvbg)"/><circle cx="50" cy="50" r="42" fill="none" stroke="#1a3a55" stroke-width="0.6"/><circle cx="50" cy="50" r="36" fill="none" stroke="#1a3a55" stroke-width="0.4"/><line x1="50" y1="10" x2="50" y2="90" stroke="#1a3a55" stroke-width="0.4"/><line x1="10" y1="50" x2="90" y2="50" stroke="#1a3a55" stroke-width="0.4"/><path d="M 50 14 Q 76 24 86 50 Q 76 76 50 86 Q 24 76 14 50 Q 24 24 50 14" fill="none" stroke="url(#cvrg)" stroke-width="2" stroke-linecap="round"/><polygon points="50,20 53.5,50 50,46 46.5,50" fill="#d4a328"/><polygon points="50,80 53.5,50 50,54 46.5,50" fill="#1aabaa" opacity="0.9"/><polygon points="20,50 50,46.5 46,50 50,53.5" fill="#1aabaa"/><polygon points="80,50 50,46.5 54,50 50,53.5" fill="#d4a328" opacity="0.7"/><circle cx="50" cy="50" r="4" fill="#06111f" stroke="#d4a328" stroke-width="1.2"/><circle cx="50" cy="50" r="1.8" fill="#d4a328"/><circle cx="50" cy="20" r="2" fill="#1aabaa"/><text x="50" y="9" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="6" fill="#1aabaa">N</text><text x="50" y="97" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="5" fill="#475569">S</text><text x="93" y="53" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="5" fill="#475569">E</text><text x="7" y="53" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="5" fill="#475569">W</text></svg>';
   body += '<div style="font-size:48px;font-weight:900;font-family:Arial;line-height:1;letter-spacing:-2px"><span style="color:#0f172a">Career</span><span style="color:#1aabaa">Map</span></div>';
   body += '<div style="width:60px;height:3px;background:#d4a328;border-radius:2px"></div>';
+  if (profile.photo) {
+    body += '<div style="width:90px;height:90px;border-radius:50%;overflow:hidden;border:3px solid #1aabaa;margin:12px auto 4px;flex-shrink:0"><img src="'+profile.photo+'" style="width:100%;height:100%;object-fit:cover" alt=""/></div>';
+  }
   body += '<div style="font-size:28px;font-weight:700;color:#0f172a;line-height:1.2;margin-top:4px">' + (profile.name||profile.id||'-') + '</div>';
   body += '<div style="font-size:11px;color:#94a3b8;font-family:monospace;letter-spacing:1px">ID : ' + (profile.id||'-') + '</div>';
   // Role badge — clean, no red, no "confidentiel"
@@ -1557,7 +1560,7 @@ function FieldLabel({ children }) {
 /* ─── PROFILE FORM ───────────────────────────────────────────────────────── */
 function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
   var ar = lang === "ar";
-  var [pf, setPf] = useState({ firstName:"", lastName:"", email:"", phone:"", age:"", gender:"", edu:"", region:"", prefecture:"", status:"" });
+  var [pf, setPf] = useState({ firstName:"", lastName:"", email:"", phone:"", age:"", gender:"", edu:"", region:"", prefecture:"", status:"", photo:"" });
   var isCasa = pf.region === "Casablanca-Settat";
   var ok = pf.firstName && pf.lastName && pf.email && pf.phone && pf.age && pf.gender && pf.edu && pf.region && pf.status && (!isCasa || pf.prefecture);
 
@@ -1582,6 +1585,15 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
         return next;
       });
     };
+  }
+
+  var photoRef = useRef(null);
+  function handlePhoto(e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) { setPf(function(p){ return Object.assign({},p,{photo:ev.target.result}); }); };
+    reader.readAsDataURL(file);
   }
 
   var [submitErr, setSubmitErr] = useState("");
@@ -1683,6 +1695,42 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
 
           {/* ── Identity ── */}
           <SectionHead icon="👤" title={ar?"الهوية":lang==="fr"?"Identité":"Identity"}/>
+
+          {/* Photo upload — optional */}
+          <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:16 }}>
+            <div onClick={function(){ photoRef.current && photoRef.current.click(); }}
+              style={{ width:72, height:72, borderRadius:"50%", overflow:"hidden", flexShrink:0,
+                background:"rgba(255,255,255,.06)", border:"2px dashed "+C.bdr,
+                display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
+                transition:"border-color .2s", position:"relative" }}>
+              {pf.photo
+                ? <img src={pf.photo} alt="photo" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                : <span style={{ fontSize:28, opacity:.4 }}>👤</span>}
+            </div>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.wh, marginBottom:4 }}>
+                {ar?"الصورة الشخصية":lang==="fr"?"Photo de profil":"Profile photo"}
+                <span style={{ marginLeft:6, fontSize:9, color:C.mu, fontWeight:400 }}>
+                  ({ar?"اختياري":lang==="fr"?"optionnel":"optional"})
+                </span>
+              </div>
+              <button onClick={function(){ photoRef.current && photoRef.current.click(); }}
+                style={{ padding:"6px 14px", background:"rgba(255,255,255,.07)", border:"1.5px solid "+C.bdr,
+                  borderRadius:8, color:C.mu, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                {pf.photo
+                  ? (ar?"تغيير الصورة":lang==="fr"?"Changer":"Change photo")
+                  : (ar?"رفع صورة":lang==="fr"?"Ajouter une photo":"Upload photo")}
+              </button>
+              {pf.photo && (
+                <button onClick={function(){ setPf(function(p){ return Object.assign({},p,{photo:""}); }); }}
+                  style={{ marginLeft:8, padding:"6px 10px", background:"transparent", border:"none",
+                    color:C.re, fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>✕</button>
+              )}
+              <input ref={photoRef} type="file" accept="image/*" onChange={handlePhoto}
+                style={{ display:"none" }}/>
+            </div>
+          </div>
+
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
             <FloatInput label={ar?"الاسم الشخصي":lang==="fr"?"Prénom":"First Name"}
               value={pf.firstName} placeholder={ar?"الاسم":lang==="fr"?"Prénom":"First"} autoFocus
