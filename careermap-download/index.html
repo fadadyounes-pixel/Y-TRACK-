@@ -3668,6 +3668,7 @@ function App() {
   }
 
   function onLogin(u) {
+    setReportHTML(null);
     setUser(u);
     if (u.role === "admin")   setScreen("admin");
     else if (u.role === "advisor") setScreen("advisor");
