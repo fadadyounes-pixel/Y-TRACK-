@@ -2,6 +2,8 @@
 
 import { useState, useRef } from 'react';
 import Link from 'next/link';
+import Logo from '../../components/Logo';
+import PageHeader from '../../components/PageHeader';
 
 interface UploadedFile {
   name: string;
@@ -70,7 +72,8 @@ export default function UploadPage() {
   const processing = files.filter(f => f.status === 'processing').length;
 
   return (
-    <main style={{ padding: '2rem 0', minHeight: '100vh', background: '#f9fafb' }}>
+    <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      <PageHeader title="Career Pathway" />
       <div className="container" style={{ maxWidth: '900px' }}>
         <div style={{ marginBottom: '2rem' }}>
           <Link href="/dashboard" style={{ fontSize: '0.875rem', color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1rem' }}>

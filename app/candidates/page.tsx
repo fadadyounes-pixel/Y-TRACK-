@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Logo from '../../components/Logo';
+import PageHeader from '../../components/PageHeader';
 
 const candidates = [
   { id: 1, name: 'Sarah Benali', role: 'Senior React Developer', level: 'Senior', sector: 'Technology', skills: ['React', 'TypeScript', 'Node.js', 'GraphQL', 'Redux'], score: 94, uploaded: '2 days ago', status: 'matched' },
@@ -39,7 +41,8 @@ export default function CandidatesPage() {
   );
 
   return (
-    <main style={{ padding: '2rem 0', minHeight: '100vh', background: '#f9fafb' }}>
+    <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      <PageHeader title="Career Pathway" />
       <div className="container">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>

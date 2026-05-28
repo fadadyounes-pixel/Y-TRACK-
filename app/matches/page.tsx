@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Logo from '../../components/Logo';
+import PageHeader from '../../components/PageHeader';
 
 const allMatches = [
   {
@@ -99,7 +101,8 @@ export default function MatchesPage() {
   const poor = allMatches.filter(m => m.score < 40).length;
 
   return (
-    <main style={{ padding: '2rem 0', minHeight: '100vh', background: '#f9fafb' }}>
+    <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      <PageHeader title="Career Pathway" />
       <div className="container">
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
