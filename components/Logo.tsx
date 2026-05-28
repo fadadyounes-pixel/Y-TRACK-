@@ -5,54 +5,61 @@ interface LogoProps {
 }
 
 export default function Logo({ size = 'md', showText = true, variant = 'dark' }: LogoProps) {
-  const dims = { sm: 32, md: 40, lg: 56 };
-  const fontSizes = { sm: '1rem', md: '1.3rem', lg: '1.85rem' };
-  const d = dims[size];
-  const textColor = variant === 'light' ? '#ffffff' : '#0a1f5c';
+  const dims = { sm: 26, md: 34, lg: 46 };
+  const heights = { sm: 32, md: 43, lg: 58 };
+  const fontSizes = { sm: '0.95rem', md: '1.25rem', lg: '1.75rem' };
+  const w = dims[size];
+  const h = heights[size];
+  const textColor = variant === 'light' ? '#ffffff' : '#0f172a';
+  const subColor = variant === 'light' ? 'rgba(255,255,255,0.5)' : '#94a3b8';
+  const mapColor = variant === 'light' ? '#93c5fd' : '#2563eb';
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-      <svg width={d} height={d} viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* Background rounded square */}
-        <rect width="56" height="56" rx="13" fill="#0a1f5c" />
-
-        {/* Path road — two converging lines (perspective) */}
-        <path d="M10 46 L28 16 L46 46" stroke="#38bdf8" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-
-        {/* Dashed centre line of the path */}
-        <line x1="28" y1="44" x2="28" y2="34" stroke="#facc15" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 4" />
-        <line x1="28" y1="29" x2="28" y2="22" stroke="#facc15" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 4" />
-
-        {/* Yellow star / destination at top of path */}
-        <circle cx="28" cy="13" r="4" fill="#facc15" />
-        <path d="M28 10 L29 12 L31 12 L29.5 13.5 L30.2 15.5 L28 14.2 L25.8 15.5 L26.5 13.5 L25 12 L27 12 Z"
-              fill="#0a1f5c" />
-
-        {/* Steps / milestones on path */}
-        <circle cx="21" cy="38" r="2.5" fill="white" />
-        <circle cx="28" cy="30" r="2.5" fill="#38bdf8" />
-        <circle cx="35" cy="38" r="2.5" fill="white" />
-
-        {/* Ground bar */}
-        <rect x="8" y="46" width="40" height="3.5" rx="1.75" fill="#facc15" />
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+      <svg width={w} height={h} viewBox="0 0 40 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Map pin outer shape */}
+        <path
+          d="M20 2C11.16 2 4 9.16 4 18C4 27.78 12.89 36.08 20 48C27.11 36.08 36 27.78 36 18C36 9.16 28.84 2 20 2Z"
+          fill="#2563eb"
+        />
+        {/* White inner circle */}
+        <circle cx="20" cy="18" r="11" fill="white" />
+        {/* Trending up chart line */}
+        <polyline
+          points="11,24 15,19 19.5,22 27,13"
+          stroke="#2563eb"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        {/* Arrow head */}
+        <polyline
+          points="23.5,13 27,13 27,16.5"
+          stroke="#2563eb"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
       </svg>
 
       {showText && (
-        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
           <span style={{
             fontSize: fontSizes[size],
-            fontWeight: 900,
+            fontWeight: 800,
             color: textColor,
-            letterSpacing: '-0.025em',
+            letterSpacing: '-0.02em',
           }}>
-            Career <span style={{ color: '#38bdf8' }}>Pathway</span>
+            Talent<span style={{ color: mapColor }}>Map</span>
           </span>
           {size !== 'sm' && (
             <span style={{
               fontSize: '0.6rem',
-              fontWeight: 700,
-              color: variant === 'light' ? 'rgba(255,255,255,0.55)' : '#9ca3af',
-              letterSpacing: '0.12em',
+              fontWeight: 600,
+              color: subColor,
+              letterSpacing: '0.1em',
               textTransform: 'uppercase',
             }}>
               Recruitment Platform

@@ -20,8 +20,8 @@ const features = [
     icon: '🎯',
     title: 'Precision Matching',
     desc: 'Weighted algorithm: 45% skills, 30% sector, 25% experience. Scores candidates 0–100% against every job offer.',
-    color: '#fefce8',
-    accent: '#ca8a04',
+    color: '#eff6ff',
+    accent: '#2563eb',
   },
   {
     icon: '📊',
@@ -41,8 +41,8 @@ const features = [
     icon: '📈',
     title: 'Recruitment Analytics',
     desc: 'Track hiring trends, pipeline velocity, candidate quality scores, and time-to-fill across all open positions.',
-    color: '#fff7ed',
-    accent: '#ea580c',
+    color: '#f0f9ff',
+    accent: '#0284c7',
   },
 ];
 
@@ -81,7 +81,7 @@ export default function Home() {
         <div style={{
           position: 'absolute', bottom: '-80px', left: '-80px',
           width: '350px', height: '350px', borderRadius: '50%',
-          background: 'rgba(250,204,21,0.07)', pointerEvents: 'none',
+          background: 'rgba(147,197,253,0.07)', pointerEvents: 'none',
         }} />
 
         <div className="container" style={{ position: 'relative', zIndex: 1, padding: '5rem 1.5rem' }}>
@@ -92,7 +92,7 @@ export default function Home() {
               borderRadius: '9999px', padding: '0.4rem 1rem',
               marginBottom: '1.5rem',
             }}>
-              <span style={{ color: '#facc15', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              <span style={{ color: '#93c5fd', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                 ✦ Smart Recruitment Platform
               </span>
             </div>
@@ -105,8 +105,8 @@ export default function Home() {
               marginBottom: '1.5rem',
               letterSpacing: '-0.03em',
             }}>
-              Career Pathway —<br />
-              <span style={{ color: '#38bdf8' }}>Find Your Best Talent</span>
+              TalentMap —<br />
+              <span style={{ color: '#93c5fd' }}>Find Your Best Talent</span>
             </h1>
 
             <p style={{
@@ -116,17 +116,19 @@ export default function Home() {
               maxWidth: '560px',
               lineHeight: 1.7,
             }}>
-              Career Pathway automates CV screening, matches candidates to jobs with precision scoring, and gives your team a real-time recruitment command center.
+              TalentMap automates CV screening, matches candidates to jobs with precision scoring, and gives your team a real-time recruitment command center.
             </p>
 
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <Link href="/upload" className="btn-yellow" style={{ padding: '0.9rem 2rem', fontSize: '1rem' }}>
+              <Link href="/upload" className="btn-white" style={{ padding: '0.9rem 2rem', fontSize: '1rem' }}>
                 Upload CVs Now →
               </Link>
-              <Link href="/dashboard" className="btn-secondary" style={{
-                padding: '0.9rem 2rem', fontSize: '1rem',
+              <Link href="/dashboard" style={{
+                padding: '0.9rem 2rem', fontSize: '1rem', fontWeight: 600,
                 borderColor: 'rgba(255,255,255,0.4)', color: 'white',
                 background: 'rgba(255,255,255,0.1)',
+                border: '2px solid rgba(255,255,255,0.4)',
+                borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
               }}>
                 View Dashboard
               </Link>
@@ -138,7 +140,7 @@ export default function Home() {
             }}>
               {stats.map(s => (
                 <div key={s.label}>
-                  <div style={{ fontSize: '2rem', fontWeight: 900, color: '#facc15' }}>{s.value}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 900, color: '#93c5fd' }}>{s.value}</div>
                   <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem' }}>{s.label}</div>
                 </div>
               ))}
@@ -164,7 +166,7 @@ export default function Home() {
               Everything you need to hire smarter
             </h2>
             <p style={{ fontSize: '1.1rem', color: '#6b7280', marginTop: '1rem', maxWidth: '540px', margin: '1rem auto 0' }}>
-              From CV upload to final hire — Career Pathway handles the entire pipeline.
+              From CV upload to final hire — TalentMap handles the entire pipeline.
             </p>
           </div>
 
@@ -220,12 +222,12 @@ export default function Home() {
                 )}
                 <div style={{
                   width: '56px', height: '56px',
-                  background: 'linear-gradient(135deg, #1a3a8f, #1d4ed8)',
+                  background: 'linear-gradient(135deg, #1a3a8f, #2563eb)',
                   borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 1rem',
-                  boxShadow: '0 4px 14px rgba(29,78,216,0.35)',
+                  boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
                 }}>
-                  <span style={{ color: '#facc15', fontWeight: 900, fontSize: '1rem' }}>{step.n}</span>
+                  <span style={{ color: 'white', fontWeight: 900, fontSize: '1rem' }}>{step.n}</span>
                 </div>
                 <h3 style={{ fontWeight: 700, color: '#111827', marginBottom: '0.5rem' }}>{step.title}</h3>
                 <p style={{ fontSize: '0.875rem', color: '#6b7280', lineHeight: 1.6 }}>{step.desc}</p>
@@ -242,7 +244,7 @@ export default function Home() {
             <div>
               <span style={{
                 display: 'inline-block',
-                background: '#fefce8', color: '#ca8a04',
+                background: '#eff6ff', color: '#1d4ed8',
                 padding: '0.35rem 1rem', borderRadius: '9999px',
                 fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.08em',
                 textTransform: 'uppercase', marginBottom: '1rem',
@@ -264,7 +266,7 @@ export default function Home() {
               {[
                 { label: 'Skills Match', weight: 45, color: '#1d4ed8' },
                 { label: 'Sector Match', weight: 30, color: '#38bdf8' },
-                { label: 'Experience Level', weight: 25, color: '#facc15' },
+                { label: 'Experience Level', weight: 25, color: '#60a5fa' },
               ].map(item => (
                 <div key={item.label} style={{ marginBottom: '1.5rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -329,7 +331,7 @@ export default function Home() {
             Start uploading CVs today and let AI do the heavy lifting. No credit card required.
           </p>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/upload" className="btn-yellow" style={{ padding: '1rem 2.5rem', fontSize: '1.05rem' }}>
+            <Link href="/upload" className="btn-white" style={{ padding: '1rem 2.5rem', fontSize: '1.05rem' }}>
               Get Started Free →
             </Link>
             <Link href="/dashboard" style={{
@@ -351,7 +353,7 @@ export default function Home() {
       }}>
         <div className="container">
           <Logo size="sm" variant="light" showText={true} />
-          <p style={{ marginTop: '1rem' }}>© 2025 Career Pathway. Recruitment Platform. All rights reserved.</p>
+          <p style={{ marginTop: '1rem' }}>© 2025 TalentMap. Recruitment Platform. All rights reserved.</p>
         </div>
       </footer>
     </main>

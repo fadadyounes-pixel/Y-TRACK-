@@ -4,10 +4,10 @@ import Navbar from '../components/Navbar';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Career Pathway — Recruitment Platform',
+  title: 'TalentMap — Recruitment Platform',
   description: 'Smart CV analysis and job matching. Automate recruitment, find the best candidates, and save time.',
   icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52'><circle cx='26' cy='26' r='26' fill='%231a3a8f'/><path d='M8 34 Q26 12 44 34' stroke='%2338bdf8' stroke-width='3.5' fill='none' stroke-linecap='round'/><line x1='6' y1='34' x2='46' y2='34' stroke='%23facc15' stroke-width='3' stroke-linecap='round'/></svg>",
+    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 50'><path d='M20 2C11.16 2 4 9.16 4 18C4 27.78 12.89 36.08 20 48C27.11 36.08 36 27.78 36 18C36 9.16 28.84 2 20 2Z' fill='%232563eb'/><circle cx='20' cy='18' r='11' fill='white'/><polyline points='11,24 15,19 19.5,22 27,13' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/><polyline points='23.5,13 27,13 27,16.5' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>",
   },
 };
 

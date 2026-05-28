@@ -14,9 +14,8 @@
   --light-blue-300: #7dd3fc;
   --light-blue-200: #bae6fd;
   --light-blue-100: #e0f2fe;
-  --yellow-400: #facc15;
-  --yellow-300: #fde047;
-  --yellow-500: #eab308;
+  --blue-100: #dbeafe;
+  --blue-50: #eff6ff;
   --gray-900: #111827;
   --gray-800: #1f2937;
   --gray-700: #374151;
@@ -116,9 +115,9 @@ input, textarea, select {
   color: var(--white);
 }
 
-.btn-yellow {
-  background: var(--yellow-400);
-  color: var(--gray-900);
+.btn-white {
+  background: #ffffff;
+  color: #1d4ed8;
   padding: 0.75rem 1.75rem;
   border-radius: 8px;
   font-weight: 700;
@@ -128,10 +127,10 @@ input, textarea, select {
   align-items: center;
   gap: 0.5rem;
 }
-.btn-yellow:hover {
-  background: var(--yellow-300);
+.btn-white:hover {
+  background: #eff6ff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(250, 204, 21, 0.4);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 
 .card {

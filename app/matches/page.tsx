@@ -102,7 +102,7 @@ export default function MatchesPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      <PageHeader title="Career Pathway" />
+      <PageHeader title="TalentMap" />
       <div className="container">
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
@@ -219,7 +219,7 @@ export default function MatchesPage() {
                       </h4>
                       <ScoreBar label="Skills Match (45%)" value={m.skillsScore} color="#1d4ed8" />
                       <ScoreBar label="Sector Match (30%)" value={m.sectorScore} color="#38bdf8" />
-                      <ScoreBar label="Experience (25%)" value={m.experience} color="#facc15" />
+                      <ScoreBar label="Experience (25%)" value={m.experience} color="#60a5fa" />
                     </div>
                     <div>
                       <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>

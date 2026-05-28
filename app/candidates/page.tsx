@@ -42,7 +42,7 @@ export default function CandidatesPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      <PageHeader title="Career Pathway" />
+      <PageHeader title="TalentMap" />
       <div className="container">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>

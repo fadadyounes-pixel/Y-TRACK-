@@ -73,7 +73,7 @@ export default function UploadPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      <PageHeader title="Career Pathway" />
+      <PageHeader title="TalentMap" />
       <div className="container" style={{ maxWidth: '900px' }}>
         <div style={{ marginBottom: '2rem' }}>
           <Link href="/dashboard" style={{ fontSize: '0.875rem', color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1rem' }}>
