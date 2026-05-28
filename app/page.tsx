@@ -93,7 +93,7 @@ export default function Home() {
               marginBottom: '1.5rem',
             }}>
               <span style={{ color: '#facc15', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                ✦ AI-Powered Platform
+                ✦ Smart Recruitment Platform
               </span>
             </div>
 

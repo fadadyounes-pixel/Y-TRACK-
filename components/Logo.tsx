@@ -64,7 +64,7 @@ export default function Logo({ size = 'md', showText = true, variant = 'dark' }:
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
             }}>
-              AI Recruitment
+              Recruitment
             </span>
           )}
         </div>
