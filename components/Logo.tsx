@@ -54,7 +54,7 @@ export default function Logo({ size = 'md', showText = true, variant = 'dark' }:
             color: textColor,
             letterSpacing: '-0.02em',
           }}>
-            Talent<span style={{ color: '#38bdf8' }}>Bridge</span>
+            O <span style={{ color: '#38bdf8' }}>Ta3mel</span>
           </span>
           {size !== 'sm' && (
             <span style={{
