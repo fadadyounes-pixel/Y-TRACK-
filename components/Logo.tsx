@@ -47,7 +47,7 @@ export default function Logo({ size = 'md', showText = true, variant = 'dark' }:
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
             }}>
-              Recruitment · المغرب
+              Recruitment Platform
             </span>
           )}
         </div>
