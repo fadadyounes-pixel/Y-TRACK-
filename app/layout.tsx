@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'O Ta3mel — Recruitment Platform',
+  title: 'T3mel — Recruitment Platform',
   description: 'Smart CV analysis and job matching. Automate recruitment, find the best candidates, and save time.',
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52'><circle cx='26' cy='26' r='26' fill='%231a3a8f'/><path d='M8 34 Q26 12 44 34' stroke='%2338bdf8' stroke-width='3.5' fill='none' stroke-linecap='round'/><line x1='6' y1='34' x2='46' y2='34' stroke='%23facc15' stroke-width='3' stroke-linecap='round'/></svg>",

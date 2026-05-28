@@ -54,7 +54,7 @@ export default function Logo({ size = 'md', showText = true, variant = 'dark' }:
             color: textColor,
             letterSpacing: '-0.02em',
           }}>
-            O <span style={{ color: '#38bdf8' }}>Ta3mel</span>
+            T3<span style={{ color: '#38bdf8' }}>mel</span>
           </span>
           {size !== 'sm' && (
             <span style={{

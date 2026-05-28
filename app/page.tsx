@@ -105,8 +105,8 @@ export default function Home() {
               marginBottom: '1.5rem',
               letterSpacing: '-0.03em',
             }}>
-              O Ta3mel —<br />
-              <span style={{ color: '#38bdf8' }}>with AI Intelligence</span>
+              T3mel —<br />
+              <span style={{ color: '#38bdf8' }}>Find Your Best Talent</span>
             </h1>
 
             <p style={{
@@ -116,7 +116,7 @@ export default function Home() {
               maxWidth: '560px',
               lineHeight: 1.7,
             }}>
-              O Ta3mel automates CV screening, matches candidates to jobs with precision scoring, and gives your team a real-time recruitment command center.
+              T3mel automates CV screening, matches candidates to jobs with precision scoring, and gives your team a real-time recruitment command center.
             </p>
 
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -164,7 +164,7 @@ export default function Home() {
               Everything you need to hire smarter
             </h2>
             <p style={{ fontSize: '1.1rem', color: '#6b7280', marginTop: '1rem', maxWidth: '540px', margin: '1rem auto 0' }}>
-              From CV upload to final hire — O Ta3mel handles the entire pipeline.
+              From CV upload to final hire — T3mel handles the entire pipeline.
             </p>
           </div>
 
@@ -351,7 +351,7 @@ export default function Home() {
       }}>
         <div className="container">
           <Logo size="sm" variant="light" showText={true} />
-          <p style={{ marginTop: '1rem' }}>© 2025 O Ta3mel. Recruitment Platform. All rights reserved.</p>
+          <p style={{ marginTop: '1rem' }}>© 2025 T3mel. Recruitment Platform. All rights reserved.</p>
         </div>
       </footer>
     </main>
