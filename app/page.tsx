@@ -120,8 +120,8 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <Link href="/upload" className="btn-white" style={{ padding: '0.9rem 2rem', fontSize: '1rem' }}>
-                Upload CVs Now →
+              <Link href="/login" className="btn-white" style={{ padding: '0.9rem 2rem', fontSize: '1rem' }}>
+                Sign In →
               </Link>
               <Link href="/dashboard" style={{
                 padding: '0.9rem 2rem', fontSize: '1rem', fontWeight: 600,
