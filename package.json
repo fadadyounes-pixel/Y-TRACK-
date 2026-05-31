@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/fadadyounes-pixel/Y-TRACK-#readme",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
     "@vercel/analytics": "^2.0.1",
     "next": "^16.2.6",
     "react": "^19.2.6",
