@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="560" height="110" viewBox="0 0 560 110" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;800;900&amp;display=swap');
+    </style>
+  </defs>
+
+  <!-- Dark background -->
+  <rect width="560" height="110" fill="#0B2D5C"/>
+
+  <!--
+    GEOMETRIC MARK — reversed (white bars, orange crossbar)
+    Same structure, same proportions — inverted palette
+  -->
+  <g transform="translate(24,23)">
+    <rect x="0"  y="0" width="16" height="64" fill="#F2F2F2"/>
+    <rect x="42" y="0" width="16" height="64" fill="#F2F2F2"/>
+    <rect x="16" y="22" width="26" height="20" fill="#E67E22"/>
+  </g>
+
+  <!-- Thin vertical separator -->
+  <line x1="105" y1="23" x2="105" y2="87" stroke="#F2F2F2" stroke-width="1" opacity="0.15"/>
+
+  <!-- HHOR — Primary wordmark, white -->
+  <text
+    x="121" y="77"
+    font-family="'Montserrat', 'Arial Black', 'Helvetica Neue', sans-serif"
+    font-weight="900"
+    font-size="54"
+    letter-spacing="3"
+    fill="#F2F2F2">HHOR</text>
+
+  <!-- Orange accent bar -->
+  <rect x="121" y="83" width="46" height="3" fill="#E67E22"/>
+
+  <!-- Full platform name — white at reduced opacity -->
+  <text
+    x="121" y="100"
+    font-family="'Montserrat', 'Helvetica Neue', 'Arial', sans-serif"
+    font-weight="500"
+    font-size="8.5"
+    letter-spacing="2.8"
+    fill="#F2F2F2"
+    opacity="0.60">PLATEFORME HAY HASSANI OUM RABII</text>
+</svg>
