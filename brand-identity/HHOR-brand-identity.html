@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HHOR — Brand Identity System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Montserrat', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      background: #D6D6D6;
+      color: #0B2D5C;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .page { max-width: 1040px; margin: 0 auto; padding-bottom: 0; }
+
+    /* HEADER */
+    .hdr {
+      background: #0B2D5C;
+      padding: 40px 48px 34px;
+      border-bottom: 5px solid #E67E22;
+      margin-bottom: 36px;
+    }
+    .hdr-eye  { font-size: 9px; font-weight: 600; letter-spacing: 3.5px; color: #E67E22; margin-bottom: 12px; }
+    .hdr-h1   { font-size: 30px; font-weight: 900; letter-spacing: 7px; color: #F2F2F2; line-height: 1; }
+    .hdr-sub  { font-size: 9px; font-weight: 400; letter-spacing: 2.5px; color: rgba(242,242,242,.38); margin-top: 11px; }
+
+    /* SECTION */
+    .sec { margin-bottom: 36px; padding: 0 36px; }
+    .sec-lbl {
+      font-size: 8px; font-weight: 600; letter-spacing: 3px; color: rgba(11,45,92,.35);
+      text-transform: uppercase; padding-bottom: 12px; margin-bottom: 18px;
+      border-bottom: 1px solid rgba(11,45,92,.10);
+    }
+
+    /* 2-COL GRID */
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* LOGO CELL */
+    .cell {
+      border-radius: 5px;
+      display: flex; flex-direction: column;
+      align-items: flex-start; justify-content: center;
+    }
+    .cell.cl { background: #F2F2F2; box-shadow: 0 1px 8px rgba(0,0,0,.09); }
+    .cell.dk { background: #0B2D5C; }
+    .cell .inner { padding: 44px 40px; }
+    .cell.st .inner {
+      padding: 44px 40px;
+      display: flex; flex-direction: column; align-items: center;
+      width: 100%;
+    }
+    .cap {
+      font-size: 7px; font-weight: 500; letter-spacing: 2px;
+      padding: 10px 4px 0;
+    }
+    .cap.cl { color: rgba(11,45,92,.28); }
+    .cap.dk { color: rgba(11,45,92,.28); }
+
+    /* MARK ROW */
+    .mark-row { display: flex; gap: 12px; }
+    .mc {
+      flex: 1; border-radius: 5px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 32px 16px; gap: 14px;
+    }
+    .mc.cl { background: #F2F2F2; box-shadow: 0 1px 8px rgba(0,0,0,.09); }
+    .mc.dk { background: #0B2D5C; }
+    .mc.or { background: #E67E22; }
+    .mc-lbl { font-size: 6.5px; font-weight: 600; letter-spacing: 1.5px; text-align: center; text-transform: uppercase; }
+    .mc.cl .mc-lbl { color: rgba(11,45,92,.28); }
+    .mc.dk .mc-lbl { color: rgba(242,242,242,.28); }
+    .mc.or .mc-lbl { color: rgba(11,45,92,.40); }
+
+    /* PALETTE */
+    .pal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .sw { background: #fff; border-radius: 5px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .sw-clr { height: 110px; }
+    .sw-body { padding: 18px 22px 22px; }
+    .sw-hex  { font-size: 15px; font-weight: 700; color: #0B2D5C; letter-spacing: .5px; }
+    .sw-nm   { font-size: 8px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(11,45,92,.42); margin-top: 5px; }
+    .sw-v    { font-size: 7.5px; color: rgba(11,45,92,.28); margin-top: 8px; line-height: 1.9; }
+    .sw-r    { font-size: 8px; font-weight: 500; color: #E67E22; margin-top: 10px; }
+
+    /* TYPOGRAPHY */
+    .tc { background: #fff; border-radius: 5px; padding: 36px 44px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .tr { padding: 22px 0; border-bottom: 1px solid rgba(11,45,92,.06); }
+    .tr:first-child { padding-top: 0; }
+    .tr:last-child  { border-bottom: none; padding-bottom: 0; }
+    .ts { color: #0B2D5C; line-height: 1.1; }
+    .tm { font-size: 7.5px; font-weight: 400; color: rgba(11,45,92,.28); margin-top: 10px; letter-spacing: .8px; }
+
+    /* RULES */
+    .rc { background: #fff; border-radius: 5px; padding: 28px 30px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .rt { font-size: 8px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .rt.do { color: #27AE60; }
+    .rt.no { color: #E74C3C; }
+    .rl { list-style: none; }
+    .rl li { font-size: 9.5px; color: rgba(11,45,92,.60); padding: 6px 0; border-bottom: 1px solid rgba(11,45,92,.05); letter-spacing: .2px; line-height: 1.5; }
+    .rl li:last-child { border-bottom: none; }
+    .rl li::before { content: '— '; color: rgba(11,45,92,.22); }
+
+    /* FOOTER */
+    .ftr {
+      background: #0B2D5C; margin-top: 48px;
+      padding: 18px 48px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ft { font-size: 7.5px; font-weight: 500; letter-spacing: 1.5px; color: rgba(242,242,242,.32); }
+
+    @media (max-width: 700px) {
+      .g2, .pal { grid-template-columns: 1fr; }
+      .mark-row { flex-wrap: wrap; }
+      .hdr { padding: 24px; }
+      .hdr-h1 { font-size: 22px; letter-spacing: 4px; }
+      .sec { padding: 0 16px; }
+      .tc { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+
+  <!-- ═══════════════════════════════════════ HEADER ═══ -->
+  <div class="hdr">
+    <div class="hdr-eye">BRAND IDENTITY SYSTEM</div>
+    <div class="hdr-h1">HHOR</div>
+    <div class="hdr-sub">PLATEFORME HAY HASSANI OUM RABII &nbsp;·&nbsp; MAROC</div>
+  </div>
+
+
+  <!-- ═══════════════════════════════ 01 HORIZONTAL ═══ -->
+  <div class="sec">
+    <div class="sec-lbl">01 &mdash; Logo &nbsp;/&nbsp; Variante Horizontale</div>
+    <div class="g2">
+
+      <!-- Light horizontal -->
+      <div>
+        <div class="cell cl">
+          <div class="inner">
+            <div style="display:flex;align-items:center;gap:20px">
+              <svg width="47" height="60" viewBox="0 0 50 64" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <rect x="0"  y="0" width="14" height="64" fill="#0B2D5C"/>
+                <rect x="36" y="0" width="14" height="64" fill="#0B2D5C"/>
+                <rect x="14" y="22" width="22" height="20" fill="#E67E22"/>
+              </svg>
+              <div style="width:1px;height:60px;background:#0B2D5C;opacity:.10;flex-shrink:0"></div>
+              <div>
+                <div style="font-weight:900;font-size:50px;letter-spacing:3px;color:#0B2D5C;line-height:1">HHOR</div>
+                <div style="width:38px;height:3px;background:#E67E22;margin-top:7px;margin-bottom:9px"></div>
+                <div style="font-weight:500;font-size:8px;letter-spacing:2.5px;color:#0B2D5C;opacity:.55;white-space:nowrap">PLATEFORME HAY HASSANI OUM RABII</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap cl">FOND CLAIR &nbsp;·&nbsp; USAGE PRINCIPAL</div>
+      </div>
+
+      <!-- Dark horizontal -->
+      <div>
+        <div class="cell dk">
+          <div class="inner">
+            <div style="display:flex;align-items:center;gap:20px">
+              <svg width="47" height="60" viewBox="0 0 50 64" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <rect x="0"  y="0" width="14" height="64" fill="#F2F2F2"/>
+                <rect x="36" y="0" width="14" height="64" fill="#F2F2F2"/>
+                <rect x="14" y="22" width="22" height="20" fill="#E67E22"/>
+              </svg>
+              <div style="width:1px;height:60px;background:#F2F2F2;opacity:.12;flex-shrink:0"></div>
+              <div>
+                <div style="font-weight:900;font-size:50px;letter-spacing:3px;color:#F2F2F2;line-height:1">HHOR</div>
+                <div style="width:38px;height:3px;background:#E67E22;margin-top:7px;margin-bottom:9px"></div>
+                <div style="font-weight:500;font-size:8px;letter-spacing:2.5px;color:#F2F2F2;opacity:.55;white-space:nowrap">PLATEFORME HAY HASSANI OUM RABII</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap dk">FOND SOMBRE &nbsp;·&nbsp; VERSION INVERSÉE</div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════ 02 STACKED ═══ -->
+  <div class="sec">
+    <div class="sec-lbl">02 &mdash; Logo &nbsp;/&nbsp; Variante Empilée (Stacked)</div>
+    <div class="g2">
+
+      <!-- Light stacked -->
+      <div>
+        <div class="cell cl st">
+          <div class="inner">
+            <svg width="46" height="59" viewBox="0 0 50 64" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0"  y="0" width="14" height="64" fill="#0B2D5C"/>
+              <rect x="36" y="0" width="14" height="64" fill="#0B2D5C"/>
+              <rect x="14" y="22" width="22" height="20" fill="#E67E22"/>
+            </svg>
+            <div style="font-weight:900;font-size:56px;letter-spacing:6px;color:#0B2D5C;line-height:1;margin-top:24px">HHOR</div>
+            <div style="width:52px;height:2.5px;background:#E67E22;margin:10px 0 12px"></div>
+            <div style="font-weight:400;font-size:9px;letter-spacing:3.5px;color:#0B2D5C;opacity:.52;text-align:center">PLATEFORME</div>
+            <div style="font-weight:400;font-size:9px;letter-spacing:2px;color:#0B2D5C;opacity:.52;text-align:center;margin-top:5px">HAY HASSANI OUM RABII</div>
+          </div>
+        </div>
+        <div class="cap cl">FOND CLAIR &nbsp;·&nbsp; FORMAT CARRÉ / APP</div>
+      </div>
+
+      <!-- Dark stacked -->
+      <div>
+        <div class="cell dk st">
+          <div class="inner">
+            <svg width="46" height="59" viewBox="0 0 50 64" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0"  y="0" width="14" height="64" fill="#F2F2F2"/>
+              <rect x="36" y="0" width="14" height="64" fill="#F2F2F2"/>
+              <rect x="14" y="22" width="22" height="20" fill="#E67E22"/>
+            </svg>
+            <div style="font-weight:900;font-size:56px;letter-spacing:6px;color:#F2F2F2;line-height:1;margin-top:24px">HHOR</div>
+            <div style="width:52px;height:2.5px;background:#E67E22;margin:10px 0 12px"></div>
+            <div style="font-weight:400;font-size:9px;letter-spacing:3.5px;color:#F2F2F2;opacity:.52;text-align:center">PLATEFORME</div>
+            <div style="font-weight:400;font-size:9px;letter-spacing:2px;color:#F2F2F2;opacity:.52;text-align:center;margin-top:5px">HAY HASSANI OUM RABII</div>
+          </div>
+        </div>
+        <div class="cap dk">FOND SOMBRE &nbsp;·&nbsp; FORMAT CARRÉ / APP</div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════ 03 THE MARK ═══ -->
+  <div class="sec">
+    <div class="sec-lbl">03 &mdash; Le Signe &nbsp;/&nbsp; The Mark — isolé</div>
+    <div class="mark-row">
+
+      <div class="mc cl" style="flex:2">
+        <svg width="100" height="128" viewBox="0 0 50 64" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0"  y="0" width="14" height="64" fill="#0B2D5C"/>
+          <rect x="36" y="0" width="14" height="64" fill="#0B2D5C"/>
+          <rect x="14" y="22" width="22" height="20" fill="#E67E22"/>
+        </svg>
+        <div class="mc-lbl">Grand format<br>Fond clair</div>
+      </div>
+
+      <div class="mc dk" style="flex:2">
+        <svg width="72" height="92" viewBox="0 0 50 64" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0"  y="0" width="14" height="64" fill="#F2F2F2"/>
+          <rect x="36" y="0" width="14" height="64" fill="#F2F2F2"/>
+          <rect x="14" y="22" width="22" height="20" fill="#E67E22"/>
+        </svg>
+        <div class="mc-lbl">Moyen format<br>Fond sombre</div>
+      </div>
+
+      <div class="mc or" style="flex:1.5">
+        <svg width="50" height="64" viewBox="0 0 50 64" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0"  y="0" width="14" height="64" fill="#0B2D5C"/>
+          <rect x="36" y="0" width="14" height="64" fill="#0B2D5C"/>
+          <rect x="14" y="22" width="22" height="20" fill="#F2F2F2"/>
+        </svg>
+        <div class="mc-lbl">Fond orange<br>Variante</div>
+      </div>
+
+      <div class="mc cl" style="flex:1">
+        <svg width="28" height="36" viewBox="0 0 50 64" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0"  y="0" width="14" height="64" fill="#0B2D5C"/>
+          <rect x="36" y="0" width="14" height="64" fill="#0B2D5C"/>
+          <rect x="14" y="22" width="22" height="20" fill="#E67E22"/>
+        </svg>
+        <div class="mc-lbl">Taille<br>minimale</div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════ 04 COLOR PALETTE ═══ -->
+  <div class="sec">
+    <div class="sec-lbl">04 &mdash; Palette de Couleurs</div>
+    <div class="pal">
+
+      <div class="sw">
+        <div class="sw-clr" style="background:#0B2D5C"></div>
+        <div class="sw-body">
+          <div class="sw-hex">#0B2D5C</div>
+          <div class="sw-nm">Bleu Marine Principal</div>
+          <div class="sw-v">R 11 · G 45 · B 92<br>C88 M67 Y0 K64<br>Pantone 534 C</div>
+          <div class="sw-r">Structure · Texte · Fond principal</div>
+        </div>
+      </div>
+
+      <div class="sw">
+        <div class="sw-clr" style="background:#E67E22"></div>
+        <div class="sw-body">
+          <div class="sw-hex">#E67E22</div>
+          <div class="sw-nm">Orange Brûlé — Accent</div>
+          <div class="sw-v">R 230 · G 126 · B 34<br>C0 M45 Y85 K10<br>Pantone 7416 C</div>
+          <div class="sw-r">Accent uniquement — crossbar, tiret</div>
+        </div>
+      </div>
+
+      <div class="sw">
+        <div class="sw-clr" style="background:#F2F2F2;border-bottom:1px solid #E2E2E2"></div>
+        <div class="sw-body">
+          <div class="sw-hex">#F2F2F2</div>
+          <div class="sw-nm">Gris Clair / Blanc</div>
+          <div class="sw-v">R 242 · G 242 · B 242<br>C0 M0 Y0 K5<br>Blanc optique</div>
+          <div class="sw-r">Fond clair · Texte inversé</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════ 05 TYPOGRAPHY ═══ -->
+  <div class="sec">
+    <div class="sec-lbl">05 &mdash; Typographie &nbsp;·&nbsp; Montserrat</div>
+    <div class="tc">
+
+      <div style="margin-bottom:22px;padding-bottom:20px;border-bottom:1px solid rgba(11,45,92,.06)">
+        <div style="font-size:9px;font-weight:600;letter-spacing:2.5px;color:rgba(11,45,92,.28);margin-bottom:8px">FAMILLE TYPOGRAPHIQUE</div>
+        <span style="font-size:26px;font-weight:800;letter-spacing:1px;color:#0B2D5C">Montserrat</span>
+        <span style="font-size:9px;color:rgba(11,45,92,.32);margin-left:16px;letter-spacing:.5px">Google Fonts &nbsp;·&nbsp; Juarez Design &nbsp;·&nbsp; Libre &amp; gratuit</span>
+      </div>
+
+      <div class="tr">
+        <div class="ts" style="font-size:72px;font-weight:900;letter-spacing:5px">HHOR</div>
+        <div class="tm">BLACK 900 &nbsp;·&nbsp; 72px &nbsp;·&nbsp; letter-spacing 5px &nbsp;&mdash;&nbsp; Acronyme principal &amp; titres</div>
+      </div>
+
+      <div class="tr">
+        <div class="ts" style="font-size:40px;font-weight:800;letter-spacing:3px">HHOR</div>
+        <div class="tm">EXTRABOLD 800 &nbsp;·&nbsp; 40px &nbsp;&mdash;&nbsp; Titres secondaires, version réduite</div>
+      </div>
+
+      <div class="tr">
+        <div class="ts" style="font-size:13px;font-weight:600;letter-spacing:4px;opacity:.62">PLATEFORME HAY HASSANI OUM RABII</div>
+        <div class="tm">SEMIBOLD 600 &nbsp;·&nbsp; 13px &nbsp;·&nbsp; letter-spacing 4px &nbsp;&mdash;&nbsp; Nom complet sous l'acronyme</div>
+      </div>
+
+      <div class="tr">
+        <div class="ts" style="font-size:12px;font-weight:500;letter-spacing:3px;opacity:.48">Empowerment &nbsp;·&nbsp; Jeunesse &nbsp;·&nbsp; Maroc</div>
+        <div class="tm">MEDIUM 500 &nbsp;·&nbsp; 12px &nbsp;·&nbsp; letter-spacing 3px &nbsp;&mdash;&nbsp; Tagline optionnelle, sous-titres</div>
+      </div>
+
+      <div class="tr">
+        <div class="ts" style="font-size:15px;font-weight:300;opacity:.52;line-height:1.7">Une plateforme dédiée à l'autonomisation<br>des jeunes d'Hay Hassani, Casablanca.</div>
+        <div class="tm">LIGHT 300 &nbsp;·&nbsp; 15px &nbsp;&mdash;&nbsp; Corps de texte courant, descriptions</div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════ 06 RULES ═══ -->
+  <div class="sec">
+    <div class="sec-lbl">06 &mdash; Règles d'Usage</div>
+    <div class="g2">
+
+      <div class="rc">
+        <div class="rt do">&#10003; &nbsp; À Faire</div>
+        <ul class="rl">
+          <li>Utiliser le logo sur fond #F2F2F2 ou #0B2D5C uniquement</li>
+          <li>Respecter la zone de protection (1× hauteur du signe)</li>
+          <li>Utiliser l'orange exclusivement comme accent ponctuel</li>
+          <li>Conserver les proportions exactes du signe H</li>
+          <li>Montserrat Black 900 pour l'acronyme HHOR</li>
+          <li>Version empilée pour les formats carrés (profil, app)</li>
+          <li>Version horizontale pour les en-têtes et signatures</li>
+        </ul>
+      </div>
+
+      <div class="rc">
+        <div class="rt no">&#10007; &nbsp; À Éviter</div>
+        <ul class="rl">
+          <li>Ne pas changer les couleurs du logo</li>
+          <li>Ne pas ajouter d'ombre portée, dégradé ou effet</li>
+          <li>Ne pas utiliser l'orange comme couleur de fond principale</li>
+          <li>Ne pas déformer ou étirer le signe ou le texte</li>
+          <li>Ne pas réduire le signe en dessous de 28px de hauteur</li>
+          <li>Ne pas substituer Montserrat par une autre fonte</li>
+          <li>Ne pas ajouter de silhouettes, clipart ou icônes figuratives</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════ FOOTER ═══ -->
+  <div class="ftr">
+    <div class="ft">HHOR &nbsp;·&nbsp; PLATEFORME HAY HASSANI OUM RABII &nbsp;·&nbsp; IDENTITÉ VISUELLE</div>
+    <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#E67E22"/></svg>
+    <div class="ft">VERSION 1.0 &nbsp;·&nbsp; 2025</div>
+  </div>
+
+</div>
+</body>
+</html>
