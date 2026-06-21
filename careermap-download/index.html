@@ -69,6 +69,27 @@ var _db = null;
 
 const { useState, useEffect, useRef, useMemo } = React;
 
+/* ─── ERROR BOUNDARY ─────────────────────────────────────────────────────── */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { err: null };
+  }
+  static getDerivedStateFromError(e) { return { err: e }; }
+  componentDidCatch(e, info) { console.error("CareerMap error:", e, info); }
+  render() {
+    if (this.state.err) {
+      return React.createElement("div", { style: { display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", background:"#06111f", padding:24, textAlign:"center" } },
+        React.createElement("div", { style: { fontSize:40, marginBottom:16 } }, "⚠️"),
+        React.createElement("p", { style: { color:"#f0f4f8", fontSize:16, fontWeight:700, marginBottom:8 } }, "Une erreur est survenue"),
+        React.createElement("p", { style: { color:"#dc4c3c", fontSize:12, fontFamily:"monospace", background:"rgba(220,76,60,.1)", padding:"12px 16px", borderRadius:8, maxWidth:400, wordBreak:"break-word" } }, String(this.state.err)),
+        React.createElement("button", { onClick: function(){ window.location.reload(); }, style: { marginTop:20, padding:"10px 24px", background:"#1aabaa", border:"none", borderRadius:10, color:"#06111f", fontWeight:800, fontSize:14, cursor:"pointer" } }, "Recharger")
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /* ─── INJECT CSS ─────────────────────────────────────────────────────────── */
 function injectCSS() {
   if (typeof document === "undefined") return;
@@ -3809,7 +3830,7 @@ function App() {
 }
 
 const _root = ReactDOM.createRoot(document.getElementById("root"));
-_root.render(React.createElement(App));
+_root.render(React.createElement(ErrorBoundary, null, React.createElement(App)));
 
   </script>
   <script>
