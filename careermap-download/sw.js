@@ -1,9 +1,10 @@
-const CACHE = 'careermap-v34';
+const CACHE = 'careermap-v35';
+const PRECACHE = ['/', '/index.html', '/lib/react.js', '/lib/react-dom.js', '/lib/babel.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(['/', '/index.html']).catch(() => c.addAll([self.registration.scope, self.registration.scope + 'index.html']).catch(() => {})))
+      .then(c => c.addAll(PRECACHE))
       .then(() => self.skipWaiting())
   );
 });

@@ -15,9 +15,9 @@
   <meta name="apple-mobile-web-app-title" content="CareerMap"/>
   <link rel="apple-touch-icon" href="icon.svg"/>
   <meta name="description" content="Career guidance and assessment platform"/>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="lib/react.js"></script>
+  <script src="lib/react-dom.js"></script>
+  <script src="lib/babel.js"></script>
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -3833,7 +3833,7 @@ _root.render(React.createElement(ErrorBoundary, null, React.createElement(App)))
 
   </script>
   <script>
-    // Hide loading once React renders
+    // Hide loading ONLY when React has actually rendered into #root
     var _obs = new MutationObserver(function(){
       var r = document.getElementById('root');
       if(r && r.children.length > 0){
@@ -3843,10 +3843,16 @@ _root.render(React.createElement(ErrorBoundary, null, React.createElement(App)))
       }
     });
     _obs.observe(document.getElementById('root'), {childList:true,subtree:true});
+    // Safety net: after 30s show an error instead of black screen
     setTimeout(function(){
-      var l = document.getElementById('cm-loading');
-      if(l) l.style.display = 'none';
-    }, 5000);
+      var r = document.getElementById('root');
+      if(r && r.children.length === 0){
+        var l = document.getElementById('cm-loading');
+        if(l){
+          l.innerHTML = '<p style="color:#dc4c3c;font-size:14px;text-align:center;padding:20px">Failed to load. Please check your connection and refresh.<br><br><button onclick="location.reload()" style="margin-top:12px;padding:10px 24px;background:#1aabaa;color:#06111f;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Refresh</button></p>';
+        }
+      }
+    }, 30000);
   </script>
   <script>
     if('serviceWorker' in navigator){
