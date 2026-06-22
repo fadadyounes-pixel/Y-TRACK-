@@ -1,4 +1,4 @@
-const CACHE = 'careermap-v32';
+const CACHE = 'careermap-v33';
 const URLS  = ['/careerMap/', '/careerMap/index.html'];
 
 self.addEventListener('install', e => {
