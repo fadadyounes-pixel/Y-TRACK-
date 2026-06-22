@@ -1,8 +1,11 @@
-const CACHE = 'careermap-v33';
-const URLS  = ['/careerMap/', '/careerMap/index.html'];
+const CACHE = 'careermap-v34';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(URLS)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => c.addAll(['/', '/index.html']).catch(() => c.addAll([self.registration.scope, self.registration.scope + 'index.html']).catch(() => {})))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
