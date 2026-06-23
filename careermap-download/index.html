@@ -3530,42 +3530,21 @@ function ShareQRModal({ onClose }) {
 function LandingPage({ onStart, lang, setLang }) {
   var ar = lang === "ar";
   var fr = lang === "fr";
-  var tests = [
-    { ic:"🎯", col:"#1aabaa", colL:"#e4f5f4",
-      name: ar?"اختبار هولاند (RIASEC)":fr?"Test Holland (RIASEC)":"Holland Test (RIASEC)",
-      desc: ar?"٣٠ سؤالاً · ~٢٠ دقيقة · يكشف نمط شخصيتك المهنية من ٦ أنواع":fr?"30Q · ~20min · Identifie votre type parmi 6 personnalités métier":"30Q · ~20min · Reveals your career personality across 6 types" },
-    { ic:"🧠", col:"#0f7e7d", colL:"#e4f5f4",
-      name: ar?"العوامل الخمسة الكبرى (OCEAN)":fr?"Big Five Personnalité (OCEAN)":"Big Five Personality (OCEAN)",
-      desc: ar?"٢٥ سؤالاً · ~١٥ دقيقة · يقيس سماتك الشخصية الخمس الرئيسية":fr?"25Q · ~15min · Mesure vos 5 grands traits de personnalité":"25Q · ~15min · Measures your 5 core personality traits" },
-    { ic:"⚡", col:"#ff7a59", colL:"#fff3ef",
-      name: ar?"مهارات التوظيف (Skill Up)":fr?"Employabilité (Skill Up)":"Employability (Skill Up)",
-      desc: ar?"٢٠ سؤالاً · ~١٢ دقيقة · يقيّم استعدادك لسوق العمل":fr?"20Q · ~12min · Évalue votre niveau de préparation au marché":"20Q · ~12min · Evaluates your job market readiness" },
-  ];
-  var features = [
-    ar?"كود نتائج شخصي مع تقرير مفصل":fr?"Code résultats + rapport PDF complet":"Personal result code + full PDF report",
-    ar?"توصيات مسارات مهنية وأكاديمية":fr?"Recommandations métiers et académiques":"Career & academic path recommendations",
-    ar?"خطة عمل مخصصة ودعم المستشار":fr?"Plan d'action personnalisé + suivi conseiller":"Personalised action plan + advisor support",
-  ];
   return (
     <div dir={ar?"rtl":"ltr"} style={{
       minHeight:"100%", width:"100%", display:"flex", flexDirection:"column",
-      alignItems:"center", justifyContent:"center", padding:"24px 16px 32px", overflowY:"auto"
+      alignItems:"center", justifyContent:"center", padding:"28px 16px", overflowY:"auto"
     }}>
       <div style={{ width:"100%", maxWidth:430, background:"#fff", borderRadius:30,
           overflow:"hidden", boxShadow:"0 30px 70px -20px rgba(10,79,78,.55)",
-          animation:"scIn .5s cubic-bezier(.22,1,.36,1) both" }}>
-
-        {/* ── Hero ── */}
+          animation:"scIn .5s ease both" }}>
+        {/* Hero */}
         <div style={{ background:"linear-gradient(160deg,#1aabaa 0%,#0f7e7d 100%)",
-            padding:"28px 28px 30px", position:"relative", overflow:"hidden" }}>
+            padding:"30px 30px 34px", position:"relative", overflow:"hidden" }}>
           <div style={{ position:"absolute", top:-80, insetInlineEnd:-60,
-              width:220, height:220, borderRadius:"50%", pointerEvents:"none",
+              width:200, height:200, borderRadius:"50%", pointerEvents:"none",
               background:"radial-gradient(circle at 30% 30%,rgba(255,122,89,.55),rgba(255,122,89,0) 70%)" }}/>
-          <div style={{ position:"absolute", bottom:-60, insetInlineStart:-40,
-              width:160, height:160, borderRadius:"50%", pointerEvents:"none",
-              background:"radial-gradient(circle,rgba(125,255,212,.18),rgba(125,255,212,0) 70%)" }}/>
-          {/* Lang switcher */}
-          <div style={{ position:"absolute", top:18, insetInlineEnd:18,
+          <div style={{ position:"absolute", top:22, insetInlineEnd:22,
               display:"flex", background:"rgba(255,255,255,.16)", padding:3,
               borderRadius:999, backdropFilter:"blur(4px)", zIndex:1 }}>
             {["fr","en","ar"].map(function(l){
@@ -3578,97 +3557,34 @@ function LandingPage({ onStart, lang, setLang }) {
               </button>;
             })}
           </div>
-          {/* Logo row */}
-          <div style={{ display:"flex", alignItems:"center", gap:10, position:"relative", zIndex:1, marginBottom:20 }}>
-            <CompassLogo size={38}/>
-            <span style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:22,
+          <div style={{ display:"flex", alignItems:"center", gap:10, position:"relative", zIndex:1 }}>
+            <CompassLogo size={34}/>
+            <span style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:21,
                 color:"#fff", letterSpacing:-0.4 }}>CareerMap</span>
           </div>
-          <h1 style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:26,
-              color:"#fff", lineHeight:1.18, letterSpacing:"-0.5px",
+          <h1 style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:27,
+              color:"#fff", lineHeight:1.15, letterSpacing:"-0.6px", marginTop:24,
               position:"relative", zIndex:1 }}>
             {ar?"خريطتك المهنية تبدأ هنا":fr?"Votre carte de carrière commence ici":"Your career map starts here"}
           </h1>
-          <p style={{ fontSize:13.5, color:"rgba(255,255,255,.82)", lineHeight:1.6,
-              marginTop:9, position:"relative", zIndex:1 }}>
-            {ar?"٧٥ سؤالاً · ثلاثة اختبارات علمية معتمدة · نتائج فورية":fr?"75 questions · 3 évaluations scientifiques · Résultats immédiats":"75 questions · 3 validated assessments · Instant results"}
+          <p style={{ fontSize:14.5, color:"rgba(255,255,255,.85)", lineHeight:1.55,
+              marginTop:10, position:"relative", zIndex:1 }}>
+            {ar?"اكتشف مسارك المهني من خلال ثلاثة اختبارات علمية.":fr?"Découvrez votre orientation grâce à 3 évaluations scientifiques.":"Discover your path through 3 validated psychometric assessments."}
           </p>
-          {/* Stat pills */}
-          <div style={{ display:"flex", gap:8, marginTop:16, flexWrap:"wrap", position:"relative", zIndex:1 }}>
-            {[
-              ar?"~٤٧ دقيقة":fr?"~47 min":"~47 min",
-              ar?"٣ اختبارات":fr?"3 tests":"3 tests",
-              ar?"تقرير PDF":fr?"Rapport PDF":"PDF Report",
-            ].map(function(t){
-              return <span key={t} style={{ background:"rgba(255,255,255,.18)", color:"#eafffe",
-                fontSize:11, fontWeight:700, padding:"4px 11px", borderRadius:99,
-                backdropFilter:"blur(4px)", border:"1px solid rgba(255,255,255,.22)" }}>{t}</span>;
-            })}
-          </div>
         </div>
-
-        {/* ── Body ── */}
-        <div style={{ padding:"22px 24px 26px" }}>
-
-          {/* Test breakdown cards */}
-          <div style={{ marginBottom:18 }}>
-            <p style={{ fontSize:10, fontWeight:700, color:"#7d908f", letterSpacing:.8,
-                textTransform:"uppercase", marginBottom:10 }}>
-              {ar?"الاختبارات الثلاثة":fr?"Les 3 évaluations":"The 3 assessments"}
-            </p>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {tests.map(function(t,i){
-                return (
-                  <div key={i} className="ld-card" style={{ display:"flex", alignItems:"center", gap:12,
-                      padding:"11px 13px", borderRadius:14,
-                      background:t.colL, border:"1.5px solid "+t.col+"33" }}>
-                    <div style={{ width:36, height:36, borderRadius:10, background:t.col+"18",
-                        border:"1px solid "+t.col+"44", display:"flex", alignItems:"center",
-                        justifyContent:"center", fontSize:18, flexShrink:0 }}>{t.ic}</div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontFamily:"Syne,sans-serif", fontSize:12, fontWeight:700,
-                          color:"#15302f", marginBottom:2 }}>{t.name}</div>
-                      <div style={{ fontSize:10, color:"#5d7170", lineHeight:1.4 }}>{t.desc}</div>
-                    </div>
-                    <div style={{ width:24, height:24, borderRadius:"50%", background:t.col,
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        fontSize:11, fontWeight:800, color:"#fff", flexShrink:0 }}>{i+1}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* What you get */}
-          <div className="ld-card" style={{ background:"#f6f9f9", borderRadius:14,
-              padding:"13px 15px", marginBottom:18, border:"1px solid #e0eaea" }}>
-            <p style={{ fontSize:10, fontWeight:700, color:"#7d908f", letterSpacing:.8,
-                textTransform:"uppercase", marginBottom:9 }}>
-              {ar?"ماذا ستحصل عليه":fr?"Ce que vous obtenez":"What you get"}
-            </p>
-            {features.map(function(f){
-              return <div key={f} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                <div style={{ width:18, height:18, borderRadius:"50%", background:"#e4f5f4",
-                    border:"1.5px solid #1aabaa", display:"flex", alignItems:"center",
-                    justifyContent:"center", fontSize:10, color:"#0f7e7d", flexShrink:0 }}>✓</div>
-                <span style={{ fontSize:12, color:"#3a4f4e", lineHeight:1.4 }}>{f}</span>
-              </div>;
-            })}
-          </div>
-
-          {/* CTA */}
+        {/* Body */}
+        <div style={{ padding:"28px 30px 30px" }}>
           <button onClick={onStart}
-            style={{ width:"100%", height:54, border:"none", borderRadius:14,
+            style={{ width:"100%", height:52, border:"none", borderRadius:14,
               background:"#1aabaa", color:"#fff", fontSize:16, fontWeight:700,
               fontFamily:"Epilogue,sans-serif", cursor:"pointer",
               display:"flex", alignItems:"center", justifyContent:"center", gap:9,
               boxShadow:"0 8px 20px rgba(26,171,170,.32)", transition:"all .18s" }}
             onMouseEnter={function(e){e.currentTarget.style.background="#0f7e7d";e.currentTarget.style.boxShadow="0 10px 26px rgba(26,171,170,.42)";}}
             onMouseLeave={function(e){e.currentTarget.style.background="#1aabaa";e.currentTarget.style.boxShadow="0 8px 20px rgba(26,171,170,.32)";}}>
-            <span>{ar?"ابدأ الآن":fr?"Commencer":"Begin now"}</span>
-            <span style={{ fontSize:20, lineHeight:1 }}>{ar?"←":"→"}</span>
+            {ar?"ابدأ الآن ←":fr?"Commencer →":"Begin →"}
           </button>
-          <p style={{ textAlign:"center", fontSize:10, color:"#b3c0c0", marginTop:16 }}>
+          <p style={{ textAlign:"center", fontSize:11, color:"#b3c0c0", marginTop:22 }}>
             © 2025 CareerMap · careermaponline.org
           </p>
         </div>
