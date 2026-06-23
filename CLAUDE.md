@@ -2,6 +2,16 @@
 
 > This file is the single source of truth for how Claude should reason about, extend, and redesign the IdeaMap application. Read it before touching any file in `app/ideamap/`.
 
+## Design Source Files
+
+The full UI code — all components, tokens, layouts, and styles:
+
+@app/ideamap/page.tsx
+
+The AI proxy route:
+
+@app/api/ai/route.ts
+
 ---
 
 ## What IdeaMap Is
