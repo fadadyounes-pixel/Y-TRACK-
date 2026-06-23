@@ -35,6 +35,7 @@ jobs:
             echo "No changes to deploy."
           else
             git commit -m "Auto-deploy $(date '+%Y-%m-%d %H:%M UTC')"
+            git pull --rebase origin main
             git push
             echo "Deployed successfully."
           fi
