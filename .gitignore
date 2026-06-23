@@ -43,3 +43,4 @@ env/
 venv/
 ENV/
 .venv
+.claude/
