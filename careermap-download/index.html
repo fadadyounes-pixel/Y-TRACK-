@@ -28,7 +28,7 @@
     #cm-loading{position:fixed;inset:0;background:radial-gradient(130% 80% at 50% 0%,#1aabaa 0%,#0f6e6d 50%,#08403f 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9999}
     #cm-loading svg{animation:spin 1.5s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    #cm-loading p{color:rgba(255,255,255,.8);font-size:13px;letter-spacing:2px;text-transform:uppercase}
+    #cm-loading p{color:#eafffe;font-size:13px;letter-spacing:2px;text-transform:uppercase}
     @keyframes scIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
     @keyframes scPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
     @keyframes scGrowX{from{transform:scaleX(0)}to{transform:scaleX(1)}}
@@ -209,8 +209,13 @@ function CareerMapLogo({ size }) {
 
 /* ─── COLOURS ────────────────────────────────────────────────────────────── */
 const C = {
-  // Surfaces
-  bg:"#f6f9f9", sur:"#ffffff", card:"#ffffff", cardB:"#f6f9f9", bdr:"#e0eaea",
+  // Page / surface
+  pageBg: "radial-gradient(130% 80% at 50% 0%, #1aabaa 0%, #0f6e6d 50%, #08403f 100%)",
+  bg: "#f6f9f9",       // light surface / form bg
+  sur: "#ffffff",       // card surface
+  card: "#ffffff",      // same
+  cardB: "#f6f9f9",    // inner tint
+  bdr: "#e0eaea",      // hairline border
   // Text
   wh:"#15302f", mu:"#7d908f", muB:"#9aa8a8", mu3:"#a7b4b4", sl:"#5d7170", lbl:"#3a4f4e",
   // Brand teal
@@ -1342,11 +1347,11 @@ function SectionHead({ icon, title }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:12,
         paddingBottom:10, borderBottom:"1px solid "+C.bdr }}>
-      <div style={{ width:30, height:30, borderRadius:8, background:C.goldP, border:"1px solid "+C.bdr,
+      <div style={{ width:30, height:30, borderRadius:8, background:"#e9f7f6", border:"1px solid #c0dede",
           display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>
         {icon}
       </div>
-      <span className="sy" style={{ fontSize:12, fontWeight:700, color:C.wh, letterSpacing:.4 }}>{title}</span>
+      <span className="sy" style={{ fontSize:12, fontWeight:700, color:"#15302f", letterSpacing:.4 }}>{title}</span>
     </div>
   );
 }
@@ -1764,7 +1769,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
           <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:16 }}>
             <div onClick={function(){ photoRef.current && photoRef.current.click(); }}
               style={{ width:72, height:72, borderRadius:"50%", overflow:"hidden", flexShrink:0,
-                background:"rgba(255,255,255,.06)", border:"2px dashed "+C.bdr,
+                background:"#f0f5f5", border:"2px dashed #b9d6d5",
                 display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
                 transition:"border-color .2s", position:"relative" }}>
               {pf.photo
@@ -1779,8 +1784,8 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
                 </span>
               </div>
               <button onClick={function(){ photoRef.current && photoRef.current.click(); }}
-                style={{ padding:"6px 14px", background:"rgba(255,255,255,.07)", border:"1.5px solid "+C.bdr,
-                  borderRadius:8, color:C.mu, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                style={{ padding:"6px 14px", background:"#f0f5f5", border:"1.5px solid #dde6e6",
+                  borderRadius:8, color:"#5d7170", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
                 {pf.photo
                   ? (ar?"تغيير الصورة":lang==="fr"?"Changer":"Change photo")
                   : (ar?"رفع صورة":lang==="fr"?"Ajouter une photo":"Upload photo")}
@@ -2189,14 +2194,14 @@ function Assessment({ lang, setLang, user, onFinish }) {
                 </div>
                 {/* Label */}
                 <span style={{
-                  flex:1, fontSize:15, fontWeight: isSel ? 800 : 500,
-                  color: isSel ? "#fff" : "rgba(221,238,255,.88)",
+                  flex:1, fontSize:15, fontWeight: isSel ? 700 : 500,
+                  color: isSel ? "#0f6e6d" : "#3a4f4e",
                   letterSpacing:".01em", lineHeight:1.3,
                 }}>
                   {label}
                 </span>
                 {isSel && (
-                  <span style={{ fontSize:22, color:"rgba(255,255,255,.8)", flexShrink:0 }}>›</span>
+                  <span style={{ fontSize:22, color:"#1aabaa", flexShrink:0 }}>›</span>
                 )}
               </button>
             );
@@ -2206,8 +2211,8 @@ function Assessment({ lang, setLang, user, onFinish }) {
         {/* Back button */}
         <div style={{ flexShrink:0, marginTop:7 }}>
           <button onClick={goBack} disabled={idx===0} className="noprint"
-            style={{ padding:"5px 14px", background:"transparent", border:"1px solid "+C.bdr,
-              borderRadius:99, color:C.mu, fontSize:10, fontWeight:600, opacity:idx===0?0.25:1, cursor:"pointer" }}>
+            style={{ padding:"5px 14px", background:"#fff", border:"2px solid #e6eded",
+              borderRadius:99, color:"#5d7170", fontSize:10, fontWeight:600, opacity:idx===0?0.25:1, cursor:"pointer" }}>
             {ar ? "السابق ←" : lang==="fr" ? "← Retour" : "← Back"}
           </button>
         </div>
@@ -2227,13 +2232,13 @@ function CandidateCode({ lang, setLang, user, code, onLogout }) {
     setTimeout(function() { setCopied(false); }, 3000);
   }
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:"transparent" }}>
       <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
       <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
           justifyContent:"center", padding:"20px 18px", maxWidth:420, margin:"0 auto", width:"100%" }}>
         <div className="fadeUp" style={{ width:"100%", textAlign:"center" }}>
-          <div style={{ width:72, height:72, borderRadius:"50%", background:C.grG,
-              border:"2px solid "+C.gr, display:"flex", alignItems:"center",
+          <div style={{ width:72, height:72, borderRadius:"50%", background:"#e9f7f6",
+              border:"2.5px solid #1aabaa", display:"flex", alignItems:"center",
               justifyContent:"center", fontSize:34, margin:"0 auto 16px" }}>✅</div>
           <h2 className="sy" style={{ fontSize:20, fontWeight:800, color:C.wh, marginBottom:8 }}>
             {ar ? "أحسنت! اكتملت اختباراتك." : lang==="fr" ? "Félicitations ! Tests complétés." : "Assessment Complete!"}
@@ -2241,21 +2246,21 @@ function CandidateCode({ lang, setLang, user, code, onLogout }) {
           <p style={{ fontSize:12, color:C.muB, lineHeight:1.7, marginBottom:24 }}>
             {ar ? "شارك هذا الكود مع مستشارك للاطلاع على تقريرك الكامل." : lang==="fr" ? "Partagez ce code avec votre conseiller pour accéder à votre rapport complet." : "Share this code with your advisor to access your full career report."}
           </p>
-          <div style={{ background:"linear-gradient(135deg,"+C.cardB+","+C.sur+")",
-              borderRadius:18, padding:"22px 20px", border:"2px solid "+C.gold+"44",
-              marginBottom:14, boxShadow:"0 0 36px "+C.goldG }}>
+          <div style={{ background:"#f6f9f9",
+              borderRadius:18, padding:"22px 20px", border:"1.6px dashed #b9d6d5",
+              marginBottom:14 }}>
             <p style={{ fontSize:10, fontWeight:700, color:C.mu, letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>
               {ar ? "كود النتائج" : lang==="fr" ? "Code de Résultats" : "Result Code"}
             </p>
-            <div className="sy" style={{ fontSize:28, fontWeight:800, color:C.goldL, letterSpacing:4, marginBottom:6, fontFamily:"monospace" }}>{code}</div>
+            <div style={{ fontSize:30, fontWeight:700, color:"#0f7e7d", letterSpacing:"3px", marginBottom:6, fontFamily:"Epilogue,monospace" }}>{code}</div>
             <p style={{ fontSize:9, color:C.mu }}>{user.name} · {new Date().toLocaleDateString()}</p>
           </div>
           <button onClick={doCopy}
             style={{ width:"100%", padding:14,
-              background: copied ? "linear-gradient(135deg,"+C.gr+","+C.gr+"cc)" : "linear-gradient(135deg,"+C.gold+","+C.goldL+")",
-              color:C.bg, border:"none", borderRadius:12,
+              background: copied ? "#1db87a" : "#1aabaa",
+              color:"#fff", border:"none", borderRadius:12,
               fontFamily:"inherit", fontSize:14, fontWeight:800,
-              boxShadow:"0 6px 22px "+(copied?C.grG:C.goldG), marginBottom:12, transition:"all .3s" }}>
+              boxShadow:"0 6px 22px rgba(26,171,170,.28)", marginBottom:12, transition:"all .3s" }}>
             {copied ? (ar?"تم النسخ ✓":lang==="fr"?"Copié ✓":"Copied ✓") : (ar?"نسخ الكود":lang==="fr"?"Copier le code":"Copy Code")}
           </button>
           <div style={{ background:"rgba(255,255,255,.04)", borderRadius:12, padding:"12px 16px", border:"1px solid "+C.bdr }}>
@@ -2613,7 +2618,7 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
   }
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:"transparent" }}>
       <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
       <div style={{ flex:1, overflowY:"auto", padding:"20px 16px" }}>
         <div style={{ width:"100%", maxWidth:500, margin:"0 auto" }}>
@@ -2624,8 +2629,8 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
             </h2>
             <p style={{ fontSize:12, color:C.mu }}>{user.name}</p>
           </div>
-          <div style={{ background:C.card, borderRadius:16, padding:"22px 20px",
-              border:"1px solid "+C.bdr, marginBottom:14 }}>
+          <div style={{ background:"#fff", borderRadius:16, padding:"22px 20px",
+              border:"1px solid #e0eaea", marginBottom:14, boxShadow:"0 2px 10px rgba(15,126,125,.06)" }}>
             <p style={{ fontSize:12, color:C.mu, marginBottom:12 }}>
               {lang==="fr"?"Collez le code du candidat :":"Paste the candidate result code:"}
             </p>
@@ -2634,12 +2639,12 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
                 onChange={function(e){setInp(e.target.value);setErr("");setFound(null);}}
                 onKeyDown={function(e){if(e.key==="Enter")doEnroll();}}
                 placeholder="RPT-AB12"
-                style={{ flex:1, padding:"12px 14px", background:"rgba(255,255,255,.06)",
-                  border:"1.5px solid "+(err?C.re:C.bdr), borderRadius:10,
-                  color:C.wh, fontSize:14, letterSpacing:2, fontFamily:"monospace" }}/>
+                style={{ flex:1, padding:"12px 14px", background:"#fff",
+                  border:"1.6px solid "+(err?C.re:"#e0eaea"), borderRadius:10, height:46,
+                  color:"#15302f", fontSize:14, letterSpacing:2, fontFamily:"monospace" }}/>
               <button onClick={doEnroll}
-                style={{ padding:"12px 22px", background:"linear-gradient(135deg,"+C.pu+","+C.pu+"cc)",
-                  color:"#fff", border:"none", borderRadius:10,
+                style={{ padding:"12px 22px", background:"#1aabaa",
+                  color:"#fff", border:"none", borderRadius:10, height:46,
                   fontFamily:"inherit", fontSize:13, fontWeight:800, cursor:"pointer" }}>
                 {lang==="fr"?"Inscrire":"Enroll"}
               </button>
@@ -2647,8 +2652,8 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
             {err&&<p style={{ color:C.re, fontSize:11, marginTop:8 }}>{err}</p>}
           </div>
           {found&&(
-            <div style={{ background:C.card, borderRadius:16, padding:"20px",
-                border:"1.5px solid "+C.teal+"55" }}>
+            <div style={{ background:"#fff", borderRadius:16, padding:"20px",
+                border:"1.5px solid #1aabaa55", boxShadow:"0 2px 10px rgba(15,126,125,.06)" }}>
               <div style={{ display:"flex", alignItems:"center", gap:12,
                   marginBottom:16, paddingBottom:14, borderBottom:"1px solid "+C.bdr }}>
                 <div style={{ width:42, height:42, borderRadius:10, background:C.teal+"22",
@@ -3063,8 +3068,8 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   ];
 
   return (
-    <div style={{ display:"flex",flexDirection:"column",height:"100%",background:"#050e1a" }}>
-      <div style={{ background:"linear-gradient(135deg,#071828,#0d2540)",borderBottom:"1px solid "+C.bdr,padding:"11px 16px",flexShrink:0 }}>
+    <div style={{ display:"flex",flexDirection:"column",height:"100%",background:"transparent" }}>
+      <div style={{ background:"linear-gradient(160deg,#15302f,#0f4f4e)",borderBottom:"1px solid #0a2928",padding:"11px 16px",flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:10 }}>
           <CareerMapLogo size={34}/>
           <div style={{ flex:1 }}>
@@ -3477,7 +3482,7 @@ function ShareQRModal({ onClose }) {
   return (
     <div onClick={onClose} style={{
       position:'fixed', inset:0, zIndex:99999,
-      background:'#06111f',
+      background:'rgba(8,64,63,.96)',
       display:'flex', flexDirection:'column',
       alignItems:'center', justifyContent:'center',
       gap:20, cursor:'pointer'
