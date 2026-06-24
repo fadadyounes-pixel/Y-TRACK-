@@ -3596,6 +3596,9 @@ function LandingPage({ onStart, lang, setLang }) {
           <p style={{ textAlign:"center", fontSize:11, color:"#b3c0c0", marginTop:22 }}>
             © 2025 CareerMap · careermaponline.org
           </p>
+          <p style={{ textAlign:"center", fontSize:10, color:"#d0dada", marginTop:4 }}>
+            v41 · <span onClick={function(){if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(regs){regs.forEach(function(r){r.unregister();});caches.keys().then(function(keys){Promise.all(keys.map(function(k){return caches.delete(k);})).then(function(){location.reload(true);});});});}}} style={{cursor:"pointer",color:"#1aabaa",textDecoration:"underline"}}>Force refresh</span>
+          </p>
         </div>
       </div>
     </div>
