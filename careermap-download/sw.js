@@ -1,5 +1,9 @@
-const CACHE = 'careermap-v52';
+const CACHE = 'careermap-v53';
 const PRECACHE = ['/lib/react.js', '/lib/react-dom.js', '/lib/babel.js'];
+
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
 
 self.addEventListener('install', e => {
   e.waitUntil(

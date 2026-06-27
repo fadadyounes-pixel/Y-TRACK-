@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
   <title>CareerMap — Orientation Professionnelle</title>
   <!-- QR Code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" defer></script>
@@ -3816,8 +3819,23 @@ _root.render(React.createElement(ErrorBoundary, null, React.createElement(App)))
   <script>
     if('serviceWorker' in navigator){
       window.addEventListener('load', function(){
-        navigator.serviceWorker.register('sw.js')
+        navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+          .then(function(reg){
+            reg.update();
+            reg.addEventListener('updatefound', function(){
+              var newSW = reg.installing;
+              if(!newSW) return;
+              newSW.addEventListener('statechange', function(){
+                if(newSW.state === 'installed' && navigator.serviceWorker.controller){
+                  newSW.postMessage({ type: 'SKIP_WAITING' });
+                }
+              });
+            });
+          })
           .catch(function(e){ console.warn('SW registration failed', e); });
+        navigator.serviceWorker.addEventListener('controllerchange', function(){
+          window.location.reload();
+        });
       });
     }
   </script>
