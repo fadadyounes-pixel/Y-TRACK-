@@ -135,6 +135,24 @@ function injectCSS() {
   document.head.appendChild(el);
 }
 
+/* --- COMPASS LOGO (static) --- */
+function CompassLogo({ size, onLight }) {
+  size = size || 34;
+  onLight = onLight || false;
+  var stroke = onLight ? "#1aabaa" : "#fff";
+  var southFill = onLight ? "#0f7e7d" : "#fff";
+  var pivotFill = onLight ? "#0f7e7d" : "#fff";
+  var pivotStroke = onLight ? "#fff" : "#0f7e7d";
+  return (
+    <svg viewBox="0 0 48 48" width={size} height={size} fill="none">
+      <circle cx="24" cy="24" r="20" stroke={stroke} strokeWidth="2.6"/>
+      <polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/>
+      <polygon points="24,40 27.5,24 20.5,24" fill={southFill}/>
+      <circle cx="24" cy="24" r="2.6" fill={pivotFill} stroke={pivotStroke} strokeWidth="1.3"/>
+    </svg>
+  );
+}
+
 /* --- CAREERMAP LOGO --- */
 function CareerMapLogo({ size }) {
   size = size || 44;
