@@ -3062,6 +3062,12 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
     );
   }
 
+  /* ── Holland mini-bar data ── */
+  var hollandCounts2 = {R:0,I:0,A:0,S:0,E:0,C:0};
+  src.forEach(function(c){ var r=ranked(c.scores&&c.scores.h||{})[0]; if(r) hollandCounts2[r]=(hollandCounts2[r]||0)+1; });
+  var hollandMax = Math.max(1,...Object.values(hollandCounts2));
+  var HN2 = {R:"Réaliste",I:"Investigateur",A:"Artistique",S:"Social",E:"Entrepreneur",C:"Conventionnel"};
+
   return (
     <div style={{ display:"flex",flexDirection:"column",height:"100%",background:"#060d18" }}>
 
@@ -3344,138 +3350,173 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
 
 function AdminStats({ src, lang, ar }) {
   if (!src || src.length===0) {
-    return <div style={{ padding:20,textAlign:"center",color:"#6b8aaa",fontSize:12 }}>No candidate data yet.</div>;
+    return <div style={{ padding:32,textAlign:"center",color:"rgba(255,255,255,.2)",fontSize:13 }}>No candidate data yet.</div>;
   }
   function cnt(arr){ var m={}; arr.forEach(function(v){m[v]=(m[v]||0)+1;}); return m; }
-  function pct(n,t){ return t?Math.round(n/t*100):0; }
-  function Bar({ label, value, max, color, total }) {
+  function StatBar({ label, value, max, color, count, total }) {
     var p = max?Math.round(value/max*100):0;
+    var pctVal = total?Math.round(count/total*100):0;
     return (
-      <div style={{ marginBottom:8 }}>
-        <div style={{ display:"flex",justifyContent:"space-between",fontSize:9,marginBottom:3 }}>
-          <span style={{ color:"#8fadc8",maxWidth:"65%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{label}</span>
-          <span style={{ color:color,fontWeight:700 }}>{value} <span style={{ color:"#6b8aaa" }}>({pct(value,total)}%)</span></span>
+      <div style={{ marginBottom:10 }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4 }}>
+          <span style={{ fontSize:10,color:"rgba(255,255,255,.55)",maxWidth:"62%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{label}</span>
+          <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+            <span style={{ fontSize:10,fontWeight:800,color:color }}>{count!==undefined?count:value}</span>
+            {total>0&&<span style={{ fontSize:9,color:"rgba(255,255,255,.2)",background:"rgba(255,255,255,.05)",borderRadius:99,padding:"1px 5px" }}>{pctVal||Math.round(value)}%</span>}
+          </div>
         </div>
-        <div style={{ height:8,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
-          <div style={{ height:"100%",width:p+"%",background:color,borderRadius:99,transition:"width .8s" }}/>
+        <div style={{ height:7,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
+          <div style={{ height:"100%",width:p+"%",background:"linear-gradient(90deg,"+color+","+color+"88)",borderRadius:99,transition:"width .9s cubic-bezier(.22,.68,0,1.2)" }}/>
         </div>
       </div>
     );
   }
-  function Section({ title, icon, children }) {
+  function Panel({ title, color, children, action }) {
     return (
-      <div style={{ background:"#0d1f33",border:"1px solid #1a3a55",borderRadius:14,padding:"14px",marginBottom:12 }}>
-        <div style={{ fontSize:11,fontWeight:800,color:"#f0f4f8",marginBottom:12 }}>{icon} {title}</div>
+      <div style={{ background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.06)",borderLeft:"3px solid "+(color||"#1aabaa"),borderRadius:14,padding:"14px 14px 12px",marginBottom:10 }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
+          <span style={{ fontSize:10,fontWeight:900,color:"rgba(255,255,255,.7)",textTransform:"uppercase",letterSpacing:1 }}>{title}</span>
+          {action}
+        </div>
         {children}
       </div>
     );
   }
 
-  var total   = src.length;
-  var genders = cnt(src.map(function(c){return (c.profile&&c.profile.gender)||"Unknown";}));
-  var ages    = cnt(src.map(function(c){return (c.profile&&c.profile.age)||"Unknown";}));
-  var regions = cnt(src.map(function(c){return (c.profile&&c.profile.region)||"Unknown";}));
-  var edus    = cnt(src.map(function(c){return (c.profile&&c.profile.edu)||"Unknown";}));
-  var statuses= cnt(src.map(function(c){return (c.profile&&c.profile.status)||"Unknown";}));
-  var hollands= cnt(src.map(function(c){return ranked(c.scores&&c.scores.h||{})[0]||"Unknown";}));
-  var HCOLS   = {R:"#1aabaa",I:"#8b5cf6",A:"#d4a328",S:"#22c55e",E:"#f97316",C:"#6b8aaa"};
-  var HN      = {R:"Réaliste",I:"Investigateur",A:"Artistique",S:"Social",E:"Entrepreneur",C:"Conventionnel"};
-  var maxReg  = Math.max.apply(null,Object.values(regions).concat([1]));
-  var maxEdu  = Math.max.apply(null,Object.values(edus).concat([1]));
-  var maxSt   = Math.max.apply(null,Object.values(statuses).concat([1]));
-
+  var total    = src.length;
+  var HCOLS2   = {R:"#1aabaa",I:"#8b5cf6",A:"#d4a328",S:"#22c55e",E:"#f97316",C:"#6b8aaa"};
+  var HN2      = {R:"Réaliste",I:"Investigateur",A:"Artistique",S:"Social",E:"Entrepreneur",C:"Conventionnel"};
+  var genders  = cnt(src.map(function(c){return (c.profile&&c.profile.gender)||"Unknown";}));
+  var ages     = cnt(src.map(function(c){return (c.profile&&c.profile.age)||"Unknown";}));
+  var regions2 = cnt(src.map(function(c){return (c.profile&&c.profile.region)||"Unknown";}));
+  var edus     = cnt(src.map(function(c){return (c.profile&&c.profile.edu)||"Unknown";}));
+  var statuses = cnt(src.map(function(c){return (c.profile&&c.profile.status)||"Unknown";}));
+  var hollands2= cnt(src.map(function(c){return ranked(c.scores&&c.scores.h||{})[0]||"?";}));
+  var maxHol   = Math.max(1,...Object.values(hollands2));
+  var maxReg2  = Math.max(1,...Object.values(regions2));
   var empScores= src.map(function(c){return avg(c.scores&&c.scores.s||{});});
-  var avgEmp  = empScores.length?Math.round(empScores.reduce(function(a,b){return a+b;},0)/empScores.length):0;
-  var high    = empScores.filter(function(v){return v>=65;}).length;
-  var mid     = empScores.filter(function(v){return v>=45&&v<65;}).length;
-  var low     = empScores.filter(function(v){return v<45;}).length;
-
-  var avgH    = {R:0,I:0,A:0,S:0,E:0,C:0};
-  var avgB5   = {O:0,C2:0,E2:0,A2:0,N:0};
-  var avgSU   = {A:0,E:0,C:0,R:0};
+  var avgEmp2  = empScores.length?Math.round(empScores.reduce(function(a,b){return a+b;},0)/empScores.length):0;
+  var high2    = empScores.filter(function(v){return v>=65;}).length;
+  var mid2     = empScores.filter(function(v){return v>=45&&v<65;}).length;
+  var low2     = empScores.filter(function(v){return v<45;}).length;
+  var avgH2={R:0,I:0,A:0,S:0,E:0,C:0}; var avgB5={O:0,C2:0,E2:0,A2:0,N:0}; var avgSU={A:0,E:0,C:0,R:0};
   src.forEach(function(c){
     var h=c.scores&&c.scores.h||{}; var b=c.scores&&c.scores.b||{}; var s=c.scores&&c.scores.s||{};
-    ["R","I","A","S","E","C"].forEach(function(k){avgH[k]+=(h[k]||0)/total;});
+    ["R","I","A","S","E","C"].forEach(function(k){avgH2[k]+=(h[k]||0)/total;});
     ["O","C2","E2","A2","N"].forEach(function(k){avgB5[k]+=(b[k]||0)/total;});
     ["A","E","C","R"].forEach(function(k){avgSU[k]+=(s[k]||0)/total;});
   });
 
   return (
-    <div style={{ padding:"12px" }}>
-      <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12 }}>
+    <div style={{ padding:"12px 14px" }}>
+      {/* Summary row */}
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:12 }}>
         {[
-          {label:"Total",value:total,color:"#1aabaa",icon:"👥"},
-          {label:"Avg Empl.",value:avgEmp+"%",color:"#d4a328",icon:"⚡"},
-          {label:"High ≥65%",value:high,color:"#22c55e",icon:"🟢"},
+          {v:total,l:"Total",c:"#1aabaa"},
+          {v:avgEmp2+"%",l:"Avg Skill",c:"#f97316"},
+          {v:high2,l:"High ≥65%",c:"#22c55e"},
+          {v:low2,l:"Low <45%",c:"#ef4444"},
         ].map(function(k,i){
-          return <div key={i} style={{ background:"#0d1f33",border:"1.5px solid "+k.color+"33",borderRadius:12,padding:"12px 10px",textAlign:"center" }}>
-            <div style={{ fontSize:18 }}>{k.icon}</div>
-            <div style={{ fontSize:"clamp(18px,4vw,24px)",fontWeight:900,color:k.color }}>{k.value}</div>
-            <div style={{ fontSize:9,color:"#6b8aaa",marginTop:2 }}>{k.label}</div>
+          return <div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+k.c+"22",borderTop:"2px solid "+k.c,borderRadius:12,padding:"10px 8px",textAlign:"center" }}>
+            <div style={{ fontSize:"clamp(16px,4vw,22px)",fontWeight:900,color:k.c,lineHeight:1 }}>{k.v}</div>
+            <div style={{ fontSize:8,color:"rgba(255,255,255,.3)",marginTop:4 }}>{k.l}</div>
           </div>;
         })}
       </div>
-      <Section title="Employability Distribution" icon="⚡">
-        {[["🟢 High ≥65%",high,"#22c55e"],["🟡 Medium 45–64%",mid,"#d4a328"],["🔴 Low <45%",low,"#ef4444"]].map(function(item,i){
-          return <Bar key={i} label={item[0]} value={item[1]} max={total} color={item[2]} total={total}/>;
-        })}
-        <div style={{ display:"flex",alignItems:"center",gap:10,marginTop:10,padding:"10px",background:"rgba(255,255,255,.03)",borderRadius:9 }}>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:9,color:"#6b8aaa",marginBottom:3 }}>Platform Average</div>
-            <div style={{ height:10,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
-              <div style={{ height:"100%",width:avgEmp+"%",background:"linear-gradient(90deg,#1aabaa,#d4a328)",borderRadius:99 }}/>
-            </div>
-          </div>
-          <div style={{ fontSize:20,fontWeight:900,color:avgEmp>=65?"#22c55e":avgEmp>=45?"#d4a328":"#ef4444" }}>{avgEmp}%</div>
+
+      {/* Employability */}
+      <Panel title="Employability Bands" color="#f97316"
+        action={<span style={{ fontSize:9,color:"rgba(255,255,255,.2)" }}>n={total}</span>}>
+        <div style={{ display:"flex",gap:6,marginBottom:12 }}>
+          {[["≥65% Ready",high2,"#22c55e"],["45–64% Dev",mid2,"#f97316"],["<45% Early",low2,"#ef4444"]].map(function(b,i){
+            return <div key={i} style={{ flex:1,background:"rgba(255,255,255,.03)",borderRadius:10,padding:"8px 6px",textAlign:"center",border:"1px solid "+b[2]+"22" }}>
+              <div style={{ fontSize:16,fontWeight:900,color:b[2] }}>{b[1]}</div>
+              <div style={{ fontSize:8,color:"rgba(255,255,255,.3)",marginTop:2 }}>{b[0]}</div>
+            </div>;
+          })}
         </div>
-      </Section>
-      <Section title="Holland RIASEC — Average Scores" icon="🧰">
+        <div style={{ marginBottom:6 }}>
+          <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
+            <span style={{ fontSize:9,color:"rgba(255,255,255,.4)" }}>Platform Average</span>
+            <span style={{ fontSize:11,fontWeight:900,color:avgEmp2>=65?"#22c55e":avgEmp2>=45?"#f97316":"#ef4444" }}>{avgEmp2}%</span>
+          </div>
+          <div style={{ height:10,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
+            <div style={{ height:"100%",width:avgEmp2+"%",background:"linear-gradient(90deg,#22c55e,#f97316)",borderRadius:99 }}/>
+          </div>
+        </div>
+      </Panel>
+
+      {/* Holland RIASEC Distribution */}
+      <Panel title="Holland RIASEC — Primary Type" color="#1aabaa">
         {["R","I","A","S","E","C"].map(function(code){
-          var v=Math.round(avgH[code]);
-          return <Bar key={code} label={code+" — "+HN[code]} value={v} max={100} color={HCOLS[code]} total={100}/>;
+          var n=hollands2[code]||0;
+          return <StatBar key={code} label={code+" — "+HN2[code]} value={maxHol?Math.round(n/maxHol*100):0} max={100} color={HCOLS2[code]} count={n} total={total}/>;
         })}
-      </Section>
-      <Section title="Big Five OCEAN — Average Scores" icon="🌊">
-        {[["O","Openness","#8b5cf6"],["C2","Conscientiousness","#8b5cf6"],["E2","Extraversion","#8b5cf6"],["A2","Agreeableness","#8b5cf6"],["N","Emot. Stability","#8b5cf6"]].map(function(item){
+      </Panel>
+
+      {/* Holland avg scores */}
+      <Panel title="Holland RIASEC — Average Scores" color="#8b5cf6">
+        {["R","I","A","S","E","C"].map(function(code){
+          var v=Math.round(avgH2[code]);
+          return <StatBar key={code} label={code+" — "+HN2[code]} value={v} max={100} color={HCOLS2[code]} count={v} total={0}/>;
+        })}
+      </Panel>
+
+      {/* Big Five */}
+      <Panel title="Big Five OCEAN — Average Scores" color="#8b5cf6">
+        {[["O","Openness"],["C2","Conscientiousness"],["E2","Extraversion"],["A2","Agreeableness"],["N","Emot. Stability"]].map(function(item){
           var v=Math.round(avgB5[item[0]]);
-          return <Bar key={item[0]} label={item[0].replace("2","")+" — "+item[1]} value={v} max={100} color={item[2]} total={100}/>;
+          return <StatBar key={item[0]} label={item[0].replace("2","")+" — "+item[1]} value={v} max={100} color="#8b5cf6" count={v} total={0}/>;
         })}
-      </Section>
-      <Section title="Skill Up — Average Scores" icon="⚡">
-        {[["A","Autonomie","#d4a328"],["E","Esprit Éco.","#d4a328"],["C","Collaboration","#d4a328"],["R","Readiness","#d4a328"]].map(function(item){
+      </Panel>
+
+      {/* Skill Up */}
+      <Panel title="Skill Up — Average Scores" color="#f97316">
+        {[["A","Autonomie"],["E","Esprit Éco."],["C","Collaboration"],["R","Readiness"]].map(function(item){
           var v=Math.round(avgSU[item[0]]);
-          return <Bar key={item[0]} label={item[0]+" — "+item[1]} value={v} max={100} color={item[2]} total={100}/>;
+          return <StatBar key={item[0]} label={item[1]} value={v} max={100} color="#f97316" count={v} total={0}/>;
         })}
-      </Section>
-      <Section title="Gender Distribution" icon="Gender">
+      </Panel>
+
+      {/* Regional */}
+      <Panel title="Regional Distribution" color="#1aabaa">
+        {Object.entries(regions2).sort(function(a,b){return b[1]-a[1];}).slice(0,8).map(function(item,i){
+          return <StatBar key={i} label={item[0]} value={maxReg2?Math.round(item[1]/maxReg2*100):0} max={100} color="#1aabaa" count={item[1]} total={total}/>;
+        })}
+      </Panel>
+
+      {/* Gender */}
+      <Panel title="Gender Distribution" color="#d4a328">
         {Object.entries(genders).sort(function(a,b){return b[1]-a[1];}).map(function(item,i){
-          return <Bar key={i} label={item[0]} value={item[1]} max={total} color={i===0?"#1aabaa":"#8b5cf6"} total={total}/>;
+          var cols=["#1aabaa","#8b5cf6","#d4a328"];
+          return <StatBar key={i} label={item[0]} value={total?Math.round(item[1]/total*100):0} max={100} color={cols[i%3]} count={item[1]} total={total}/>;
         })}
-      </Section>
-      <Section title="Age Distribution" icon="🎂">
+      </Panel>
+
+      {/* Age */}
+      <Panel title="Age Distribution" color="#22c55e">
         {["Under 18","18–20","21–24","25–29","30–35","36+"].map(function(age,i){
           var v=ages[age]||0;
-          return v>0?<Bar key={i} label={age} value={v} max={total} color="#1aabaa" total={total}/>:null;
+          return v>0?<StatBar key={i} label={age} value={total?Math.round(v/total*100):0} max={100} color="#22c55e" count={v} total={total}/>:null;
         })}
-      </Section>
-      {Object.keys(statuses).length>0 && (
-        <Section title="Occupation Status" icon="💼">
-          {Object.entries(statuses).sort(function(a,b){return b[1]-a[1];}).map(function(item,i){
-            var cols=["#1aabaa","#8b5cf6","#d4a328","#22c55e","#f97316","#6b8aaa"];
-            return <Bar key={i} label={item[0]} value={item[1]} max={maxSt} color={cols[i%cols.length]} total={total}/>;
-          })}
-        </Section>
-      )}
-      <Section title="Education Level" icon="🎓">
+      </Panel>
+
+      {/* Education */}
+      <Panel title="Education Level" color="#d4a328">
         {Object.entries(edus).sort(function(a,b){return b[1]-a[1];}).map(function(item,i){
-          return <Bar key={i} label={item[0]} value={item[1]} max={maxEdu} color="#d4a328" total={total}/>;
+          return <StatBar key={i} label={item[0]} value={total?Math.round(item[1]/total*100):0} max={100} color="#d4a328" count={item[1]} total={total}/>;
         })}
-      </Section>
-      <Section title="Regional Distribution" icon="📍">
-        {Object.entries(regions).sort(function(a,b){return b[1]-a[1];}).slice(0,8).map(function(item,i){
-          return <Bar key={i} label={item[0]} value={item[1]} max={maxReg} color="#1aabaa" total={total}/>;
-        })}
-      </Section>
+      </Panel>
+
+      {/* Status */}
+      {Object.keys(statuses).length>0&&(
+        <Panel title="Occupation Status" color="#6b8aaa">
+          {Object.entries(statuses).sort(function(a,b){return b[1]-a[1];}).map(function(item,i){
+            var cols2=["#1aabaa","#8b5cf6","#d4a328","#22c55e","#f97316","#6b8aaa"];
+            return <StatBar key={i} label={item[0]} value={total?Math.round(item[1]/total*100):0} max={100} color={cols2[i%6]} count={item[1]} total={total}/>;
+          })}
+        </Panel>
+      )}
     </div>
   );
 }
@@ -3566,18 +3607,18 @@ function LandingPage({ onStart, lang, setLang }) {
               </button>;
             })}
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:10, position:"relative", zIndex:1 }}>
-            <CompassLogo size={34}/>
-            <span style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:21,
-                color:"#fff", letterSpacing:-0.4 }}>CareerMap</span>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", position:"relative", zIndex:1, paddingTop:8 }}>
+            <CareerMapLogo size={72}/>
+            <span style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:22,
+                color:"#fff", letterSpacing:-0.4, marginTop:10 }}>CareerMap</span>
           </div>
-          <h1 style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:27,
-              color:"#fff", lineHeight:1.15, letterSpacing:"-0.6px", marginTop:24,
-              position:"relative", zIndex:1 }}>
+          <h1 style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:26,
+              color:"#fff", lineHeight:1.15, letterSpacing:"-0.6px", marginTop:18,
+              textAlign:"center", position:"relative", zIndex:1 }}>
             {ar?"خريطتك المهنية تبدأ هنا":fr?"Votre carte de carrière commence ici":"Your career map starts here"}
           </h1>
-          <p style={{ fontSize:14.5, color:"rgba(255,255,255,.85)", lineHeight:1.55,
-              marginTop:10, position:"relative", zIndex:1 }}>
+          <p style={{ fontSize:14, color:"rgba(255,255,255,.85)", lineHeight:1.55,
+              marginTop:10, textAlign:"center", position:"relative", zIndex:1 }}>
             {ar?"اكتشف مسارك المهني من خلال ثلاثة اختبارات علمية.":fr?"Découvrez votre orientation grâce à 3 évaluations scientifiques.":"Discover your path through 3 validated psychometric assessments."}
           </p>
         </div>
