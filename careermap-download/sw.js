@@ -1,4 +1,4 @@
-const CACHE = 'careermap-v50';
+const CACHE = 'careermap-v51';
 const PRECACHE = ['/lib/react.js', '/lib/react-dom.js', '/lib/babel.js'];
 
 self.addEventListener('install', e => {
