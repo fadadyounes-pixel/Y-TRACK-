@@ -3594,31 +3594,33 @@ function LandingPage({ onStart, lang, setLang }) {
           <div style={{ position:"absolute", top:-80, insetInlineEnd:-60,
               width:200, height:200, borderRadius:"50%", pointerEvents:"none",
               background:"radial-gradient(circle at 30% 30%,rgba(255,122,89,.55),rgba(255,122,89,0) 70%)" }}/>
-          {/* Language switcher — inline row at top */}
-          <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16, position:"relative", zIndex:2 }}>
-            <div style={{ display:"flex", background:"rgba(255,255,255,.16)", padding:3, borderRadius:999, backdropFilter:"blur(4px)" }}>
-              {["fr","en","ar"].map(function(l){
-                return <button key={l} onClick={function(){setLang(l);}}
-                  style={{ minWidth:34, padding:"6px 10px", borderRadius:999,
-                    fontSize:12, fontWeight:700, border:"none", cursor:"pointer",
-                    background:lang===l?"#fff":"transparent",
-                    color:lang===l?"#0f7e7d":"#eafffe", transition:"all .15s" }}>
-                  {l==="ar"?"ع":l.toUpperCase()}
-                </button>;
-              })}
-            </div>
+          <div style={{ position:"absolute", top:22, insetInlineEnd:22,
+              display:"flex", background:"rgba(255,255,255,.16)", padding:3,
+              borderRadius:999, backdropFilter:"blur(4px)", zIndex:2 }}>
+            {["fr","en","ar"].map(function(l){
+              return <button key={l} onClick={function(){setLang(l);}}
+                style={{ minWidth:34, padding:"6px 10px", borderRadius:999,
+                  fontSize:12, fontWeight:700, border:"none", cursor:"pointer",
+                  background:lang===l?"#fff":"transparent",
+                  color:lang===l?"#0f7e7d":"#eafffe", transition:"all .15s" }}>
+                {l==="ar"?"ع":l.toUpperCase()}
+              </button>;
+            })}
           </div>
-          {/* Animated logo centered */}
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", position:"relative", zIndex:1 }}>
-            <CareerMapLogo size={60}/>
-            <span style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:20,
-                color:"#fff", letterSpacing:-0.4, marginTop:8 }}>CareerMap</span>
+          <div style={{ display:"flex", alignItems:"center", gap:10, position:"relative", zIndex:1 }}>
+            <CareerMapLogo size={44}/>
+            <span style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:21,
+                color:"#fff", letterSpacing:-0.4 }}>CareerMap</span>
           </div>
-          <h1 style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:24,
-              color:"#fff", lineHeight:1.2, letterSpacing:"-0.5px", marginTop:16,
-              textAlign:"center", position:"relative", zIndex:1 }}>
+          <h1 style={{ fontFamily:"Syne,sans-serif", fontWeight:800, fontSize:27,
+              color:"#fff", lineHeight:1.15, letterSpacing:"-0.6px", marginTop:24,
+              position:"relative", zIndex:1 }}>
             {ar?"خريطتك المهنية تبدأ هنا":fr?"Votre carte de carrière commence ici":"Your career map starts here"}
           </h1>
+          <p style={{ fontSize:14.5, color:"rgba(255,255,255,.85)", lineHeight:1.55,
+              marginTop:10, position:"relative", zIndex:1 }}>
+            {ar?"اكتشف مسارك المهني من خلال ثلاثة اختبارات علمية.":fr?"Découvrez votre orientation grâce à 3 évaluations scientifiques.":"Discover your path through 3 validated psychometric assessments."}
+          </p>
         </div>
         {/* Body */}
         <div style={{ padding:"28px 30px 30px" }}>
