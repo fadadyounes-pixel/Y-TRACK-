@@ -2908,6 +2908,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   var [sortDir, setSortDir]   = useState("desc");
   var [detailCand, setDetailCand] = useState(null);
 
+
   var DEMO = [
     { name:"Ahmed Benali", id:"BJ367307", code:"RPT-BJ367307", savedAt: new Date(Date.now()-86400000).toISOString(), profile:{name:"Ahmed Benali",firstName:"Ahmed",lastName:"Benali",age:"21–24",gender:"Male",edu:"Bachelor (Bac+3)",region:"Rabat-Salé-Kénitra",phone:"+212612345678",status:"University Student",email:"ahmed@example.com"}, scores:{h:{R:45,I:78,A:62,S:55,E:40,C:50},b:{O:72,C2:65,E2:48,A2:80,N:35},s:{A:68,E:55,C:72,R:60}} },
     { name:"Fatima Zahra", id:"FZ291045", code:"RPT-FZ291045", savedAt: new Date(Date.now()-3600000).toISOString(),  profile:{name:"Fatima Zahra",firstName:"Fatima",lastName:"Zahra",age:"18–20",gender:"Female",edu:"Baccalaureate",region:"Casablanca-Settat",prefecture:"Anfa",phone:"+212698765432",status:"High School Student",email:"fatima@example.com"}, scores:{h:{R:30,I:55,A:88,S:75,E:60,C:42},b:{O:90,C2:50,E2:78,A2:70,N:45},s:{A:82,E:65,C:70,R:74}} },
@@ -2986,83 +2987,77 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
     else { setSortCol(col); setSortDir("desc"); }
   }
 
-  /* ── mini bar component ── */
   function MiniBar({ pct, color }) {
     return (
-      <div style={{ flex:1, height:5, background:"rgba(255,255,255,.07)", borderRadius:99, overflow:"hidden" }}>
+      <div style={{ flex:1, height:4, background:"rgba(255,255,255,.06)", borderRadius:99, overflow:"hidden" }}>
         <div style={{ height:"100%", width:Math.min(pct,100)+"%", background:color, borderRadius:99 }}/>
       </div>
     );
   }
 
-  /* ── candidate detail modal ── */
+  function nameInit(name) {
+    return (name||"?").trim().split(/\s+/).map(function(w){return w[0]||"";}).join("").slice(0,2).toUpperCase();
+  }
+
   function CandDetail({ c, onClose }) {
     if (!c) return null;
     var p=c.profile||{}; var ht=ranked(c.scores&&c.scores.h||{}); var emp=avg(c.scores&&c.scores.s||{});
     var h=c.scores&&c.scores.h||{}; var b5=c.scores&&c.scores.b||{}; var s=c.scores&&c.scores.s||{};
+    var col=HCOLS[ht[0]]||"#1aabaa"; var empCol=emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444";
+    var init=nameInit(c.name);
     return (
-      <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(5,14,26,.97)",zIndex:9998,display:"flex",flexDirection:"column",overflow:"hidden" }}>
-        <div style={{ background:"linear-gradient(135deg,#071828,#0d2540)",borderBottom:"1px solid "+C.bdr,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexShrink:0 }}>
-          <div style={{ width:44,height:44,borderRadius:12,background:C.teal+"22",border:"1px solid "+C.teal+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>👤</div>
+      <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"#060d18",zIndex:9998,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+        <div style={{ background:"linear-gradient(180deg,#0d1e38,#071228)",borderBottom:"1px solid rgba(26,171,170,.12)",padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexShrink:0 }}>
+          <div style={{ width:44,height:44,borderRadius:13,background:"linear-gradient(135deg,"+col+"44,"+col+"22)",border:"1.5px solid "+col+"55",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:900,color:col,flexShrink:0 }}>{init}</div>
           <div style={{ flex:1 }}>
-            <div style={{ fontWeight:900,fontSize:15,color:C.wh }}>{c.name}</div>
-            <div style={{ fontSize:10,color:C.mu }}>ID: {c.id} · {c.savedAt?new Date(c.savedAt).toLocaleDateString():"—"}</div>
+            <div style={{ fontWeight:900,fontSize:15,color:"#fff" }}>{c.name}</div>
+            <div style={{ fontSize:9,color:"rgba(255,255,255,.35)" }}>ID: {c.id} · {c.savedAt?new Date(c.savedAt).toLocaleDateString():"—"}</div>
           </div>
-          <button onClick={onClose} style={{ padding:"6px 14px",borderRadius:8,background:"rgba(255,255,255,.07)",color:C.mu,border:"1px solid "+C.bdr,fontSize:12,fontWeight:700 }}>✕</button>
+          <button onClick={onClose} style={{ width:32,height:32,borderRadius:9,background:"rgba(255,255,255,.06)",color:"rgba(255,255,255,.4)",border:"1px solid rgba(255,255,255,.08)",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
         </div>
         <div style={{ flex:1,overflowY:"auto",padding:"14px" }}>
           <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:14 }}>
-            {[["📧",p.email||"—"],["📱",p.phone||"—"],["🎂",p.age||"—"],["Gender",p.gender||"—"],["🎓",p.edu||"—"],["💼",p.status||"—"],["📍",p.region||"—"],["City",p.prefecture||"—"]].map(function(item,i){
-              return item[1]&&item[1]!=="—"?<div key={i} style={{ background:C.sur,border:"1px solid "+C.bdr,borderRadius:10,padding:"8px 11px" }}>
-                <div style={{ fontSize:8,color:C.mu,marginBottom:2 }}>{item[0]}</div>
-                <div style={{ fontSize:11,color:C.wh,fontWeight:600 }}>{item[1]}</div>
+            {[["📧",p.email||"—"],["📱",p.phone||"—"],["🎂",p.age||"—"],["⚧",p.gender||"—"],["🎓",p.edu||"—"],["💼",p.status||"—"],["📍",p.region||"—"],["🏙",p.prefecture||"—"]].map(function(item,i){
+              return item[1]&&item[1]!=="—"?<div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,padding:"8px 11px" }}>
+                <div style={{ fontSize:8,color:"rgba(255,255,255,.3)",marginBottom:2 }}>{item[0]}</div>
+                <div style={{ fontSize:11,color:"rgba(255,255,255,.85)",fontWeight:600 }}>{item[1]}</div>
               </div>:null;
             })}
           </div>
-          <div style={{ background:C.sur,border:"1px solid "+C.bdr,borderRadius:12,padding:"14px",marginBottom:10 }}>
-            <div style={{ fontSize:10,fontWeight:800,color:C.wh,marginBottom:10 }}>🧰 Holland RIASEC</div>
-            {["R","I","A","S","E","C"].map(function(code){
-              return <div key={code} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
-                <span style={{ width:14,fontSize:11,fontWeight:800,color:HCOLS[code] }}>{code}</span>
-                <MiniBar pct={h[code]||0} color={HCOLS[code]}/>
-                <span style={{ width:28,fontSize:10,fontWeight:700,color:HCOLS[code],textAlign:"right" }}>{h[code]||0}%</span>
-              </div>;
-            })}
-          </div>
-          <div style={{ background:C.sur,border:"1px solid "+C.bdr,borderRadius:12,padding:"14px",marginBottom:10 }}>
-            <div style={{ fontSize:10,fontWeight:800,color:C.wh,marginBottom:10 }}>🌊 Big Five OCEAN</div>
-            {[["O","Openness"],["C2","Conscientiousness"],["E2","Extraversion"],["A2","Agreeableness"],["N","Stability"]].map(function(item){
-              return <div key={item[0]} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
-                <span style={{ width:22,fontSize:9,fontWeight:800,color:"#8b5cf6" }}>{item[0].replace("2","")}</span>
-                <MiniBar pct={b5[item[0]]||0} color="#8b5cf6"/>
-                <span style={{ width:28,fontSize:10,fontWeight:700,color:"#8b5cf6",textAlign:"right" }}>{b5[item[0]]||0}%</span>
-              </div>;
-            })}
-          </div>
-          <div style={{ background:C.sur,border:"1px solid "+C.bdr,borderRadius:12,padding:"14px",marginBottom:14 }}>
-            <div style={{ fontSize:10,fontWeight:800,color:C.wh,marginBottom:10 }}>⚡ Skill Up</div>
-            {[["A","Autonomie"],["E","Économique"],["C","Collaboration"],["R","Readiness"]].map(function(item){
-              return <div key={item[0]} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
-                <span style={{ width:22,fontSize:9,fontWeight:800,color:C.gold }}>{item[0]}</span>
-                <MiniBar pct={s[item[0]]||0} color={C.gold}/>
-                <span style={{ width:28,fontSize:10,fontWeight:700,color:C.gold,textAlign:"right" }}>{s[item[0]]||0}%</span>
-              </div>;
-            })}
-          </div>
+          {[
+            { title:"Holland RIASEC", keys:["R","I","A","S","E","C"], vals:h, cols:HCOLS },
+            { title:"Big Five OCEAN", keys:[["O","O"],["C2","C"],["E2","E"],["A2","A"],["N","N"]], vals:b5, col:"#8b5cf6" },
+            { title:"Skill Up", keys:[["A","A"],["E","E"],["C","C"],["R","R"]], vals:s, col:"#f97316" },
+          ].map(function(sec,si){
+            return (
+              <div key={si} style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:14,padding:"14px",marginBottom:10 }}>
+                <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.6)",marginBottom:10 }}>{sec.title}</div>
+                {(sec.keys||[]).map(function(k){
+                  var key=Array.isArray(k)?k[0]:k; var lbl=Array.isArray(k)?k[1]:k;
+                  var col=sec.cols?sec.cols[key]:sec.col;
+                  return <div key={key} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
+                    <span style={{ width:20,fontSize:10,fontWeight:800,color:col }}>{lbl}</span>
+                    <MiniBar pct={sec.vals[key]||0} color={col}/>
+                    <span style={{ width:30,fontSize:10,fontWeight:700,color:col,textAlign:"right" }}>{sec.vals[key]||0}%</span>
+                  </div>;
+                })}
+              </div>
+            );
+          })}
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
             <button onClick={function(){downloadReport(c,"candidate");setDetailCand(null);}}
-              style={{ padding:"12px",background:C.teal+"18",color:C.teal,border:"1px solid "+C.teal+"44",borderRadius:10,fontSize:11,fontWeight:800 }}>
-              🎓 Candidate Report
+              style={{ padding:"13px",background:"rgba(26,171,170,.12)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.25)",borderRadius:12,fontSize:11,fontWeight:800,cursor:"pointer" }}>
+              🎓 Candidate
             </button>
             <button onClick={function(){downloadReport(c,"advisor");setDetailCand(null);}}
-              style={{ padding:"12px",background:C.re+"18",color:C.re,border:"1px solid "+C.re+"44",borderRadius:10,fontSize:11,fontWeight:800 }}>
-              🔒 Advisor Report
+              style={{ padding:"13px",background:"rgba(139,92,246,.12)",color:"#a78bfa",border:"1px solid rgba(139,92,246,.25)",borderRadius:12,fontSize:11,fontWeight:800,cursor:"pointer" }}>
+              🔒 Advisor
             </button>
           </div>
           {cands.length>0 && <button onClick={function(){
-            if(!window.confirm('Delete "'+c.name+'" from the list?\nThis cannot be undone.')) return;
+            if(!window.confirm('Delete "'+c.name+'"? This cannot be undone.')) return;
             onDeleteCand(c); setDetailCand(null);
-          }} style={{ width:"100%",marginTop:10,padding:"10px",background:"rgba(239,68,68,.1)",color:C.re,border:"1px solid "+C.re+"33",borderRadius:10,fontSize:11,fontWeight:700 }}>
+          }} style={{ width:"100%",marginTop:10,padding:"11px",background:"rgba(239,68,68,.08)",color:"#ef4444",border:"1px solid rgba(239,68,68,.18)",borderRadius:12,fontSize:11,fontWeight:700,cursor:"pointer" }}>
             🗑 Delete Candidate
           </button>}
         </div>
@@ -3070,107 +3065,94 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
     );
   }
 
-  var tabs = [
-    ["overview","🏠","Overview",null],
-    ["candidates","👥","Candidates",src.length],
-    ["advisors","👔","Advisors",advisors.length],
-    ["analytics","📊","Analytics",null],
-  ];
-
   return (
-    <div style={{ display:"flex",flexDirection:"column",height:"100%",background:"transparent" }}>
-      <div style={{ background:"linear-gradient(160deg,#15302f,#0f4f4e)",borderBottom:"1px solid #0a2928",padding:"11px 16px",flexShrink:0 }}>
+    <div style={{ display:"flex",flexDirection:"column",height:"100%",background:"#060d18" }}>
+
+      {/* ── Header ── */}
+      <div style={{ background:"linear-gradient(180deg,#0d1e38 0%,#071228 100%)",padding:"12px 16px 10px",borderBottom:"1px solid rgba(26,171,170,.1)",flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-          <CareerMapLogo size={34}/>
+          <div style={{ width:38,height:38,borderRadius:12,background:"linear-gradient(135deg,#1aabaa,#0f7e7d)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 18px rgba(26,171,170,.4),0 4px 12px rgba(0,0,0,.4)",flexShrink:0 }}>
+            <CompassLogo size={22}/>
+          </div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:15,fontWeight:900,color:C.wh,lineHeight:1 }}>
-              Career<span style={{ color:C.teal }}>Map</span>
-              <span style={{ fontSize:9,color:C.mu,fontWeight:400,marginLeft:8 }}>Admin</span>
+            <div style={{ fontSize:15,fontWeight:900,color:"#fff",letterSpacing:-.4,lineHeight:1.1 }}>
+              Career<span style={{ color:"#1aabaa" }}>Map</span>
+              <span style={{ fontSize:9,background:"rgba(26,171,170,.15)",color:"#1aabaa",borderRadius:99,padding:"1px 7px",fontWeight:700,marginLeft:7,verticalAlign:"middle" }}>ADMIN</span>
             </div>
-            <div style={{ display:"flex",gap:5,marginTop:3,alignItems:"center",flexWrap:"wrap" }}>
-              {typeof _db !== "undefined" && _db && <span style={{ fontSize:8,color:C.gr,background:C.gr+"18",border:"1px solid "+C.gr+"33",borderRadius:99,padding:"1px 6px",fontWeight:700 }}>☁ LIVE</span>}
-              <span style={{ fontSize:8,color:C.mu }}>{total} candidates · {advisors.length} advisors</span>
+            <div style={{ fontSize:9,color:"rgba(255,255,255,.3)",marginTop:2 }}>
+              {total} candidates · {advisors.length} advisors
+              {typeof _db !== "undefined" && _db && <span style={{ color:"#22c55e",marginLeft:6 }}>● LIVE</span>}
             </div>
           </div>
-          <button onClick={onLogout} style={{ padding:"6px 11px",borderRadius:8,background:"rgba(255,255,255,.06)",color:C.mu,border:"1px solid "+C.bdr,fontSize:11,fontWeight:700 }}>↩</button>
+          <button onClick={onLogout} style={{ width:34,height:34,borderRadius:10,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",color:"rgba(255,255,255,.4)",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>↩</button>
         </div>
       </div>
-      <div style={{ display:"flex",background:C.sur,borderBottom:"1px solid "+C.bdr,flexShrink:0 }}>
-        {tabs.map(function(item){
-          var active=tab===item[0];
-          return (
-            <button key={item[0]} onClick={function(){setTab(item[0]);}}
-              style={{ flex:1,padding:"9px 4px 7px",border:"none",borderBottom:"2.5px solid "+(active?C.teal:"transparent"),
-                background:"transparent",color:active?C.teal:C.mu,fontFamily:"inherit",fontSize:9,fontWeight:700,
-                display:"flex",flexDirection:"column",alignItems:"center",gap:2 }}>
-              <span style={{ fontSize:18 }}>{item[1]}</span>
-              <span>{item[2]}</span>
-              {item[3]!==null && <span style={{ background:active?C.teal+"22":"rgba(255,255,255,.07)",color:active?C.teal:C.mu,borderRadius:99,padding:"0 6px",fontSize:8 }}>{item[3]}</span>}
-            </button>
-          );
-        })}
-      </div>
+
+      {/* ── Scrollable content ── */}
       <div style={{ flex:1,overflowY:"auto" }}>
+
+        {/* OVERVIEW */}
         {tab==="overview" && (
-          <div style={{ padding:"14px" }}>
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:14 }}>
+          <div style={{ padding:"16px" }}>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18 }}>
               {[
-                { icon:"👥",label:"Candidates",value:total,color:C.teal,sub:"assessments done" },
+                { icon:"👥",label:"Candidates",value:total,color:"#1aabaa",sub:"total assessments" },
                 { icon:"👔",label:"Advisors",value:advisors.length,color:"#8b5cf6",sub:"active accounts" },
-                { icon:"⚡",label:"Avg Skill Up",value:avgEmp+"%",color:C.gold,sub:"employability score" },
-                { icon:"🧰",label:"Top Profile",value:topHL?topHL[0]:"—",color:C.gr,sub:topHL?"Holland #1 type":"no data yet" },
+                { icon:"⚡",label:"Avg Skill Up",value:avgEmp+"%",color:"#f97316",sub:"employability" },
+                { icon:"🎯",label:"Top Type",value:topHL?topHL[0]:"—",color:"#22c55e",sub:topHL?(HN[topHL[0]]||"Holland"):"no data" },
               ].map(function(kpi,i){
                 return (
-                  <div key={i} style={{ background:"linear-gradient(145deg,"+C.sur+",#091828)",border:"1.5px solid "+kpi.color+"33",borderRadius:16,padding:"16px 14px",position:"relative",overflow:"hidden" }}>
-                    <div style={{ position:"absolute",top:-10,right:-10,fontSize:44,opacity:.06 }}>{kpi.icon}</div>
-                    <div style={{ fontSize:9,color:kpi.color,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:6 }}>{kpi.label}</div>
-                    <div style={{ fontSize:"clamp(24px,6vw,36px)",fontWeight:900,color:kpi.color,lineHeight:1 }}>{kpi.value}</div>
-                    <div style={{ fontSize:9,color:C.mu,marginTop:5 }}>{kpi.sub}</div>
+                  <div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+kpi.color+"20",borderTop:"2px solid "+kpi.color,borderRadius:16,padding:"15px 13px",position:"relative",overflow:"hidden",boxShadow:"0 4px 20px "+kpi.color+"0a" }}>
+                    <div style={{ position:"absolute",bottom:-10,right:-4,fontSize:38,opacity:.06 }}>{kpi.icon}</div>
+                    <div style={{ fontSize:8,color:kpi.color,fontWeight:800,textTransform:"uppercase",letterSpacing:1.2,marginBottom:8 }}>{kpi.label}</div>
+                    <div style={{ fontSize:"clamp(26px,7vw,38px)",fontWeight:900,color:"#fff",lineHeight:1 }}>{kpi.value}</div>
+                    <div style={{ fontSize:9,color:"rgba(255,255,255,.28)",marginTop:6 }}>{kpi.sub}</div>
                   </div>
                 );
               })}
             </div>
-            <div style={{ background:C.sur,border:"1px solid "+C.bdr,borderRadius:14,padding:"14px",marginBottom:12 }}>
-              <div style={{ fontSize:11,fontWeight:800,color:C.wh,marginBottom:10 }}>🕐 Recent Assessments</div>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
+                <span style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)" }}>Recent Assessments</span>
+                <span style={{ fontSize:9,color:"#1aabaa",fontWeight:600 }}>{recent.length} latest</span>
+              </div>
               {recent.length===0
-                ? <p style={{ color:C.mu,fontSize:11,textAlign:"center",padding:"10px 0" }}>No data yet</p>
+                ? <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",padding:"24px",fontSize:11 }}>No data yet</div>
                 : recent.map(function(c,i){
                   var ht=ranked(c.scores&&c.scores.h||{}); var emp=avg(c.scores&&c.scores.s||{});
-                  var col=HCOLS[ht[0]]||C.teal;
+                  var col=HCOLS[ht[0]]||"#1aabaa"; var init=nameInit(c.name);
                   return (
-                    <div key={i} onClick={function(){setDetailCand(c);}} style={{ display:"flex",alignItems:"center",gap:10,padding:"9px 8px",borderRadius:10,marginBottom:4,cursor:"pointer",background:"rgba(255,255,255,.025)",border:"1px solid transparent",transition:"all .2s" }}
-                      onMouseOver={function(e){e.currentTarget.style.background="rgba(26,171,170,.08)";e.currentTarget.style.borderColor=C.teal+"33";}}
-                      onMouseOut={function(e){e.currentTarget.style.background="rgba(255,255,255,.025)";e.currentTarget.style.borderColor="transparent";}}>
-                      <div style={{ width:36,height:36,borderRadius:10,background:col+"18",border:"1px solid "+col+"33",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0,fontWeight:900,color:col }}>
-                        {ht[0]||"?"}
-                      </div>
+                    <div key={i} onClick={function(){setDetailCand(c);}}
+                      style={{ display:"flex",alignItems:"center",gap:11,padding:"10px 12px",background:"rgba(255,255,255,.03)",borderRadius:12,marginBottom:6,border:"1px solid rgba(255,255,255,.05)",cursor:"pointer",transition:"all .15s" }}
+                      onMouseOver={function(e){e.currentTarget.style.background="rgba(26,171,170,.07)";e.currentTarget.style.borderColor="rgba(26,171,170,.2)";}}
+                      onMouseOut={function(e){e.currentTarget.style.background="rgba(255,255,255,.03)";e.currentTarget.style.borderColor="rgba(255,255,255,.05)";}}>
+                      <div style={{ width:38,height:38,borderRadius:11,background:"linear-gradient(135deg,"+col+"33,"+col+"18)",border:"1px solid "+col+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900,color:col,flexShrink:0 }}>{init}</div>
                       <div style={{ flex:1,minWidth:0 }}>
-                        <div style={{ fontWeight:700,fontSize:12,color:C.wh,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{c.name}</div>
-                        <div style={{ fontSize:9,color:C.mu }}>{c.savedAt?new Date(c.savedAt).toLocaleDateString():"—"} · {(c.profile&&c.profile.region)||"—"}</div>
+                        <div style={{ fontWeight:700,fontSize:12,color:"rgba(255,255,255,.85)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{c.name}</div>
+                        <div style={{ fontSize:9,color:"rgba(255,255,255,.3)",marginTop:1 }}>{(c.profile&&c.profile.region)||"—"}</div>
                       </div>
                       <div style={{ textAlign:"right",flexShrink:0 }}>
-                        <div style={{ fontSize:12,fontWeight:900,color:col }}>{ht[0]||"—"}{ht[1]||""}</div>
-                        <div style={{ fontSize:9,color:emp>=65?C.gr:emp>=45?C.gold:C.re,fontWeight:700 }}>{emp}%</div>
+                        <div style={{ fontSize:13,fontWeight:900,color:col }}>{ht[0]||"—"}{ht[1]||""}</div>
+                        <div style={{ fontSize:9,fontWeight:700,color:emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444",marginTop:1 }}>{emp}%</div>
                       </div>
-                      <div style={{ fontSize:12,color:C.bdr }}>›</div>
                     </div>
                   );
                 })
               }
             </div>
             {total>0 && (
-              <div style={{ background:C.sur,border:"1px solid "+C.bdr,borderRadius:14,padding:"14px",marginBottom:12 }}>
-                <div style={{ fontSize:11,fontWeight:800,color:C.wh,marginBottom:10 }}>🧰 Holland Distribution</div>
+              <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"16px",marginBottom:12 }}>
+                <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:14 }}>Holland Distribution</div>
                 {["R","I","A","S","E","C"].map(function(code){
                   var n=hollandCounts[code]||0; var pct=total?Math.round(n/total*100):0;
                   return (
-                    <div key={code} style={{ marginBottom:7 }}>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:9,marginBottom:2 }}>
-                        <span><strong style={{ color:HCOLS[code] }}>{code}</strong><span style={{ color:C.mu }}> {HN[code]}</span></span>
-                        <span style={{ color:HCOLS[code],fontWeight:700 }}>{n} <span style={{ color:C.mu }}>({pct}%)</span></span>
+                    <div key={code} style={{ marginBottom:10 }}>
+                      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
+                        <span style={{ fontSize:10,fontWeight:700,color:HCOLS[code] }}>{code} <span style={{ color:"rgba(255,255,255,.3)",fontWeight:400 }}>{HN[code]}</span></span>
+                        <span style={{ fontSize:10,fontWeight:700,color:HCOLS[code] }}>{n} <span style={{ color:"rgba(255,255,255,.25)" }}>({pct}%)</span></span>
                       </div>
-                      <div style={{ height:7,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
-                        <div style={{ height:"100%",width:pct+"%",background:HCOLS[code],borderRadius:99,transition:"width .8s cubic-bezier(.22,.68,0,1.2)" }}/>
+                      <div style={{ height:6,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
+                        <div style={{ height:"100%",width:pct+"%",background:"linear-gradient(90deg,"+HCOLS[code]+","+HCOLS[code]+"88)",borderRadius:99,transition:"width .8s cubic-bezier(.22,.68,0,1.2)" }}/>
                       </div>
                     </div>
                   );
@@ -3178,18 +3160,18 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
               </div>
             )}
             {topRegions.length>0 && (
-              <div style={{ background:C.sur,border:"1px solid "+C.bdr,borderRadius:14,padding:"14px" }}>
-                <div style={{ fontSize:11,fontWeight:800,color:C.wh,marginBottom:10 }}>📍 Top Regions</div>
+              <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"16px" }}>
+                <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:12 }}>Top Regions</div>
                 {topRegions.map(function(item,i){
                   var pct=total?Math.round(item[1]/total*100):0;
                   return (
-                    <div key={i} style={{ marginBottom:7 }}>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:9,marginBottom:2 }}>
-                        <span style={{ color:C.mu,maxWidth:"70%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{item[0]}</span>
-                        <span style={{ color:C.teal,fontWeight:700 }}>{item[1]} ({pct}%)</span>
+                    <div key={i} style={{ marginBottom:8 }}>
+                      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
+                        <span style={{ fontSize:10,color:"rgba(255,255,255,.4)",maxWidth:"70%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{item[0]}</span>
+                        <span style={{ fontSize:10,color:"#1aabaa",fontWeight:700 }}>{item[1]} ({pct}%)</span>
                       </div>
-                      <div style={{ height:6,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
-                        <div style={{ height:"100%",width:pct+"%",background:"linear-gradient(90deg,"+C.teal+","+C.teal+"88)",borderRadius:99 }}/>
+                      <div style={{ height:5,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
+                        <div style={{ height:"100%",width:pct+"%",background:"linear-gradient(90deg,#1aabaa,#1aabaa66)",borderRadius:99 }}/>
                       </div>
                     </div>
                   );
@@ -3198,71 +3180,70 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
             )}
           </div>
         )}
+
+        {/* CANDIDATES */}
         {tab==="candidates" && (
           <div style={{ padding:"12px" }}>
-            <div style={{ background:C.sur,border:"1px solid "+C.bdr,borderRadius:12,padding:"12px",marginBottom:12 }}>
+            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:14,padding:"12px",marginBottom:12 }}>
               <input value={search} onChange={function(e){setSearch(e.target.value);}}
                 placeholder="🔍 Search name, ID, email…"
-                style={{ width:"100%",padding:"9px 12px",background:"rgba(255,255,255,.04)",border:"1.5px solid "+C.bdr,borderRadius:9,color:C.wh,fontSize:11,marginBottom:8 }}/>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6 }}>
+                style={{ width:"100%",padding:"10px 12px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:10,color:"#fff",fontSize:11,marginBottom:8,outline:"none",boxSizing:"border-box" }}/>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:6,alignItems:"center" }}>
                 <select value={filterGender} onChange={function(e){setFilterGender(e.target.value);}}
-                  style={{ padding:"7px 8px",background:C.bg,border:"1px solid "+C.bdr,borderRadius:8,color:filterGender?C.teal:C.mu,fontSize:10 }}>
+                  style={{ padding:"8px 10px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:filterGender?"#1aabaa":"rgba(255,255,255,.4)",fontSize:10 }}>
                   <option value="">All Genders</option>
                   <option value="Male">Male</option><option value="Female">Female</option>
                   <option value="Homme">Homme</option><option value="Femme">Femme</option>
                 </select>
                 <select value={filterHolland} onChange={function(e){setFilterHolland(e.target.value);}}
-                  style={{ padding:"7px 8px",background:C.bg,border:"1px solid "+C.bdr,borderRadius:8,color:filterHolland?C.teal:C.mu,fontSize:10 }}>
+                  style={{ padding:"8px 10px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:filterHolland?"#1aabaa":"rgba(255,255,255,.4)",fontSize:10 }}>
                   <option value="">All Holland</option>
                   {["R","I","A","S","E","C"].map(function(c){return <option key={c} value={c}>{c}</option>;})}
                 </select>
                 <button onClick={exportExcel}
-                  style={{ padding:"7px 8px",background:"linear-gradient(135deg,#16a34a,#15803d)",color:"#fff",border:"none",borderRadius:8,fontSize:10,fontWeight:800 }}>
-                  📊 Export
+                  style={{ padding:"8px 13px",background:"linear-gradient(135deg,#16a34a,#15803d)",color:"#fff",border:"none",borderRadius:9,fontSize:10,fontWeight:800,cursor:"pointer" }}>
+                  ↓ CSV
                 </button>
               </div>
               {(filterGender||filterHolland||search) && (
                 <button onClick={function(){setSearch("");setFilterGender("");setFilterHolland("");}}
-                  style={{ marginTop:7,fontSize:9,color:C.re,background:"none",border:"none",cursor:"pointer",padding:0 }}>
-                  ✕ Clear filters ({list.length} of {src.length} shown)
+                  style={{ marginTop:8,fontSize:9,color:"#ef4444",background:"none",border:"none",cursor:"pointer",padding:0 }}>
+                  ✕ Clear filters ({list.length}/{src.length})
                 </button>
               )}
             </div>
             {list.length===0
-              ? <div style={{ textAlign:"center",color:C.mu,padding:"40px 20px",fontSize:12 }}>No candidates match your search.</div>
+              ? <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",padding:"40px 20px",fontSize:12 }}>No candidates match your search.</div>
               : list.map(function(c,i){
                 var ht=ranked(c.scores&&c.scores.h||{}); var emp=avg(c.scores&&c.scores.s||{});
-                var col=HCOLS[ht[0]]||C.teal; var p=c.profile||{};
+                var col=HCOLS[ht[0]]||"#1aabaa"; var p=c.profile||{};
+                var init=nameInit(c.name); var empCol=emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444";
                 return (
                   <div key={i} onClick={function(){setDetailCand(c);}}
-                    style={{ background:"linear-gradient(145deg,"+C.sur+",#091828)",border:"1px solid "+C.bdr,borderRadius:14,padding:"13px",marginBottom:9,cursor:"pointer",transition:"all .2s" }}
-                    onMouseOver={function(e){e.currentTarget.style.borderColor=col+"55";e.currentTarget.style.transform="translateY(-1px)";}}
-                    onMouseOut={function(e){e.currentTarget.style.borderColor=C.bdr;e.currentTarget.style.transform="translateY(0)";}}>
-                    <div style={{ display:"flex",alignItems:"flex-start",gap:11 }}>
-                      <div style={{ width:44,height:44,borderRadius:12,background:col+"18",border:"1.5px solid "+col+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:col,flexShrink:0 }}>
-                        {ht[0]||"?"}
+                    style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"13px",marginBottom:8,cursor:"pointer",transition:"all .15s" }}
+                    onMouseOver={function(e){e.currentTarget.style.background="rgba(26,171,170,.06)";e.currentTarget.style.borderColor="rgba(26,171,170,.2)";e.currentTarget.style.transform="translateY(-1px)";}}
+                    onMouseOut={function(e){e.currentTarget.style.background="rgba(255,255,255,.03)";e.currentTarget.style.borderColor="rgba(255,255,255,.06)";e.currentTarget.style.transform="translateY(0)";}}>
+                    <div style={{ display:"flex",alignItems:"center",gap:11 }}>
+                      <div style={{ width:46,height:46,borderRadius:14,flexShrink:0,background:"linear-gradient(135deg,"+col+"33,"+col+"18)",border:"1.5px solid "+col+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:900,color:col }}>
+                        {init}
                       </div>
                       <div style={{ flex:1,minWidth:0 }}>
                         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
-                          <div>
-                            <div style={{ fontWeight:800,fontSize:13,color:C.wh }}>{c.name}</div>
-                            <div style={{ fontSize:9,color:C.mu,marginTop:1 }}>{p.email||c.id} · {p.region||"—"}</div>
-                          </div>
-                          <div style={{ textAlign:"right",flexShrink:0 }}>
-                            <span style={{ fontSize:11,fontWeight:900,color:col }}>{ht[0]||"—"}{ht[1]||""}{ht[2]||""}</span>
-                          </div>
+                          <div style={{ fontWeight:800,fontSize:13,color:"rgba(255,255,255,.9)" }}>{c.name}</div>
+                          <span style={{ fontSize:12,fontWeight:900,color:col,flexShrink:0,marginLeft:8 }}>{ht[0]||"—"}{ht[1]||""}</span>
                         </div>
+                        <div style={{ fontSize:9,color:"rgba(255,255,255,.3)",marginTop:2 }}>{p.email||c.id} · {p.region||"—"}</div>
                         <div style={{ display:"flex",alignItems:"center",gap:8,marginTop:8 }}>
-                          <div style={{ flex:1,height:5,background:"rgba(255,255,255,.07)",borderRadius:99,overflow:"hidden" }}>
-                            <div style={{ height:"100%",width:emp+"%",background:emp>=65?C.gr:emp>=45?C.gold:C.re,borderRadius:99 }}/>
+                          <div style={{ flex:1,height:4,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
+                            <div style={{ height:"100%",width:emp+"%",background:empCol,borderRadius:99 }}/>
                           </div>
-                          <span style={{ fontSize:9,fontWeight:700,color:emp>=65?C.gr:emp>=45?C.gold:C.re,flexShrink:0 }}>{emp}%</span>
+                          <span style={{ fontSize:9,fontWeight:700,color:empCol,flexShrink:0 }}>{emp}%</span>
                         </div>
-                        <div style={{ display:"flex",gap:5,marginTop:7,flexWrap:"wrap" }}>
-                          {[p.age,p.gender,p.edu&&p.edu.split(" ")[0],p.status&&p.status.split("/")[0]].filter(Boolean).map(function(tag,j){
-                            return <span key={j} style={{ fontSize:8,padding:"2px 7px",borderRadius:99,background:"rgba(255,255,255,.06)",color:C.mu,border:"1px solid "+C.bdr }}>{tag}</span>;
+                        <div style={{ display:"flex",gap:4,marginTop:7,flexWrap:"wrap" }}>
+                          {[p.age,p.gender,p.edu&&p.edu.split(" ")[0]].filter(Boolean).map(function(tag,j){
+                            return <span key={j} style={{ fontSize:8,padding:"2px 7px",borderRadius:99,background:"rgba(255,255,255,.05)",color:"rgba(255,255,255,.4)",border:"1px solid rgba(255,255,255,.07)" }}>{tag}</span>;
                           })}
-                          {c.savedAt && <span style={{ fontSize:8,padding:"2px 7px",borderRadius:99,background:C.teal+"11",color:C.teal,border:"1px solid "+C.teal+"22",marginLeft:"auto" }}>{new Date(c.savedAt).toLocaleDateString()}</span>}
+                          {c.savedAt && <span style={{ fontSize:8,padding:"2px 7px",borderRadius:99,background:"rgba(26,171,170,.1)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.2)",marginLeft:"auto" }}>{new Date(c.savedAt).toLocaleDateString()}</span>}
                         </div>
                       </div>
                     </div>
@@ -3272,55 +3253,57 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
             }
           </div>
         )}
+
+        {/* ADVISORS */}
         {tab==="advisors" && (
           <div style={{ padding:"12px" }}>
-            <div style={{ background:C.sur,border:"1px solid "+C.bdr,borderRadius:14,padding:"16px",marginBottom:12 }}>
-              <div style={{ fontSize:12,fontWeight:800,color:C.wh,marginBottom:6 }}>➕ New Advisor Account</div>
-              <p style={{ fontSize:10,color:C.mu,marginBottom:12,lineHeight:1.6 }}>
+            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(139,92,246,.18)",borderRadius:16,padding:"16px",marginBottom:14 }}>
+              <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:12 }}>
+                <div style={{ width:28,height:28,borderRadius:8,background:"rgba(139,92,246,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14 }}>➕</div>
+                <span style={{ fontSize:12,fontWeight:800,color:"rgba(255,255,255,.8)" }}>New Advisor Account</span>
+              </div>
+              <p style={{ fontSize:10,color:"rgba(255,255,255,.3)",marginBottom:12,lineHeight:1.6 }}>
                 Enter the advisor's full name — a unique <code style={{ color:"#8b5cf6" }}>@nameADV</code> login code will be generated automatically.
               </p>
               <div style={{ display:"flex",gap:8 }}>
                 <input value={newName} onChange={function(e){setNewName(e.target.value);}}
                   onKeyDown={function(e){if(e.key==="Enter")createAdvisor();}}
                   placeholder="Advisor full name…"
-                  style={{ flex:1,padding:"10px 13px",background:"rgba(255,255,255,.04)",border:"1.5px solid "+C.bdr,borderRadius:10,color:C.wh,fontSize:12 }}/>
+                  style={{ flex:1,padding:"10px 13px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:10,color:"#fff",fontSize:12,outline:"none" }}/>
                 <button onClick={createAdvisor} disabled={!newName.trim()}
-                  style={{ padding:"10px 18px",background:newName.trim()?"linear-gradient(135deg,#7c3aed,#6d28d9)":"rgba(255,255,255,.05)",
-                    color:newName.trim()?C.wh:C.mu,border:"none",borderRadius:10,fontFamily:"inherit",fontSize:12,fontWeight:800 }}>
+                  style={{ padding:"10px 18px",background:newName.trim()?"linear-gradient(135deg,#7c3aed,#6d28d9)":"rgba(255,255,255,.05)",color:newName.trim()?"#fff":"rgba(255,255,255,.3)",border:"none",borderRadius:10,fontFamily:"inherit",fontSize:12,fontWeight:800,cursor:newName.trim()?"pointer":"default" }}>
                   Create
                 </button>
               </div>
               {newName.trim() && <p style={{ fontSize:10,color:"#8b5cf6",marginTop:8 }}>Code will be: <strong>{genCode(newName)}</strong></p>}
             </div>
-            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"0 2px" }}>
-              <div style={{ fontSize:11,fontWeight:800,color:C.wh }}>👔 Advisor Accounts <span style={{ color:C.mu,fontWeight:400 }}>({advisors.length})</span></div>
-              {advisors.length>0 && <button onClick={exportAdvisors} style={{ padding:"6px 12px",background:"linear-gradient(135deg,#16a34a,#15803d)",color:"#fff",border:"none",borderRadius:8,fontSize:10,fontWeight:800 }}>📊 Export</button>}
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
+              <span style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)" }}>Team Accounts <span style={{ color:"rgba(255,255,255,.3)",fontWeight:400 }}>({advisors.length})</span></span>
+              {advisors.length>0 && <button onClick={exportAdvisors} style={{ padding:"6px 12px",background:"rgba(22,163,74,.12)",color:"#22c55e",border:"1px solid rgba(22,163,74,.22)",borderRadius:8,fontSize:10,fontWeight:700,cursor:"pointer" }}>↓ Export</button>}
             </div>
             {advisors.length===0
-              ? <div style={{ textAlign:"center",padding:"40px 20px",color:C.mu,fontSize:12 }}>No advisor accounts yet. Create one above.</div>
+              ? <div style={{ textAlign:"center",padding:"40px 20px",color:"rgba(255,255,255,.2)",fontSize:12 }}>No advisor accounts yet. Create one above.</div>
               : advisors.map(function(adv,i){
+                var init=nameInit(adv.name);
                 return (
-                  <div key={i} style={{ display:"flex",alignItems:"center",gap:11,padding:"13px",background:"linear-gradient(145deg,"+C.sur+",#091828)",border:"1px solid "+C.bdr,borderRadius:14,marginBottom:9 }}>
-                    <div style={{ width:42,height:42,borderRadius:12,background:"#7c3aed18",border:"1.5px solid #7c3aed44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0 }}>👔</div>
+                  <div key={i} style={{ display:"flex",alignItems:"center",gap:11,padding:"13px",background:"rgba(255,255,255,.03)",border:"1px solid rgba(139,92,246,.14)",borderRadius:14,marginBottom:8 }}>
+                    <div style={{ width:44,height:44,borderRadius:13,background:"linear-gradient(135deg,rgba(124,58,237,.3),rgba(109,40,217,.2))",border:"1.5px solid rgba(124,58,237,.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:900,color:"#a78bfa",flexShrink:0 }}>{init}</div>
                     <div style={{ flex:1,minWidth:0 }}>
-                      <div style={{ fontWeight:800,fontSize:13,color:C.wh }}>{adv.name}</div>
+                      <div style={{ fontWeight:800,fontSize:13,color:"rgba(255,255,255,.85)" }}>{adv.name}</div>
                       <div style={{ display:"flex",alignItems:"center",gap:8,marginTop:3 }}>
                         <code style={{ fontSize:11,color:"#8b5cf6",fontWeight:700 }}>{adv.code}</code>
-                        {adv.createdAt && <span style={{ fontSize:9,color:C.mu }}>{adv.createdAt}</span>}
+                        {adv.createdAt && <span style={{ fontSize:9,color:"rgba(255,255,255,.25)" }}>{adv.createdAt}</span>}
                       </div>
                     </div>
                     <div style={{ display:"flex",gap:6,flexShrink:0 }}>
                       <button onClick={function(){copyCode(adv.code);}}
-                        style={{ padding:"6px 12px",borderRadius:8,fontSize:10,fontWeight:700,
-                          background:copied===adv.code?C.gr+"18":"rgba(255,255,255,.06)",
-                          color:copied===adv.code?C.gr:C.mu,
-                          border:"1px solid "+(copied===adv.code?C.gr+"44":C.bdr) }}>
-                        {copied===adv.code?"✓ Copied":"Copy"}
+                        style={{ padding:"6px 11px",borderRadius:8,fontSize:10,fontWeight:700,cursor:"pointer",background:copied===adv.code?"rgba(34,197,94,.15)":"rgba(255,255,255,.05)",color:copied===adv.code?"#22c55e":"rgba(255,255,255,.4)",border:"1px solid "+(copied===adv.code?"rgba(34,197,94,.25)":"rgba(255,255,255,.08)") }}>
+                        {copied===adv.code?"✓":"Copy"}
                       </button>
                       <button onClick={function(){
                         if(!window.confirm('Delete advisor "'+adv.name+'"?\nThis cannot be undone.')) return;
                         onDeleteAdvisor(i);
-                      }} style={{ padding:"6px 10px",background:"rgba(239,68,68,.1)",color:C.re,border:"1px solid "+C.re+"33",borderRadius:8,fontSize:10,fontWeight:700 }}>🗑</button>
+                      }} style={{ padding:"6px 10px",background:"rgba(239,68,68,.1)",color:"#ef4444",border:"1px solid rgba(239,68,68,.2)",borderRadius:8,fontSize:10,fontWeight:700,cursor:"pointer" }}>🗑</button>
                     </div>
                   </div>
                 );
@@ -3328,8 +3311,34 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
             }
           </div>
         )}
+
         {tab==="analytics" && <AdminStats src={src} lang={lang} ar={ar}/>}
       </div>
+
+      {/* ── Bottom Navigation Bar ── */}
+      <div style={{ display:"flex",background:"rgba(6,13,24,.97)",borderTop:"1px solid rgba(26,171,170,.1)",flexShrink:0 }}>
+        {[
+          { id:"overview", icon:"🏠", label:"Overview" },
+          { id:"candidates", icon:"👥", label:"People", count:src.length },
+          { id:"advisors", icon:"👔", label:"Team", count:advisors.length },
+          { id:"analytics", icon:"📊", label:"Stats" },
+        ].map(function(t){
+          var active=tab===t.id;
+          return (
+            <button key={t.id} onClick={function(){setTab(t.id);}}
+              style={{ flex:1,padding:"10px 4px 9px",border:"none",background:"transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",position:"relative" }}>
+              <div style={{ width:active?44:30,height:active?29:22,borderRadius:active?12:8,background:active?"linear-gradient(135deg,#1aabaa,#0f7e7d)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .22s cubic-bezier(.22,1,.36,1)",boxShadow:active?"0 4px 14px rgba(26,171,170,.4)":"none",position:"relative" }}>
+                <span style={{ fontSize:active?15:13,transition:"font-size .22s" }}>{t.icon}</span>
+                {t.count!==undefined&&t.count>0&&!active&&(
+                  <div style={{ position:"absolute",top:-3,right:-3,minWidth:14,height:14,borderRadius:7,background:"#1aabaa",fontSize:7,fontWeight:800,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px" }}>{t.count>99?"99+":t.count}</div>
+                )}
+              </div>
+              <span style={{ fontSize:9,fontWeight:active?700:400,color:active?"#1aabaa":"rgba(255,255,255,.28)",transition:"color .2s" }}>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {detailCand && <CandDetail c={detailCand} onClose={function(){setDetailCand(null);}}/>}
       {localReport && <ReportViewer profile={localReport.profile} scores={localReport.scores} role={localReport.role} onClose={function(){setLocalReport(null);}}/>}
     </div>
