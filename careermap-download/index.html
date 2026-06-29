@@ -3191,6 +3191,20 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   var recent = src.slice().sort(function(a,b){return (b.savedAt||"")>(a.savedAt||"")?1:-1;}).slice(0,6);
   var regions = {}; src.forEach(function(c){ var r=(c.profile&&c.profile.region)||"—"; regions[r]=(regions[r]||0)+1; });
   var topRegions = Object.entries(regions).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
+  var femaleCount = src.filter(function(c){ var g=(c.profile&&c.profile.gender)||""; return g==="Female"||g==="Femme"; }).length;
+  var femalePct = total ? Math.round(femaleCount/total*100) : 0;
+  var completedCount = src.filter(function(c){ return avg(c.scores&&c.scores.s||{}) >= 65; }).length;
+  var completionRate = total ? Math.round(completedCount/total*100) : 0;
+  var dropoutCount = src.filter(function(c){ return avg(c.scores&&c.scores.s||{}) < 45; }).length;
+  var dropoutRate = total ? Math.round(dropoutCount/total*100) : 0;
+  var platformRegions = Object.keys(regions).filter(function(r){return r!=="—";}).length;
+  var PROG_DEF = [
+    { key:"leadership", label:"Leadership & Civisme", icon:"🏛", color:"#8b5cf6", types:["S","E"] },
+    { key:"skills", label:"Formation & Compétences", icon:"🔧", color:"#f97316", types:["R","C"] },
+    { key:"entrepreneurship", label:"Entrepreneuriat", icon:"💡", color:"#d4a328", types:["I","A"] }
+  ];
+  var progCounts = {};
+  PROG_DEF.forEach(function(p){ progCounts[p.key] = src.filter(function(c){ return p.types.indexOf(ranked(c.scores&&c.scores.h||{})[0]||"") !== -1; }).length; });
 
   /* ── helpers ── */
   function exportExcel() {
@@ -3254,6 +3268,10 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
     var h=c.scores&&c.scores.h||{}; var b5=c.scores&&c.scores.b||{}; var s=c.scores&&c.scores.s||{};
     var col=HCOLS[ht[0]]||"#1aabaa"; var empCol=emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444";
     var init=nameInit(c.name);
+    var hasScores = Object.keys(h).length > 0;
+    var jStep = !hasScores ? 0 : emp >= 65 ? 3 : emp >= 45 ? 2 : 1;
+    var jSteps = ["Inscrit","Orientation","Actif","Complété"];
+    var jColors = ["#6b8aaa","#8b5cf6","#1aabaa","#22c55e"];
     return (
       <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"#060d18",zIndex:9998,display:"flex",flexDirection:"column",overflow:"hidden" }}>
         <div style={{ background:"linear-gradient(180deg,#0d1e38,#071228)",borderBottom:"1px solid rgba(26,171,170,.12)",padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexShrink:0 }}>
@@ -3272,6 +3290,30 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                 <div style={{ fontSize:11,color:"rgba(255,255,255,.85)",fontWeight:600 }}>{item[1]}</div>
               </div>:null;
             })}
+          </div>
+          <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:13,padding:"13px",marginBottom:10 }}>
+            <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.55)",marginBottom:11 }}>Parcours Bénéficiaire</div>
+            <div style={{ display:"flex",alignItems:"flex-start",marginBottom:8 }}>
+              {jSteps.map(function(st,j){
+                var done = j < jStep;
+                var active = j === jStep;
+                var stCol = done ? "#22c55e" : active ? jColors[j] : "rgba(255,255,255,.12)";
+                return (
+                  <React.Fragment key={j}>
+                    <div style={{ display:"flex",flexDirection:"column",alignItems:"center",minWidth:0 }}>
+                      <div style={{ width:26,height:26,borderRadius:999,border:"2px solid "+stCol,background:done?"#22c55e":active?jColors[j]+"33":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:done?"#fff":active?jColors[j]:"rgba(255,255,255,.2)",fontWeight:800,flexShrink:0 }}>
+                        {done ? "✓" : (j+1)}
+                      </div>
+                      <div style={{ fontSize:7,color:active?jColors[j]:done?"#22c55e":"rgba(255,255,255,.22)",marginTop:3,fontWeight:active?800:400,textAlign:"center",maxWidth:38,lineHeight:1.2 }}>{st}</div>
+                    </div>
+                    {j < 3 && <div style={{ flex:1,height:2,background:j<jStep?"#22c55e":"rgba(255,255,255,.08)",marginTop:12,marginLeft:2,marginRight:2 }}/>}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+            <div style={{ fontSize:8,color:"rgba(255,255,255,.3)",textAlign:"center" }}>
+              Étape: <span style={{ color:jColors[jStep],fontWeight:700 }}>{jSteps[jStep]}</span>
+            </div>
           </div>
           {[
             { title:"Holland RIASEC", keys:["R","I","A","S","E","C"], vals:h, cols:HCOLS },
@@ -3343,19 +3385,21 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
         {/* OVERVIEW */}
         {tab==="overview" && (
           <div style={{ padding:"16px" }}>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14 }}>
               {[
-                { icon:"👥",label:"Candidates",value:total,color:"#1aabaa",sub:"total assessments" },
-                { icon:"👔",label:"Advisors",value:advisors.length,color:"#8b5cf6",sub:"active accounts" },
-                { icon:"⚡",label:"Avg Skill Up",value:avgEmp+"%",color:"#f97316",sub:"employability" },
-                { icon:"🎯",label:"Top Type",value:topHL?topHL[0]:"—",color:"#22c55e",sub:topHL?(HN[topHL[0]]||"Holland"):"no data" },
+                { icon:"👥", label:"Bénéficiaires", value:total, color:"#1aabaa", sub:"total" },
+                { icon:"♀", label:"Participation F.", value:femalePct+"%", color:"#ec4899", sub:femaleCount+" femmes" },
+                { icon:"✅", label:"Taux Complét.", value:completionRate+"%", color:"#22c55e", sub:completedCount+" complétés" },
+                { icon:"🏢", label:"Plateformes", value:platformRegions, color:"#8b5cf6", sub:"régions actives" },
+                { icon:"⚡", label:"Moy. Skill Up", value:avgEmp+"%", color:"#f97316", sub:"employabilité" },
+                { icon:"📉", label:"Taux Abandon", value:dropoutRate+"%", color:"#ef4444", sub:dropoutCount+" <45%" },
               ].map(function(kpi,i){
                 return (
-                  <div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+kpi.color+"20",borderTop:"2px solid "+kpi.color,borderRadius:16,padding:"15px 13px",position:"relative",overflow:"hidden",boxShadow:"0 4px 20px "+kpi.color+"0a" }}>
-                    <div style={{ position:"absolute",bottom:-10,right:-4,fontSize:38,opacity:.06 }}>{kpi.icon}</div>
-                    <div style={{ fontSize:8,color:kpi.color,fontWeight:800,textTransform:"uppercase",letterSpacing:1.2,marginBottom:8 }}>{kpi.label}</div>
-                    <div style={{ fontSize:"clamp(26px,7vw,38px)",fontWeight:900,color:"#fff",lineHeight:1 }}>{kpi.value}</div>
-                    <div style={{ fontSize:9,color:"rgba(255,255,255,.28)",marginTop:6 }}>{kpi.sub}</div>
+                  <div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+kpi.color+"20",borderTop:"2px solid "+kpi.color,borderRadius:13,padding:"11px 9px",position:"relative",overflow:"hidden" }}>
+                    <div style={{ position:"absolute",bottom:-7,right:-2,fontSize:26,opacity:.07 }}>{kpi.icon}</div>
+                    <div style={{ fontSize:7,color:kpi.color,fontWeight:800,textTransform:"uppercase",letterSpacing:.7,marginBottom:5 }}>{kpi.label}</div>
+                    <div style={{ fontSize:"clamp(18px,4.5vw,26px)",fontWeight:900,color:"#fff",lineHeight:1 }}>{kpi.value}</div>
+                    <div style={{ fontSize:7.5,color:"rgba(255,255,255,.28)",marginTop:4 }}>{kpi.sub}</div>
                   </div>
                 );
               })}
@@ -3402,6 +3446,29 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                       </div>
                       <div style={{ height:6,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
                         <div style={{ height:"100%",width:pct+"%",background:"linear-gradient(90deg,"+HCOLS[code]+","+HCOLS[code]+"88)",borderRadius:99,transition:"width .8s cubic-bezier(.22,.68,0,1.2)" }}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {total > 0 && (
+              <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"14px",marginBottom:12 }}>
+                <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:12 }}>Programmes INDH</div>
+                {PROG_DEF.map(function(p,i){
+                  var n = progCounts[p.key] || 0;
+                  var pct = total ? Math.round(n/total*100) : 0;
+                  return (
+                    <div key={i} style={{ display:"flex",alignItems:"center",gap:10,marginBottom:i<2?10:0 }}>
+                      <div style={{ width:32,height:32,borderRadius:9,background:"rgba(255,255,255,.04)",border:"1px solid "+p.color+"30",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0 }}>{p.icon}</div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
+                          <span style={{ fontSize:10,fontWeight:700,color:"rgba(255,255,255,.7)" }}>{p.label}</span>
+                          <span style={{ fontSize:10,fontWeight:700,color:p.color }}>{n} <span style={{ color:"rgba(255,255,255,.3)" }}>({pct}%)</span></span>
+                        </div>
+                        <div style={{ height:5,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
+                          <div style={{ height:"100%",width:pct+"%",background:p.color,borderRadius:99 }}/>
+                        </div>
                       </div>
                     </div>
                   );
@@ -3561,16 +3628,190 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
           </div>
         )}
 
+        {tab==="platforms" && (
+          <div style={{ padding:"12px" }}>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:3 }}>Plateformes Jeunes INDH</div>
+              <div style={{ fontSize:9,color:"rgba(255,255,255,.3)" }}>{platformRegions} région(s) avec des bénéficiaires</div>
+            </div>
+            {Object.entries(regions).filter(function(r){return r[0]!=="—";}).sort(function(a,b){return b[1]-a[1];}).map(function(item,i){
+              var regName = item[0]; var regCount = item[1];
+              var regCands = src.filter(function(c){return (c.profile&&c.profile.region)===regName;});
+              var regFemale = regCands.filter(function(c){ var g=(c.profile&&c.profile.gender)||""; return g==="Female"||g==="Femme"; }).length;
+              var regFemalePct = regCount ? Math.round(regFemale/regCount*100) : 0;
+              var regEmp = regCount ? Math.round(regCands.reduce(function(acc,c){return acc+avg(c.scores&&c.scores.s||{});},0)/regCount) : 0;
+              var regCompleted = regCands.filter(function(c){ return avg(c.scores&&c.scores.s||{}) >= 65; }).length;
+              var cRate = regCount ? Math.round(regCompleted/regCount*100) : 0;
+              var statusColor = cRate >= 50 ? "#22c55e" : cRate >= 20 ? "#f97316" : "#1aabaa";
+              var statusLabel = cRate >= 50 ? "Actif" : cRate >= 20 ? "En cours" : "Démarrage";
+              var palCols = ["#1aabaa","#8b5cf6","#f97316","#d4a328","#22c55e","#ec4899","#06b6d4","#10b981","#f43f5e","#84cc16"];
+              var col = palCols[i % palCols.length];
+              return (
+                <div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+col+"25",borderLeft:"3px solid "+col,borderRadius:14,padding:"13px",marginBottom:10 }}>
+                  <div style={{ display:"flex",alignItems:"flex-start",gap:10,marginBottom:10 }}>
+                    <div style={{ width:34,height:34,borderRadius:10,background:col+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0 }}>🏢</div>
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <div style={{ fontWeight:800,fontSize:12,color:"rgba(255,255,255,.9)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{regName}</div>
+                      <div style={{ display:"flex",gap:5,marginTop:4,flexWrap:"wrap" }}>
+                        <span style={{ fontSize:8,padding:"2px 8px",borderRadius:99,background:statusColor+"20",color:statusColor,border:"1px solid "+statusColor+"40",fontWeight:700 }}>{statusLabel}</span>
+                        <span style={{ fontSize:8,padding:"2px 8px",borderRadius:99,background:"rgba(255,255,255,.05)",color:"rgba(255,255,255,.3)" }}>🔄 Sync</span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign:"right",flexShrink:0 }}>
+                      <div style={{ fontSize:20,fontWeight:900,color:col }}>{regCount}</div>
+                      <div style={{ fontSize:8,color:"rgba(255,255,255,.3)" }}>bénéf.</div>
+                    </div>
+                  </div>
+                  <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7 }}>
+                    {[
+                      { label:"Femmes", value:regFemalePct+"%", color:"#ec4899" },
+                      { label:"Moy. Emploi", value:regEmp+"%", color:regEmp>=65?"#22c55e":regEmp>=45?"#f97316":"#ef4444" },
+                      { label:"Complétés", value:regCompleted, color:"#22c55e" },
+                    ].map(function(stat,j){
+                      return (
+                        <div key={j} style={{ background:"rgba(255,255,255,.04)",borderRadius:8,padding:"7px 5px",textAlign:"center" }}>
+                          <div style={{ fontSize:13,fontWeight:900,color:stat.color }}>{stat.value}</div>
+                          <div style={{ fontSize:7,color:"rgba(255,255,255,.28)",marginTop:2 }}>{stat.label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            {platformRegions === 0 && (
+              <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",padding:"40px 20px",fontSize:12 }}>Aucune plateforme enregistrée.</div>
+            )}
+          </div>
+        )}
+
+        {tab==="programs" && (
+          <div style={{ padding:"12px" }}>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:3 }}>Programmes INDH</div>
+              <div style={{ fontSize:9,color:"rgba(255,255,255,.3)" }}>3 programmes core — répartition par profil Holland</div>
+            </div>
+            {PROG_DEF.map(function(p,i){
+              var n = progCounts[p.key] || 0;
+              var pct = total ? Math.round(n/total*100) : 0;
+              var progCands = src.filter(function(c){ return p.types.indexOf(ranked(c.scores&&c.scores.h||{})[0]||"") !== -1; });
+              var progFemale = progCands.filter(function(c){ var g=(c.profile&&c.profile.gender)||""; return g==="Female"||g==="Femme"; }).length;
+              var progEmp = n ? Math.round(progCands.reduce(function(acc,c){return acc+avg(c.scores&&c.scores.s||{});},0)/n) : 0;
+              var progCompleted = progCands.filter(function(c){ return avg(c.scores&&c.scores.s||{}) >= 65; }).length;
+              var cRate = n ? Math.round(progCompleted/n*100) : 0;
+              return (
+                <div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+p.color+"25",borderTop:"3px solid "+p.color,borderRadius:16,padding:"15px",marginBottom:12 }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:11,marginBottom:13 }}>
+                    <div style={{ width:40,height:40,borderRadius:12,background:p.color+"22",border:"1.5px solid "+p.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,flexShrink:0 }}>{p.icon}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:900,fontSize:13,color:"rgba(255,255,255,.9)" }}>{p.label}</div>
+                      <div style={{ fontSize:8,color:"rgba(255,255,255,.35)",marginTop:2 }}>Profils Holland: {p.types.join(", ")}</div>
+                    </div>
+                    <div style={{ textAlign:"right",flexShrink:0 }}>
+                      <div style={{ fontSize:22,fontWeight:900,color:p.color }}>{n}</div>
+                      <div style={{ fontSize:8,color:"rgba(255,255,255,.3)" }}>{pct}%</div>
+                    </div>
+                  </div>
+                  <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7,marginBottom:11 }}>
+                    {[
+                      { label:"Inscriptions", value:n, color:p.color },
+                      { label:"Femmes", value:progFemale, color:"#ec4899" },
+                      { label:"Complétés", value:progCompleted, color:"#22c55e" },
+                    ].map(function(stat,j){
+                      return (
+                        <div key={j} style={{ background:"rgba(255,255,255,.04)",borderRadius:9,padding:"9px 6px",textAlign:"center" }}>
+                          <div style={{ fontSize:17,fontWeight:900,color:stat.color }}>{stat.value}</div>
+                          <div style={{ fontSize:7.5,color:"rgba(255,255,255,.3)",marginTop:2 }}>{stat.label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div>
+                    <div style={{ display:"flex",justifyContent:"space-between",fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:4 }}>
+                      <span>Taux de complétude</span>
+                      <span style={{ color:p.color,fontWeight:700 }}>{cRate}%</span>
+                    </div>
+                    <div style={{ height:7,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
+                      <div style={{ height:"100%",width:cRate+"%",background:p.color,borderRadius:99 }}/>
+                    </div>
+                  </div>
+                  {n > 0 && (
+                    <div style={{ marginTop:10,display:"flex",gap:8,alignItems:"center" }}>
+                      <span style={{ fontSize:9,color:"rgba(255,255,255,.4)" }}>Moy. Employabilité:</span>
+                      <span style={{ fontSize:11,fontWeight:800,color:progEmp>=65?"#22c55e":progEmp>=45?"#f97316":"#ef4444" }}>{progEmp}%</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {total === 0 && <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",padding:"40px 20px",fontSize:12 }}>Aucun bénéficiaire enregistré.</div>}
+          </div>
+        )}
+
+        {tab==="messaging" && (
+          <div style={{ padding:"12px" }}>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:3 }}>Messagerie & Notifications</div>
+              <div style={{ fontSize:9,color:"rgba(255,255,255,.3)" }}>Envoyez des messages aux bénéficiaires et coordinateurs</div>
+            </div>
+            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(26,171,170,.18)",borderRadius:16,padding:"15px",marginBottom:12 }}>
+              <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.7)",marginBottom:11 }}>✉️ Nouveau Message</div>
+              <div style={{ marginBottom:10 }}>
+                <div style={{ fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:6 }}>Destinataires</div>
+                <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
+                  {["Tous les bénéf.","Plateformes actives","Candidats <45%","Femmes","Conseillers"].map(function(t,i){
+                    return (
+                      <span key={i} style={{ fontSize:9,padding:"4px 10px",borderRadius:99,background:"rgba(26,171,170,.12)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.25)",cursor:"pointer",fontWeight:600 }}>{t}</span>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ marginBottom:9 }}>
+                <div style={{ fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:5 }}>Objet</div>
+                <input placeholder="Objet du message..." style={{ width:"100%",padding:"9px 12px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:"#fff",fontSize:10,outline:"none",boxSizing:"border-box" }}/>
+              </div>
+              <div style={{ marginBottom:11 }}>
+                <div style={{ fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:5 }}>Message</div>
+                <textarea placeholder="Rédigez votre message..." rows={4} style={{ width:"100%",padding:"9px 12px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:"#fff",fontSize:10,outline:"none",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box" }}/>
+              </div>
+              <div style={{ display:"flex",gap:8 }}>
+                <button style={{ flex:1,padding:"11px",background:"linear-gradient(135deg,#1aabaa,#0f7e7d)",color:"#fff",border:"none",borderRadius:10,fontSize:11,fontWeight:800,cursor:"pointer" }}>📤 Envoyer</button>
+                <button style={{ padding:"11px 14px",background:"rgba(255,255,255,.05)",color:"rgba(255,255,255,.4)",border:"1px solid rgba(255,255,255,.08)",borderRadius:10,fontSize:11,cursor:"pointer" }}>⏰ Planifier</button>
+              </div>
+            </div>
+            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"14px" }}>
+              <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:11 }}>📋 Modèles de Messages</div>
+              {[
+                { icon:"🎉", label:"Invitation événement", color:"#1aabaa" },
+                { icon:"📅", label:"Rappel de session", color:"#8b5cf6" },
+                { icon:"✅", label:"Félicitations complétude", color:"#22c55e" },
+                { icon:"📊", label:"Demande de données", color:"#f97316" },
+                { icon:"🔄", label:"Notification de référence", color:"#d4a328" },
+              ].map(function(t,i){
+                return (
+                  <div key={i} style={{ display:"flex",alignItems:"center",gap:10,padding:"9px",background:"rgba(255,255,255,.03)",borderRadius:9,marginBottom:6,cursor:"pointer",border:"1px solid rgba(255,255,255,.04)" }}>
+                    <span style={{ fontSize:16 }}>{t.icon}</span>
+                    <span style={{ flex:1,fontSize:10,color:"rgba(255,255,255,.65)",fontWeight:600 }}>{t.label}</span>
+                    <span style={{ fontSize:9,color:t.color }}>Utiliser →</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {tab==="analytics" && <AdminStats src={src} lang={lang} ar={ar}/>}
       </div>
 
       {/* ── Bottom Navigation Bar ── */}
       <div style={{ display:"flex",background:"rgba(6,13,24,.97)",borderTop:"1px solid rgba(26,171,170,.1)",flexShrink:0 }}>
         {[
-          { id:"overview", icon:"🏠", label:"Overview" },
+          { id:"overview", icon:"🏠", label:"Home" },
+          { id:"platforms", icon:"🏢", label:"Sites" },
           { id:"candidates", icon:"👥", label:"People", count:src.length },
+          { id:"programs", icon:"📋", label:"Programs" },
+          { id:"messaging", icon:"✉", label:"Messages" },
           { id:"advisors", icon:"👔", label:"Team", count:advisors.length },
-          { id:"analytics", icon:"📊", label:"Stats" },
         ].map(function(t){
           var active=tab===t.id;
           return (
