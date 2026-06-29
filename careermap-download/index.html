@@ -122,6 +122,7 @@ function injectCSS() {
     "@keyframes wordCycle{0%{opacity:0;transform:translateY(8px)}10%,80%{opacity:1;transform:translateY(0)}90%,100%{opacity:0;transform:translateY(-8px)}}",
     "@keyframes needleSettle{0%{transform:rotate(0deg)}18%{transform:rotate(260deg)}42%{transform:rotate(150deg)}62%{transform:rotate(18deg)}76%{transform:rotate(-10deg)}88%{transform:rotate(5deg)}95%{transform:rotate(-2deg)}100%{transform:rotate(0deg)}}",
     "@keyframes beaconPulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.35);opacity:.9}}",
+    "@keyframes ansRing{0%{box-shadow:0 0 0 0 #1aabaa66}50%{box-shadow:0 0 0 6px #1aabaa33}100%{box-shadow:0 0 0 0 #1aabaa00}}",
     ".cardIn{animation:cardIn .6s cubic-bezier(.22,.68,0,1.2) both}",
     ".glowBtn{animation:glowPulse 2.5s ease-in-out infinite}",
     ".fadeUp{animation:fadeUp .34s cubic-bezier(.22,.68,0,1.2) both}",
@@ -2235,25 +2236,15 @@ function Assessment({ lang, setLang, user, onFinish }) {
   };
   var opts = (phase === 2 ? OPTS_FREQ[lang] : OPTS_MAIN[lang]) || OPTS_MAIN.en;
 
-  var GAUGE_COLS = ["#16a34a","#84cc16","#ca8a04","#ea580c","#dc2626"];
-  var gCX = 150, gCY = 130, gR = 120;
-  var gPts = [];
-  for (var _gi = 0; _gi <= 5; _gi++) {
-    var _gth = Math.PI * (5 - _gi) / 5;
-    gPts.push({ x: +(gCX + gR * Math.cos(_gth)).toFixed(2), y: +(gCY - gR * Math.sin(_gth)).toFixed(2) });
-  }
-  var nTh = cur !== undefined ? Math.PI * (4.5 - cur) / 5 : Math.PI / 2;
-  var nX = +(gCX + 88 * Math.cos(nTh)).toFixed(2);
-  var nY = +(gCY - 88 * Math.sin(nTh)).toFixed(2);
-
   var timedOut = useRef(false);
 
-  function goNext(sel) {
+  function pickAns(sel) {
+    ansRef.current = Object.assign({}, ansRef.current, { [idx]: sel });
+    rerender(function(n) { return n + 1; });
+  }
+
+  function goNext() {
     clearInterval(timerRef.current);
-    if (sel !== null) {
-      ansRef.current = Object.assign({}, ansRef.current, { [idx]: sel });
-      rerender(function(n) { return n + 1; });
-    }
     var nxt = idx + 1;
     if (nxt >= ALL_Q.length) { onFinish(computeScores(ansRef.current)); return; }
     setIdx(nxt);
@@ -2268,7 +2259,7 @@ function Assessment({ lang, setLang, user, onFinish }) {
           clearInterval(timerRef.current);
           if (!timedOut.current) {
             timedOut.current = true;
-            setTimeout(function() { goNext(null); }, 0);
+            setTimeout(function() { goNext(); }, 0);
           }
           return 0;
         }
@@ -2360,71 +2351,62 @@ function Assessment({ lang, setLang, user, onFinish }) {
           </p>
         </div>
 
-        {/* Speedometer gauge + buttons */}
-        <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-            justifyContent:"space-around", paddingBottom:4 }}>
-
-          {/* SVG gauge — upper semicircle, clickable arcs */}
-          <svg viewBox="0 0 300 152" width="100%" style={{ maxWidth:320, display:"block" }}>
-            {GAUGE_COLS.map(function(col, i) {
-              var isSel = cur === i;
-              var sp = gPts[i];
-              var ep = gPts[i+1];
-              var d = "M "+sp.x+" "+sp.y+" A "+gR+" "+gR+" 0 0 0 "+ep.x+" "+ep.y;
-              return (
-                <path key={i} d={d} fill="none"
-                  stroke={col} strokeWidth={isSel ? 24 : 16} strokeLinecap="round"
-                  onClick={function() { goNext(i); }}
-                  style={{ cursor:"pointer", opacity:isSel ? 1 : 0.5 }}/>
-              );
-            })}
-            <line x1={gCX} y1={gCY} x2={nX} y2={nY}
-              stroke={cur !== undefined ? GAUGE_COLS[cur] : C.gold}
-              strokeWidth={4} strokeLinecap="round"/>
-            <circle cx={gCX} cy={gCY} r={10} fill={C.card} stroke={C.gold} strokeWidth={2}/>
-            <text x={gPts[0].x} y={gPts[0].y + 18} textAnchor="middle" fill={C.mu} fontSize="10">1</text>
-            <text x={gPts[5].x} y={gPts[5].y + 18} textAnchor="middle" fill={C.mu} fontSize="10">5</text>
-          </svg>
-
-          {/* Selected option label */}
-          <div style={{ minHeight:22, textAlign:"center" }}>
-            {cur !== undefined && (
-              <span style={{ fontSize:13, fontWeight:700, color:GAUGE_COLS[cur] }}>
-                {opts[cur]}
-              </span>
-            )}
-          </div>
-
-          {/* 5 numbered answer buttons */}
-          <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
-            {opts.map(function(label, i) {
-              var isSel = cur === i;
-              var col = GAUGE_COLS[i];
-              return (
-                <button key={i} onClick={function() { goNext(i); }} title={label}
-                  style={{
-                    width:50, height:50, borderRadius:"50%",
-                    background: isSel ? col : col+"22",
-                    border:"2.5px solid "+(isSel ? col : col+"66"),
-                    color: isSel ? "#fff" : col,
-                    fontFamily:"inherit", fontSize:18, fontWeight:900,
-                    cursor:"pointer",
-                    boxShadow: isSel ? "0 4px 18px "+col+"99" : "none",
-                    transition:"background .15s,border .15s,box-shadow .15s",
-                  }}>
-                  {i+1}
-                </button>
-              );
-            })}
-          </div>
+        {/* Answer cards */}
+        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:9, overflowY:"auto", paddingBottom:4 }}>
+          {opts.map(function(label, i) {
+            var isSel = cur === i;
+            return (
+              <button key={i} onClick={function() { pickAns(i); }}
+                style={{
+                  display:"flex", alignItems:"center", gap:12,
+                  padding:"11px 16px",
+                  background: isSel ? C.teal+"28" : C.card,
+                  border:"2px solid " + (isSel ? C.teal : C.bdr),
+                  borderRadius:12, textAlign:"left", cursor:"pointer",
+                  fontFamily:"inherit", color:C.wh, fontSize:13, fontWeight:isSel?700:500,
+                  animation: isSel ? "ansRing 1s ease-in-out infinite" : "none",
+                  width:"100%", boxSizing:"border-box",
+                  transition:"border .15s,background .15s",
+                }}>
+                <span style={{
+                  width:27, height:27, borderRadius:"50%", flexShrink:0,
+                  background: isSel ? C.teal : "transparent",
+                  border:"2px solid " + (isSel ? C.teal : C.bdr),
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:11, fontWeight:800, color:isSel?C.bg:C.mu,
+                  transition:"all .15s"
+                }}>{i+1}</span>
+                <span className={ar?"ar":""} style={{ direction:ar?"rtl":"ltr", flex:1 }}>{label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Back button */}
-        <div style={{ flexShrink:0, marginTop:7 }}>
+        {/* Reponse enregistree */}
+        <div style={{ minHeight:22, textAlign:"center", marginTop:5 }}>
+          {cur !== undefined && (
+            <span style={{ fontSize:11, color:C.teal, fontWeight:700 }}>
+              {ar ? "تم تسجيل إجابتك ✓" : lang==="fr" ? "Réponse enregistrée ✓" : "Answer recorded ✓"}
+            </span>
+          )}
+        </div>
+
+        {/* Next + Back row */}
+        <div style={{ flexShrink:0, display:"flex", gap:8, marginTop:4 }}>
           <button onClick={goBack} disabled={idx===0} className="noprint"
-            style={{ padding:"5px 14px", background:"transparent", border:"1px solid "+C.bdr,
-              borderRadius:99, color:C.mu, fontSize:10, fontWeight:600, opacity:idx===0?0.25:1, cursor:"pointer" }}>
-            {ar ? "السابق ←" : lang==="fr" ? "← Retour" : "← Back"}
+            style={{ padding:"10px 16px", background:"transparent", border:"1px solid "+C.bdr,
+              borderRadius:12, color:C.mu, fontSize:12, fontWeight:600,
+              opacity:idx===0?0.25:1, cursor:idx===0?"default":"pointer" }}>
+            ←
+          </button>
+          <button onClick={goNext} disabled={cur===undefined}
+            style={{ flex:1, padding:12,
+              background: cur!==undefined ? "linear-gradient(135deg,"+C.teal+",#0d9488)" : C.card,
+              color: cur!==undefined ? C.bg : C.mu,
+              border:"none", borderRadius:12, fontFamily:"inherit", fontSize:13, fontWeight:800,
+              opacity: cur!==undefined ? 1 : 0.35, cursor:cur!==undefined?"pointer":"default",
+              transition:"all .3s" }}>
+            {ar ? "التالي →" : lang==="fr" ? "Suivant →" : "Next →"}
           </button>
         </div>
 
@@ -2537,14 +2519,7 @@ function CandidateCode({ lang, setLang, user, code, scores, profile, onLogout })
               boxShadow:"0 6px 22px "+(copied?C.grG:C.goldG), marginBottom:10, transition:"all .3s" }}>
             {copied ? (ar?"تم النسخ ✓":lang==="fr"?"Copié ✓":"Copied ✓") : (ar?"نسخ الكود":lang==="fr"?"Copier le code":"Copy Code")}
           </button>
-          <button onClick={doPrint}
-            style={{ width:"100%", padding:12,
-              background:"transparent",
-              color:C.gold, border:"2px solid "+C.gold+"88", borderRadius:12,
-              fontFamily:"inherit", fontSize:13, fontWeight:700,
-              marginBottom:12, cursor:"pointer", transition:"all .3s" }}>
-            {ar?"طباعة الشهادة 🖨":lang==="fr"?"Imprimer le certificat 🖨":"Print Certificate 🖨"}
-          </button>
+
           <div style={{ background:"rgba(255,255,255,.04)", borderRadius:12, padding:"12px 16px", border:"1px solid "+C.bdr }}>
             <p style={{ fontSize:10, color:C.muB, lineHeight:1.8 }}>
               {ar ? "📋 احتفظ بهذا الكود وشاركه مع مستشارك." : lang==="fr" ? "📋 Conservez ce code et partagez-le avec votre conseiller." : "📋 Keep this code and share it with your advisor."}
