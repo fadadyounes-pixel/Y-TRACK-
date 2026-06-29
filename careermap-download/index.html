@@ -2154,6 +2154,17 @@ function Assessment({ lang, setLang, user, onFinish }) {
   };
   var opts = (phase === 2 ? OPTS_FREQ[lang] : OPTS_MAIN[lang]) || OPTS_MAIN.en;
 
+  var GAUGE_COLS = ["#16a34a","#84cc16","#ca8a04","#ea580c","#dc2626"];
+  var gCX = 150, gCY = 130, gR = 120;
+  var gPts = [];
+  for (var _gi = 0; _gi <= 5; _gi++) {
+    var _gth = Math.PI * (5 - _gi) / 5;
+    gPts.push({ x: +(gCX + gR * Math.cos(_gth)).toFixed(2), y: +(gCY - gR * Math.sin(_gth)).toFixed(2) });
+  }
+  var nTh = cur !== undefined ? Math.PI * (4.5 - cur) / 5 : Math.PI / 2;
+  var nX = +(gCX + 88 * Math.cos(nTh)).toFixed(2);
+  var nY = +(gCY - 88 * Math.sin(nTh)).toFixed(2);
+
   var timedOut = useRef(false);
 
   function goNext(sel) {
@@ -2260,7 +2271,7 @@ function Assessment({ lang, setLang, user, onFinish }) {
 
         {/* Question */}
         <div style={{ background:C.card, borderRadius:14, padding:"12px 16px",
-            border:"1.5px solid "+catCol+"44", marginBottom:10, flexShrink:0,
+            borderLeft:"4px solid "+catCol, marginBottom:10, flexShrink:0,
             boxShadow:"0 0 20px "+catCol+"22" }}>
           <p className={ar ? "ar" : ""} style={{ fontSize:14, fontWeight:600,
               lineHeight:1.55, color:C.wh, direction:ar?"rtl":"ltr", margin:0 }}>
@@ -2268,53 +2279,63 @@ function Assessment({ lang, setLang, user, onFinish }) {
           </p>
         </div>
 
-        {/* Answer cards — each gets equal share of all remaining height */}
-        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:7 }}>
-          {opts.map(function(label, i) {
-            var isSel = cur === i;
-            var CARD_COLS = ["#16a34a","#65a30d","#ca8a04","#ea580c","#dc2626"];
-            var col = CARD_COLS[i];
-            return (
-              <button key={i} onClick={function() { goNext(i); }}
-                style={{
-                  flex:1,
-                  display:"flex", alignItems:"center", gap:16,
-                  padding:"0 18px",
-                  background: isSel
-                    ? "linear-gradient(135deg,"+col+","+col+"cc)"
-                    : "rgba(255,255,255,.06)",
-                  border: isSel ? "2.5px solid "+col : "1.5px solid rgba(255,255,255,.13)",
-                  borderRadius:14,
-                  width:"100%", textAlign:"left", cursor:"pointer",
-                  transform: isSel ? "scale(1.025)" : "scale(1)",
-                  boxShadow: isSel ? "0 8px 28px "+col+"88" : "none",
-                  transition:"background .2s,border .2s,transform .15s,box-shadow .2s", fontFamily:"inherit",
-                }}>
-                {/* Number / checkmark badge */}
-                <div style={{
-                  width:42, height:42, borderRadius:"50%", flexShrink:0,
-                  background: isSel ? "rgba(255,255,255,.28)" : col+"28",
-                  border:"2.5px solid "+(isSel ? "rgba(255,255,255,.6)" : col+"66"),
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize: isSel ? 22 : 17, fontWeight:900,
-                  color: isSel ? "#fff" : col, transition:"all .15s",
-                }}>
-                  {isSel ? "\u2713" : (i + 1)}
-                </div>
-                {/* Label */}
-                <span style={{
-                  flex:1, fontSize:15, fontWeight: isSel ? 800 : 500,
-                  color: isSel ? "#fff" : "rgba(221,238,255,.88)",
-                  letterSpacing:".01em", lineHeight:1.3,
-                }}>
-                  {label}
-                </span>
-                {isSel && (
-                  <span style={{ fontSize:22, color:"rgba(255,255,255,.8)", flexShrink:0 }}>›</span>
-                )}
-              </button>
-            );
-          })}
+        {/* Speedometer gauge + buttons */}
+        <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+            justifyContent:"space-around", paddingBottom:4 }}>
+
+          {/* SVG gauge — upper semicircle, clickable arcs */}
+          <svg viewBox="0 0 300 152" width="100%" style={{ maxWidth:320, display:"block" }}>
+            {GAUGE_COLS.map(function(col, i) {
+              var isSel = cur === i;
+              var sp = gPts[i];
+              var ep = gPts[i+1];
+              var d = "M "+sp.x+" "+sp.y+" A "+gR+" "+gR+" 0 0 0 "+ep.x+" "+ep.y;
+              return (
+                <path key={i} d={d} fill="none"
+                  stroke={col} strokeWidth={isSel ? 24 : 16} strokeLinecap="round"
+                  onClick={function() { goNext(i); }}
+                  style={{ cursor:"pointer", opacity:isSel ? 1 : 0.5 }}/>
+              );
+            })}
+            <line x1={gCX} y1={gCY} x2={nX} y2={nY}
+              stroke={cur !== undefined ? GAUGE_COLS[cur] : C.gold}
+              strokeWidth={4} strokeLinecap="round"/>
+            <circle cx={gCX} cy={gCY} r={10} fill={C.card} stroke={C.gold} strokeWidth={2}/>
+            <text x={gPts[0].x} y={gPts[0].y + 18} textAnchor="middle" fill={C.mu} fontSize="10">1</text>
+            <text x={gPts[5].x} y={gPts[5].y + 18} textAnchor="middle" fill={C.mu} fontSize="10">5</text>
+          </svg>
+
+          {/* Selected option label */}
+          <div style={{ minHeight:22, textAlign:"center" }}>
+            {cur !== undefined && (
+              <span style={{ fontSize:13, fontWeight:700, color:GAUGE_COLS[cur] }}>
+                {opts[cur]}
+              </span>
+            )}
+          </div>
+
+          {/* 5 numbered answer buttons */}
+          <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+            {opts.map(function(label, i) {
+              var isSel = cur === i;
+              var col = GAUGE_COLS[i];
+              return (
+                <button key={i} onClick={function() { goNext(i); }} title={label}
+                  style={{
+                    width:50, height:50, borderRadius:"50%",
+                    background: isSel ? col : col+"22",
+                    border:"2.5px solid "+(isSel ? col : col+"66"),
+                    color: isSel ? "#fff" : col,
+                    fontFamily:"inherit", fontSize:18, fontWeight:900,
+                    cursor:"pointer",
+                    boxShadow: isSel ? "0 4px 18px "+col+"99" : "none",
+                    transition:"background .15s,border .15s,box-shadow .15s",
+                  }}>
+                  {i+1}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Back button */}
@@ -2332,13 +2353,76 @@ function Assessment({ lang, setLang, user, onFinish }) {
 }
 
 /* ─── CANDIDATE CODE SCREEN ──────────────────────────────────────────────── */
-function CandidateCode({ lang, setLang, user, code, onLogout }) {
+/* ─── CERTIFICATE ────────────────────────────────────────────────────────────── */
+function buildCertificate(user, code, lang) {
+  var ar = lang === "ar";
+  var fr = lang === "fr";
+  var title = ar ? "\u0634\u0647\u0627\u062f\u0629 \u062a\u0642\u064a\u064a\u0645 \u0645\u0633\u0627\u0631 \u0645\u0647\u0646\u064a" : fr ? "Certificat d'\u00c9valuation" : "Certificate of Assessment";
+  var sub = ar ? "CareerMap V2 \u2014 \u062a\u0642\u064a\u064a\u0645 \u0627\u0644\u0627\u0633\u062a\u0639\u062f\u0627\u062f \u0627\u0644\u0645\u0647\u0646\u064a \u0648\u0627\u0644\u0634\u062e\u0635\u064a\u0629" : fr ? "\u00c9valuation des aptitudes professionnelles \u2014 V2" : "Career Aptitude & Personality Evaluation \u2014 V2";
+  var certFor = ar ? "\u0646\u0634\u0647\u062f \u0628\u0623\u0646" : fr ? "D\u00e9cerne \u00e0" : "This is to certify that";
+  var desc = ar
+    ? "\u0642\u062f \u0623\u062a\u0645\u02bc \u0627\u062e\u062a\u0628\u0627\u0631 <strong>CareerMap V2<\/strong> \u0628\u0646\u062c\u0627\u062d\u060c \u0627\u0644\u0634\u0627\u0645\u0644 \u0644\u0644\u0627\u0647\u062a\u0645\u0627\u0645\u0627\u062a \u0627\u0644\u0645\u0647\u0646\u064a\u0629 \u0648\u0641\u0642 \u0647\u0648\u0644\u0627\u0646\u062f\u060c \u0648\u0627\u0644\u0634\u062e\u0635\u064a\u0629 \u0627\u0644\u062e\u0645\u0627\u0633\u064a\u0629\u060c \u0648\u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0639\u0627\u0637\u0641\u064a\u060c \u0648\u0627\u0644\u0631\u064a\u0627\u062f\u0629 \u0648\u0627\u0644\u0645\u0631\u0648\u0646\u0629."
+    : fr
+    ? "a compl\u00e9t\u00e9 avec succ\u00e8s l'\u00e9valuation psychom\u00e9trique <strong>CareerMap V2<\/strong>, couvrant les int\u00e9r\u00eats Holland, la personnalit\u00e9 Big Five, l'intelligence \u00e9motionnelle, l'entrepreneuriat et la r\u00e9silience."
+    : "has successfully completed the <strong>CareerMap V2<\/strong> psychometric assessment, covering Holland Career Interests, Big Five Personality, Emotional Intelligence, Entrepreneurial Mindset, and Resilience.";
+  var codeLabel = ar ? "\u0643\u0648\u062f \u0627\u0644\u0646\u062a\u0627\u0626\u062c" : fr ? "Code de R\u00e9sultats" : "Result Code";
+  var dateLabel = ar ? "\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0625\u062a\u0645\u0627\u0645" : fr ? "Date de compl\u00e9tion" : "Date Completed";
+  var printLabel = ar ? "\u0637\u0628\u0627\u0639\u0629" : fr ? "Imprimer" : "Print";
+  var footNote = ar
+    ? "\u062a\u0624\u0643\u062f \u0647\u0630\u0647 \u0627\u0644\u0634\u0647\u0627\u062f\u0629 \u0625\u062a\u0645\u0627\u0645 \u0627\u0644\u062a\u0642\u064a\u064a\u0645. \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u0645\u062a\u0627\u062d\u0629 \u0644\u0644\u0645\u0633\u062a\u0634\u0627\u0631\u064a\u0646 \u0627\u0644\u0645\u0639\u062a\u0645\u062f\u064a\u0646 \u0639\u0628\u0631 \u0645\u0646\u0635\u0629 CareerMap."
+    : fr
+    ? "Ce certificat confirme la compl\u00e9tion de l'\u00e9valuation. Les r\u00e9sultats sont disponibles aux conseillers autoris\u00e9s via la plateforme CareerMap."
+    : "This certificate confirms assessment completion. Results are available to authorized advisors via the CareerMap platform.";
+  var dateStr = new Date().toLocaleDateString(ar ? "ar-SA" : fr ? "fr-FR" : "en-US");
+  var name = (user && user.name) || "";
+  var dir = ar ? "rtl" : "ltr";
+  return '<!DOCTYPE html><html dir="' + dir + '"><head><meta charset="utf-8"><title>' + title + '</title><style>'
+    + 'body{margin:0;background:#f8f4e8;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:Georgia,serif;}'
+    + '.page{width:680px;background:#fff;padding:32px;box-sizing:border-box;}'
+    + '.fo{border:6px double #b8941f;padding:6px;}'
+    + '.fi{border:2px solid #b8941f;padding:32px;text-align:center;}'
+    + '.logo{font-size:52px;margin-bottom:6px;}'
+    + '.org{font-size:12px;letter-spacing:3px;color:#888;text-transform:uppercase;margin-bottom:18px;}'
+    + 'h1{font-size:24px;color:#b8941f;margin:0 0 4px;letter-spacing:1px;}'
+    + '.sub{font-size:12px;color:#999;margin-bottom:22px;}'
+    + '.pres{font-size:10px;color:#888;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}'
+    + '.cname{font-size:30px;color:#1a1a2e;font-weight:bold;border-bottom:2px solid #b8941f;display:inline-block;padding-bottom:4px;min-width:180px;margin-bottom:4px;}'
+    + '.desc{font-size:11px;color:#555;margin:14px 0;line-height:1.9;}'
+    + '.cbox{background:#f8f4e8;border:1px solid #b8941f;border-radius:8px;padding:8px 22px;display:inline-block;margin:10px 0;}'
+    + '.clbl{font-size:9px;color:#999;letter-spacing:2px;text-transform:uppercase;}'
+    + '.cval{font-size:22px;font-weight:bold;color:#b8941f;letter-spacing:4px;font-family:monospace;}'
+    + '.ft{margin-top:18px;font-size:9px;color:#bbb;}'
+    + '@media print{.np{display:none;}body{background:#fff;}}'
+    + '.pbtn{position:fixed;top:20px;right:20px;padding:10px 22px;background:#b8941f;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;}'
+    + '</style></head><body>'
+    + '<button class="pbtn np" onclick="window.print()">' + printLabel + '</button>'
+    + '<div class="page"><div class="fo"><div class="fi">'
+    + '<div class="logo">🧭</div>'
+    + '<div class="org">CareerMap · Y-Track</div>'
+    + '<h1>' + title + '</h1>'
+    + '<div class="sub">' + sub + '</div>'
+    + '<div class="pres">' + certFor + '</div>'
+    + '<div class="cname">' + name + '</div>'
+    + '<div class="desc">' + desc + '</div>'
+    + '<div class="cbox"><div class="clbl">' + codeLabel + '</div><div class="cval">' + code + '</div></div>'
+    + '<div class="desc">' + dateLabel + ': <strong>' + dateStr + '</strong></div>'
+    + '<div class="ft">' + footNote + '</div>'
+    + '</div></div></div>'
+    + '</body></html>';
+}
+
+function CandidateCode({ lang, setLang, user, code, scores, profile, onLogout }) {
   var ar = lang === "ar";
   var [copied, setCopied] = useState(false);
   function doCopy() {
     try { navigator.clipboard.writeText(code); } catch(e) {}
     setCopied(true);
     setTimeout(function() { setCopied(false); }, 3000);
+  }
+  function doPrint() {
+    var html = buildCertificate(user, code, lang);
+    var w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
   }
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
@@ -2369,8 +2453,16 @@ function CandidateCode({ lang, setLang, user, code, onLogout }) {
               background: copied ? "linear-gradient(135deg,"+C.gr+","+C.gr+"cc)" : "linear-gradient(135deg,"+C.gold+","+C.goldL+")",
               color:C.bg, border:"none", borderRadius:12,
               fontFamily:"inherit", fontSize:14, fontWeight:800,
-              boxShadow:"0 6px 22px "+(copied?C.grG:C.goldG), marginBottom:12, transition:"all .3s" }}>
+              boxShadow:"0 6px 22px "+(copied?C.grG:C.goldG), marginBottom:10, transition:"all .3s" }}>
             {copied ? (ar?"تم النسخ ✓":lang==="fr"?"Copié ✓":"Copied ✓") : (ar?"نسخ الكود":lang==="fr"?"Copier le code":"Copy Code")}
+          </button>
+          <button onClick={doPrint}
+            style={{ width:"100%", padding:12,
+              background:"transparent",
+              color:C.gold, border:"2px solid "+C.gold+"88", borderRadius:12,
+              fontFamily:"inherit", fontSize:13, fontWeight:700,
+              marginBottom:12, cursor:"pointer", transition:"all .3s" }}>
+            {ar?"طباعة الشهادة 🖨":lang==="fr"?"Imprimer le certificat 🖨":"Print Certificate 🖨"}
           </button>
           <div style={{ background:"rgba(255,255,255,.04)", borderRadius:12, padding:"12px 16px", border:"1px solid "+C.bdr }}>
             <p style={{ fontSize:10, color:C.muB, lineHeight:1.8 }}>
@@ -3973,7 +4065,7 @@ function App() {
   if (screen === "profile") return wrap(<ProfileForm lang={lang} setLang={setLangDir} user={user} onNext={onProfile} onLogout={onLogout}/>);
   if (screen === "welcome") return wrap(<Welcome lang={lang} setLang={setLangDir} user={user} onStart={function(){ setScreen("assess"); }} onLogout={onLogout}/>);
   if (screen === "assess")  return wrap(<Assessment lang={lang} setLang={setLangDir} user={user} onFinish={onFinish}/>);
-  if (screen === "code")    return wrap(<CandidateCode lang={lang} setLang={setLangDir} user={user} code={resultCode} onLogout={onLogout}/>);
+  if (screen === "code")    return wrap(<CandidateCode lang={lang} setLang={setLangDir} user={user} code={resultCode} scores={scores} profile={profile} onLogout={onLogout}/>);
   if (screen === "report-v") {
     var cv = cands[viewIdx] || {};
     return wrap(<div style={{ position:"relative", flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
