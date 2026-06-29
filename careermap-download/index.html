@@ -344,7 +344,60 @@ const SQ = [
   {d:"R",en:"I am ready to commit to a full-time work schedule.",fr:"Je suis prêt à m'engager dans un emploi à temps plein.",ar:"أنا مستعد للالتزام بجدول عمل بدوام كامل."},
 ];
 
-const ALL_Q = [...HQ, ...BQ, ...SQ];
+/* ─── EQ-MAP (16Q · WLEIS · SEA/OEA/UOE/ROE) ───────────────────────────── */
+const EQ_Q = [
+  {dim:"SEA",en:"I have a clear understanding of my own emotions.",fr:"Je comprends clairement mes propres émotions.",ar:"أفهم مشاعري الخاصة بوضوح."},
+  {dim:"SEA",en:"I often know the reasons behind my emotions.",fr:"Je connais souvent les raisons de mes émotions.",ar:"غالباً ما أعرف أسباب مشاعري."},
+  {dim:"SEA",en:"I always know whether I am happy or not.",fr:"Je sais toujours si je suis heureux ou non.",ar:"أعرف دائماً ما إذا كنت سعيداً أم لا."},
+  {dim:"SEA",en:"I have a good understanding of my own feelings.",fr:"Je comprends bien mes émotions en général.",ar:"لديّ فهم جيد لمشاعري الخاصة."},
+  {dim:"OEA",en:"I am sensitive to the feelings of others.",fr:"Je suis sensible aux sentiments des autres.",ar:"أنا حساس لمشاعر الآخرين."},
+  {dim:"OEA",en:"I have a good understanding of the feelings of people around me.",fr:"Je comprends bien les sentiments de ceux qui m'entourent.",ar:"لديّ فهم جيد لمشاعر من حولي."},
+  {dim:"OEA",en:"I am good at perceiving the emotions of others.",fr:"Je suis bon(ne) pour percevoir les émotions des autres.",ar:"أنا جيد في استشعار مشاعر الآخرين."},
+  {dim:"OEA",en:"I can tell how someone feels just by looking at them.",fr:"Je sais ce que ressent quelqu'un rien qu'en le regardant.",ar:"أستطيع معرفة مشاعر شخص ما من مجرد النظر إليه."},
+  {dim:"UOE",en:"My emotions help me improve in my field.",fr:"Mes émotions m'aident à m'améliorer dans mon domaine.",ar:"مشاعري تساعدني على التحسن في مجالي."},
+  {dim:"UOE",en:"When I want to succeed, I put myself in the right mood.",fr:"Quand je veux réussir, je me mets dans un bon état d'esprit.",ar:"عندما أريد النجاح أضع نفسي في الحالة الذهنية المناسبة."},
+  {dim:"UOE",en:"My emotions channel my thinking toward useful activities.",fr:"Mes émotions orientent ma réflexion vers des activités utiles.",ar:"مشاعري توجه تفكيري نحو أنشطة مفيدة."},
+  {dim:"UOE",en:"I constantly motivate myself to do my best.",fr:"Je me motive constamment pour faire de mon mieux.",ar:"أحفّز نفسي باستمرار لبذل قصارى جهدي."},
+  {dim:"ROE",en:"I can control my emotions under pressure.",fr:"Je suis capable de contrôler mes émotions sous pression.",ar:"أستطيع التحكم في مشاعري تحت الضغط."},
+  {dim:"ROE",en:"When I am angry, I can calm myself down quickly.",fr:"Quand je suis en colère, je réussis à me calmer rapidement.",ar:"عندما أغضب أستطيع الهدوء بسرعة."},
+  {dim:"ROE",en:"I am able to control my emotions in difficult situations.",fr:"Je contrôle bien mes émotions dans les situations difficiles.",ar:"أستطيع التحكم في مشاعري في المواقف الصعبة."},
+  {dim:"ROE",en:"I can always calm down easily when I am very angry.",fr:"Je peux toujours me calmer quand je suis très en colère.",ar:"أستطيع دائماً الهدوء بسهولة عندما أكون غاضباً جداً."},
+];
+
+/* ─── ENTREMAP (15Q · EIQ · EA/SN/ESE) ─────────────────────────────────── */
+const ENTRE_Q = [
+  {dim:"EA",en:"Being an entrepreneur would be a good career for me.",fr:"Être entrepreneur serait une bonne carrière pour moi.",ar:"أن أكون رائد أعمال سيكون مساراً مهنياً جيداً لي."},
+  {dim:"EA",en:"If I had the opportunity, I would create a company.",fr:"Si j'avais l'opportunité, je créerais une entreprise.",ar:"لو أتيحت لي الفرصة لأنشأت شركة."},
+  {dim:"EA",en:"Creating a company really excites me.",fr:"Créer une entreprise m'enthousiasme vraiment.",ar:"إنشاء شركة يثير حماسي حقاً."},
+  {dim:"EA",en:"Entrepreneurship is an attractive career path for me.",fr:"L'entrepreneuriat est une carrière attrayante pour moi.",ar:"ريادة الأعمال مسار مهني جذاب بالنسبة لي."},
+  {dim:"EA",en:"I would like to develop my own ideas into concrete projects.",fr:"J'aimerais développer mes propres idées en projets concrets.",ar:"أرغب في تطوير أفكاري إلى مشاريع ملموسة."},
+  {dim:"SN",en:"My family would support my decision to start a business.",fr:"Ma famille soutiendrait mon choix de créer une entreprise.",ar:"عائلتي ستدعم قراري بإنشاء مشروع."},
+  {dim:"SN",en:"The people around me encourage entrepreneurship.",fr:"Mon entourage encourage la création d'entreprise.",ar:"المحيطون بي يشجعون على ريادة الأعمال."},
+  {dim:"SN",en:"My close friends would support me if I started a business.",fr:"Mes amis proches me soutiendraient si je créais mon entreprise.",ar:"أصدقائي المقربون سيدعمونني إذا أسست مشروعاً."},
+  {dim:"SN",en:"I know people who have started their own business.",fr:"Je connais des personnes qui ont créé des entreprises.",ar:"أعرف أشخاصاً أسسوا مشاريعهم الخاصة."},
+  {dim:"SN",en:"People who matter to me think entrepreneurship is a positive choice.",fr:"Les gens qui comptent pour moi pensent que l'entrepreneuriat est positif.",ar:"الأشخاص المهمون في حياتي يعتقدون أن ريادة الأعمال خيار إيجابي."},
+  {dim:"ESE",en:"I can design and develop a new product or service.",fr:"Je suis capable de concevoir et développer un nouveau produit ou service.",ar:"أستطيع تصميم وتطوير منتج أو خدمة جديدة."},
+  {dim:"ESE",en:"I can recognize market opportunities.",fr:"Je suis capable de reconnaître des opportunités sur le marché.",ar:"أستطيع التعرف على فرص السوق."},
+  {dim:"ESE",en:"I am confident in leading and managing a team.",fr:"Je suis confiant(e) pour diriger et gérer une équipe.",ar:"أنا واثق في قيادة وإدارة فريق."},
+  {dim:"ESE",en:"I can face the unexpected challenges of running a business.",fr:"Je suis capable de faire face aux défis inattendus d'une entreprise.",ar:"أستطيع مواجهة التحديات غير المتوقعة لإدارة مشروع."},
+  {dim:"ESE",en:"I would know how to find funding for my project.",fr:"Je saurais trouver des financements pour démarrer mon projet.",ar:"أعرف كيف أجد تمويلاً لمشروعي."},
+];
+
+/* ─── RESIMAP (10Q · CD-RISC-10 · unidimensional) ──────────────────────── */
+const RESI_Q = [
+  {dim:"total",en:"When things get difficult, I adapt.",fr:"Quand les choses deviennent difficiles, je m'adapte.",ar:"عندما تصبح الأمور صعبة أتكيف."},
+  {dim:"total",en:"When I face an obstacle, I find a way around it.",fr:"Face à un obstacle, je trouve un moyen de le contourner.",ar:"عند مواجهة عقبة أجد طريقة للتغلب عليها."},
+  {dim:"total",en:"Getting through difficult times strengthens my confidence.",fr:"Traverser des périodes difficiles renforce ma confiance.",ar:"تجاوز الفترات الصعبة يعزز ثقتي بنفسي."},
+  {dim:"total",en:"I tend to bounce back after illness, injury, or hardship.",fr:"J'ai tendance à rebondir après une épreuve ou un choc.",ar:"أميل إلى التعافي بعد الصعوبات والأزمات."},
+  {dim:"total",en:"I can achieve my goals even in the face of adversity.",fr:"Je peux atteindre mes objectifs même face à l'adversité.",ar:"أستطيع تحقيق أهدافي حتى في مواجهة الصعاب."},
+  {dim:"total",en:"I see the positive side of things, even in difficult times.",fr:"Je vois le bon côté des choses, même dans les moments difficiles.",ar:"أرى الجانب الإيجابي من الأشياء حتى في الأوقات الصعبة."},
+  {dim:"total",en:"I try to resolve problems, whatever the difficulty.",fr:"J'essaie de résoudre les problèmes, quelle qu'en soit la difficulté.",ar:"أحاول حل المشكلات مهما كانت صعوبتها."},
+  {dim:"total",en:"I stay focused and organised even under pressure.",fr:"Je reste concentré(e) et organisé(e) même sous pression.",ar:"أبقى مركزاً ومنظماً حتى تحت الضغط."},
+  {dim:"total",en:"I put all my energy into overcoming obstacles.",fr:"Je mets toute mon énergie à surmonter les obstacles.",ar:"أضع كل طاقتي في التغلب على العقبات."},
+  {dim:"total",en:"I generally succeed in what I undertake.",fr:"Je réussis en général ce que j'entreprends.",ar:"عموماً أنجح في ما أشرع فيه."},
+];
+
+var ALL_Q = [...HQ, ...BQ, ...SQ, ...EQ_Q, ...ENTRE_Q, ...RESI_Q];
 const WTS = [5, 4, 3, 2, 1];
 
 /* ─── SCORING ────────────────────────────────────────────────────────────── */
@@ -363,11 +416,24 @@ function scoreGroup(questions, keyFn, answers, offset) {
   });
   return out;
 }
+function scoreRaw(qArr, keyFn, answers, offset) {
+  var s = {};
+  qArr.forEach(function(q, i) {
+    var k = keyFn(q);
+    if (!s[k]) s[k] = 0;
+    var a = answers[i + offset];
+    s[k] += (a != null) ? WTS[a] : 3;
+  });
+  return s;
+}
 function computeScores(ans) {
   return {
-    h: scoreGroup(HQ, q => q.c, ans, 0),
-    b: scoreGroup(BQ, q => q.t, ans, 30),
-    s: scoreGroup(SQ, q => q.d, ans, 55),
+    h:     scoreGroup(HQ,     function(q){ return q.c; }, ans, 0),
+    b:     scoreGroup(BQ,     function(q){ return q.t; }, ans, 30),
+    s:     scoreGroup(SQ,     function(q){ return q.d; }, ans, 55),
+    eq:    scoreRaw(EQ_Q,    function(q){ return q.dim; }, ans, 75),
+    entre: scoreRaw(ENTRE_Q, function(q){ return q.dim; }, ans, 91),
+    resi:  scoreRaw(RESI_Q,  function(q){ return q.dim; }, ans, 106),
   };
 }
 function ranked(sc) {
@@ -526,12 +592,21 @@ function getRoadmap(hTop, s, profile, lang) {
   return young && ei<4 ? RD.young : (higher && ready ? RD.higher : RD.default);
 }
 
-function getINDH(s, ld, profile, lang) {
+function getINDH(s, ld, profile, lang, eq, entre) {
   lang = lang || "fr";
   var SR=s.R||50, SA=s.A||50, SC=s.C||50;
   var URBAN=["Casablanca-Settat","Rabat-Sal\u00e9-K\u00e9nitra","Tanger-T\u00e9touan-Al Hoce\u00efma","F\u00e8s-Mekn\u00e8s"];
   var isUrban=URBAN.some(function(r){return (profile.region||"").indexOf(r)>=0;});
   var wJob=Math.max(10,100-SR),wProj=Math.max(10,SA),wCoop=Math.max(5,Math.round(SC*(isUrban?0.45:1.0)));
+  if (eq && eq.OEA !== undefined) {
+    if (eq.OEA >= 16) { wJob = wJob + 5; }
+  }
+  if (entre && entre.ESE !== undefined) {
+    var eseB = (entre.ESE||0) >= 20 ? 15 : (entre.ESE||0) >= 15 ? 8 : 0;
+    wProj = Math.max(10, wProj + eseB);
+    if ((entre.SN||0) >= 20) { wCoop = wCoop + 10; }
+    if ((entre.EA||0) < 12 && (entre.ESE||0) < 12) { wJob = wJob + 15; wProj = Math.max(10, wProj - 10); }
+  }
   var wT=wJob+wProj+wCoop;
   var pJob=Math.round(wJob/wT*100),pProj=Math.round(wProj/wT*100),pCoop=100-pJob-pProj;
   var D = {
@@ -586,6 +661,60 @@ function getINDH(s, ld, profile, lang) {
   ];
 }
 
+
+/* ─── V2 ENHANCED INDH + CLINICAL FLAGS ─────────────────────────────────── */
+function calcINDH(riasec, skillup, eq, entre, profile) {
+  var urbanRegions = ["Casablanca-Settat","Rabat-Sale-Kenitra","Tanger-Tetouan","Fes-Meknes"];
+  var isUrban = false;
+  var reg = (profile && profile.region) || "";
+  for (var ui = 0; ui < urbanRegions.length; ui++) {
+    if (reg.indexOf(urbanRegions[ui]) >= 0) { isUrban = true; break; }
+  }
+  var coopFactor = isUrban ? 0.45 : 1;
+  var wJob  = Math.max(10, 100 - (riasec.S || 50));
+  var wProj = Math.max(10, riasec.E || 50);
+  var wCoop = Math.max(5, Math.round((riasec.C || 50) * coopFactor));
+  if (eq && eq.OEA >= 16) { wJob = wJob + 5; }
+  if (eq && entre) {
+    var eseBoost = (entre.ESE || 0) >= 20 ? 15 : (entre.ESE || 0) >= 15 ? 8 : 0;
+    wProj = Math.max(10, wProj + eseBoost);
+    if ((entre.SN || 0) >= 20) { wCoop = wCoop + 10; }
+    if ((entre.EA || 0) < 12 && (entre.ESE || 0) < 12) {
+      wJob = wJob + 15;
+      wProj = Math.max(10, wProj - 10);
+    }
+  }
+  var total = wJob + wProj + wCoop;
+  var pJob  = Math.round(wJob  / total * 100);
+  var pProj = Math.round(wProj / total * 100);
+  var pCoop = 100 - pJob - pProj;
+  return { pJob: pJob, pProj: pProj, pCoop: pCoop };
+}
+
+function computeFlags(riasec, ocean, skillup, eq, entre, resi) {
+  var flags = [];
+  var rT  = (resi && resi.total) || 0;
+  var N   = (ocean && ocean.N)   || 0;
+  var OEA = (eq && eq.OEA)       || 20;
+  var ROE = (eq && eq.ROE)       || 20;
+  var ESE = (entre && entre.ESE) || 20;
+  var SN  = (entre && entre.SN)  || 0;
+  var EA  = (entre && entre.EA)  || 20;
+  var SC  = (skillup && skillup.C) || 0;
+  var hE  = (riasec && riasec.E)  || 0;
+  var hS  = (riasec && riasec.S)  || 0;
+  var hC  = (riasec && riasec.C)  || 0;
+  var A2  = (ocean && ocean.A2)   || 0;
+  if (rT < 25 && N > 72 && ROE < 10)   flags.push({ level:"red",    code:"TRIPLE_RISK" });
+  if (rT < 30 && N > 72)               flags.push({ level:"red",    code:"MENTAL_HEALTH" });
+  if (rT < 30 && ESE < 12)             flags.push({ level:"orange", code:"DROPOUT_RISK" });
+  if (EA < 12 && ESE < 12)             flags.push({ level:"orange", code:"REDIRECT_INSERTION" });
+  if (OEA < 11 && SC < 48)             flags.push({ level:"orange", code:"COOP_INCOMPATIBLE" });
+  if (rT >= 40 && hE >= 88 && ESE >= 20) flags.push({ level:"green", code:"ROBUST_ENTREPRENEUR" });
+  if (hC >= 72 && A2 >= 72 && OEA >= 16 && SN >= 18) flags.push({ level:"green", code:"IDEAL_COOP" });
+  if (hS >= 80 && OEA >= 16 && ROE >= 16 && rT >= 30) flags.push({ level:"green", code:"IDEAL_INSERTION" });
+  return flags;
+}
 
 /* ─── PDF REPORT ─────────────────────────────────────────────────────────── */
 function buildReportHTML(profile, scores, role, reportLang) {
@@ -689,7 +818,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   const hTop = ranked(h);
   const ld = getLeadership(b, s, reportLang);
   const rm = getRoadmap(hTop[0] || "I", s, profile, reportLang);
-  const indh = getINDH(s, ld, profile, reportLang);
+  const indh = getINDH(s, ld, profile, reportLang, scores.eq, scores.entre);
   const ei = getEduIdx(profile.edu || "");
   const ac = ACADEMIC[hTop[0]] || ACADEMIC.I;
   const acList = ei >= 4 ? ac.hi : ac.lo;
@@ -1982,10 +2111,13 @@ function Welcome({ lang, setLang, user, onStart, onLogout }) {
 }
 
 /* ─── ASSESSMENT ─────────────────────────────────────────────────────────── */
-var TIMER_SECS = 10;
-var PHASE_SIZES = [30, 25, 20];
-var PHASE_COLS  = [C.teal, C.gold, C.pu];
-var PHASE_NAMES = ["Holland", "Big Five", "Skill Up"];
+var TIMER_SECS  = 10;
+var PHASE_SIZES  = [30, 25, 20, 16, 15, 10];
+var PHASE_STARTS = [0,  30, 55, 75, 91, 106];
+var PHASE_COLS   = [C.teal, C.gold, C.pu, "#4080e0", "#1db87a", "#dc4c3c"];
+var PHASE_NAMES  = ["Holland", "Big Five", "Skill Up", "EQ-Map", "EntreMap", "ResiMap"];
+var EQ_COLS  = { SEA:"#4080e0", OEA:"#1aabaa", UOE:"#d4a328", ROE:"#dc4c3c" };
+var EN_COLS  = { EA:"#9050d0", SN:"#1db87a", ESE:"#e09030" };
 
 function Assessment({ lang, setLang, user, onFinish }) {
   var ar = lang === "ar";
@@ -1996,10 +2128,18 @@ function Assessment({ lang, setLang, user, onFinish }) {
   var timerRef = useRef(null);
 
   var q = ALL_Q[idx];
-  var phase = idx < 30 ? 0 : idx < 55 ? 1 : 2;
-  var localI = phase===0 ? idx : phase===1 ? idx-30 : idx-55;
-  var catKey = q.c || q.t || q.d;
-  var catCol = phase===0 ? C.hc[q.c] : phase===1 ? C.b5[q.t] : C.su[q.d];
+  var phase = 0;
+  for (var _pi = PHASE_SIZES.length - 1; _pi >= 0; _pi--) {
+    if (idx >= PHASE_STARTS[_pi]) { phase = _pi; break; }
+  }
+  var localI = idx - PHASE_STARTS[phase];
+  var catKey = q.c || q.t || q.d || q.dim;
+  var catCol = phase === 0 ? (C.hc[q.c] || C.teal) :
+               phase === 1 ? (C.b5[q.t] || C.gold) :
+               phase === 2 ? (C.su[q.d] || C.pu) :
+               phase === 3 ? (EQ_COLS[q.dim] || "#4080e0") :
+               phase === 4 ? (EN_COLS[q.dim] || "#1db87a") :
+               "#dc4c3c";
   var cur = ansRef.current[idx];
 
   var OPTS_MAIN = {
@@ -2012,7 +2152,7 @@ function Assessment({ lang, setLang, user, onFinish }) {
     fr:["Toujours","Souvent","Parfois","Rarement","Jamais"],
     ar:["دائماً","كثيراً","أحياناً","نادراً","أبداً"],
   };
-  var opts = (phase < 2 ? OPTS_MAIN[lang] : OPTS_FREQ[lang]) || OPTS_MAIN.en;
+  var opts = (phase === 2 ? OPTS_FREQ[lang] : OPTS_MAIN[lang]) || OPTS_MAIN.en;
 
   var timedOut = useRef(false);
 
@@ -2023,7 +2163,7 @@ function Assessment({ lang, setLang, user, onFinish }) {
       rerender(function(n) { return n + 1; });
     }
     var nxt = idx + 1;
-    if (nxt >= 75) { onFinish(computeScores(ansRef.current)); return; }
+    if (nxt >= ALL_Q.length) { onFinish(computeScores(ansRef.current)); return; }
     setIdx(nxt);
     setTimer(TIMER_SECS);
   }
@@ -2052,7 +2192,7 @@ function Assessment({ lang, setLang, user, onFinish }) {
   }
 
   var timerCol = timer > 12 ? C.teal : timer > 6 ? C.am : C.re;
-  var pct = Math.round((idx / 75) * 100);
+  var pct = Math.round((idx / ALL_Q.length) * 100);
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
@@ -2077,17 +2217,29 @@ function Assessment({ lang, setLang, user, onFinish }) {
             </div>
           </div>
         </div>
-        <div style={{ display:"flex", gap:3, alignItems:"center" }}>
-          <div style={{ flex:30, height:5, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
+        <div style={{ display:"flex", gap:2, alignItems:"center" }}>
+          <div style={{ flex:30, height:4, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
             <div style={{ height:"100%", width:Math.min(idx,30)/30*100+"%", background:C.teal, borderRadius:99, transition:"width .3s" }}/>
           </div>
-          <div style={{ width:6, height:6, borderRadius:"50%", background:idx>=30?C.gr:C.bdr, flexShrink:0 }}/>
-          <div style={{ flex:25, height:5, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
+          <div style={{ width:4, height:4, borderRadius:"50%", background:idx>=30?C.gr:C.bdr, flexShrink:0 }}/>
+          <div style={{ flex:25, height:4, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
             <div style={{ height:"100%", width:Math.max(0,Math.min(idx-30,25))/25*100+"%", background:C.gold, borderRadius:99, transition:"width .3s" }}/>
           </div>
-          <div style={{ width:6, height:6, borderRadius:"50%", background:idx>=55?C.gr:C.bdr, flexShrink:0 }}/>
-          <div style={{ flex:20, height:5, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
+          <div style={{ width:4, height:4, borderRadius:"50%", background:idx>=55?C.gr:C.bdr, flexShrink:0 }}/>
+          <div style={{ flex:20, height:4, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
             <div style={{ height:"100%", width:Math.max(0,Math.min(idx-55,20))/20*100+"%", background:C.pu, borderRadius:99, transition:"width .3s" }}/>
+          </div>
+          <div style={{ width:4, height:4, borderRadius:"50%", background:idx>=75?C.gr:C.bdr, flexShrink:0 }}/>
+          <div style={{ flex:16, height:4, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:Math.max(0,Math.min(idx-75,16))/16*100+"%", background:"#4080e0", borderRadius:99, transition:"width .3s" }}/>
+          </div>
+          <div style={{ width:4, height:4, borderRadius:"50%", background:idx>=91?C.gr:C.bdr, flexShrink:0 }}/>
+          <div style={{ flex:15, height:4, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:Math.max(0,Math.min(idx-91,15))/15*100+"%", background:"#1db87a", borderRadius:99, transition:"width .3s" }}/>
+          </div>
+          <div style={{ width:4, height:4, borderRadius:"50%", background:idx>=106?C.gr:C.bdr, flexShrink:0 }}/>
+          <div style={{ flex:10, height:4, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:Math.max(0,Math.min(idx-106,10))/10*100+"%", background:"#dc4c3c", borderRadius:99, transition:"width .3s" }}/>
           </div>
         </div>
       </div>
@@ -2239,7 +2391,7 @@ function Report({ lang, setLang, user, profile, scores, onLogout, initRole, onSh
   var hTop = ranked(h), bTop = ranked(b);
   var ld = getLeadership(b, s, lang);
   var rm = getRoadmap(hTop[0] || "I", s, profile || {}, lang);
-  var indh = getINDH(s, ld, profile || {}, lang);
+  var indh = getINDH(s, ld, profile || {}, lang, scores.eq, scores.entre);
   var ei = getEduIdx((profile && profile.edu) || "");
   var ac = ACADEMIC[hTop[0]] || ACADEMIC.I;
   var acList = ei >= 4 ? ac.hi : ac.lo;
@@ -3676,7 +3828,7 @@ function App() {
   var [screen, setScreen] = useState("landing");
   var [user, setUser] = useState(null);
   var [profile, setProfile] = useState(null);
-  var [scores, setScores] = useState({ h:{}, b:{}, s:{} });
+  var [scores, setScores] = useState({ h:{}, b:{}, s:{}, eq:{}, entre:{}, resi:{} });
   var [cands, setCands] = useState(function() { try { return JSON.parse(localStorage.getItem("cm_cands")||"[]"); } catch(e){ return []; } });
   var [viewIdx, setViewIdx] = useState(null);
   var [advisors, setAdvisors] = useState(function() { try { return JSON.parse(localStorage.getItem("cm_advisors")||"[]"); } catch(e){ return []; } });
@@ -3725,7 +3877,7 @@ function App() {
 
   function onLogout() {
     setUser(null); setProfile(null);
-    setScores({ h:{}, b:{}, s:{} });
+    setScores({ h:{}, b:{}, s:{}, eq:{}, entre:{}, resi:{} });
     setViewIdx(null); setResultCode(""); setReportHTML(null);
     setScreen("login");
   }
