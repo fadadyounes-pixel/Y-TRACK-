@@ -467,6 +467,22 @@ const ELEARN = {
   E:{ p:"LinkedIn Learning \u00b7 Coursera \u00b7 HBS Online", c:"PMP \u00b7 HBX CORe \u00b7 Google Digital Marketing", cs:["Entrepreneurship \u2013 Wharton/Coursera","Strategic Leadership (LinkedIn Learning)","Digital Marketing Fundamentals (Google)","Negotiation Mastery (HBS Online)","Financial Accounting Basics (edX)"] },
   C:{ p:"LinkedIn Learning \u00b7 Coursera \u00b7 ACCA Online", c:"CPA \u00b7 PMP \u00b7 Microsoft Office Specialist", cs:["Excel Mastery Full Course (LinkedIn Learning)","Project Management Professional (Coursera/PMI)","Financial Accounting (ACCA)","SAP Business Fundamentals (Udemy)","Data Analysis with Power BI (Microsoft)"] },
 };
+const ELEARN_BASIC = {
+  R:{ p:"YouTube · DARIJA · Alison", c:"OFPPT Technicien Spécialisé", cs:["Maintenance informatique débutant (YouTube)","AutoCAD niveau 1 (YouTube Darija)","Plomberie & électricité de base (YouTube)","Sécurité au travail (Alison)","Réparation mobile & électronique (YouTube Darija)"] },
+  I:{ p:"YouTube · Khan Academy FR · Alison", c:"Certification Bureautique OFPPT", cs:["Mathématiques de base (Khan Academy FR)","Sciences générales cycle (YouTube)","Logique et méthode de travail (Alison)","Alphabétisation numérique (GENIE Maroc)","Initiation aux sciences (YouTube Darija)"] },
+  A:{ p:"YouTube · Canva Gratuit · Alison", c:"Certificat Arts Visuels / OFPPT", cs:["Dessin et illustration (YouTube)","Canva débutant – Design graphique (Canva gratuit)","Artisanat marocain & tapis (YouTube Darija)","Photographie mobile (YouTube)","Calligraphie arabe pour débutants (YouTube)"] },
+  S:{ p:"YouTube · Alison · Croissant-Rouge", c:"Certificat Aide à la Personne", cs:["Communication de base (Alison)","Premiers secours (Croissant-Rouge Maroc)","Travail d'équipe et coopération (Alison)","Aide-soignant – Introduction (YouTube)","Service client de base (YouTube Darija)"] },
+  E:{ p:"YouTube · INJAZ Al-Maghrib · Darija", c:"Attestation INJAZ Al-Maghrib", cs:["Idée de projet simple (YouTube Darija)","Commerce de proximité – pratique (YouTube Darija)","Gestion argent & budget (YouTube)","Marketing de base pour artisans (YouTube)","Vendre en ligne – Facebook & WhatsApp (YouTube Darija)"] },
+  C:{ p:"YouTube · Alison · OFPPT Bureautique", c:"Attestation Bureautique OFPPT", cs:["Excel débutant (YouTube Darija)","Comptabilité simple pour débutants (YouTube)","Classement et archivage (Alison)","Word et saisie de document (YouTube)","Calcul commercial de base (YouTube Darija)"] },
+};
+const ELEARN_MID = {
+  R:{ p:"Coursera · FUN-MOOC · Cisco NetAcad", c:"Cisco CCNA · CompTIA A+ · BTS Technique", cs:["Python pour ingénieurs – niveau 1 (Coursera)","AutoCAD avancé – 2D/3D (Udemy FR)","Energies renouvelables (FUN-MOOC)","Réseaux informatiques Cisco (NetAcad)","Mécanique & Maintenance industrielle (edX)"] },
+  I:{ p:"Coursera · FUN-MOOC · edX", c:"Google Data Analytics · FUN-MOOC Recherche", cs:["Statistiques appliquées (Coursera)","Introduction à la recherche scientifique (FUN-MOOC)","Analyse de données avec Python (Coursera)","Chimie générale (FUN-MOOC)","Biologie cellulaire de base (edX)"] },
+  A:{ p:"Coursera · FUN-MOOC · Udemy FR", c:"Google UX Design · Adobe Certified", cs:["Design graphique – Fondamentaux (Coursera)","UX/UI Design initiation (Google/Coursera)","Communication visuelle (FUN-MOOC)","Photographie professionnelle (Udemy FR)","Storytelling & narration visuelle (edX)"] },
+  S:{ p:"Coursera · FUN-MOOC · edX", c:"CELTA initiation · Coaching ICF niveau 1", cs:["Psychologie sociale (Coursera/Yale FR)","Médiation et gestion de conflits (FUN-MOOC)","Leadership pédagogique (Coursera)","Travail social – Introduction (edX)","Bien-être et développement personnel (edX)"] },
+  E:{ p:"Coursera · FUN-MOOC · Google", c:"PMP initiation · Google Digital Marketing", cs:["Entrepreneuriat – lancer son projet (Coursera/HEC)","Marketing digital fondamentaux (Google)","Gestion de projet Agile (FUN-MOOC)","Négociation et persuasion (edX)","Business plan & financement (FUN-MOOC)"] },
+  C:{ p:"LinkedIn Learning · Coursera · edX", c:"CPA niveau 1 · Microsoft Office Spécialiste", cs:["Excel avancé – Tableaux croisés (LinkedIn)","Comptabilité générale (INTEC Paris/edX)","Gestion financière de base (Coursera)","SAP Business Fundamentals (Udemy)","Contrôle de gestion initiation (FUN-MOOC)"] },
+};
 const ACADEMIC = {
   R:{ lo:["Formation technique (OFPPT) \u2192 \u00c9lectrique, M\u00e9canique, Informatique","Dipl\u00f4me professionnel en Construction ou Industrie","Classes pr\u00e9paratoires aux \u00e9coles d'ing\u00e9nieurs"], hi:["Licence Sciences de l'Ing\u00e9nieur (M\u00e9canique/G\u00e9nie Civil)","Licence Informatique / R\u00e9seaux","Licence Architecture et Urbanisme","Licence \u00c9nergies Renouvelables"] },
   I:{ lo:["CPGE (classes pr\u00e9paratoires scientifiques)","Pr\u00e9m\u00e9decine / Sciences de la sant\u00e9","Bac Sciences \u2192 Facult\u00e9 des Sciences"], hi:["Licence Math\u00e9matiques / Physique / Chimie","Facult\u00e9 de M\u00e9decine, Pharmacie, Dentaire","Licence Sciences des Donn\u00e9es ou G\u00e9nie Biom\u00e9dical","Master / Doctorat en recherche"] },
@@ -841,7 +857,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   const ei = getEduIdx(profile.edu || "");
   const ac = ACADEMIC[hTop[0]] || ACADEMIC.I;
   const acList = ei >= 4 ? ac.hi : ac.lo;
-  const el = ELEARN[hTop[0]] || ELEARN.I;
+  var el = ei >= 6 ? (ELEARN[hTop[0]] || ELEARN.I) : ei >= 4 ? (ELEARN_MID[hTop[0]] || ELEARN_MID.I) : (ELEARN_BASIC[hTop[0]] || ELEARN_BASIC.I);
 
   function bar(v, col) {
     return '<div style="height:9px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:4px">' +
@@ -1087,6 +1103,66 @@ function buildReportHTML(profile, scores, role, reportLang) {
   }
 
 
+  // Executive Summary (new page)
+  body += '<div style="page-break-before:always;padding:32px 40px;font-family:Arial,sans-serif;min-height:100vh">';
+  body += '<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:2px solid #0f172a;margin-bottom:26px">';
+  body += '<span style="font-size:15px;font-weight:900;font-family:Arial;color:#0f172a">Career<span style="color:#1aabaa">Map</span></span>';
+  body += '<span style="font-size:10px;color:#94a3b8">' + date + '</span></div>';
+  var esT = reportLang==="ar" ? "\u0645\u0644\u062e\u0635 \u062a\u0646\u0641\u064a\u0630\u064a" : (reportLang==="en" ? "Executive Summary" : "R\u00e9sum\u00e9 Ex\u00e9cutif");
+  var esS = reportLang==="ar" ? "\u0646\u0638\u0631\u0629 \u0639\u0627\u0645\u0629 \u0639\u0644\u0649 \u0646\u062a\u0627\u0626\u062c \u0627\u0644\u062a\u0642\u064a\u064a\u0645 \u0627\u0644\u0634\u0627\u0645\u0644" : (reportLang==="en" ? "Comprehensive Assessment Results Overview" : "Vue d'ensemble des r\u00e9sultats de l\'\u00e9valuation compl\u00e8te");
+  body += '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border-radius:14px;padding:22px 26px;margin-bottom:22px">';
+  body += '<div style="font-size:20px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;margin-bottom:5px">' + esT + '</div>';
+  body += '<div style="font-size:12px;color:#94a3b8">' + esS + '</div></div>';
+  body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">';
+  var esProf = reportLang==="ar" ? "\u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u0645\u062a\u0631\u0634\u062d" : (reportLang==="en" ? "Candidate Profile" : "Profil Candidat");
+  body += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px">';
+  body += '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + esProf + '</div>';
+  body += '<div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:8px">' + (profile.name||profile.id||"-") + '</div>';
+  [[L.edu, profile.edu||"-"],[L.region, profile.region||"-"],[L.status, profile.status||"-"]].forEach(function(item){
+    body += '<div style="display:flex;gap:6px;font-size:11px;margin-bottom:4px"><span style="color:#94a3b8;min-width:60px">' + item[0] + '</span><span style="color:#0f172a;font-weight:600">' + item[1] + '</span></div>';
+  });
+  body += '</div>';
+  var esType = reportLang==="ar" ? "\u0627\u0644\u0623\u0628\u0639\u0627\u062f \u0627\u0644\u0645\u0647\u0646\u064a\u0629 \u0627\u0644\u0631\u0627\u0626\u062f\u0629" : (reportLang==="en" ? "Top Career Dimensions" : "Dimensions Professionnelles Cl\u00e9s");
+  body += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px">';
+  body += '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + esType + '</div>';
+  hTop.slice(0,3).forEach(function(code){
+    var v = h[code]||0;
+    body += '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px"><span style="color:' + C.hc[code] + '">' + (HL[code]||code) + '</span><span style="color:' + C.hc[code] + '">' + v + '%</span></div>' + bar(v, C.hc[code]) + '</div>';
+  });
+  body += '</div></div>';
+  body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">';
+  var esStr = reportLang==="ar" ? "\u0646\u0642\u0627\u0637 \u0627\u0644\u0642\u0648\u0629 \u0627\u0644\u0631\u0626\u064a\u0633\u064a\u0629" : (reportLang==="en" ? "Key Strengths" : "Points Forts Cl\u00e9s");
+  var esLdL = reportLang==="ar" ? "\u0646\u0645\u0637 \u0627\u0644\u0642\u064a\u0627\u062f\u0629" : (reportLang==="en" ? "Leadership Style" : "Style de Leadership");
+  var esEduT = ei>=6 ? (reportLang==="ar" ? "\u0645\u0633\u062a\u0648\u0649 \u0639\u0627\u0644 (\u0644\u064a\u0633\u0627\u0646\u0633+)" : (reportLang==="en" ? "Higher Education (Bachelor+)" : "Enseignement Sup\u00e9rieur (Licence+)")) : ei>=4 ? (reportLang==="ar" ? "\u0645\u0633\u062a\u0648\u0649 \u062b\u0627\u0646\u0648\u064a+ (\u0628\u0643\u0627\u0644\u0648\u0631\u064a\u0627+)" : (reportLang==="en" ? "Secondary+ Level (Bac+)" : "Niveau Secondaire+ (Bac+)")) : (reportLang==="ar" ? "\u0645\u0633\u062a\u0648\u0649 \u0623\u0633\u0627\u0633\u064a (\u062f\u0648\u0646 \u0627\u0644\u0628\u0643\u0627\u0644\u0648\u0631\u064a\u0627)" : (reportLang==="en" ? "Basic Level (below Bac)" : "Niveau de Base (avant Bac)"));
+  body += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px">';
+  body += '<div style="font-size:10px;font-weight:800;color:#15803d;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + esStr + '</div>';
+  body += '<div style="font-size:12px;margin-bottom:6px;color:#0f172a">&#127973; ' + (HL[hTop[0]]||hTop[0]) + (hTop[1] ? " + " + (HL[hTop[1]]||hTop[1]) : "") + '</div>';
+  body += '<div style="font-size:12px;margin-bottom:6px;color:#0f172a">&#128081; ' + esLdL + ': ' + ld.style + '</div>';
+  body += '<div style="font-size:12px;color:#0f172a">&#127891; ' + esEduT + '</div></div>';
+  var esRec = reportLang==="ar" ? "\u0627\u0644\u062a\u0648\u0635\u064a\u0627\u062a \u0627\u0644\u0623\u0633\u0627\u0633\u064a\u0629" : (reportLang==="en" ? "Core Recommendations" : "Recommandations Essentielles");
+  var esEll = reportLang==="ar" ? "\u0627\u0644\u062a\u0639\u0644\u0645 \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a" : (reportLang==="en" ? "E-Learning" : "E-Learning");
+  var esAcd = reportLang==="ar" ? "\u0627\u0644\u062a\u0648\u062c\u064a\u0647 \u0627\u0644\u0623\u0643\u0627\u062f\u064a\u0645\u064a" : (reportLang==="en" ? "Academic path" : "Orientation acad\u00e9mique");
+  var esCrt = reportLang==="ar" ? "\u0627\u0644\u0634\u0647\u0627\u062f\u0629" : (reportLang==="en" ? "Target certification" : "Certif. cible");
+  body += '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:16px">';
+  body += '<div style="font-size:10px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + esRec + '</div>';
+  body += '<div style="font-size:12px;margin-bottom:6px;color:#0f172a">&#128187; ' + esEll + ': <strong>' + el.p + '</strong></div>';
+  body += '<div style="font-size:12px;margin-bottom:6px;color:#0f172a">&#127891; ' + esAcd + ': ' + (acList[0]||"-") + '</div>';
+  body += '<div style="font-size:12px;color:#0f172a">&#127942; ' + esCrt + ': <strong>' + el.c + '</strong></div></div></div>';
+  var esB5 = reportLang==="ar" ? "\u0645\u0644\u062e\u0635 \u0627\u0644\u0634\u062e\u0635\u064a\u0629 (Big Five)" : (reportLang==="en" ? "Personality Summary (Big Five)" : "R\u00e9sum\u00e9 Personnalit\u00e9 (Big Five)");
+  body += '<div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:14px">';
+  body += '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + esB5 + '</div>';
+  body += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">';
+  ["O","C2","E2","A2","N"].forEach(function(t){
+    var v = b[t]||0;
+    body += '<div style="text-align:center"><div style="font-size:8px;font-weight:700;color:' + C.b5[t] + ';margin-bottom:4px;line-height:1.3">' + (BL[t]||t) + '</div>';
+    body += '<div style="height:55px;background:#e2e8f0;border-radius:4px;position:relative;overflow:hidden"><div style="position:absolute;bottom:0;left:0;right:0;height:' + v + '%;background:' + C.b5[t] + ';border-radius:4px 4px 0 0"></div></div>';
+    body += '<div style="font-size:10px;font-weight:800;color:' + C.b5[t] + ';margin-top:3px">' + v + '%</div></div>';
+  });
+  body += '</div></div>';
+  body += '</div>';
+
+
+
   // Holland
   body += pageFtr();
   body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #d4a328;padding-left:10px;margin:20px 0 12px">' + L.sec1 + '</h2>';
@@ -1237,6 +1313,52 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '<p style="font-size:11px;color:#475569;line-height:1.7;margin-bottom:5px">' + rec.desc + '</p>';
     body += '<div style="font-size:10px;color:' + rec.col + ';font-weight:600">→ ' + rec.action + '</div></div>';
   });
+
+  // Conclusion Candidat
+  body += pageFtr();
+  var ccT = reportLang==="ar" ? "\u062e\u0644\u0627\u0635\u0629 \u0648\u062a\u0648\u0635\u064a\u0627\u062a \u0644\u0644\u0645\u062a\u0631\u0634\u062d" : (reportLang==="en" ? "Candidate Conclusion & Recommendations" : "Conclusion et Recommandations Candidat");
+  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #1aabaa;padding-left:10px;margin:20px 0 12px">' + ccT + '</h2>';
+  var cc1T = reportLang==="ar" ? "\u0645\u0644\u0641\u0643 \u0627\u0644\u0645\u0647\u0646\u064a" : (reportLang==="en" ? "Your Professional Profile" : "Votre Profil Professionnel");
+  var cc1B = reportLang==="ar" ? "\u062a\u064f\u0638\u0647\u0631 \u0646\u062a\u0627\u0626\u062c\u0643 \u062a\u0648\u062c\u0647\u064b\u0627 \u0645\u0647\u0646\u064a\u064b\u0627 \u0648\u0627\u0636\u062d\u064b\u0627 \u0646\u062d\u0648 " + (HL[hTop[0]]||hTop[0]) + (hTop[1] ? " \u0648" + (HL[hTop[1]]||hTop[1]) : "") + ". \u0647\u0630\u0627 \u0627\u0644\u062a\u0648\u062c\u0647 \u064a\u0639\u0643\u0633 \u0634\u062e\u0635\u064a\u062a\u0643 \u0648\u0645\u064a\u0648\u0644\u0643 \u0627\u0644\u0637\u0628\u064a\u0639\u064a\u0629\u060c \u0648\u064a\u0634\u0643\u0651\u0644 \u0623\u0633\u0627\u0633\u064b\u0627 \u0642\u0648\u064a\u064b\u0627 \u0644\u0628\u0646\u0627\u0621 \u0645\u0633\u0627\u0631 \u0645\u0647\u0646\u064a \u0646\u0627\u062c\u062d." :
+    reportLang==="en" ? "Your results reveal a clear professional orientation toward " + (HL[hTop[0]]||hTop[0]) + (hTop[1] ? " and " + (HL[hTop[1]]||hTop[1]) : "") + ". This reflects your natural personality and inclinations, forming a strong foundation for a fulfilling career." :
+    "Vos r\u00e9sultats r\u00e9v\u00e8lent une orientation professionnelle marqu\u00e9e vers le profil " + (HL[hTop[0]]||hTop[0]) + (hTop[1] ? " et " + (HL[hTop[1]]||hTop[1]) : "") + ". Cette orientation refl\u00e8te votre personnalit\u00e9 naturelle et constitue une base solide pour un parcours professionnel \u00e9panouissant.";
+  body += '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:16px;margin-bottom:14px">';
+  body += '<div style="font-size:12px;font-weight:800;color:#0369a1;margin-bottom:8px">&#127973; ' + cc1T + '</div>';
+  body += '<p style="font-size:12px;color:#0f172a;line-height:1.8;margin:0">' + cc1B + '</p></div>';
+  var cc2T = reportLang==="ar" ? "\u0646\u0642\u0627\u0637 \u0642\u0648\u062a\u0643 \u0627\u0644\u0623\u0633\u0627\u0633\u064a\u0629" : (reportLang==="en" ? "Your Core Strengths" : "Vos Points Forts Essentiels");
+  body += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;margin-bottom:14px">';
+  body += '<div style="font-size:12px;font-weight:800;color:#15803d;margin-bottom:10px">&#9989; ' + cc2T + '</div>';
+  body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  (ld.str||[]).slice(0,4).forEach(function(st){
+    body += '<div style="font-size:11px;color:#0f172a;background:rgba(255,255,255,.7);border-radius:6px;padding:6px 10px;border-left:3px solid #20b060">&#8226; ' + st + '</div>';
+  });
+  body += '</div></div>';
+  var cc3T = reportLang==="ar" ? "\u0645\u062d\u0627\u0648\u0631 \u0627\u0644\u062a\u0637\u0648\u064a\u0631" : (reportLang==="en" ? "Development Priorities" : "Axes de D\u00e9veloppement");
+  body += '<div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:16px;margin-bottom:14px">';
+  body += '<div style="font-size:12px;font-weight:800;color:#854d0e;margin-bottom:10px">&#128640; ' + cc3T + '</div>';
+  body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  (ld.dev||[]).slice(0,4).forEach(function(d){
+    body += '<div style="font-size:11px;color:#0f172a;background:rgba(255,255,255,.7);border-radius:6px;padding:6px 10px;border-left:3px solid #d4a328">&#9658; ' + d + '</div>';
+  });
+  body += '</div></div>';
+  var cc4T = reportLang==="ar" ? "\u062e\u0637\u0648\u0627\u062a \u0639\u0645\u0644\u064a\u0629 \u0642\u0627\u062f\u0645\u0629" : (reportLang==="en" ? "Concrete Next Steps" : "Prochaines \u00c9tapes Concr\u00e8tes");
+  var cc4S1 = reportLang==="ar" ? "\u0627\u062d\u062c\u0632 \u062c\u0644\u0633\u0629 \u062a\u0648\u062c\u064a\u0647 \u0645\u0639 \u0645\u0633\u062a\u0634\u0627\u0631\u0643 \u0644\u0645\u0631\u0627\u062c\u0639\u0629 \u0646\u062a\u0627\u0626\u062c\u0643" : (reportLang==="en" ? "Schedule an orientation session with your advisor to review your detailed results" : "R\u00e9servez une s\u00e9ance d\'orientation avec votre conseiller pour examiner vos r\u00e9sultats");
+  var cc4S2 = reportLang==="ar" ? "\u0627\u0628\u062f\u0623 \u0628\u0645\u0646\u0635\u0629 \u0627\u0644\u062a\u0639\u0644\u0645 \u0627\u0644\u0645\u0644\u0627\u0626\u0645\u0629 \u0644\u0645\u0633\u062a\u0648\u0627\u0643: " + el.p : (reportLang==="en" ? "Start with the e-learning platform suited to your level: " + el.p : "Commencez par la plateforme e-learning adapt\u00e9e \u00e0 votre niveau\u00a0: " + el.p);
+  var cc4S3 = reportLang==="ar" ? "\u0627\u0633\u062a\u0647\u062f\u0641 \u0627\u0644\u0634\u0647\u0627\u062f\u0629 \u0630\u0627\u062a \u0627\u0644\u0623\u0648\u0644\u0648\u064a\u0629: " + el.c : (reportLang==="en" ? "Target your priority certification: " + el.c : "Visez la certification prioritaire\u00a0: " + el.c);
+  var cc4S4 = reportLang==="ar" ? "\u0627\u0633\u062a\u0643\u0634\u0641 \u0645\u0633\u0627\u0631\u0627\u062a \u0627\u0644\u062a\u0643\u0648\u064a\u0646 \u0627\u0644\u0645\u0648\u0635\u0649 \u0628\u0647\u0627: " + (acList[0]||"-") : (reportLang==="en" ? "Explore recommended training paths: " + (acList[0]||"-") : "Explorez les fili\u00e8res de formation recommand\u00e9es\u00a0: " + (acList[0]||"-"));
+  var cc4S5 = reportLang==="ar" ? "\u062d\u062f\u062f \u0623\u0647\u062f\u0627\u0641\u0627\u064b \u0642\u0635\u064a\u0631\u0629 \u0627\u0644\u0623\u0645\u062f (3 \u0623\u0634\u0647\u0631) \u0648\u0637\u0648\u064a\u0644\u0629 \u0627\u0644\u0623\u0645\u062f (3 \u0633\u0646\u0648\u0627\u062a)" : (reportLang==="en" ? "Set short-term (3-month) and long-term (3-year) professional goals" : "Fixez des objectifs \u00e0 court terme (3 mois) et \u00e0 long terme (3 ans)");
+  body += '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:14px">';
+  body += '<div style="font-size:12px;font-weight:800;color:#7c3aed;margin-bottom:10px">&#128203; ' + cc4T + '</div>';
+  [cc4S1,cc4S2,cc4S3,cc4S4,cc4S5].forEach(function(step,i){
+    body += '<div style="display:flex;gap:10px;margin-bottom:7px;font-size:11px;color:#374151;align-items:flex-start"><span style="font-weight:800;color:#7c3aed;flex-shrink:0">' + (i+1) + '.</span><span>' + step + '</span></div>';
+  });
+  body += '</div>';
+  var ccNote = reportLang==="ar" ? "\u062a\u0630\u0643\u0651\u0631: \u0647\u0630\u0627 \u0627\u0644\u062a\u0642\u0631\u064a\u0631 \u0623\u062f\u0627\u0629 \u0644\u0645\u0633\u0627\u0639\u062f\u062a\u0643 \u0641\u064a \u0641\u0647\u0645 \u0630\u0627\u062a\u0643 \u0648\u062a\u0648\u062c\u064a\u0647 \u0645\u0633\u0627\u0631\u0643 \u0627\u0644\u0645\u0647\u0646\u064a. \u0627\u0644\u0646\u062a\u0627\u0626\u062c \u062a\u0639\u0643\u0633 \u0645\u064a\u0648\u0644\u0643 \u0627\u0644\u062d\u0627\u0644\u064a\u0629 \u0648\u0644\u064a\u0633\u062a \u062d\u0643\u0645\u064b\u0627 \u0646\u0647\u0627\u0626\u064a\u064b\u0627." :
+    reportLang==="en" ? "Remember: this report is a tool to help you understand yourself and guide your career path. Results reflect your current inclinations — not a final judgment. With your advisor\u2019s guidance and your perseverance, you can achieve your professional goals." :
+    "Rappel\u00a0: ce rapport est un outil pour vous aider \u00e0 mieux vous conna\u00eetre et \u00e0 orienter votre parcours professionnel. Les r\u00e9sultats refl\u00e8tent vos inclinations actuelles et ne constituent pas un jugement d\u00e9finitif. Avec l\u2019accompagnement de votre conseiller et votre pers\u00e9v\u00e9rance, vous atteindrez vos objectifs.";
+  body += '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:10px;padding:14px 16px">';
+  body += '<p style="font-size:11px;color:#cbd5e1;line-height:1.8;margin:0;font-style:italic">' + ccNote + '</p></div>';
+
 
   // Advisor section
   if (role === "advisor") {
@@ -2543,7 +2665,7 @@ function Report({ lang, setLang, user, profile, scores, onLogout, initRole, onSh
   var ei = getEduIdx((profile && profile.edu) || "");
   var ac = ACADEMIC[hTop[0]] || ACADEMIC.I;
   var acList = ei >= 4 ? ac.hi : ac.lo;
-  var el = ELEARN[hTop[0]] || ELEARN.I;
+  var el = ei >= 6 ? (ELEARN[hTop[0]] || ELEARN.I) : ei >= 4 ? (ELEARN_MID[hTop[0]] || ELEARN_MID.I) : (ELEARN_BASIC[hTop[0]] || ELEARN_BASIC.I);
 
   var B5D = {
     O:{hi:"Highly creative — thrives in novel environments",lo:"Prefers routine — reliable in stable roles"},
