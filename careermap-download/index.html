@@ -857,7 +857,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   const ei = getEduIdx(profile.edu || "");
   const ac = ACADEMIC[hTop[0]] || ACADEMIC.I;
   const acList = ei >= 4 ? ac.hi : ac.lo;
-  var el = ei >= 6 ? (ELEARN[hTop[0]] || ELEARN.I) : ei >= 4 ? (ELEARN_MID[hTop[0]] || ELEARN_MID.I) : (ELEARN_BASIC[hTop[0]] || ELEARN_BASIC.I);
+  var el = (ei < 0 || ei >= 6) ? (ELEARN[hTop[0]] || ELEARN.I) : ei >= 4 ? (ELEARN_MID[hTop[0]] || ELEARN_MID.I) : (ELEARN_BASIC[hTop[0]] || ELEARN_BASIC.I);
 
   function bar(v, col) {
     return '<div style="height:9px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:4px">' +
@@ -2665,7 +2665,7 @@ function Report({ lang, setLang, user, profile, scores, onLogout, initRole, onSh
   var ei = getEduIdx((profile && profile.edu) || "");
   var ac = ACADEMIC[hTop[0]] || ACADEMIC.I;
   var acList = ei >= 4 ? ac.hi : ac.lo;
-  var el = ei >= 6 ? (ELEARN[hTop[0]] || ELEARN.I) : ei >= 4 ? (ELEARN_MID[hTop[0]] || ELEARN_MID.I) : (ELEARN_BASIC[hTop[0]] || ELEARN_BASIC.I);
+  var el = (ei < 0 || ei >= 6) ? (ELEARN[hTop[0]] || ELEARN.I) : ei >= 4 ? (ELEARN_MID[hTop[0]] || ELEARN_MID.I) : (ELEARN_BASIC[hTop[0]] || ELEARN_BASIC.I);
 
   var B5D = {
     O:{hi:"Highly creative — thrives in novel environments",lo:"Prefers routine — reliable in stable roles"},
