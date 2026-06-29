@@ -740,6 +740,12 @@ function buildReportHTML(profile, scores, role, reportLang) {
       sec7:"VII. Feuille de Route Carrière",
       sec8:"VIII. Programmes INDH",
       sec9:"IX. Plan d'Intervention Clinique",
+      secEQ:"VI. Intelligence \u00c9motionnelle \u2014 EQ-Map",
+      secEntre:"VII. Esprit Entrepreneurial \u2014 EntreMap",
+      secResi:"VIII. R\u00e9silience \u2014 ResiMap",
+      eqIntro:"EQ-Map mesure quatre facettes de l'intelligence \u00e9motionnelle valid\u00e9es par le mod\u00e8le WLEIS. Des scores \u00e9lev\u00e9s favorisent l'insertion professionnelle et la coop\u00e9ration.",
+      entreIntro:"EntreMap \u00e9value votre intention entrepreneuriale selon le mod\u00e8le EIQ (Li\u00f1\u00e1n & Chen). Ces scores orientent vers les programmes INDH d'auto-emploi.",
+      resiIntro:"ResiMap mesure votre r\u00e9silience face aux adversit\u00e9s (CD-RISC-10). Un score \u00e9lev\u00e9 pr\u00e9dit une meilleure r\u00e9cup\u00e9ration apr\u00e8s les \u00e9checs professionnels.",
       hollandIntro:"Le modèle RIASEC identifie six types de personnalité professionnelle. Vos scores reflètent votre affinité naturelle avec chaque type.",
       b5Intro:"Le Big Five est l'outil psychométrique le plus validé pour mesurer la personnalité. Il prédit la performance professionnelle et les dynamiques relationnelles.",
       suIntro:"Le test Skill Up évalue votre niveau de préparation au marché du travail à travers quatre dimensions complémentaires.",
@@ -769,6 +775,12 @@ function buildReportHTML(profile, scores, role, reportLang) {
       sec7:"VII. Career Roadmap",
       sec8:"VIII. INDH Programs",
       sec9:"IX. Clinical Intervention Plan",
+      secEQ:"VI. Emotional Intelligence \u2014 EQ-Map",
+      secEntre:"VII. Entrepreneurial Mindset \u2014 EntreMap",
+      secResi:"VIII. Resilience \u2014 ResiMap",
+      eqIntro:"EQ-Map measures four facets of emotional intelligence validated by the WLEIS model. High scores predict better professional integration and teamwork.",
+      entreIntro:"EntreMap evaluates your entrepreneurial intention using the EIQ model (Li\u00f1\u00e1n & Chen). Scores guide recommendations toward INDH self-employment programs.",
+      resiIntro:"ResiMap measures your resilience in adversity (CD-RISC-10). A high score predicts faster recovery from professional setbacks.",
       hollandIntro:"The RIASEC model identifies six professional personality types. Your scores reflect your natural affinity with each type.",
       b5Intro:"The Big Five is the most scientifically validated tool for measuring personality. It predicts professional performance and relational dynamics.",
       suIntro:"The Skill Up test evaluates your level of preparation for the job market through four complementary dimensions.",
@@ -798,6 +810,12 @@ function buildReportHTML(profile, scores, role, reportLang) {
       sec7:"VII. خارطة الطريق المهنية",
       sec8:"VIII. برامج المبادرة الوطنية",
       sec9:"IX. خطة التدخل السريري",
+      secEQ:"VI. الذكاء العاطفي — EQ-Map",
+      secEntre:"VII. الروح الريادية — EntreMap",
+      secResi:"VIII. المرونة — ResiMap",
+      eqIntro:"يقيس EQ-Map أربعة أبعاد للذكاء العاطفي وفق نموذج WLEIS.",
+      entreIntro:"يقيس EntreMap النية الريادية وفق نموذج EIQ.",
+      resiIntro:"يقيس ResiMap المرونة امام الصعوبات (CD-RISC-10).",
       hollandIntro:"يحدد نموذج RIASEC ستة أنماط من الشخصية المهنية. تعكس درجاتك تقاربك الطبيعي مع كل نوع.",
       b5Intro:"العوامل الخمسة الكبرى هي الأداة الأكثر صلاحية علمياً لقياس الشخصية وتوقع الأداء المهني.",
       suIntro:"يقيّم اختبار Skill Up مستوى استعدادك لسوق العمل من خلال أربعة أبعاد متكاملة.",
@@ -1119,6 +1137,69 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '<div style="font-size:16px;font-weight:800;color:#1e40af">' + ld.style + '</div>';
   body += '<div style="font-size:11px;color:#3b82f6">Readiness: ' + ld.score + '%</div></div>';
   body += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;font-size:12px;color:#475569;line-height:1.7">' + ld.desc + '</div></div>';
+
+
+  // EQ dimension labels
+  var EQ_DIM_NAMES = {
+    SEA: { fr:"Conscience de soi", en:"Self-Awareness", ar:"الوعي الذاتي" },
+    OEA: { fr:"Empathie sociale", en:"Empathy", ar:"التعاطف" },
+    UOE: { fr:"Utilisation des émotions", en:"Emotional Facilitation", ar:"توظيف المشاعر" },
+    ROE: { fr:"Régulation émotionnelle", en:"Emotion Regulation", ar:"تنظيم العواطف" }
+  };
+  var EN_DIM_NAMES = {
+    EA:  { fr:"Attitude entrepreneuriale", en:"Entrepreneurial Attitude", ar:"الموقف الريادي" },
+    SN:  { fr:"Norme sociale perçue", en:"Social Support", ar:"الدعم الاجتماعي" },
+    ESE: { fr:"Auto-efficacité entrepreneuriale", en:"Self-Efficacy", ar:"الكفاءة الذاتية" }
+  };
+
+  // VI — EQ-Map
+  body += pageFtr();
+  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #e09030;padding-left:10px;margin:20px 0 12px">' + L.secEQ + '</h2>';
+  body += '<p style="font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px">' + L.eqIntro + '</p>';
+  var eqTot = 0;
+  ["SEA","OEA","UOE","ROE"].forEach(function(dim) {
+    var raw = (scores.eq && scores.eq[dim]) ? scores.eq[dim] : 8;
+    eqTot += raw;
+    var pct = Math.round((raw - 4) / 16 * 100);
+    var lbl = EQ_DIM_NAMES[dim][reportLang] || EQ_DIM_NAMES[dim].en;
+    body += '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="font-weight:700;color:#0f172a">' + lbl + '</span><span style="font-weight:800;color:#e09030">' + raw + '/20</span></div>' + bar(pct, '#e09030') + '</div>';
+  });
+  var eqAvgPct = Math.round((eqTot / 4 - 4) / 16 * 100);
+  var eqLvl = eqAvgPct >= 70 ? (isAr ? "مرتفع" : isEn ? "High" : "Élevé") : eqAvgPct >= 40 ? (isAr ? "متوسط" : isEn ? "Moderate" : "Modéré") : (isAr ? "منخفض" : isEn ? "Low" : "Faible");
+  var eqCol = eqAvgPct >= 70 ? "#1db87a" : eqAvgPct >= 40 ? "#e09030" : "#dc4c3c";
+  body += '<div style="margin-top:10px;padding:10px 14px;background:' + eqCol + '12;border:1px solid ' + eqCol + '44;border-radius:10px;display:flex;align-items:center;gap:12px"><div style="font-size:26px;font-weight:900;color:' + eqCol + '">' + eqTot + '<span style="font-size:12px;color:#94a3b8">/80</span></div><div><div style="font-size:12px;font-weight:700;color:#0f172a">' + (isAr ? "المجموع الكلي" : isEn ? "Total EQ Score" : "Score EQ total") + '</div><div style="font-size:11px;font-weight:800;color:' + eqCol + '">' + eqLvl + '</div></div></div>';
+
+  // VII — EntreMap
+  body += pageFtr();
+  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #1db87a;padding-left:10px;margin:20px 0 12px">' + L.secEntre + '</h2>';
+  body += '<p style="font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px">' + L.entreIntro + '</p>';
+  var enTot = 0;
+  ["EA","SN","ESE"].forEach(function(dim) {
+    var raw = (scores.entre && scores.entre[dim]) ? scores.entre[dim] : 13;
+    enTot += raw;
+    var pct = Math.round((raw - 5) / 20 * 100);
+    var lbl = EN_DIM_NAMES[dim][reportLang] || EN_DIM_NAMES[dim].en;
+    body += '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="font-weight:700;color:#0f172a">' + lbl + '</span><span style="font-weight:800;color:#1db87a">' + raw + '/25</span></div>' + bar(pct, '#1db87a') + '</div>';
+  });
+  var enPct = Math.round((enTot / 3 - 5) / 20 * 100);
+  var enLvl = enPct >= 70 ? (isAr ? "مرتفع" : isEn ? "Strong" : "Fort") : enPct >= 40 ? (isAr ? "متوسط" : isEn ? "Moderate" : "Modéré") : (isAr ? "منخفض" : isEn ? "Low" : "Faible");
+  var enCol = enPct >= 70 ? "#1db87a" : enPct >= 40 ? "#e09030" : "#dc4c3c";
+  body += '<div style="margin-top:10px;padding:10px 14px;background:' + enCol + '12;border:1px solid ' + enCol + '44;border-radius:10px;display:flex;align-items:center;gap:12px"><div style="font-size:26px;font-weight:900;color:' + enCol + '">' + enTot + '<span style="font-size:12px;color:#94a3b8">/75</span></div><div><div style="font-size:12px;font-weight:700;color:#0f172a">' + (isAr ? "النية الريادية" : isEn ? "Entrepreneurial Intent" : "Intention entrepreneuriale") + '</div><div style="font-size:11px;font-weight:800;color:' + enCol + '">' + enLvl + '</div></div></div>';
+
+  // VIII — ResiMap
+  body += pageFtr();
+  body += '<h2 style="font-size:15px;font-weight:800;color:#0f172a;border-left:4px solid #dc4c3c;padding-left:10px;margin:20px 0 12px">' + L.secResi + '</h2>';
+  body += '<p style="font-size:12px;color:#475569;line-height:1.8;margin-bottom:14px">' + L.resiIntro + '</p>';
+  var resiRaw = (scores.resi && scores.resi.total) ? scores.resi.total : 25;
+  var resiPct = Math.round((resiRaw - 10) / 40 * 100);
+  var resiLvl = resiPct < 38 ? (isAr ? "ضعيفة" : isEn ? "Low" : "Faible") : resiPct < 66 ? (isAr ? "متوسطة" : isEn ? "Moderate" : "Modérée") : (isAr ? "عالية" : isEn ? "High" : "Haute");
+  var resiCol = resiPct < 38 ? "#dc4c3c" : resiPct < 66 ? "#e09030" : "#1db87a";
+  var resiMsg = resiPct < 38
+    ? (isAr ? "تشير النتيجة إلى قدرة محدودة على التكيف. يُوصى بمتابعة نفسية وتطوير مهارات المواجهة." : isEn ? "Score suggests limited coping capacity. Psychological support and resilience training are recommended." : "Score indiquant une capacité d'adaptation limitée. Un accompagnement psychologique est recommandé.")
+    : resiPct < 66
+    ? (isAr ? "مستوى مرونة متوسط. يمكن تعزيزه بالتدريب على مهارات التكيف والتفكير الإيجابي." : isEn ? "Moderate resilience. Can be improved through coping skill training and positive mindset coaching." : "Résilience modérée. Peut être renforcée par des formations aux compétences d'adaptation.")
+    : (isAr ? "مستوى مرونة مرتفع. أنت مستعد لمواجهة التحديات المهنية والشخصية بفعالية." : isEn ? "High resilience. You are well-equipped to face professional and personal challenges effectively." : "Résilience élevée. Vous êtes bien armé pour faire face aux défis professionnels et personnels.");
+  body += '<div style="display:flex;align-items:center;gap:16px;margin-bottom:14px"><div style="text-align:center;flex-shrink:0"><div style="font-size:36px;font-weight:900;color:' + resiCol + ';line-height:1">' + resiRaw + '</div><div style="font-size:10px;color:#94a3b8">/ 50</div><div style="margin-top:6px;padding:3px 12px;background:' + resiCol + '18;border-radius:99px;font-size:11px;font-weight:800;color:' + resiCol + '">' + resiLvl + '</div></div><div style="flex:1">' + bar(resiPct, resiCol) + '<div style="font-size:11px;color:#475569;line-height:1.7;margin-top:8px">' + resiMsg + '</div></div></div>';
 
   // Academic
   body += pageFtr();
