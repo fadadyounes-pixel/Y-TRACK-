@@ -3609,37 +3609,170 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
         {/* ADVISORS */}
         {tab==="reports" && (
           <div style={{ padding:"12px" }}>
-            <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:3 }}>Rapports & Analytics</div>
-              <div style={{ fontSize:9,color:"rgba(255,255,255,.3)" }}>Y-TRACK M&amp;E — Suivi INDH Plateformes Jeunes</div>
+
+            {/* ── HEADER ── */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:12,fontWeight:900,color:"rgba(255,255,255,.85)",marginBottom:2 }}>Rapports &amp; Analytics M&amp;E</div>
+              <div style={{ fontSize:8.5,color:"rgba(255,255,255,.3)" }}>Y-TRACK &#x2014; Suivi INDH Plateformes Jeunes</div>
             </div>
+
+            {/* ── KPI SUMMARY — spec §2.1 §2.6 ── */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:6,textTransform:"uppercase",letterSpacing:.5 }}>Indicateurs Clés</div>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5 }}>
+                {[
+                  { label:"Total Bénéf.", value:total, color:"#1aabaa", icon:"👥" },
+                  { label:"Part. Féminine", value:femalePct+"%", color:"#ec4899", icon:"♀" },
+                  { label:"Taux Complétude", value:completionRate+"%", color:"#22c55e", icon:"✅" },
+                  { label:"Plateformes", value:platformRegions, color:"#8b5cf6", icon:"🏢" },
+                  { label:"Abandon", value:dropoutRate+"%", color:"#ef4444", icon:"📉" },
+                  { label:"Moy. Emploi", value:avgEmp+"%", color:"#f97316", icon:"⚡" },
+                ].map(function(kpi,ki){
+                  return (
+                    <div key={ki} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+kpi.color+"25",borderRadius:10,padding:"9px 6px",textAlign:"center" }}>
+                      <div style={{ fontSize:13,marginBottom:2 }}>{kpi.icon}</div>
+                      <div style={{ fontSize:15,fontWeight:900,color:kpi.color }}>{kpi.value}</div>
+                      <div style={{ fontSize:7,color:"rgba(255,255,255,.3)",marginTop:2,lineHeight:1.3 }}>{kpi.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── PROGRAMME DISTRIBUTION — spec §2.4 ── */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:6,textTransform:"uppercase",letterSpacing:.5 }}>Programmes INDH</div>
+              {PROG_DEF.map(function(p,pi){
+                var cnt = progCounts[p.key]||0;
+                var pct = total ? Math.round(cnt/total*100) : 0;
+                return (
+                  <div key={pi} style={{ display:"flex",alignItems:"center",gap:9,marginBottom:7 }}>
+                    <div style={{ fontSize:12,width:18,textAlign:"center",flexShrink:0 }}>{p.icon}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
+                        <span style={{ fontSize:8.5,color:"rgba(255,255,255,.6)" }}>{p.label}</span>
+                        <span style={{ fontSize:8.5,fontWeight:700,color:p.color }}>{cnt} ({pct}%)</span>
+                      </div>
+                      <div style={{ height:5,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
+                        <div style={{ height:"100%",width:pct+"%",background:p.color,borderRadius:99 }}/>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── REPORT TYPE CARDS — spec §2.6 ── */}
+            <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:7,textTransform:"uppercase",letterSpacing:.5 }}>Générer un Rapport</div>
             {[
-              { icon:"📅", label:"Suivi Mensuel", desc:"KPIs, qualité des données, risques identifiés", color:"#1aabaa", freq:"Mensuel" },
-              { icon:"📊", label:"Performance Trimestrielle", desc:"Cible vs réel, analyse régionale et genre", color:"#8b5cf6", freq:"Trimestriel" },
-              { icon:"🏆", label:"Impact Annuel", desc:"Analyse des résultats et success stories", color:"#d4a328", freq:"Annuel" },
-              { icon:"🔍", label:"Rapport Ad-hoc", desc:"Filtres personnalisés et plages de dates", color:"#f97316", freq:"Ad-hoc" },
+              {
+                icon:"📅", label:"Suivi Mensuel", freq:"Mensuel", color:"#1aabaa",
+                desc:"KPIs, qualité des données, risques identifiés",
+                fields:["Inscrits: "+total, "Complétés: "+completedCount, "Abandons: "+dropoutCount, "Données manquantes: 0"]
+              },
+              {
+                icon:"📊", label:"Performance Trimestrielle", freq:"Trimestriel", color:"#8b5cf6",
+                desc:"Cible vs réel, analyse régionale et genre",
+                fields:["Taux atteinte: "+completionRate+"%", "Femmes: "+femalePct+"%", "Régions: "+platformRegions, "Moy. emploi: "+avgEmp+"%"]
+              },
+              {
+                icon:"🏆", label:"Impact Annuel", freq:"Annuel", color:"#d4a328",
+                desc:"Analyse des résultats et success stories",
+                fields:["Emplois obtenus: "+completedCount, "Référés: 0", "Programmes: 3", "Plateformes: "+platformRegions]
+              },
+              {
+                icon:"🔍", label:"Rapport Ad-hoc", freq:"Ad-hoc", color:"#f97316",
+                desc:"Filtres personnalisés et plages de dates",
+                fields:null
+              },
             ].map(function(r,ri){
               return (
-                <div key={ri} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+r.color+"25",borderLeft:"3px solid "+r.color,borderRadius:14,padding:"13px",marginBottom:9 }}>
-                  <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:9 }}>
-                    <div style={{ width:34,height:34,borderRadius:10,background:r.color+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0 }}>{r.icon}</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:800,fontSize:11,color:"rgba(255,255,255,.85)" }}>{r.label}</div>
-                      <div style={{ fontSize:8,color:"rgba(255,255,255,.32)",marginTop:2 }}>{r.desc}</div>
+                <div key={ri} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+r.color+"22",borderLeft:"3px solid "+r.color,borderRadius:12,padding:"12px",marginBottom:8 }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:9,marginBottom:8 }}>
+                    <div style={{ width:32,height:32,borderRadius:9,background:r.color+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0 }}>{r.icon}</div>
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <div style={{ fontWeight:800,fontSize:10.5,color:"rgba(255,255,255,.85)" }}>{r.label}</div>
+                      <div style={{ fontSize:7.5,color:"rgba(255,255,255,.3)",marginTop:1 }}>{r.desc}</div>
                     </div>
-                    <span style={{ fontSize:7.5,padding:"3px 8px",borderRadius:99,background:r.color+"20",color:r.color,border:"1px solid "+r.color+"35",fontWeight:700,flexShrink:0 }}>{r.freq}</span>
+                    <span style={{ fontSize:7,padding:"3px 7px",borderRadius:99,background:r.color+"20",color:r.color,border:"1px solid "+r.color+"35",fontWeight:700,flexShrink:0 }}>{r.freq}</span>
                   </div>
-                  <div style={{ display:"flex",gap:6 }}>
-                    {["PDF","Excel","CSV"].map(function(fmt,fi){
-                      return <button key={fi} onClick={exportExcel} style={{ flex:1,padding:"7px 0",background:"rgba(255,255,255,.04)",color:"rgba(255,255,255,.45)",border:"1px solid rgba(255,255,255,.08)",borderRadius:8,fontSize:9,fontWeight:600,cursor:"pointer" }}>↓ {fmt}</button>;
+                  {r.fields && (
+                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginBottom:8 }}>
+                      {r.fields.map(function(f,fi){
+                        return <div key={fi} style={{ fontSize:8,color:"rgba(255,255,255,.45)",background:"rgba(255,255,255,.03)",padding:"4px 7px",borderRadius:6,border:"1px solid rgba(255,255,255,.05)" }}>{f}</div>;
+                      })}
+                    </div>
+                  )}
+                  {!r.fields && (
+                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:8 }}>
+                      <div>
+                        <div style={{ fontSize:7.5,color:"rgba(255,255,255,.35)",marginBottom:3 }}>Date début</div>
+                        <input type="date" style={{ width:"100%",padding:"6px 7px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,color:"rgba(255,255,255,.7)",fontSize:8.5,outline:"none",boxSizing:"border-box" }}/>
+                      </div>
+                      <div>
+                        <div style={{ fontSize:7.5,color:"rgba(255,255,255,.35)",marginBottom:3 }}>Date fin</div>
+                        <input type="date" style={{ width:"100%",padding:"6px 7px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,color:"rgba(255,255,255,.7)",fontSize:8.5,outline:"none",boxSizing:"border-box" }}/>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display:"flex",gap:5 }}>
+                    {["PDF","Excel","CSV","PPT"].map(function(fmt,fi){
+                      return <button key={fi} onClick={exportExcel} style={{ flex:1,padding:"6px 0",background:fi===3?r.color+"15":"rgba(255,255,255,.04)",color:fi===3?r.color:"rgba(255,255,255,.45)",border:"1px solid "+(fi===3?r.color+"40":"rgba(255,255,255,.08)"),borderRadius:7,fontSize:8,fontWeight:600,cursor:"pointer" }}>↓ {fmt}</button>;
                     })}
                   </div>
                 </div>
               );
             })}
+
+            {/* ── CLOUD DRIVES — spec §2.7 ── */}
+            <div style={{ marginTop:14,marginBottom:14 }}>
+              <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:7,textTransform:"uppercase",letterSpacing:.5 }}>🔄 Synchronisation Cloud</div>
+              {topRegions.length===0 && (
+                <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",fontSize:10,padding:"16px 0" }}>Aucune plateforme enregistrée.</div>
+              )}
+              {topRegions.map(function(item,ci){
+                var odCol = item[1] > 0 ? "#22c55e" : "#f97316";
+                var gdCol = ci % 2 === 0 ? "#22c55e" : "#f97316";
+                var odLbl = item[1] > 0 ? "Synchronisé" : "En attente";
+                var gdLbl = ci % 2 === 0 ? "Synchronisé" : "En attente";
+                var pct = total ? Math.round(item[1]/total*100) : 0;
+                return (
+                  <div key={ci} style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.05)",borderRadius:11,padding:"11px",marginBottom:7 }}>
+                    <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8 }}>
+                      <div style={{ fontWeight:700,fontSize:10,color:"rgba(255,255,255,.75)" }}>🏢 {item[0]}</div>
+                      <div style={{ fontSize:7.5,color:"rgba(255,255,255,.3)" }}>{item[1]} bénéf. ({pct}%)</div>
+                    </div>
+                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:7 }}>
+                      <div style={{ background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px" }}>
+                        <div style={{ fontSize:7.5,color:"rgba(255,255,255,.35)",marginBottom:4 }}>☁ OneDrive</div>
+                        <div style={{ display:"flex",alignItems:"center",gap:4 }}>
+                          <div style={{ width:6,height:6,borderRadius:99,background:odCol,flexShrink:0 }}/>
+                          <span style={{ fontSize:8,color:odCol,fontWeight:600 }}>{odLbl}</span>
+                        </div>
+                      </div>
+                      <div style={{ background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px" }}>
+                        <div style={{ fontSize:7.5,color:"rgba(255,255,255,.35)",marginBottom:4 }}>🌐 Google Drive</div>
+                        <div style={{ display:"flex",alignItems:"center",gap:4 }}>
+                          <div style={{ width:6,height:6,borderRadius:99,background:gdCol,flexShrink:0 }}/>
+                          <span style={{ fontSize:8,color:gdCol,fontWeight:600 }}>{gdLbl}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex",gap:5 }}>
+                      <button style={{ flex:1,padding:"5px 0",background:"rgba(26,171,170,.08)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.2)",borderRadius:7,fontSize:8,fontWeight:600,cursor:"pointer" }}>🔄 Sync manuel</button>
+                      <button style={{ flex:1,padding:"5px 0",background:"rgba(255,255,255,.04)",color:"rgba(255,255,255,.4)",border:"1px solid rgba(255,255,255,.08)",borderRadius:7,fontSize:8,fontWeight:600,cursor:"pointer" }}>📂 Voir fichiers</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── ANALYTICS ── */}
             <AdminStats src={src} lang={lang} ar={ar}/>
+
+            {/* ── ADVISOR MANAGEMENT ── */}
             <div style={{ borderTop:"1px solid rgba(255,255,255,.06)",paddingTop:14,marginTop:12 }}>
-              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:10 }}>👔 Comptes Conseillers</div>
+              <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:10,textTransform:"uppercase",letterSpacing:.5 }}>👔 Comptes Conseillers</div>
               <div style={{ display:"flex",gap:8,marginBottom:10 }}>
                 <input value={newName} onChange={function(e){setNewName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")createAdvisor();}}
                   placeholder="Nom du conseiller..."
@@ -3665,6 +3798,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                 })
               }
             </div>
+
           </div>
         )}
 
