@@ -3296,9 +3296,12 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
     var col=HCOLS[ht[0]]||"#1aabaa"; var empCol=emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444";
     var init=nameInit(c.name);
     var hasScores = Object.keys(h).length > 0;
-    var jStep = !hasScores ? 0 : emp >= 65 ? 3 : emp >= 45 ? 2 : 1;
-    var jSteps = ["Inscrit","Orientation","Actif","Complété"];
+    var jStep = !hasScores ? 0 : emp >= 65 ? 3 : emp >= 45 ? 2 : emp > 0 ? 1 : 0;
+    var jSteps = ["Inscrit","Orientation","Actif","Résultat"];
     var jColors = ["#6b8aaa","#8b5cf6","#1aabaa","#22c55e"];
+    var jOutcomes = ["Complété","Référé","Abandonné"];
+    var jOutColors = ["#22c55e","#8b5cf6","#ef4444"];
+    var jActiveOutcome = emp >= 65 ? 0 : emp > 0 && emp < 30 ? 2 : -1;
     return (
       <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"#060d18",zIndex:9998,display:"flex",flexDirection:"column",overflow:"hidden" }}>
         <div style={{ background:"linear-gradient(180deg,#0d1e38,#071228)",borderBottom:"1px solid rgba(26,171,170,.12)",padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexShrink:0 }}>
@@ -3338,8 +3341,14 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                 );
               })}
             </div>
-            <div style={{ fontSize:8,color:"rgba(255,255,255,.3)",textAlign:"center" }}>
+            <div style={{ fontSize:8,color:"rgba(255,255,255,.3)",textAlign:"center",marginBottom:8 }}>
               Étape: <span style={{ color:jColors[jStep],fontWeight:700 }}>{jSteps[jStep]}</span>
+            </div>
+            <div style={{ display:"flex",gap:5,justifyContent:"center",flexWrap:"wrap" }}>
+              {jOutcomes.map(function(o,oi){
+                var isActive = oi === jActiveOutcome;
+                return <span key={oi} style={{ fontSize:7.5,padding:"3px 10px",borderRadius:99,background:isActive?jOutColors[oi]+"25":"rgba(255,255,255,.04)",color:isActive?jOutColors[oi]:"rgba(255,255,255,.2)",border:"1px solid "+(isActive?jOutColors[oi]+"50":"rgba(255,255,255,.07)"),fontWeight:isActive?700:400 }}>{o}</span>;
+              })}
             </div>
           </div>
           {[
@@ -3394,11 +3403,11 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
           </div>
           <div style={{ flex:1 }}>
             <div style={{ fontSize:15,fontWeight:900,color:"#fff",letterSpacing:-.4,lineHeight:1.1 }}>
-              Career<span style={{ color:"#1aabaa" }}>Map</span>
-              <span style={{ fontSize:9,background:"rgba(26,171,170,.15)",color:"#1aabaa",borderRadius:99,padding:"1px 7px",fontWeight:700,marginLeft:7,verticalAlign:"middle" }}>ADMIN</span>
+              Y-<span style={{ color:"#1aabaa" }}>TRACK</span>
+              <span style={{ fontSize:9,background:"rgba(26,171,170,.15)",color:"#1aabaa",borderRadius:99,padding:"1px 7px",fontWeight:700,marginLeft:7,verticalAlign:"middle" }}>M&amp;E</span>
             </div>
             <div style={{ fontSize:9,color:"rgba(255,255,255,.3)",marginTop:2 }}>
-              {total} candidates · {advisors.length} advisors
+              {total} bénéficiaires · {platformRegions} plateformes INDH
               {typeof _db !== "undefined" && _db && <span style={{ color:"#22c55e",marginLeft:6 }}>● LIVE</span>}
             </div>
           </div>
@@ -3598,6 +3607,67 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
         )}
 
         {/* ADVISORS */}
+        {tab==="reports" && (
+          <div style={{ padding:"12px" }}>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:3 }}>Rapports & Analytics</div>
+              <div style={{ fontSize:9,color:"rgba(255,255,255,.3)" }}>Y-TRACK M&amp;E — Suivi INDH Plateformes Jeunes</div>
+            </div>
+            {[
+              { icon:"📅", label:"Suivi Mensuel", desc:"KPIs, qualité des données, risques identifiés", color:"#1aabaa", freq:"Mensuel" },
+              { icon:"📊", label:"Performance Trimestrielle", desc:"Cible vs réel, analyse régionale et genre", color:"#8b5cf6", freq:"Trimestriel" },
+              { icon:"🏆", label:"Impact Annuel", desc:"Analyse des résultats et success stories", color:"#d4a328", freq:"Annuel" },
+              { icon:"🔍", label:"Rapport Ad-hoc", desc:"Filtres personnalisés et plages de dates", color:"#f97316", freq:"Ad-hoc" },
+            ].map(function(r,ri){
+              return (
+                <div key={ri} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+r.color+"25",borderLeft:"3px solid "+r.color,borderRadius:14,padding:"13px",marginBottom:9 }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:9 }}>
+                    <div style={{ width:34,height:34,borderRadius:10,background:r.color+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0 }}>{r.icon}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:800,fontSize:11,color:"rgba(255,255,255,.85)" }}>{r.label}</div>
+                      <div style={{ fontSize:8,color:"rgba(255,255,255,.32)",marginTop:2 }}>{r.desc}</div>
+                    </div>
+                    <span style={{ fontSize:7.5,padding:"3px 8px",borderRadius:99,background:r.color+"20",color:r.color,border:"1px solid "+r.color+"35",fontWeight:700,flexShrink:0 }}>{r.freq}</span>
+                  </div>
+                  <div style={{ display:"flex",gap:6 }}>
+                    {["PDF","Excel","CSV"].map(function(fmt,fi){
+                      return <button key={fi} onClick={exportExcel} style={{ flex:1,padding:"7px 0",background:"rgba(255,255,255,.04)",color:"rgba(255,255,255,.45)",border:"1px solid rgba(255,255,255,.08)",borderRadius:8,fontSize:9,fontWeight:600,cursor:"pointer" }}>↓ {fmt}</button>;
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            <AdminStats src={src} lang={lang} ar={ar}/>
+            <div style={{ borderTop:"1px solid rgba(255,255,255,.06)",paddingTop:14,marginTop:12 }}>
+              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:10 }}>👔 Comptes Conseillers</div>
+              <div style={{ display:"flex",gap:8,marginBottom:10 }}>
+                <input value={newName} onChange={function(e){setNewName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")createAdvisor();}}
+                  placeholder="Nom du conseiller..."
+                  style={{ flex:1,padding:"9px 12px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:"#fff",fontSize:11,outline:"none" }}/>
+                <button onClick={createAdvisor} disabled={!newName.trim()} style={{ padding:"9px 14px",background:newName.trim()?"linear-gradient(135deg,#7c3aed,#6d28d9)":"rgba(255,255,255,.05)",color:newName.trim()?"#fff":"rgba(255,255,255,.3)",border:"none",borderRadius:9,fontSize:12,fontWeight:800,cursor:newName.trim()?"pointer":"default" }}>+</button>
+              </div>
+              {newName.trim() && <p style={{ fontSize:10,color:"#8b5cf6",marginBottom:8 }}>Code: <strong>{genCode(newName)}</strong></p>}
+              {advisors.length===0
+                ? <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",fontSize:11,padding:"16px 0" }}>Aucun conseiller enregistré.</div>
+                : advisors.map(function(adv,i){
+                  var ainit=nameInit(adv.name);
+                  return (
+                    <div key={i} style={{ display:"flex",alignItems:"center",gap:10,padding:"11px",background:"rgba(255,255,255,.03)",border:"1px solid rgba(139,92,246,.14)",borderRadius:12,marginBottom:7 }}>
+                      <div style={{ width:38,height:38,borderRadius:11,background:"rgba(124,58,237,.25)",border:"1.5px solid rgba(124,58,237,.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:900,color:"#a78bfa",flexShrink:0 }}>{ainit}</div>
+                      <div style={{ flex:1,minWidth:0 }}>
+                        <div style={{ fontWeight:700,fontSize:12,color:"rgba(255,255,255,.85)" }}>{adv.name}</div>
+                        <code style={{ fontSize:10,color:"#8b5cf6" }}>{adv.code}</code>
+                      </div>
+                      <button onClick={function(){copyCode(adv.code);}} style={{ padding:"5px 10px",borderRadius:7,fontSize:9,fontWeight:700,cursor:"pointer",background:copied===adv.code?"rgba(34,197,94,.15)":"rgba(255,255,255,.05)",color:copied===adv.code?"#22c55e":"rgba(255,255,255,.4)",border:"1px solid "+(copied===adv.code?"rgba(34,197,94,.25)":"rgba(255,255,255,.08)") }}>{copied===adv.code?"✓":"Copy"}</button>
+                      <button onClick={function(){if(!window.confirm("Supprimer \""+adv.name+"\"?"))return;onDeleteAdvisor(i);}} style={{ padding:"5px 9px",background:"rgba(239,68,68,.1)",color:"#ef4444",border:"1px solid rgba(239,68,68,.2)",borderRadius:7,fontSize:9,cursor:"pointer" }}>🗑</button>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+        )}
+
         {tab==="advisors" && (
           <div style={{ padding:"12px" }}>
             <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(139,92,246,.18)",borderRadius:16,padding:"16px",marginBottom:14 }}>
@@ -3681,7 +3751,11 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                       <div style={{ fontWeight:800,fontSize:12,color:"rgba(255,255,255,.9)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{regName}</div>
                       <div style={{ display:"flex",gap:5,marginTop:4,flexWrap:"wrap" }}>
                         <span style={{ fontSize:8,padding:"2px 8px",borderRadius:99,background:statusColor+"20",color:statusColor,border:"1px solid "+statusColor+"40",fontWeight:700 }}>{statusLabel}</span>
-                        <span style={{ fontSize:8,padding:"2px 8px",borderRadius:99,background:"rgba(255,255,255,.05)",color:"rgba(255,255,255,.3)" }}>🔄 Sync</span>
+                        <span style={{ fontSize:8,padding:"2px 7px",borderRadius:99,background:"rgba(255,255,255,.05)",color:"rgba(255,255,255,.28)",display:"flex",alignItems:"center",gap:3 }}><span style={{ width:5,height:5,borderRadius:999,background:statusColor,display:"inline-block" }}/>Sync</span>
+                      </div>
+                      <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:5 }}>
+                        <div style={{ width:16,height:16,borderRadius:999,background:"rgba(139,92,246,.2)",border:"1px solid rgba(139,92,246,.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:7.5,color:"#a78bfa",fontWeight:800,flexShrink:0 }}>C</div>
+                        <span style={{ fontSize:7.5,color:"rgba(255,255,255,.28)" }}>Coordinateur non assigné</span>
                       </div>
                     </div>
                     <div style={{ textAlign:"right",flexShrink:0 }}>
@@ -3701,6 +3775,11 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                           <div style={{ fontSize:7,color:"rgba(255,255,255,.28)",marginTop:2 }}>{stat.label}</div>
                         </div>
                       );
+                    })}
+                  </div>
+                  <div style={{ display:"flex",gap:5,marginTop:9 }}>
+                    {[{l:"👁 Voir",c:"#1aabaa"},{l:"🔄 Sync",c:"#8b5cf6"},{l:"✉ Message",c:"#f97316"},{l:"✏️ Modifier",c:"rgba(255,255,255,.35)"}].map(function(btn,bi){
+                      return <button key={bi} style={{ flex:1,padding:"6px 2px",background:"rgba(255,255,255,.04)",color:btn.c,border:"1px solid "+btn.c+"35",borderRadius:7,fontSize:8,fontWeight:600,cursor:"pointer" }}>{btn.l}</button>;
                     })}
                   </div>
                 </div>
@@ -3785,11 +3864,21 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
               <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.7)",marginBottom:11 }}>✉️ Nouveau Message</div>
               <div style={{ marginBottom:10 }}>
                 <div style={{ fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:6 }}>Destinataires</div>
-                <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
-                  {["Tous les bénéf.","Plateformes actives","Candidats <45%","Femmes","Conseillers"].map(function(t,i){
+                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8 }}>
+                  {[{label:"Plateforme",opts:["Toutes"].concat(topRegions.map(function(r){return r[0];}))},{label:"Programme",opts:["Tous","Leadership","Compétences","Entrepreneuriat"]},{label:"Statut",opts:["Tous","Actif","Complété","Référé","Abandonné"]},{label:"Genre",opts:["Tous","Femmes","Hommes"]}].map(function(sel,si){
                     return (
-                      <span key={i} style={{ fontSize:9,padding:"4px 10px",borderRadius:99,background:"rgba(26,171,170,.12)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.25)",cursor:"pointer",fontWeight:600 }}>{t}</span>
+                      <div key={si}>
+                        <div style={{ fontSize:8,color:"rgba(255,255,255,.3)",marginBottom:3 }}>{sel.label}</div>
+                        <select style={{ width:"100%",padding:"7px 8px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:8,color:"rgba(255,255,255,.7)",fontSize:9,outline:"none" }}>
+                          {sel.opts.map(function(o,oi){return <option key={oi} value={o}>{o}</option>;})}
+                        </select>
+                      </div>
                     );
+                  })}
+                </div>
+                <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:2 }}>
+                  {["Tous ("+total+")", "Femmes ("+femaleCount+")", "Score <45%"].map(function(t,i){
+                    return <span key={i} style={{ fontSize:9,padding:"4px 10px",borderRadius:99,background:"rgba(26,171,170,.12)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.25)",cursor:"pointer",fontWeight:600 }}>{t}</span>;
                   })}
                 </div>
               </div>
@@ -3814,6 +3903,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                 { icon:"✅", label:"Félicitations complétude", color:"#22c55e" },
                 { icon:"📊", label:"Demande de données", color:"#f97316" },
                 { icon:"🔄", label:"Notification de référence", color:"#d4a328" },
+                { icon:"💬", label:"Suivi individuel", color:"#06b6d4" },
               ].map(function(t,i){
                 return (
                   <div key={i} style={{ display:"flex",alignItems:"center",gap:10,padding:"9px",background:"rgba(255,255,255,.03)",borderRadius:9,marginBottom:6,cursor:"pointer",border:"1px solid rgba(255,255,255,.04)" }}>
@@ -3824,10 +3914,26 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                 );
               })}
             </div>
+            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:14,padding:"13px",marginTop:10 }}>
+              <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:10 }}>📤 Suivi des Envois</div>
+              {[{label:"Envoyés",val:total,col:"#1aabaa"},{label:"Reçus",val:Math.round(total*.85),col:"#8b5cf6"},{label:"Lus",val:Math.round(total*.62),col:"#22c55e"}].map(function(st,si){
+                var pct = total ? Math.round(st.val/total*100) : 0;
+                return (
+                  <div key={si} style={{ marginBottom:9 }}>
+                    <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
+                      <span style={{ fontSize:9,color:"rgba(255,255,255,.5)" }}>{st.label}</span>
+                      <span style={{ fontSize:9,fontWeight:700,color:st.col }}>{st.val} ({pct}%)</span>
+                    </div>
+                    <div style={{ height:5,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
+                      <div style={{ height:"100%",width:pct+"%",background:st.col,borderRadius:99 }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {tab==="analytics" && <AdminStats src={src} lang={lang} ar={ar}/>}
       </div>
 
       {/* ── Bottom Navigation Bar ── */}
@@ -3838,7 +3944,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
           { id:"candidates", icon:"👥", label:"People", count:src.length },
           { id:"programs", icon:"📋", label:"Programs" },
           { id:"messaging", icon:"✉", label:"Messages" },
-          { id:"advisors", icon:"👔", label:"Team", count:advisors.length },
+          { id:"reports", icon:"📊", label:"Reports" },
         ].map(function(t){
           var active=tab===t.id;
           return (
