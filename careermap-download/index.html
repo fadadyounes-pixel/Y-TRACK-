@@ -893,16 +893,17 @@ function buildReportHTML(profile, scores, role, reportLang) {
   var candId = profile.id || '-';
 
   // Section badge helper
-  function secB(n, sz) {
-    return '<div style="width:26px;height:26px;border-radius:8px;background:#0f7e7d;color:#fff;font-family:Syne,Arial,sans-serif;font-weight:800;font-size:' + (sz||12) + 'px;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + n + '</div>';
+  function secB(n, sz, col) {
+    var bg = col || '#0f7e7d';
+    return '<div style="width:26px;height:26px;border-radius:8px;background:' + bg + ';color:#fff;font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:' + (sz||12) + 'px;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + n + '</div>';
   }
   // Section header row
-  function secHd(n, title, sub) {
-    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' + secB(n) + '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:17px;color:#15302f">' + title + '</div>' + (sub ? '<span style="font-size:11px;color:#9aa8a8;margin-left:auto">' + sub + '</span>' : '') + '</div>';
+  function secHd(n, title, sub, col) {
+    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' + secB(n, null, col) + '<div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:17px;color:#0d1f33">' + title + '</div>' + (sub ? '<span style="font-size:11px;color:#8295a7;margin-left:auto">' + sub + '</span>' : '') + '</div>';
   }
   // Progress bar
   function bar2(v, col) {
-    return '<div style="height:7px;border-radius:999px;background:#eef3f3;overflow:hidden"><div style="height:100%;border-radius:999px;background:' + col + ';width:' + v + '%"></div></div>';
+    return '<div style="height:7px;border-radius:999px;background:#eef2f6;overflow:hidden"><div style="height:100%;border-radius:999px;background:' + col + ';width:' + v + '%"></div></div>';
   }
   // Page header: page 1 = full teal gradient with name/avatar; pages 2+ = light logo header
   function pgHdr(n) {
@@ -910,14 +911,14 @@ function buildReportHTML(profile, scores, role, reportLang) {
     var badgeBg = role === 'advisor' ? 'rgba(255,122,89,.35)' : 'rgba(255,255,255,.18)';
     var avatarEl = profile.photo
       ? '<img src="' + profile.photo + '" style="width:100%;height:100%;object-fit:cover" alt=""/>'
-      : '<span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:22px;color:#fff">' + initials + '</span>';
+      : '<span style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:22px;color:#fff">' + initials + '</span>';
     if (n === 1) {
       return '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);padding:30px 44px;color:#fff;position:relative;overflow:hidden">' +
         '<div style="position:absolute;top:-70px;right:-50px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,122,89,.45),rgba(255,122,89,0) 70%);pointer-events:none"></div>' +
         '<div style="position:relative;display:flex;align-items:center;justify-content:space-between">' +
         '<div style="display:flex;align-items:center;gap:11px">' +
         '<svg width="36" height="36" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="#fff" stroke-width="2.6"/><polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/><polygon points="24,40 27.5,24 20.5,24" fill="#fff"/><circle cx="24" cy="24" r="2.6" fill="#0f7e7d" stroke="#fff" stroke-width="1.3"/></svg>' +
-        '<span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.4px">CareerMap</span>' +
+        '<span style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.4px">CareerMap</span>' +
         '</div>' +
         '<div style="text-align:right;font-size:11.5px;color:rgba(255,255,255,.85);line-height:1.6">' +
         '<span style="display:inline-block;background:' + badgeBg + ';padding:4px 11px;border-radius:999px;font-weight:700;letter-spacing:.5px">' + badge + '</span>' +
@@ -926,7 +927,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
         '<div style="position:relative;margin-top:22px;display:flex;align-items:center;gap:16px">' +
         '<div style="width:62px;height:62px;border-radius:16px;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden">' + avatarEl + '</div>' +
         '<div>' +
-        '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:27px;letter-spacing:-.5px">' + name + '</div>' +
+        '<div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:27px;letter-spacing:-.5px">' + name + '</div>' +
         (profParts.length ? '<div style="font-size:12.5px;color:rgba(255,255,255,.85);margin-top:4px">' + profParts.join(' · ') + '</div>' : '') +
         '</div></div>' +
         '</div>';
@@ -935,15 +936,15 @@ function buildReportHTML(profile, scores, role, reportLang) {
       '<div style="display:flex;align-items:center;justify-content:space-between">' +
       '<div style="display:flex;align-items:center;gap:10px">' +
       '<svg width="24" height="24" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="#1aabaa" stroke-width="2.6"/><polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/><polygon points="24,40 27.5,24 20.5,24" fill="#0f7e7d"/><circle cx="24" cy="24" r="2.6" fill="#fff" stroke="#0f7e7d" stroke-width="1.3"/></svg>' +
-      '<span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:16px;color:#0f7e7d">CareerMap</span>' +
+      '<span style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:16px;color:#0f7e7d">CareerMap</span>' +
       '</div>' +
-      '<div style="font-size:11px;color:#9aa8a8;letter-spacing:.5px">' + candId + ' · ' + name + '</div>' +
+      '<div style="font-size:11px;color:#8295a7;letter-spacing:.5px">' + candId + ' · ' + name + '</div>' +
       '</div></div>';
   }
   // Page footer — simple bottom bar matching reference design
   function pgFtr(n) {
     var conf = role === 'advisor' ? (L.confNote||'Confidentiel — Usage Conseiller uniquement') : (L.candNote||'Document Personnel — Confidentiel');
-    return '<div style="padding:0 44px 22px;margin-top:auto"><div style="display:flex;justify-content:space-between;font-size:10.5px;color:#9aa8a8;border-top:1px solid #eef3f3;padding-top:12px"><span>CareerMap · ' + conf + '</span><span>' + (isAr?'صفحة':isEn?'Page':'Page') + ' ' + n + ' · ' + name + '</span></div></div>';
+    return '<div style="padding:0 44px 22px;margin-top:auto"><div style="display:flex;justify-content:space-between;font-size:10.5px;color:#8295a7;border-top:1px solid #eef2f6;padding-top:12px"><span>CareerMap · ' + conf + '</span><span>' + (isAr?'صفحة':isEn?'Page':'Page') + ' ' + n + ' · ' + name + '</span></div></div>';
   }
   // Recommendation block — numbered action items in a box
   function recBlk(lbl, items, col) {
@@ -956,7 +957,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     items.forEach(function(item, idx) {
       html += '<div style="display:flex;gap:10px;margin-bottom:7px;align-items:flex-start">' +
         '<span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:' + c + ';color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">' + (idx+1) + '</span>' +
-        '<span style="font-size:12px;color:#3a4f4e;line-height:1.6;flex:1">' + item + '</span>' +
+        '<span style="font-size:12px;color:#41566a;line-height:1.6;flex:1">' + item + '</span>' +
         '</div>';
     });
     html += '</div>';
@@ -966,7 +967,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   var cmpSvg = '<svg width="24" height="24" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="#1aabaa" stroke-width="2.6"/><polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/><polygon points="24,40 27.5,24 20.5,24" fill="#0f7e7d"/><circle cx="24" cy="24" r="2.6" fill="#fff" stroke="#0f7e7d" stroke-width="1.3"/></svg>';
   // Holland colors — design palette
   var HC = { R:"#3a5074", I:"#27c4be", A:"#ff7a59", S:"#1aabaa", E:"#0f7e7d", C:"#9aa8a8" };
-  var B5C = { O:"#1aabaa", C2:"#27c4be", E2:"#0f7e7d", A2:"#ff7a59", N:"#3a5074" };
+  var B5C = { O:"#9050d0", C2:"#a855f7", E2:"#7c3aed", A2:"#c084fc", N:"#6d28d9" };
   var SUC = { A:"#1aabaa", E:"#27c4be", C:"#0f7e7d", R:"#ff7a59" };
 
   // Career titles per Holland type
@@ -1002,7 +1003,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     var hexBl = parseInt(col.slice(5,7), 16);
     var bg = "rgba(" + hexR + "," + hexG + "," + hexBl + ",.07)";
     var bdrL = "rgba(" + hexR + "," + hexG + "," + hexBl + ",.2)";
-    return '<div class="avoid" style="background:' + bg + ';border-left:4px solid ' + col + ';border-top:1px solid ' + bdrL + ';border-right:1px solid ' + bdrL + ';border-bottom:1px solid ' + bdrL + ';border-radius:0 13px 13px 0;padding:15px 20px;margin-top:14px"><div style="font-size:10px;font-weight:800;color:' + col + ';text-transform:uppercase;letter-spacing:1.2px;margin-bottom:9px">' + lbl + '</div><p style="font-size:12.5px;color:#3a4f4e;line-height:1.78;margin:0">' + txt + '</p></div>';
+    return '<div class="avoid" style="background:' + bg + ';border-left:4px solid ' + col + ';border-top:1px solid ' + bdrL + ';border-right:1px solid ' + bdrL + ';border-bottom:1px solid ' + bdrL + ';border-radius:0 13px 13px 0;padding:15px 20px;margin-top:14px"><div style="font-size:10px;font-weight:800;color:' + col + ';text-transform:uppercase;letter-spacing:1.2px;margin-bottom:9px">' + lbl + '</div><p style="font-size:12.5px;color:#41566a;line-height:1.78;margin:0">' + txt + '</p></div>';
   }
   var isAdv = role === "advisor";
   var nLbl = isAr ? (isAdv ? "التشخيص السريري" : "تحليل الملف") : isEn ? (isAdv ? "Clinical Diagnosis" : "Profile Analysis") : (isAdv ? "Analyse Clinique" : "Analyse du Profil");
@@ -1148,7 +1149,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   var body = '';
 
   // Outer wrapper
-  body += '<div style="width:794px;margin:0 auto;display:flex;flex-direction:column;gap:0;font-family:Epilogue,Arial,sans-serif;color:#15302f;-webkit-font-smoothing:antialiased">';
+  body += '<div style="width:794px;margin:0 auto;display:flex;flex-direction:column;gap:0;font-family:Archivo,Arial,sans-serif;color:#0d1f33;-webkit-font-smoothing:antialiased">';
 
   // ══════════════════════════════════════════
   // PAGE 0 — Cover Page (full-bleed)
@@ -1171,24 +1172,25 @@ function buildReportHTML(profile, scores, role, reportLang) {
   var cvVersionLbl = role === 'advisor' ? (L.advReport||'Rapport Conseiller') : (L.candReport||'Rapport Candidat');
   var cvAvatar = profile.photo
     ? '<img src="' + profile.photo + '" style="width:100%;height:100%;object-fit:cover;" alt=""/>'
-    : '<span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;line-height:1">' + initials + '</span>';
+    : '<span style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;line-height:1">' + initials + '</span>';
   var cvToc = (isAdv
     ? [L.sec1,L.sec2,L.sec3,L.sec4,L.sec5,L.sec6,L.sec7,L.sec8,L.sec9]
     : [L.sec1,L.sec2,L.sec3,L.sec4,L.sec5,L.sec6,L.sec7,L.sec8]).filter(Boolean);
   // Full-bleed gradient cover
-  body += '<div style="width:794px;height:1123px;background:linear-gradient(150deg,#072f2e 0%,#0f7e7d 42%,#1aabaa 100%);display:flex;flex-direction:column;position:relative;overflow:hidden">';
+  body += '<div style="width:794px;height:1123px;background:linear-gradient(135deg,#0e2740 0%,#081726 55%,#06111f 100%);display:flex;flex-direction:column;position:relative;overflow:hidden">';
   // Decorative blobs
-  body += '<div style="position:absolute;top:-130px;right:-130px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.07),transparent 70%);pointer-events:none"></div>';
-  body += '<div style="position:absolute;bottom:-160px;left:-100px;width:540px;height:540px;border-radius:50%;background:radial-gradient(circle,rgba(255,122,89,.11),transparent 70%);pointer-events:none"></div>';
+  body += '<div style="position:absolute;top:-100px;right:-80px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(26,171,170,.18),transparent 70%);pointer-events:none"></div>';
+  body += '<div style="position:absolute;bottom:-140px;left:-80px;width:460px;height:460px;border-radius:50%;background:radial-gradient(circle,rgba(212,163,40,.1),transparent 70%);pointer-events:none"></div>';
+  body += '<div style="position:absolute;top:200px;left:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(26,171,170,.09),transparent 70%);pointer-events:none"></div>';
   // Top bar
   body += '<div style="position:relative;padding:28px 44px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">';
-  body += '<div style="display:flex;align-items:center;gap:11px"><svg width="38" height="38" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,.8)" stroke-width="2.6"/><polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/><polygon points="24,40 27.5,24 20.5,24" fill="rgba(255,255,255,.55)"/><circle cx="24" cy="24" r="2.6" fill="#0f7e7d" stroke="#fff" stroke-width="1.3"/></svg><span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.4px;color:#fff">CareerMap</span></div>';
+  body += '<div style="display:flex;align-items:center;gap:11px"><svg width="38" height="38" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,.8)" stroke-width="2.6"/><polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/><polygon points="24,40 27.5,24 20.5,24" fill="rgba(255,255,255,.55)"/><circle cx="24" cy="24" r="2.6" fill="#0f7e7d" stroke="#fff" stroke-width="1.3"/></svg><span style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.4px;color:#fff">CareerMap</span></div>';
   body += '<span style="background:' + cvBadgeBg + ';color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:7px 18px;font-size:11.5px;font-weight:700;letter-spacing:.5px">' + cvVersionLbl + '</span>';
   body += '</div>';
   // Center: photo, name, metrics
   body += '<div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:0 60px;text-align:center">';
   body += '<div style="width:100px;height:100px;border-radius:50%;border:4px solid rgba(255,255,255,.6);background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">' + cvAvatar + '</div>';
-  body += '<div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;letter-spacing:-.8px;line-height:1.15">' + name + '</div>';
+  body += '<div><div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;letter-spacing:-.8px;line-height:1.15">' + name + '</div>';
   if (profParts.length) { body += '<div style="font-size:13px;color:rgba(255,255,255,.65);margin-top:8px">' + profParts.join(' · ') + '</div>'; }
   body += '</div>';
   // Key metrics strip
@@ -1201,7 +1203,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   cvMetrics.forEach(function(m) {
     body += '<div style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:14px 20px;min-width:86px">';
     body += '<div style="font-size:9px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:5px">' + m.lbl + '</div>';
-    body += '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:' + (m.big?30:15) + 'px;color:#fff;line-height:1.1">' + m.val + '</div>';
+    body += '<div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:' + (m.big?30:15) + 'px;color:#fff;line-height:1.1">' + m.val + '</div>';
     body += '</div>';
   });
   body += '</div>';
@@ -1221,30 +1223,30 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 1 — Section I: RIASEC
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(1); // gradient header — matches reference design
   // Content
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
 
   // ── I RIASEC ────────────────────────────────────────────────────────────
-  body += secHd('I', L.sec1||'Career Profile — RIASEC');
+  body += secHd('I', L.sec1||'Career Profile — RIASEC', null, '#1aabaa');
   body += '<div style="display:flex;gap:16px">';
-  body += '<div style="flex:0 0 152px;border:1.5px solid #e0eaea;border-radius:16px;padding:16px;text-align:center">';
-  body += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#9aa8a8;text-transform:uppercase">' + (isAr?'الرمز':'Holland Code') + '</div>';
-  body += '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:46px;line-height:1;color:#1aabaa;margin-top:4px">' + (hTop[0]||'') + (hTop[1]||'') + '</div>';
-  body += '<div style="font-size:11.5px;color:#5d7170;margin-top:8px">' + (HL[hTop[0]]||'') + (hTop[1] ? ' · ' + (HL[hTop[1]]||'') : '') + '</div></div>';
-  body += '<div style="flex:1;border:1.5px solid #e0eaea;border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;gap:8px">';
+  body += '<div style="flex:0 0 152px;border:1.5px solid #e6ecf2;border-radius:16px;padding:16px;text-align:center">';
+  body += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#8295a7;text-transform:uppercase">' + (isAr?'الرمز':'Holland Code') + '</div>';
+  body += '<div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:46px;line-height:1;color:#1aabaa;margin-top:4px">' + (hTop[0]||'') + (hTop[1]||'') + '</div>';
+  body += '<div style="font-size:11.5px;color:#5b7186;margin-top:8px">' + (HL[hTop[0]]||'') + (hTop[1] ? ' · ' + (HL[hTop[1]]||'') : '') + '</div></div>';
+  body += '<div style="flex:1;border:1.5px solid #e6ecf2;border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;gap:8px">';
   ["R","I","A","S","E","C"].forEach(function(code) {
-    body += '<div style="display:flex;align-items:center;gap:10px"><div style="flex:0 0 90px;font-size:11.5px;font-weight:600;color:#3a4f4e">' + (HL[code]||code) + '</div><div style="flex:1">' + bar2(h[code]||0, HC[code]) + '</div><div style="flex:0 0 32px;text-align:right;font-size:11.5px;font-weight:700;color:#46605f">' + (h[code]||0) + '%</div></div>';
+    body += '<div style="display:flex;align-items:center;gap:10px"><div style="flex:0 0 90px;font-size:11.5px;font-weight:600;color:#41566a">' + (HL[code]||code) + '</div><div style="flex:1">' + bar2(h[code]||0, HC[code]) + '</div><div style="flex:0 0 32px;text-align:right;font-size:11.5px;font-weight:700;color:#41566a">' + (h[code]||0) + '%</div></div>';
   });
   body += '</div></div>';
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:14px 18px">';
-  body += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#9aa8a8;text-transform:uppercase;margin-bottom:10px">' + (isAr?'المهن الموصى بها':isEn?'Recommended Careers':'Métiers recommandés') + '</div>';
+  body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;padding:14px 18px">';
+  body += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#8295a7;text-transform:uppercase;margin-bottom:10px">' + (isAr?'المهن الموصى بها':isEn?'Recommended Careers':'Métiers recommandés') + '</div>';
   body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px 22px">';
   var matchBase = Math.min(96, Math.max(78, h[hTop[0]]||72));
   topCareers.forEach(function(career, ci) {
     var m = matchBase - ci * 3;
-    body += '<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;font-size:12.5px;font-weight:700;color:#15302f">' + career + '</div><div style="flex:0 0 38px;text-align:right;font-weight:800;color:#1aabaa;font-size:12.5px">' + m + '%</div></div>';
+    body += '<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;font-size:12.5px;font-weight:700;color:#0d1f33">' + career + '</div><div style="flex:0 0 38px;text-align:right;font-weight:800;color:#1aabaa;font-size:12.5px">' + m + '%</div></div>';
   });
   body += '</div></div>';
   body += nBlk(nLbl, hNarrText, isAdv, "#1aabaa");
@@ -1292,28 +1294,28 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 2 — Section II: Big Five OCEAN
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(2);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
-  body += secHd('II', L.sec2||'Personality — Big Five OCEAN');
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px">';
+  body += secHd('II', L.sec2||'Personality — Big Five OCEAN', null, '#9050d0');
+  body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px">';
   ["O","C2","E2","A2","N"].forEach(function(t) {
     var v = b[t]||0;
-    body += '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:700;color:#3a4f4e">' + (BL[t]||t) + '</span><span style="font-weight:700;color:' + B5C[t] + '">' + v + '%</span></div>' + bar2(v, B5C[t]) + '</div>';
+    body += '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:700;color:#41566a">' + (BL[t]||t) + '</span><span style="font-weight:700;color:' + B5C[t] + '">' + v + '%</span></div>' + bar2(v, B5C[t]) + '</div>';
   });
   body += '</div>';
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;overflow:hidden;margin-top:4px">';
+  body += '<div style="border:1.5px solid #e6ecf2;border-radius:13px;overflow:hidden;margin-top:4px">';
   ['O','C2','E2','A2','N'].forEach(function(t) {
     var v = b[t]||0;
     var lv = v>=65?(isEn?'High strength':isAr?'\u0642\u0648\u0629 \u0639\u0627\u0644\u064a\u0629':'Force \u00e9lev\u00e9e'):v>=40?(isEn?'Balanced':isAr?'\u0645\u062a\u0648\u0627\u0632\u0646':'\u00c9quilibr\u00e9'):(isEn?'Development area':isAr?'\u0645\u062d\u0648\u0631 \u062a\u0637\u0648\u064a\u0631':'Axe de d\u00e9veloppement');
     var ic = v>=65?'\u2736':v>=40?'\u25c8':'\u25b7';
     var col = v>=65?'#0f7e7d':v>=40?'#d97706':'#3a5074';
-    body += '<div style="display:flex;align-items:center;gap:14px;padding:9px 16px;border-bottom:1px solid #eef3f3"><span style="font-size:11px;color:'+col+';font-weight:800;width:14px">'+ic+'</span><span style="font-size:11.5px;font-weight:700;color:#3a4f4e;flex:0 0 140px">'+(BL[t]||t)+'</span><span style="font-size:11px;font-weight:800;color:'+col+';flex:0 0 34px">'+v+'%</span><span style="flex:1;font-size:11px;color:#5d7170">'+lv+'</span></div>';
+    body += '<div style="display:flex;align-items:center;gap:14px;padding:9px 16px;border-bottom:1px solid #eef2f6"><span style="font-size:11px;color:'+col+';font-weight:800;width:14px">'+ic+'</span><span style="font-size:11.5px;font-weight:700;color:#41566a;flex:0 0 140px">'+(BL[t]||t)+'</span><span style="font-size:11px;font-weight:800;color:'+col+';flex:0 0 34px">'+v+'%</span><span style="flex:1;font-size:11px;color:#5b7186">'+lv+'</span></div>';
   });
   body += '</div>';
-  body += nBlk(nLbl, b5Narr, isAdv, "#8b5cf6");
+  body += nBlk(nLbl, b5Narr, isAdv, "#9050d0");
   var b5Comb = isEn ? 'The combination of your Big Five scores creates a distinctive personality fingerprint. High scores (65%+) reflect natural strengths you can leverage immediately. Moderate scores (40-64%) indicate flexible capacities that adapt well to context. Areas below 40% are development opportunities — with focused effort and regular feedback, these dimensions can shift meaningfully over 12 to 24 months of intentional practice.' : isAr ? '\u064a\u064f\u0634\u0643\u0651\u0644 \u0645\u0632\u064a\u062c \u062f\u0631\u062c\u0627\u062a\u0643 \u0639\u0644\u0649 Big Five \u0628\u0635\u0645\u0629 \u0634\u062e\u0635\u064a\u0629 \u0645\u0645\u064a\u0632\u0629. \u0627\u0644\u062f\u0631\u062c\u0627\u062a \u0641\u0648\u0642 65% \u062a\u0639\u0643\u0633 \u0646\u0642\u0627\u0637 \u0642\u0648\u0629 \u0637\u0628\u064a\u0639\u064a\u0629. \u0627\u0644\u062f\u0631\u062c\u0627\u062a \u062f\u0648\u0646 40% \u062a\u0645\u062b\u0644 \u0641\u0631\u0635 \u062a\u0637\u0648\u064a\u0631 \u0628\u062c\u0647\u062f \u0645\u0648\u062c\u0651\u0647 \u062e\u0644\u0627\u0644 12-24 \u0634\u0647\u0631\u064b\u0627.' : 'La combinaison de vos scores Big Five cr\u00e9e une empreinte de personnalit\u00e9 distinctive. Les scores \u00e9lev\u00e9s (65%+) refl\u00e8tent des forces naturelles imm\u00e9diatement exploitables. Les scores mod\u00e9r\u00e9s (40-64%) indiquent des capacit\u00e9s flexibles. Les dimensions en dessous de 40% repr\u00e9sentent des opportunit\u00e9s de d\u00e9veloppement significatives en 12 \u00e0 24 mois de pratique intentionnelle.';
-  body += nBlk(isAr?'\u062a\u0641\u0633\u064a\u0631 \u0627\u0644\u0645\u0644\u0641':isEn?'Profile Interpretation':'Interpr\u00e9tation du Profil', b5Comb, isAdv, '#7c3aed');
+  body += nBlk(isAr?'\u062a\u0641\u0633\u064a\u0631 \u0627\u0644\u0645\u0644\u0641':isEn?'Profile Interpretation':'Interpr\u00e9tation du Profil', b5Comb, isAdv, '#9050d0');
   var b5Rec = isAdv ? (isEn ? [
     'Build on high Big Five scores by channeling strengths into role design and task allocation.',
     'Address low scores through targeted development: workshops, coaching, or peer-learning groups.',
@@ -1349,7 +1351,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     'Choisissez UN trait faible ce mois-ci et identifiez une micro-habitude hebdomadaire spécifique pour le renforcer.',
     'Observez comment vos traits Big Five se manifestent dans différentes situations — notez 3 observations par semaine pendant un mois.'
   ]);
-  body += recBlk(isAr?'توصيات التطوير':isEn?'Development Recommendations':'Recommandations de Développement', b5Rec, '#8b5cf6');
+  body += recBlk(isAr?'توصيات التطوير':isEn?'Development Recommendations':'Recommandations de Développement', b5Rec, '#9050d0');
   body += '</div>';
   body += pgFtr(2);
   body += '</div>'; // end page 2
@@ -1357,26 +1359,26 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 3 — Sections III/IV: Skill Up + Leadership
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(3);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += '<div style="display:flex;gap:16px">';
   body += '<div style="flex:1.3">';
-  body += secHd('III', L.sec3||'Employability — Skill Up');
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+  body += secHd('III', L.sec3||'Employability — Skill Up', null, '#1aabaa');
+  body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">';
   var suK = ["A","E","C","R"];
   suK.forEach(function(k) {
     var sv = s[k]||0;
     var off = (125.6*(1-sv/100)).toFixed(1);
-    body += '<div style="display:flex;align-items:center;gap:11px"><svg width="50" height="50" viewBox="0 0 50 50" style="flex:none"><circle cx="25" cy="25" r="20" fill="none" stroke="#eef3f3" stroke-width="5"/><circle cx="25" cy="25" r="20" fill="none" stroke="' + (SUC[k]||'#1aabaa') + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="125.6" stroke-dashoffset="' + off + '" transform="rotate(-90 25 25)"/><text x="25" y="29" text-anchor="middle" font-size="13" font-weight="800" font-family="Syne,Arial,sans-serif" fill="#15302f">' + sv + '</text></svg><div style="font-size:11.5px;font-weight:700;color:#3a4f4e">' + (SL[k]||k) + '</div></div>';
+    body += '<div style="display:flex;align-items:center;gap:11px"><svg width="50" height="50" viewBox="0 0 50 50" style="flex:none"><circle cx="25" cy="25" r="20" fill="none" stroke="#eef2f6" stroke-width="5"/><circle cx="25" cy="25" r="20" fill="none" stroke="' + (SUC[k]||'#1aabaa') + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="125.6" stroke-dashoffset="' + off + '" transform="rotate(-90 25 25)"/><text x="25" y="29" text-anchor="middle" font-size="13" font-weight="800" font-family="Archivo,Arial,sans-serif" fill="#15302f">' + sv + '</text></svg><div style="font-size:11.5px;font-weight:700;color:#41566a">' + (SL[k]||k) + '</div></div>';
   });
   body += '</div></div>';
   body += '<div style="flex:1">';
-  body += secHd('IV', L.sec4||'Leadership');
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:16px;height:calc(100% - 38px)">';
+  body += secHd('IV', L.sec4||'Leadership', null, '#ff7a59');
+  body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;padding:16px;height:calc(100% - 38px)">';
   body += '<div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:11px;background:rgba(255,122,89,.18);display:flex;align-items:center;justify-content:center;font-size:19px;flex:none">' + (ld.icon||'\u{1F9ED}') + '</div>';
-  body += '<div><div style="font-size:10px;font-weight:700;color:#9aa8a8;text-transform:uppercase">Score ' + (ld.score||'-') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:16px;color:#15302f">' + (ld.style||'') + '</div></div></div>';
-  body += '<p style="font-size:11.5px;line-height:1.55;color:#5d7170;margin-top:10px">' + (ld.desc||'').substring(0,200) + '</p>';
+  body += '<div><div style="font-size:10px;font-weight:700;color:#8295a7;text-transform:uppercase">Score ' + (ld.score||'-') + '</div><div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:16px;color:#0d1f33">' + (ld.style||'') + '</div></div></div>';
+  body += '<p style="font-size:11.5px;line-height:1.55;color:#5b7186;margin-top:10px">' + (ld.desc||'').substring(0,200) + '</p>';
   if (ld.str && ld.str.length) { body += '<div style="margin-top:10px;font-size:10.5px;color:#0f7e7d;font-weight:700">'; ld.str.slice(0,2).forEach(function(st){ body += '✓ ' + st + '<br>'; }); body += '</div>'; }
   body += '</div></div></div>';
   body += nBlk(isAr?'الاستعداد للتوظيف':isEn?'Employability Readiness':'Préparation à l\'Employabilité', suNarr, isAdv, "#f97316");
@@ -1392,17 +1394,17 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 4 — Section V: Academic Orientation
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(4);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   var eduTag = ei>=6 ? (isEn?'Bachelor+':isAr?'ليسانس+':'Bac+3 et plus') : ei>=4 ? (isEn?'Bac level':isAr?'مستوى بكالوريا':'Niveau Bac') : (isEn?'Secondary':isAr?'ثانوي':'Secondaire');
-  body += secHd('V', L.sec5||'Academic Orientation', (isEn?'Tailored to ':isAr?'ملائم لـ':'Adapté à ') + eduTag);
+  body += secHd('V', L.sec5||'Academic Orientation', (isEn?'Tailored to ':isAr?'ملائم لـ':'Adapté à ') + eduTag, '#0f7e7d');
   body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
   acList.slice(0,4).forEach(function(prog, pi) {
     var fitTags = [isEn?'Best fit':isAr?'الأنسب':'Meilleur choix', isEn?'Strong fit':isAr?'مناسب جداً':'Très adapté', isEn?'Good fit':isAr?'مناسب':'Bon choix', isEn?'Good fit':isAr?'مناسب':'Bon choix'];
     var m = prog.match(/\(([^)]+)\)/);
     var mainP = prog.replace(/\([^)]+\)/g,'').trim();
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:13px"><div style="font-size:12.5px;font-weight:700;color:#15302f">' + mainP + '</div>' + (m?'<div style="font-size:11px;color:#7d908f;margin-top:2px">'+m[1]+'</div>':'') + '<div style="font-size:10.5px;color:#0f7e7d;font-weight:700;margin-top:6px">' + (fitTags[pi]||fitTags[0]) + '</div></div>';
+    body += '<div style="border:1.5px solid #e6ecf2;border-radius:13px;padding:13px"><div style="font-size:12.5px;font-weight:700;color:#0d1f33">' + mainP + '</div>' + (m?'<div style="font-size:11px;color:#8295a7;margin-top:2px">'+m[1]+'</div>':'') + '<div style="font-size:10.5px;color:#0f7e7d;font-weight:700;margin-top:6px">' + (fitTags[pi]||fitTags[0]) + '</div></div>';
   });
   body += '</div>';
   body += nBlk(isAr?'التوجيه الأكاديمي':isEn?'Academic Pathway':'Parcours Académique', acNarr, isAdv, "#d4a328");
@@ -1432,15 +1434,15 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 5 — Section VI: E-Learning Roadmap
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(5);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
-  body += secHd('VI', L.sec6||'E-Learning Roadmap');
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;gap:10px">';
+  body += secHd('VI', L.sec6||'E-Learning Roadmap', null, '#0f7e7d');
+  body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;gap:10px">';
   var eIcons = ['\u{1F3AF}','\u{1F4DA}','\u{1F4A1}','\u{1F3C6}'];
   var eLevels = isEn ? ['Start','Start','Build','Advance'] : isAr ? ['ابدأ','ابدأ','تطور','تقدم'] : ['Démarrer','Démarrer','Consolider','Avancer'];
   el.cs.slice(0,4).forEach(function(course, ci) {
-    body += '<div style="display:flex;align-items:center;gap:12px"><span style="width:30px;height:30px;border-radius:9px;background:#e9f7f6;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none">' + eIcons[ci] + '</span><div style="flex:1"><div style="font-size:12.5px;font-weight:700;color:#15302f">' + course + '</div><div style="font-size:11px;color:#7d908f">' + el.p + '</div></div><span style="font-size:10.5px;font-weight:700;color:#0f7e7d;background:#e4f5f4;padding:3px 9px;border-radius:999px;white-space:nowrap">' + eLevels[ci] + '</span></div>';
+    body += '<div style="display:flex;align-items:center;gap:12px"><span style="width:30px;height:30px;border-radius:9px;background:#e9f7f6;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none">' + eIcons[ci] + '</span><div style="flex:1"><div style="font-size:12.5px;font-weight:700;color:#0d1f33">' + course + '</div><div style="font-size:11px;color:#8295a7">' + el.p + '</div></div><span style="font-size:10.5px;font-weight:700;color:#0f7e7d;background:#e4f5f4;padding:3px 9px;border-radius:999px;white-space:nowrap">' + eLevels[ci] + '</span></div>';
   });
   body += '<div style="padding:9px 12px;background:#f0fdf4;border-radius:9px;border:1px solid #bbf7d0;font-size:11.5px;color:#0f7e7d;font-weight:700">\u{1F3C5} ' + (L.certif||'Certification cible') + ': ' + el.c + '</div>';
   body += '</div>';
@@ -1471,14 +1473,14 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 6 — Section VII: Career Roadmap
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(6);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
-  body += secHd('VII', L.sec7||'Career Roadmap');
+  body += secHd('VII', L.sec7||'Career Roadmap', null, '#1aabaa');
   body += '<div style="display:flex;align-items:flex-start">';
   var dotColors = ["#1aabaa","#27c4be","#0f7e7d","#ff7a59","#9aa8a8"];
   rm.forEach(function(step, ri) {
-    body += '<div style="flex:1;padding:0 6px"><div style="display:flex;align-items:center"><div style="width:12px;height:12px;border-radius:50%;background:' + (dotColors[ri]||'#1aabaa') + ';flex:none"></div>' + (ri < rm.length-1 ? '<div style="flex:1;height:2px;background:#dde6e6"></div>' : '') + '</div><div style="font-size:10.5px;font-weight:800;color:#0f7e7d;margin-top:9px">' + step.p + '</div><div style="font-size:11px;color:#3a4f4e;line-height:1.4;margin-top:3px">' + step.a + '</div></div>';
+    body += '<div style="flex:1;padding:0 6px"><div style="display:flex;align-items:center"><div style="width:12px;height:12px;border-radius:50%;background:' + (dotColors[ri]||'#1aabaa') + ';flex:none"></div>' + (ri < rm.length-1 ? '<div style="flex:1;height:2px;background:#dde6e6"></div>' : '') + '</div><div style="font-size:10.5px;font-weight:800;color:#0f7e7d;margin-top:9px">' + step.p + '</div><div style="font-size:11px;color:#41566a;line-height:1.4;margin-top:3px">' + step.a + '</div></div>';
   });
   body += '</div>';
   body += nBlk(isAr?'قراءة خارطة الطريق':isEn?'Reading Your Roadmap':'Lecture de votre Feuille de Route', rmNarr, isAdv, "#3b82f6");
@@ -1508,16 +1510,19 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 7 — Section VIII: INDH Programs
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(7);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
-  body += secHd('VIII', L.sec8||'INDH Programs');
+  body += secHd('VIII', L.sec8||'INDH Programs', null, '#e09030');
   body += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">';
-  var indhBC = ["#b9d6d5","#e8c975","#b9d9c5"];
-  var indhBG = ["#f3faf9","#fff8ef","#f3faf5"];
-  var indhMC = ["#0f7e7d","#b45309","#15803d"];
+  var indhSort = indh.slice().sort(function(a,b){ return (b.pct||0)-(a.pct||0); });
+  var indhTop0Key = indhSort[0] ? indh.indexOf(indhSort[0]) : 0;
+  var indhBC = ["#e6ecf2","#e6ecf2","#e6ecf2"];
+  var indhBG = ["#fff","#fff","#fff"];
+  var indhMC = ["#1aabaa","#e09030","#1db87a"];
+  if (indhTop0Key >= 0) { indhBC[indhTop0Key] = '#e09030'; indhBG[indhTop0Key] = '#fdf6ec'; }
   indh.forEach(function(rec, ri) {
-    body += '<div style="border:1.5px solid ' + (indhBC[ri]||'#e0eaea') + ';border-radius:13px;padding:14px;background:' + (indhBG[ri]||'#fff') + '"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">' + (rec.icon||'') + '</span><span style="font-size:12px;font-weight:800;color:#15302f">' + (rec.prog||'') + '</span></div><div style="font-size:11px;color:#5d7170;line-height:1.45;margin-top:6px">' + (rec.desc||'').substring(0,120) + '</div><div style="font-size:10.5px;font-weight:700;color:' + (indhMC[ri]||'#0f7e7d') + ';margin-top:7px">' + (rec.priority||'→') + ' · ' + (rec.pct||0) + '%</div></div>';
+    body += '<div style="border:1.5px solid ' + (indhBC[ri]||'#e6ecf2') + ';border-radius:13px;padding:14px;background:' + (indhBG[ri]||'#fff') + '"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">' + (rec.icon||'') + '</span><span style="font-size:12px;font-weight:800;color:#0d1f33">' + (rec.prog||'') + '</span></div><div style="font-size:11px;color:#5b7186;line-height:1.45;margin-top:6px">' + (rec.desc||'').substring(0,120) + '</div><div style="font-size:10.5px;font-weight:700;color:' + (indhMC[ri]||'#0f7e7d') + ';margin-top:7px">' + (rec.priority||'→') + ' · ' + (rec.pct||0) + '%</div></div>';
   });
   body += '</div>';
   body += nBlk(isAr?'تحليل البرامج':isEn?'Program Analysis':'Analyse des Programmes', indhNarr, isAdv, "#15803d");
@@ -1547,28 +1552,28 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 8 — Conclusion & Next Steps
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(8);
   body += '<div style="padding:18px 44px;flex:1;display:flex;flex-direction:column;gap:14px">';
   var ccLabel = isAr?'خلاصة وتوصيات':isEn?'Conclusion & Recommendations':'Conclusion et Recommandations';
-  body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:14px;padding:20px 24px;color:#fff"><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:18px;margin-bottom:6px">' + ccLabel + '</div><div style="font-size:12px;color:rgba(255,255,255,.85)">' + name + ' · ' + date + '</div></div>';
+  body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:14px;padding:20px 24px;color:#fff"><div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:18px;margin-bottom:6px">' + ccLabel + '</div><div style="font-size:12px;color:rgba(255,255,255,.85)">' + name + ' · ' + date + '</div></div>';
   var profNarr = isAr ? 'تُظهر نتائجك توجهًا مهنيًا واضحًا نحو النمط ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' و' + (HL[hTop[1]]||hTop[1]):'') + '. يشكّل هذا التوجه أساسًا قويًا لبناء مسار مهني ناجح.' :
     isEn ? 'Your results show a strong professional orientation toward the ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' and ' + (HL[hTop[1]]||hTop[1]):'') + ' profile. This orientation is the foundation for a fulfilling career path.' :
     'Vos résultats d\'évaluation dressent un portrait professionnel cohérent et actionnable. Votre code Holland dominant ' + (hTop[0]||'') + (hTop[1]||'') + ' (' + (HL[hTop[0]]||'') + (hTop[1]?' / '+(HL[hTop[1]]||''):'') + ') révèle où vous investissez naturellement votre énergie et performez au meilleur de vous-même. Votre score global d\'employabilité de ' + Math.round(suTotal) + '% et votre style de leadership ' + (ld.style||'') + ' complètent le tableau : ensemble, ils définissent le type d\'environnement de travail où vous avez le plus de chances de vous épanouir, de progresser et de produire des résultats durables. Les métiers, formations et programmes de soutien de ce rapport ne sont pas des suggestions génériques — ils sont sélectionnés spécifiquement pour s\'aligner sur cette combinaison unique de forces.';
-  body += '<div style="background:#f3faf9;border:1.5px solid #b9d6d5;border-radius:13px;padding:16px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isAr?'ملفك المهني':isEn?'Your Professional Profile':'Votre Profil Professionnel') + '</div><p style="font-size:12.5px;color:#3a4f4e;line-height:1.65;margin:0">' + profNarr + '</p></div>';
+  body += '<div style="background:#f3faf9;border:1.5px solid #b9d6d5;border-radius:13px;padding:16px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isAr?'ملفك المهني':isEn?'Your Professional Profile':'Votre Profil Professionnel') + '</div><p style="font-size:12.5px;color:#41566a;line-height:1.65;margin:0">' + profNarr + '</p></div>';
   body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
   body += '<div style="background:#f3faf9;border:1.5px solid #b9d6d5;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'نقاط القوة':isEn?'Core Strengths':'Points Forts') + '</div>';
-  (ld.str||[]).slice(0,4).forEach(function(st){ body += '<div style="font-size:11.5px;color:#3a4f4e;padding:5px 0;border-bottom:1px solid #e0eaea">✓ ' + st + '</div>'; });
+  (ld.str||[]).slice(0,4).forEach(function(st){ body += '<div style="font-size:11.5px;color:#41566a;padding:5px 0;border-bottom:1px solid #e6ecf2">✓ ' + st + '</div>'; });
   body += '</div><div style="background:#fff8ef;border:1.5px solid #e8c975;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'محاور التطوير':isEn?'Development Areas':'Axes de Développement') + '</div>';
-  (ld.dev||[]).slice(0,4).forEach(function(d){ body += '<div style="font-size:11.5px;color:#3a4f4e;padding:5px 0;border-bottom:1px solid #f0e0c0">▸ ' + d + '</div>'; });
+  (ld.dev||[]).slice(0,4).forEach(function(d){ body += '<div style="font-size:11.5px;color:#41566a;padding:5px 0;border-bottom:1px solid #f0e0c0">▸ ' + d + '</div>'; });
   body += '</div></div>';
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'خطوات عملية':isEn?'Concrete Next Steps':'Prochaines Étapes') + '</div>';
+  body += '<div style="border:1.5px solid #e6ecf2;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'خطوات عملية':isEn?'Concrete Next Steps':'Prochaines Étapes') + '</div>';
   var ps1 = isEn?'Schedule an orientation session with your advisor':isAr?'حجز جلسة توجيه مع مستشارك':'Réservez une séance d\'orientation avec votre conseiller';
   var ps2 = (isEn?'Start with the e-learning platform: ':isAr?'ابدأ بمنصة التعلم: ':'Commencez par la plateforme e-learning : ') + el.p;
   var ps3 = (isEn?'Target your priority certification: ':isAr?'استهدف شهادتك: ':'Visez la certification prioritaire : ') + el.c;
   var ps4 = (isEn?'Explore recommended training: ':isAr?'استكشف المسارات: ':'Explorez les formations : ') + (acList[0]||'-').replace(/\([^)]+\)/g,'').trim();
   var ps5 = isEn?'Set short-term (3-month) and long-term (3-year) goals':isAr?'ضع أهدافاً قصيرة وطويلة المدى':'Fixez des objectifs à court et long terme';
-  [ps1,ps2,ps3,ps4,ps5].forEach(function(step, si){ body += '<div style="display:flex;gap:10px;margin-bottom:7px;font-size:11.5px;color:#3a4f4e"><span style="font-weight:800;color:#1aabaa;flex-shrink:0">' + (si+1) + '.</span><span>' + step + '</span></div>'; });
+  [ps1,ps2,ps3,ps4,ps5].forEach(function(step, si){ body += '<div style="display:flex;gap:10px;margin-bottom:7px;font-size:11.5px;color:#41566a"><span style="font-weight:800;color:#1aabaa;flex-shrink:0">' + (si+1) + '.</span><span>' + step + '</span></div>'; });
   body += '</div>';
   var closeNote = isEn ? 'This report is a tool to help you understand your profile and guide your career path. Results reflect your current inclinations. With your advisor\'s support, you can achieve your professional goals.' : isAr ? 'هذا التقرير أداة لمساعدتك على فهم ملفك وتوجيه مسارك. بدعم مستشارك، يمكنك تحقيق أهدافك.' : 'Ce rapport est un outil pour vous aider à mieux vous connaître et à orienter votre parcours. Avec l\'accompagnement de votre conseiller, vous atteindrez vos objectifs.';
   body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:12px;padding:14px 18px"><p style="font-size:11.5px;color:rgba(255,255,255,.9);line-height:1.7;margin:0;font-style:italic">' + closeNote + '</p></div>';
@@ -1582,12 +1587,12 @@ function buildReportHTML(profile, scores, role, reportLang) {
   if (role === 'advisor') {
 
     // PAGE 9 — Holland Clinical
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(9);
     body += '<div style="padding:22px 44px;flex:1">';
-    body += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' + secB('IX','11') + '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:18px;color:#15302f">' + (L.sec9||'Clinical Intervention Plan') + '</div><span style="font-size:10px;font-weight:700;color:#b9791f;background:#fbf0df;padding:3px 10px;border-radius:999px;margin-left:auto">' + (isEn?'Advisor only':isAr?'للمستشار فقط':'Conseiller uniquement') + '</span></div>';
-    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">' + (isEn?'Holland RIASEC Analysis':isAr?'تحليل هولاند RIASEC':'Analyse Holland RIASEC') + '</div>';
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;overflow:hidden">';
+    body += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' + secB('IX','11') + '<div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:18px;color:#0d1f33">' + (L.sec9||'Clinical Intervention Plan') + '</div><span style="font-size:10px;font-weight:700;color:#b9791f;background:#fbf0df;padding:3px 10px;border-radius:999px;margin-left:auto">' + (isEn?'Advisor only':isAr?'للمستشار فقط':'Conseiller uniquement') + '</span></div>';
+    body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">' + (isEn?'Holland RIASEC Analysis':isAr?'تحليل هولاند RIASEC':'Analyse Holland RIASEC') + '</div>';
+    body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;overflow:hidden">';
     var clinCols = "#1d4ed8,#d97706,#15803d,#0f7e7d,#1aabaa,#9aa8a8".split(",");
     var hollandCodes = ["R","I","A","S","E","C"];
     hollandCodes.forEach(function(code) {
@@ -1597,7 +1602,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
       var clinText = isEn ?
         (level==="HIGH"?"High score ("+v+"%) on Holland "+HL[code]+" dimension. Channel this strength toward aligned career paths and leverage it as the primary orientation driver.":level==="MED"?"Moderate score ("+v+"%) on Holland "+HL[code]+". Explore how this dimension complements primary axes through targeted career exploration.":"Low score ("+v+"%) on Holland "+HL[code]+". No specific intervention needed; avoid steering toward environments centered on this type.") :
         (level==="HIGH"?"Score élevé ("+v+"%) sur la dimension Holland "+HL[code]+". Exploiter comme levier principal d'orientation.":level==="MED"?"Score intermédiaire ("+v+"%) sur "+HL[code]+". Explorer comment ce domaine complète les axes principaux.":"Score faible ("+v+"%) sur "+HL[code]+". Pas d'intervention spécifique nécessaire.");
-      body += '<div style="display:flex;gap:16px;padding:12px 18px;border-bottom:1px solid #eef3f3"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + clinColor + ';line-height:1.3">' + (HL[code]||code) + ' (' + code + ')</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + v + '% — ' + level + '</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + clinText + '</div></div>';
+      body += '<div style="display:flex;gap:16px;padding:12px 18px;border-bottom:1px solid #eef2f6"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + clinColor + ';line-height:1.3">' + (HL[code]||code) + ' (' + code + ')</div><div style="font-size:10.5px;color:#8295a7;margin-top:4px">' + v + '% — ' + level + '</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#41566a">' + clinText + '</div></div>';
     });
     body += '</div>';
     body += '</div>';
@@ -1605,11 +1610,11 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '</div>'; // end page 9
 
     // PAGE 10 — OCEAN Clinical
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(10);
     body += '<div style="padding:22px 44px;flex:1">';
-    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">' + (isEn?'Big Five OCEAN Clinical Analysis':isAr?'التحليل السريري Big Five':'Analyse Clinique Big Five OCEAN') + '</div>';
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;overflow:hidden">';
+    body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">' + (isEn?'Big Five OCEAN Clinical Analysis':isAr?'التحليل السريري Big Five':'Analyse Clinique Big Five OCEAN') + '</div>';
+    body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;overflow:hidden">';
     var oceanKs = [{t:"O",lbl:isEn?"Openness":isAr?"الانفتاح":"Ouverture",col:"#1aabaa"},{t:"C2",lbl:isEn?"Conscientiousness":isAr?"الضمير":"Conscience",col:"#27c4be"},{t:"E2",lbl:isEn?"Extraversion":isAr?"الانبساطية":"Extraversion",col:"#0f7e7d"},{t:"A2",lbl:isEn?"Agreeableness":isAr?"الطيبوطية":"Agréabilité",col:"#ff7a59"},{t:"N",lbl:isEn?"Emotional Stability":isAr?"الاستقرار العاطفي":"Stabilité Émotionnelle",col:"#3a5074"}];
     oceanKs.forEach(function(o) {
       var v = b[o.t]||0;
@@ -1621,7 +1626,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
         (lv==="HIGH"?"Score élevé en "+o.lbl+" ("+v+"%) — capitaliser sur cette force dans la conception de rôles." :
          lv==="MED"?"Score modéré en "+o.lbl+" ("+v+"%) — profil équilibré. Soutien ciblé selon le contexte." :
          "Score faible en "+o.lbl+" ("+v+"%) — développement ciblé recommandé. Accompagnement structuré et outils concrets.");
-      body += '<div style="display:flex;gap:16px;padding:12px 18px;border-bottom:1px solid #eef3f3"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + o.col + '">' + o.lbl + '</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + v + '% — ' + lv + '</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + ct + '</div></div>';
+      body += '<div style="display:flex;gap:16px;padding:12px 18px;border-bottom:1px solid #eef2f6"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + o.col + '">' + o.lbl + '</div><div style="font-size:10.5px;color:#8295a7;margin-top:4px">' + v + '% — ' + lv + '</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#41566a">' + ct + '</div></div>';
     });
     body += '</div>';
     body += '</div>';
@@ -1629,11 +1634,11 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '</div>'; // end page 10
 
     // PAGE 11 — Skill Up + Leadership Clinical
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(11);
     body += '<div style="padding:22px 44px;flex:1;display:flex;flex-direction:column;gap:16px">';
-    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'Employability & Leadership Clinical Analysis':isAr?'تحليل سريري — الاستعداد والقيادة':'Analyse Clinique — Employabilité et Leadership') + '</div>';
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;overflow:hidden">';
+    body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'Employability & Leadership Clinical Analysis':isAr?'تحليل سريري — الاستعداد والقيادة':'Analyse Clinique — Employabilité et Leadership') + '</div>';
+    body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;overflow:hidden">';
     var suClin = [{k:"A",lbl:isEn?"Readiness":isAr?"الاستعداد":"Préparation",col:"#1aabaa"},{k:"E",lbl:isEn?"Autonomy":isAr?"الاستقلالية":"Autonomie",col:"#27c4be"},{k:"C",lbl:isEn?"Collaboration":isAr?"التعاون":"Collaboration",col:"#0f7e7d"},{k:"R",lbl:isEn?"Adaptability":isAr?"التكيف":"Adaptabilité",col:"#ff7a59"}];
     suClin.forEach(function(sk) {
       var v = s[sk.k]||0;
@@ -1645,30 +1650,30 @@ function buildReportHTML(profile, scores, role, reportLang) {
         (lv==="HIGH"?"Score élevé en "+sk.lbl+" ("+v+"%) — atout fort. Renforcer par des défis de rôles avancés." :
          lv==="MED"?"Score modéré en "+sk.lbl+" ("+v+"%) — base solide. Stage ciblé et mentorat recommandés." :
          "Score faible en "+sk.lbl+" ("+v+"%) — axe prioritaire. Formation structurée et objectifs incrémentaux.");
-      body += '<div style="display:flex;gap:16px;padding:10px 18px;border-bottom:1px solid #eef3f3"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + sk.col + '">' + sk.lbl + '</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + v + '% — ' + lv + '</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + ct + '</div></div>';
+      body += '<div style="display:flex;gap:16px;padding:10px 18px;border-bottom:1px solid #eef2f6"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + sk.col + '">' + sk.lbl + '</div><div style="font-size:10.5px;color:#8295a7;margin-top:4px">' + v + '% — ' + lv + '</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#41566a">' + ct + '</div></div>';
     });
     body += '</div>';
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:14px 18px">';
-    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isEn?'Leadership Profile':isAr?'ملف القيادة':'Profil de Leadership') + '</div>';
-    body += '<div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:0 0 160px"><div style="font-size:13px;font-weight:800;color:#15302f">' + (ld.style||'') + '</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + (isEn?'Score':'Score') + ' ' + (ld.score||0) + '</div></div>';
+    body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;padding:14px 18px">';
+    body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isEn?'Leadership Profile':isAr?'ملف القيادة':'Profil de Leadership') + '</div>';
+    body += '<div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:0 0 160px"><div style="font-size:13px;font-weight:800;color:#0d1f33">' + (ld.style||'') + '</div><div style="font-size:10.5px;color:#8295a7;margin-top:4px">' + (isEn?'Score':'Score') + ' ' + (ld.score||0) + '</div></div>';
     var ldClin = isEn ? 'Style: <strong>' + (ld.style||'') + '</strong> (score: ' + (ld.score||0) + '). ' + (ld.desc||'') + (ld.str&&ld.str.length?' Key strengths: '+ld.str.join(', ')+'.':'') + (ld.dev&&ld.dev.length?' Development priorities: '+ld.dev.join(', ')+'. Recommend leadership coaching and cross-functional project exposure.':'') : 'Style : <strong>' + (ld.style||'') + '</strong> (score : ' + (ld.score||0) + '). ' + (ld.desc||'') + (ld.str&&ld.str.length?' Forces : '+ld.str.join(', ')+'.':'') + (ld.dev&&ld.dev.length?' Axes de développement : '+ld.dev.join(', ')+'. Coaching leadership et projets transversaux recommandés.':'');
-    body += '<div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + ldClin + '</div></div>';
+    body += '<div style="flex:1;font-size:11.5px;line-height:1.55;color:#41566a">' + ldClin + '</div></div>';
     body += '</div>';
     body += '</div>';
     body += pgFtr(11);
     body += '</div>'; // end page 11
 
     // PAGE 12 — INDH Clinical + Action Plan
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(12);
     body += '<div style="padding:22px 44px;flex:1;display:flex;flex-direction:column;gap:16px">';
-    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'INDH Programs & Advisor Action Plan':isAr?'برامج INDH وخطة عمل المستشار':'Programmes INDH et Plan d\'Action Conseiller') + '</div>';
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;overflow:hidden">';
+    body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'INDH Programs & Advisor Action Plan':isAr?'برامج INDH وخطة عمل المستشار':'Programmes INDH et Plan d\'Action Conseiller') + '</div>';
+    body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;overflow:hidden">';
     indh.forEach(function(rec, ri) {
       var indhCT = isEn ?
         (rec.pct>=70?'HIGH priority ('+rec.pct+'%). Initiate contact with local INDH office to begin enrollment. Gather required documents and prepare candidate presentation.':rec.pct>=45?'MODERATE match ('+rec.pct+'%). Explore eligibility with the INDH office. Preparatory support recommended before formal application.':'LOW match ('+rec.pct+'%). Not recommended as primary program. Monitor eligibility as project evolves.') :
         (rec.pct>=70?'Correspondance ÉLEVÉE ('+rec.pct+'%). Initier le contact avec le bureau INDH local pour démarrer l\'inscription.':rec.pct>=45?'Correspondance MODÉRÉE ('+rec.pct+'%). Explorer les conditions d\'éligibilité avec le bureau INDH.':'Correspondance FAIBLE ('+rec.pct+'%). Pas recommandé comme programme principal.');
-      body += '<div style="display:flex;gap:16px;padding:12px 18px;border-bottom:1px solid #eef3f3"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + (indhMC[ri]||'#0f7e7d') + '">' + (rec.prog||'') + '</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + (rec.priority||'') + ' · ' + (rec.pct||0) + '%</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + indhCT + '</div></div>';
+      body += '<div style="display:flex;gap:16px;padding:12px 18px;border-bottom:1px solid #eef2f6"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + (indhMC[ri]||'#0f7e7d') + '">' + (rec.prog||'') + '</div><div style="font-size:10.5px;color:#8295a7;margin-top:4px">' + (rec.priority||'') + ' · ' + (rec.pct||0) + '%</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#41566a">' + indhCT + '</div></div>';
     });
     body += '</div>';
     var actionItems = isEn ? [
@@ -1690,9 +1695,9 @@ function buildReportHTML(profile, scores, role, reportLang) {
       'Assigner un cours e-learning avant la prochaine séance : <strong>' + (el.cs[0]||'premier cours recommandé') + '</strong>.',
       'Documenter les notes de session et mettre à jour le dossier candidat.'
     ];
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:800;color:#0f7e7d;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">' + (isEn?'Advisor Action Plan':isAr?'خطة عمل المستشار':'Plan d\'Action Conseiller') + '</div>';
+    body += '<div style="border:1.5px solid #e6ecf2;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:800;color:#0f7e7d;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">' + (isEn?'Advisor Action Plan':isAr?'خطة عمل المستشار':'Plan d\'Action Conseiller') + '</div>';
     actionItems.forEach(function(item, idx) {
-      body += '<div style="display:flex;gap:10px;margin-bottom:7px;align-items:flex-start"><span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:#0f7e7d;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">' + (idx+1) + '</span><span style="font-size:12px;color:#3a4f4e;line-height:1.6;flex:1">' + item + '</span></div>';
+      body += '<div style="display:flex;gap:10px;margin-bottom:7px;align-items:flex-start"><span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:#0f7e7d;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">' + (idx+1) + '</span><span style="font-size:12px;color:#41566a;line-height:1.6;flex:1">' + item + '</span></div>';
     });
     body += '</div>';
     body += '</div>';
@@ -1700,25 +1705,25 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '</div>'; // end page 12
 
     // PAGE 13 — Advisor Notes & Session Summary
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(13);
     body += '<div style="padding:22px 44px;flex:1;display:flex;flex-direction:column;gap:16px">';
-    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'Advisor Notes & Session Summary':isAr?'ملاحظات المستشار وملخص الجلسة':'Notes du Conseiller et Synthèse') + '</div>';
+    body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'Advisor Notes & Session Summary':isAr?'ملاحظات المستشار وملخص الجلسة':'Notes du Conseiller et Synthèse') + '</div>';
     body += '<div style="background:linear-gradient(120deg,#072f2e,#0f7e7d);border-radius:14px;padding:18px 22px;color:#fff">';
-    body += '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:15px;margin-bottom:12px">' + (isEn?'Assessment Summary':isAr?'ملخص التقييم':'Synthèse d\'Évaluation') + '</div>';
+    body += '<div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:15px;margin-bottom:12px">' + (isEn?'Assessment Summary':isAr?'ملخص التقييم':'Synthèse d\'Évaluation') + '</div>';
     body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
-    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Holland Code':'Code Holland') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:24px;color:#fff">' + (hTop[0]||'') + (hTop[1]||'') + '</div></div>';
-    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Leadership Style':'Style Leadership') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:14px;color:#fff">' + (ld.style||'') + '</div></div>';
-    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Employability':'Employabilité') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:24px;color:#fff">' + Math.round(suTotal) + '%</div></div>';
-    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Priority Program':'Programme Prioritaire') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:12px;color:#fff">' + (indhTop ? indhTop.prog : '-') + '</div></div>';
+    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Holland Code':'Code Holland') + '</div><div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:24px;color:#fff">' + (hTop[0]||'') + (hTop[1]||'') + '</div></div>';
+    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Leadership Style':'Style Leadership') + '</div><div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:14px;color:#fff">' + (ld.style||'') + '</div></div>';
+    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Employability':'Employabilité') + '</div><div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:24px;color:#fff">' + Math.round(suTotal) + '%</div></div>';
+    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Priority Program':'Programme Prioritaire') + '</div><div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:12px;color:#fff">' + (indhTop ? indhTop.prog : '-') + '</div></div>';
     body += '</div></div>';
     body += '<div style="border:1.5px dashed #b9d6d5;border-radius:16px;padding:18px;background:#fafdfd">';
-    body += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#9aa8a8;text-transform:uppercase;margin-bottom:10px">' + (isEn?'Advisor Note':isAr?'ملاحظة المستشار':'Note du Conseiller') + '</div>';
-    body += '<p style="font-size:12px;line-height:1.65;color:#3a4f4e;margin:0">' + (isEn?'Dominant profile: ':'Profil dominant : ') + '<strong>' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' — '+(HL[hTop[1]]||hTop[1]):'') + '</strong>. ' + (isEn?'Leadership: ':'Leadership : ') + '<strong>' + (ld.style||'-') + '</strong>. ' + (isEn?'Schedule a follow-up within 2 weeks. Document key points and any immediate referrals planned.':'Planifier un suivi dans les 2 semaines. Documenter les points clés de cette séance.') + '</p>';
+    body += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#8295a7;text-transform:uppercase;margin-bottom:10px">' + (isEn?'Advisor Note':isAr?'ملاحظة المستشار':'Note du Conseiller') + '</div>';
+    body += '<p style="font-size:12px;line-height:1.65;color:#41566a;margin:0">' + (isEn?'Dominant profile: ':'Profil dominant : ') + '<strong>' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' — '+(HL[hTop[1]]||hTop[1]):'') + '</strong>. ' + (isEn?'Leadership: ':'Leadership : ') + '<strong>' + (ld.style||'-') + '</strong>. ' + (isEn?'Schedule a follow-up within 2 weeks. Document key points and any immediate referrals planned.':'Planifier un suivi dans les 2 semaines. Documenter les points clés de cette séance.') + '</p>';
     body += '</div>';
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:16px;flex:1">';
-    body += '<div style="font-size:10px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isEn?'Session Notes (write here)':isAr?'ملاحظات الجلسة (اكتب هنا)':'Notes de séance (à compléter)') + '</div>';
-    for (var bl = 0; bl < 10; bl++) { body += '<div style="border-bottom:1px solid #eef3f3;height:28px"></div>'; }
+    body += '<div style="border:1.5px solid #e6ecf2;border-radius:13px;padding:16px;flex:1">';
+    body += '<div style="font-size:10px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isEn?'Session Notes (write here)':isAr?'ملاحظات الجلسة (اكتب هنا)':'Notes de séance (à compléter)') + '</div>';
+    for (var bl = 0; bl < 10; bl++) { body += '<div style="border-bottom:1px solid #eef2f6;height:28px"></div>'; }
     body += '</div>';
     body += '</div>';
     body += pgFtr(13);
@@ -1730,18 +1735,18 @@ function buildReportHTML(profile, scores, role, reportLang) {
 
   var pdfName = 'CareerMap_' + (name||candId).replace(/[^a-zA-Z0-9_-]/g,'_') + '_' + reportLang + '.pdf';
   return '<!DOCTYPE html><html dir="'+dir+'" lang="'+(isAr?'ar':isEn?'en':'fr')+'"><head><meta charset="UTF-8"><title>CareerMap — ' + (profile.name||profile.id) + '</title>' +
-    '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">' +
+    '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">' +
     '<style>' +
     '*{box-sizing:border-box;margin:0;padding:0}' +
-    'body{margin:0;padding:0;background:#fff;font-family:Epilogue,Arial,sans-serif}' +
+    'body{margin:0;padding:0;background:#fff;font-family:Archivo,Arial,sans-serif}' +
     '@page{size:A4;margin:0}' +
-    '.pdf-page{page-break-before:always;break-before:page}' +
-    '.pdf-page:first-child{page-break-before:auto;break-before:auto}' +
+    '.pdf-page{page-break-after:always;break-after:page}' +
+    '.pdf-page:last-child{page-break-after:auto;break-after:auto}' +
     '.avoid{break-inside:avoid;page-break-inside:avoid}' +
     '@media print{' +
     'body{background:#fff;padding:0}' +
-    '.pdf-page{margin:0!important;box-shadow:none!important;break-before:page;page-break-before:always}' +
-    '.pdf-page:first-child{page-break-before:auto;break-before:auto}' +
+    '.pdf-page{margin:0!important;box-shadow:none!important;break-after:page;page-break-after:always}' +
+    '.pdf-page:last-child{page-break-after:auto;break-after:auto}' +
     '.avoid{break-inside:avoid;page-break-inside:avoid}' +
     '-webkit-print-color-adjust:exact;print-color-adjust:exact' +
     '}' +
