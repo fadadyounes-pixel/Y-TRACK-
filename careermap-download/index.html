@@ -1442,6 +1442,17 @@ function buildReportHTML(profile, scores, role, reportLang) {
   ];
   body += recBlk(isAr?'خطوات التطبيق':isEn?'Implementation Steps':'Plan de Mise en Œuvre', eRec, '#22c55e');
 
+  body += '</div>'; // end page 2 content
+  body += pgFtr();
+  body += '</div>'; // end page 2
+
+  // ══════════════════════════════════════════
+  // PAGE 3 — Career Roadmap + INDH
+  // ══════════════════════════════════════════
+  body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += pgHdr(3);
+  body += '<div style="padding:18px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
+
   // ── VII Career Roadmap ────────────────────────────────────────────────
   body += '<div>';
   body += secHd('VII', L.sec7||'Career Roadmap');
@@ -1462,21 +1473,21 @@ function buildReportHTML(profile, scores, role, reportLang) {
   var indhBG = ["#f3faf9","#fff8ef","#f3faf5"];
   var indhMC = ["#0f7e7d","#b45309","#15803d"];
   indh.forEach(function(rec, ri) {
-    body += '<div style="border:1.5px solid ' + (indhBC[ri]||'#e0eaea') + ';border-radius:13px;padding:14px;background:' + (indhBG[ri]||'#fff') + '"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">' + (rec.icon||'') + '</span><span style="font-size:12px;font-weight:800;color:#15302f">' + (rec.prog||'') + '</span></div><div style="font-size:11px;color:#5d7170;line-height:1.45;margin-top:6px">' + (rec.desc||'').substring(0,100) + '</div><div style="font-size:10.5px;font-weight:700;color:' + (indhMC[ri]||'#0f7e7d') + ';margin-top:7px">' + (rec.priority||'→') + ' · ' + (rec.pct||0) + '%</div></div>';
+    body += '<div style="border:1.5px solid ' + (indhBC[ri]||'#e0eaea') + ';border-radius:13px;padding:14px;background:' + (indhBG[ri]||'#fff') + '"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">' + (rec.icon||'') + '</span><span style="font-size:12px;font-weight:800;color:#15302f">' + (rec.prog||'') + '</span></div><div style="font-size:11px;color:#5d7170;line-height:1.45;margin-top:6px">' + (rec.desc||'').substring(0,120) + '</div><div style="font-size:10.5px;font-weight:700;color:' + (indhMC[ri]||'#0f7e7d') + ';margin-top:7px">' + (rec.priority||'→') + ' · ' + (rec.pct||0) + '%</div></div>';
   });
   body += '</div></div>';
 
   body += nBlk(isAr?"تحليل البرامج":isEn?"Program Analysis":"Analyse des Programmes", indhNarr, isAdv, "#15803d");
 
-  body += '</div>'; // end page 2 content
+  body += '</div>'; // end page 3 content
   body += pgFtr();
-  body += '</div>'; // end page 2
+  body += '</div>'; // end page 3
 
   // ══════════════════════════════════════════
-  // PAGE 3 — Candidate Conclusion
+  // PAGE 4 — Candidate Conclusion
   // ══════════════════════════════════════════
   body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
-  body += pgHdr(3);
+  body += pgHdr(4);
   body += '<div style="padding:18px 44px;flex:1;display:flex;flex-direction:column;gap:14px">';
   // Conclusion heading
   var ccLabel = isAr?'خلاصة وتوصيات':isEn?'Conclusion & Recommendations':'Conclusion et Recommandations';
@@ -1509,16 +1520,16 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Closing note
   var closeNote = isEn ? 'This report is a tool to help you understand your profile and guide your career path. Results reflect your current inclinations. With your advisor\'s support, you can achieve your professional goals.' : 'Ce rapport est un outil pour vous aider à mieux vous connaître et à orienter votre parcours. Les résultats reflètent vos inclinations actuelles. Avec l\'accompagnement de votre conseiller, vous atteindrez vos objectifs.';
   body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:12px;padding:14px 18px"><p style="font-size:11.5px;color:rgba(255,255,255,.9);line-height:1.7;margin:0;font-style:italic">' + closeNote + '</p></div>';
-  body += '</div>'; // end page 3 content
+  body += '</div>'; // end page 4 content
   body += pgFtr();
-  body += '</div>'; // end page 3
+  body += '</div>'; // end page 4
 
   // ══════════════════════════════════════════
-  // PAGE 4 — Advisor Clinical Plan (advisor only)
+  // PAGE 5 — Advisor Clinical Plan (advisor only)
   // ══════════════════════════════════════════
   if (role === 'advisor') {
     body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
-    body += pgHdr(4);
+    body += pgHdr(5);
     body += '<div style="padding:18px 44px;flex:1">';
     body += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' + secB('IX','11') + '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:18px;color:#15302f">' + (L.sec9||'Clinical Intervention Plan') + '</div><span style="font-size:10px;font-weight:700;color:#b9791f;background:#fbf0df;padding:3px 10px;border-radius:999px;margin-left:auto">' + (isEn?'Advisor only':isAr?'للمستشار فقط':'Conseiller uniquement') + '</span></div>';
     body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;overflow:hidden">';
@@ -1551,13 +1562,14 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '*{box-sizing:border-box;margin:0;padding:0}' +
     'body{margin:0;padding:32px 16px;background:#e7e9e9;font-family:Epilogue,Arial,sans-serif}' +
     '@page{size:A4;margin:0}' +
-    '.pdf-page{page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}' +
+    '.pdf-page{page-break-before:always;break-before:page}' +
     '.pdf-page:first-child{page-break-before:auto;break-before:auto}' +
     '.avoid{break-inside:avoid;page-break-inside:avoid}' +
     '@media print{' +
     'body{background:#fff;padding:0}' +
-    '.pdf-page{margin:0!important;box-shadow:none!important;page-break-before:always;break-before:page}' +
+    '.pdf-page{margin:0!important;box-shadow:none!important;break-before:page;page-break-before:always}' +
     '.pdf-page:first-child{page-break-before:auto;break-before:auto}' +
+    '.avoid{break-inside:avoid;page-break-inside:avoid}' +
     '-webkit-print-color-adjust:exact;print-color-adjust:exact' +
     '}' +
     '</style>' +
