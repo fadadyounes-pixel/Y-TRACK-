@@ -1219,30 +1219,26 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '</div>'; // end cover page
 
   // ══════════════════════════════════════════
-  // PAGE 1
+  // PAGE 1 — Section I: RIASEC
   // ══════════════════════════════════════════
   body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
-  body += pgHdr(1);
+  body += pgHdr(1); // gradient header — matches reference design
   // Content
-  body += '<div style="padding:24px 44px;display:flex;flex-direction:column;gap:20px;flex:1">';
+  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
 
-  // ── I RIASEC ──────────────────────────────────────────────────────────────
-  body += '<div class="avoid">';
+  // ── I RIASEC ────────────────────────────────────────────────────────────
   body += secHd('I', L.sec1||'Career Profile — RIASEC');
   body += '<div style="display:flex;gap:16px">';
-  // Holland code card
   body += '<div style="flex:0 0 152px;border:1.5px solid #e0eaea;border-radius:16px;padding:16px;text-align:center">';
   body += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#9aa8a8;text-transform:uppercase">' + (isAr?'الرمز':'Holland Code') + '</div>';
   body += '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:46px;line-height:1;color:#1aabaa;margin-top:4px">' + (hTop[0]||'') + (hTop[1]||'') + '</div>';
   body += '<div style="font-size:11.5px;color:#5d7170;margin-top:8px">' + (HL[hTop[0]]||'') + (hTop[1] ? ' · ' + (HL[hTop[1]]||'') : '') + '</div></div>';
-  // RIASEC bars
   body += '<div style="flex:1;border:1.5px solid #e0eaea;border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;justify-content:center;gap:8px">';
   ["R","I","A","S","E","C"].forEach(function(code) {
     body += '<div style="display:flex;align-items:center;gap:10px"><div style="flex:0 0 90px;font-size:11.5px;font-weight:600;color:#3a4f4e">' + (HL[code]||code) + '</div><div style="flex:1">' + bar2(h[code]||0, HC[code]) + '</div><div style="flex:0 0 32px;text-align:right;font-size:11.5px;font-weight:700;color:#46605f">' + (h[code]||0) + '%</div></div>';
   });
   body += '</div></div>';
-  // Recommended careers
-  body += '<div style="margin-top:12px;border:1.5px solid #e0eaea;border-radius:16px;padding:14px 18px">';
+  body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:14px 18px">';
   body += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#9aa8a8;text-transform:uppercase;margin-bottom:10px">' + (isAr?'المهن الموصى بها':isEn?'Recommended Careers':'Métiers recommandés') + '</div>';
   body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px 22px">';
   var matchBase = Math.min(96, Math.max(78, h[hTop[0]]||72));
@@ -1251,220 +1247,240 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;font-size:12.5px;font-weight:700;color:#15302f">' + career + '</div><div style="flex:0 0 38px;text-align:right;font-weight:800;color:#1aabaa;font-size:12.5px">' + m + '%</div></div>';
   });
   body += '</div></div>';
-  body += '</div>'; // end RIASEC
-
   body += nBlk(nLbl, hNarrText, isAdv, "#1aabaa");
-  body += nBlk(isAr?"سياق رمز هولاند":isEn?"Holland Code Context":"Contexte du Code Holland", hCode2Narr, isAdv, "#0f7e7d");
   var riasecRec = isAdv ? (isEn ? [
-    'Prioritize sectors directly aligned with the dominant ' + (HL[hTop[0]]||hTop[0]) + ' profile — these generate the highest engagement and performance.',
-    'Use the recommended careers list as a basis for career exploration interviews with professionals already working in those fields.',
-    'If the secondary code ' + (hTop[1]||'—') + ' score exceeds 60%, consider interdisciplinary roles that combine both dimensions.',
-    'Reassess RIASEC scores after 6 months of field experience — real-world exposure often refines initial orientation.'
+    'Prioritize sectors aligned with the dominant ' + (HL[hTop[0]]||hTop[0]) + ' profile — highest engagement and performance.',
+    'Use the recommended careers list for career exploration interviews with professionals in those fields.',
+    'If secondary code ' + (hTop[1]||'—') + ' exceeds 60%, consider interdisciplinary roles combining both dimensions.',
+    'Reassess RIASEC scores after 6 months of field experience.'
   ] : isAr ? [
-    'إعطاء الأولوية للقطاعات المتوافقة مع النمط السائد ' + (HL[hTop[0]]||hTop[0]) + ' — هذه تولّد أعلى مستوى من المشاركة والأداء.',
-    'استخدام قائمة المهن الموصى بها كأساس لإجراء مقابلات استكشاف مهني مع متخصصين في تلك المجالات.',
-    'إذا تجاوز درجة الرمز الثانوي ' + (hTop[1]||'—') + ' 60%، النظر في الأدوار متعددة التخصصات التي تجمع البُعدين.',
-    'إعادة تقييم درجات RIASEC بعد 6 أشهر من التجربة الميدانية — الانفتاح على الواقع كثيراً ما يصقّل التوجه الأولي.'
+    'إعطاء الأولوية للقطاعات المتوافقة مع النمط السائد ' + (HL[hTop[0]]||hTop[0]) + '.',
+    'استخدام قائمة المهن كأساس لمقابلات استكشاف مهني.',
+    'إذا تجاوز الرمز الثانوي 60%، النظر في الأدوار متعددة التخصصات.',
+    'إعادة تقييم درجات RIASEC بعد 6 أشهر من التجربة الميدانية.'
   ] : [
-    'Privilégier les secteurs directement alignés sur le profil dominant ' + (HL[hTop[0]]||hTop[0]) + ' — ils génèrent le meilleur engagement et les meilleures performances.',
-    'Utiliser la liste des métiers recommandés comme base pour des entretiens d\'exploration avec des professionnels en exercice dans ces domaines.',
-    'Si le score du code secondaire ' + (hTop[1]||'—') + ' dépasse 60%, envisager des rôles interdisciplinaires combinant les deux dimensions.',
-    'Réévaluer les scores RIASEC après 6 mois d\'expérience terrain — l\'exposition au monde réel affine souvent l\'orientation initiale.'
+    'Privilégier les secteurs alignés sur le profil dominant ' + (HL[hTop[0]]||hTop[0]) + ' — meilleur engagement et performance.',
+    'Utiliser la liste des métiers comme base pour des entretiens d\'exploration.',
+    'Si le code secondaire ' + (hTop[1]||'—') + ' dépasse 60%, envisager des rôles interdisciplinaires.',
+    'Réévaluer les scores RIASEC après 6 mois d\'expérience terrain.'
   ]) : (isEn ? [
-    'Apply for at least one internship or job shadowing opportunity in a field matching your ' + (HL[hTop[0]]||hTop[0]) + ' profile within the next 3 months.',
-    'Explore the recommended career list and identify 2–3 professionals in your region to interview about their career paths.',
-    'Your Holland code ' + (hTop[0]||'') + (hTop[1]||'') + ' is your career compass — use it to filter opportunities and say no to roles that don\'t align.',
-    'Visit ANAPEC or OFPPT in your region to ask specifically about programs tailored to your profile type.'
+    'Apply for at least one internship in a field matching your ' + (HL[hTop[0]]||hTop[0]) + ' profile within the next 3 months.',
+    'Explore the recommended career list and identify 2-3 professionals in your region to interview.',
+    'Your Holland code ' + (hTop[0]||'') + (hTop[1]||'') + ' is your career compass — use it to filter opportunities.',
+    'Visit ANAPEC or OFPPT in your region for programs tailored to your profile type.'
   ] : isAr ? [
-    'التقدم لتدريب أو مشاهدة مهنية في مجال يتوافق مع ملفك ' + (HL[hTop[0]]||hTop[0]) + ' خلال الأشهر الثلاثة القادمة.',
-    'استكشاف قائمة المهن الموصى بها وتحديد 2-3 متخصصين في منطقتك لمقابلتهم حول مساراتهم المهنية.',
-    'رمزك الهولاندي ' + (hTop[0]||'') + (hTop[1]||'') + ' هو بوصلتك المهنية — استخدمه لتصفية الفرص.',
-    'زيارة ANAPEC أو OFPPT في منطقتك للاستفسار عن برامج مُكيّفة مع ملفك.'
+    'التقدم لتدريب في مجال يتوافق مع ملفك خلال 3 أشهر.',
+    'استكشاف قائمة المهن وتحديد 2-3 متخصصين لمقابلتهم.',
+    'رمزك الهولاندي هو بوصلتك المهنية.',
+    'زيارة ANAPEC أو OFPPT للاستفسار عن برامج مكيفة لملفك.'
   ] : [
-    'Postulez à au moins un stage ou une observation en entreprise dans un domaine correspondant à votre profil ' + (HL[hTop[0]]||hTop[0]) + ' dans les 3 prochains mois.',
-    'Explorez la liste des métiers recommandés et identifiez 2 à 3 professionnels dans votre région à interviewer sur leur parcours.',
-    'Votre code Holland ' + (hTop[0]||'') + (hTop[1]||'') + ' est votre boussole de carrière — utilisez-le pour filtrer les opportunités et dire non aux rôles non alignés.',
-    'Visitez l\'ANAPEC ou l\'OFPPT de votre région pour vous renseigner sur les programmes adaptés à votre profil.'
+    'Postulez à au moins un stage dans un domaine correspondant à votre profil ' + (HL[hTop[0]]||hTop[0]) + ' dans les 3 prochains mois.',
+    'Explorez la liste des métiers et identifiez 2-3 professionnels à interviewer.',
+    'Votre code Holland ' + (hTop[0]||'') + (hTop[1]||'') + ' est votre boussole de carrière.',
+    'Visitez l\'ANAPEC ou l\'OFPPT de votre région pour des programmes adaptés.'
   ]);
   body += recBlk(isAr?'توصيات عملية':isEn?'Action Recommendations':'Recommandations Pratiques', riasecRec, '#1aabaa');
+  body += '</div>'; // end content
+  body += pgFtr(1);
+  body += '</div>'; // end page 1
 
-
-  // ── II Big Five ───────────────────────────────────────────────────────────
-  body += '<div class="avoid">';
+  // ══════════════════════════════════════════
+  // PAGE 2 — Section II: Big Five OCEAN
+  // ══════════════════════════════════════════
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += pgHdr(2);
+  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += secHd('II', L.sec2||'Personality — Big Five OCEAN');
   body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px">';
   ["O","C2","E2","A2","N"].forEach(function(t) {
     var v = b[t]||0;
     body += '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="font-weight:700;color:#3a4f4e">' + (BL[t]||t) + '</span><span style="font-weight:700;color:' + B5C[t] + '">' + v + '%</span></div>' + bar2(v, B5C[t]) + '</div>';
   });
-  body += '</div></div>';
-
+  body += '</div>';
   body += nBlk(nLbl, b5Narr, isAdv, "#8b5cf6");
   var b5Rec = isAdv ? (isEn ? [
-    'Build on high Big Five scores (' + ['O','C2','E2','A2','N'].filter(function(t){ return (b[t]||0)>=65; }).join(', ') + ') by channeling these strengths into role design and task allocation.',
-    'Address low scores through targeted development activities: structured workshops, coaching, or peer-learning groups.',
-    'Monitor Emotional Stability (N=' + (b.N||0) + '%): if below 45%, prioritize stress-management resources and regular supervision sessions.',
-    'Reassess Big Five profile after significant life events or after 12 months of professional experience — personality profiles evolve over time.'
+    'Build on high Big Five scores by channeling strengths into role design and task allocation.',
+    'Address low scores through targeted development: workshops, coaching, or peer-learning groups.',
+    'Monitor Emotional Stability (N=' + (b.N||0) + '%): if below 45%, prioritize stress-management resources.',
+    'Reassess Big Five profile after 12 months of professional experience.'
   ] : isAr ? [
-    'بناء على الدرجات المرتفعة في Big Five لتوجيه المرشح نحو أدوار تعظّم نقاط قوته.',
-    'معالجة الدرجات المنخفضة من خلال أنشطة تطوير موجّهة: ورش عمل، تدريب، أو مجموعات تعلّم بالأقران.',
-    'مراقبة الاستقرار العاطفي (N=' + (b.N||0) + '%): إذا كان أقل من 45%، إعطاء الأولوية لموارد إدارة الضغط وجلسات الإشراف المنتظمة.',
-    'إعادة التقييم بعد 12 شهراً — ملامح الشخصية تتطور مع التجربة.'
+    'بناء على الدرجات المرتفعة لتوجيه المرشح نحو أدوار تعظّم نقاط قوته.',
+    'معالجة الدرجات المنخفضة بأنشطة تطوير موجّهة.',
+    'مراقبة الاستقرار العاطفي: إذا كان أقل من 45%، إعطاء الأولوية لموارد إدارة الضغط.',
+    'إعادة تقييم ملف Big Five بعد 12 شهراً من الخبرة المهنية.'
   ] : [
-    'Capitaliser sur les scores Big Five élevés (' + ['O','C2','E2','A2','N'].filter(function(t){ return (b[t]||0)>=65; }).join(', ') + ') pour concevoir des rôles et tâches qui maximisent ces forces.',
-    'Aborder les scores faibles par des activités de développement ciblées : ateliers structurés, coaching, groupes d\'apprentissage entre pairs.',
-    'Surveiller la Stabilité Émotionnelle (N=' + (b.N||0) + '%) : si elle est inférieure à 45%, prioriser les ressources de gestion du stress et des séances de supervision régulières.',
-    'Réévaluer le profil Big Five après des événements de vie significatifs ou après 12 mois d\'expérience professionnelle.'
+    'Capitaliser sur les scores élevés pour concevoir des rôles qui maximisent ces forces.',
+    'Aborder les scores faibles par des activités de développement ciblées.',
+    'Surveiller la Stabilité Émotionnelle (N=' + (b.N||0) + '%) : si inférieure à 45%, prioriser les ressources de gestion du stress.',
+    'Réévaluer le profil Big Five après 12 mois d\'expérience professionnelle.'
   ]) : (isEn ? [
-    'Your highest Big Five scores reveal your natural workplace strengths — actively look for roles and tasks that engage these dimensions every day.',
-    'For your lowest scores, choose one concrete habit to develop this month: a planner for low Conscientiousness, a social activity for low Extraversion, etc.',
-    'Share your Big Five profile with a trusted mentor or advisor to get feedback on how others perceive these traits in your behavior.',
-    'Remember: Big Five traits are tendencies, not fixed limits — consistent effort can shift your profile meaningfully over 12 to 24 months.'
+    'Your highest Big Five scores reveal your natural workplace strengths — look for roles that engage these every day.',
+    'For your lowest scores, choose one concrete habit to develop this month.',
+    'Share your Big Five profile with a trusted mentor to get feedback on how others perceive these traits.',
+    'Big Five traits are tendencies, not fixed limits — consistent effort can shift your profile in 12-24 months.'
   ] : isAr ? [
-    'أعلى درجاتك في Big Five تكشف نقاط قوتك الطبيعية في العمل — ابحث بنشاط عن أدوار ومهام تُشرك هذه الأبعاد يومياً.',
-    'لأدنى درجاتك، اختر عادة ملموسة واحدة لتطويرها هذا الشهر: مخطط للضمير المنخفض، نشاط اجتماعي للانبساطية المنخفضة.',
-    'شارك ملفك في Big Five مع مرشد موثوق للحصول على تغذية راجعة حول كيفية إدراك الآخرين لهذه السمات.',
-    'تذكّر: سمات Big Five هي ميول لا قيود ثابتة — الجهد المستمر يمكنه تحويل ملفك بشكل ملحوظ خلال 12 إلى 24 شهراً.'
+    'أعلى درجاتك تكشف نقاط قوتك — ابحث عن أدوار تشرك هذه الأبعاد يومياً.',
+    'لأدنى درجاتك، اختر عادة ملموسة واحدة لتطويرها هذا الشهر.',
+    'شارك ملفك مع مرشد موثوق للحصول على تغذية راجعة.',
+    'سمات Big Five هي ميول لا قيود ثابتة — الجهد المستمر يحوّل ملفك.'
   ] : [
-    'Vos scores Big Five les plus élevés révèlent vos forces naturelles en milieu professionnel — cherchez activement des rôles et tâches qui font appel à ces dimensions chaque jour.',
-    'Pour vos scores les plus faibles, choisissez une habitude concrète à développer ce mois-ci : un planificateur pour une Conscience faible, une activité sociale pour une Extraversion faible.',
-    'Partagez votre profil Big Five avec un mentor de confiance pour obtenir un retour sur la façon dont les autres perçoivent ces traits dans votre comportement.',
-    'Rappel : les traits Big Five sont des tendances, pas des limites fixes — un effort constant peut faire évoluer votre profil de manière significative en 12 à 24 mois.'
+    'Vos scores les plus élevés révèlent vos forces naturelles — cherchez des rôles qui les mobilisent chaque jour.',
+    'Pour vos scores les plus faibles, choisissez une habitude concrète à développer ce mois-ci.',
+    'Partagez votre profil Big Five avec un mentor de confiance pour un retour sur ces traits.',
+    'Les traits Big Five sont des tendances, pas des limites fixes — un effort constant les fait évoluer.'
   ]);
   body += recBlk(isAr?'توصيات التطوير':isEn?'Development Recommendations':'Recommandations de Développement', b5Rec, '#8b5cf6');
+  body += '</div>';
+  body += pgFtr(2);
+  body += '</div>'; // end page 2
 
-  // ── III Skill Up + IV Leadership ─────────────────────────────────────────
-  body += '<div class="avoid" style="display:flex;gap:16px">';
-  // Skill Up
+  // ══════════════════════════════════════════
+  // PAGE 3 — Sections III/IV: Skill Up + Leadership
+  // ══════════════════════════════════════════
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += pgHdr(3);
+  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
+  body += '<div style="display:flex;gap:16px">';
   body += '<div style="flex:1.3">';
   body += secHd('III', L.sec3||'Employability — Skill Up');
   body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">';
   var suK = ["A","E","C","R"];
   suK.forEach(function(k) {
     var sv = s[k]||0;
-    var circ = 125.6;
-    var off = (circ*(1-sv/100)).toFixed(1);
+    var off = (125.6*(1-sv/100)).toFixed(1);
     body += '<div style="display:flex;align-items:center;gap:11px"><svg width="50" height="50" viewBox="0 0 50 50" style="flex:none"><circle cx="25" cy="25" r="20" fill="none" stroke="#eef3f3" stroke-width="5"/><circle cx="25" cy="25" r="20" fill="none" stroke="' + (SUC[k]||'#1aabaa') + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="125.6" stroke-dashoffset="' + off + '" transform="rotate(-90 25 25)"/><text x="25" y="29" text-anchor="middle" font-size="13" font-weight="800" font-family="Syne,Arial,sans-serif" fill="#15302f">' + sv + '</text></svg><div style="font-size:11.5px;font-weight:700;color:#3a4f4e">' + (SL[k]||k) + '</div></div>';
   });
   body += '</div></div>';
-  // Leadership
   body += '<div style="flex:1">';
   body += secHd('IV', L.sec4||'Leadership');
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:16px">';
-  body += '<div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:11px;background:rgba(255,122,89,.18);display:flex;align-items:center;justify-content:center;font-size:19px;flex:none">' + (ld.icon||'🧭') + '</div>';
+  body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:16px;height:calc(100% - 38px)">';
+  body += '<div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:11px;background:rgba(255,122,89,.18);display:flex;align-items:center;justify-content:center;font-size:19px;flex:none">' + (ld.icon||'\u{1F9ED}') + '</div>';
   body += '<div><div style="font-size:10px;font-weight:700;color:#9aa8a8;text-transform:uppercase">Score ' + (ld.score||'-') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:16px;color:#15302f">' + (ld.style||'') + '</div></div></div>';
   body += '<p style="font-size:11.5px;line-height:1.55;color:#5d7170;margin-top:10px">' + (ld.desc||'').substring(0,200) + '</p>';
-  if (ld.str && ld.str.length) {
-    body += '<div style="margin-top:10px;font-size:10.5px;color:#0f7e7d;font-weight:700">';
-    ld.str.slice(0,2).forEach(function(st){ body += '✓ ' + st + '<br>'; });
-    body += '</div>';
-  }
-  body += '</div></div>';
-  body += '</div>'; // end row
-
-  body += nBlk(isAr?"الاستعداد للتوظيف":isEn?"Employability Readiness":"Préparation à l'Employabilité", suNarr, isAdv, "#f97316");
-  body += nBlk(isAr?"تحليل القيادة":isEn?"Leadership Analysis":"Analyse du Leadership", ldNarr, isAdv, "#ff7a59");
-
-
-  body += '</div>'; // end page 1 content
-  body += pgFtr(1);
-  body += '</div>'; // end page 1
+  if (ld.str && ld.str.length) { body += '<div style="margin-top:10px;font-size:10.5px;color:#0f7e7d;font-weight:700">'; ld.str.slice(0,2).forEach(function(st){ body += '✓ ' + st + '<br>'; }); body += '</div>'; }
+  body += '</div></div></div>';
+  body += nBlk(isAr?'الاستعداد للتوظيف':isEn?'Employability Readiness':'Préparation à l\'Employabilité', suNarr, isAdv, "#f97316");
+  body += nBlk(isAr?'تحليل القيادة':isEn?'Leadership Analysis':'Analyse du Leadership', ldNarr, isAdv, "#ff7a59");
+  body += '</div>';
+  body += pgFtr(3);
+  body += '</div>'; // end page 3
 
   // ══════════════════════════════════════════
-  // PAGE 2
+  // PAGE 4 — Section V: Academic Orientation
   // ══════════════════════════════════════════
   body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
-  body += pgHdr(2);
-  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:18px;flex:1">';
-
-  // ── V Academic ─────────────────────────────────────────────────────────
-  body += '<div class="avoid">';
-  var eduTag = ei>=6 ? (isEn?'Bachelor+':isAr?'ليسانس+':'Bac+3 et plus') : ei>=4 ? (isEn?'Bac level':isAr?'مستوى بكالوريا':'Niveau Bac') : (isEn?'Secondary':isAr?'ثانوي فما دون':'Secondaire et moins');
+  body += pgHdr(4);
+  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
+  var eduTag = ei>=6 ? (isEn?'Bachelor+':isAr?'ليسانس+':'Bac+3 et plus') : ei>=4 ? (isEn?'Bac level':isAr?'مستوى بكالوريا':'Niveau Bac') : (isEn?'Secondary':isAr?'ثانوي':'Secondaire');
   body += secHd('V', L.sec5||'Academic Orientation', (isEn?'Tailored to ':isAr?'ملائم لـ':'Adapté à ') + eduTag);
   body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
   acList.slice(0,4).forEach(function(prog, pi) {
-    var tags = [isEn?'Best fit':isAr?'الأنسب':'Meilleur choix', isEn?'Strong fit':isAr?'مناسب جداً':'Très adapté', isEn?'Good fit':isAr?'مناسب':'Bon choix', isEn?'Good fit':isAr?'مناسب':'Bon choix'];
+    var fitTags = [isEn?'Best fit':isAr?'الأنسب':'Meilleur choix', isEn?'Strong fit':isAr?'مناسب جداً':'Très adapté', isEn?'Good fit':isAr?'مناسب':'Bon choix', isEn?'Good fit':isAr?'مناسب':'Bon choix'];
     var m = prog.match(/\(([^)]+)\)/);
     var mainP = prog.replace(/\([^)]+\)/g,'').trim();
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:13px"><div style="font-size:12.5px;font-weight:700;color:#15302f">' + mainP + '</div>' + (m?'<div style="font-size:11px;color:#7d908f;margin-top:2px">'+m[1]+'</div>':'') + '<div style="font-size:10.5px;color:#0f7e7d;font-weight:700;margin-top:6px">' + (tags[pi]||tags[0]) + '</div></div>';
+    body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:13px"><div style="font-size:12.5px;font-weight:700;color:#15302f">' + mainP + '</div>' + (m?'<div style="font-size:11px;color:#7d908f;margin-top:2px">'+m[1]+'</div>':'') + '<div style="font-size:10.5px;color:#0f7e7d;font-weight:700;margin-top:6px">' + (fitTags[pi]||fitTags[0]) + '</div></div>';
   });
-  body += '</div></div>';
-
-  body += nBlk(isAr?"التوجيه الأكاديمي":isEn?"Academic Pathway":"Parcours Académique", acNarr, isAdv, "#d4a328");
+  body += '</div>';
+  body += nBlk(isAr?'التوجيه الأكاديمي':isEn?'Academic Pathway':'Parcours Académique', acNarr, isAdv, "#d4a328");
   var acRec = isEn ? [
-    'Visit the official websites of the recommended institutions and note application deadlines, entry requirements, and tuition fees.',
-    'Contact the student services office of your top-choice institution to request a campus visit or an information session.',
-    'Apply for at least 3 programs simultaneously to maximize your chances — do not rely on a single application.',
-    'Explore scholarship opportunities: OFPPT, ANAPEC, and regional authorities all offer funding that can significantly reduce your financial burden.'
+    'Visit the official websites of the recommended institutions and note application deadlines and entry requirements.',
+    'Contact the student services office of your top-choice institution to request a campus visit.',
+    'Apply for at least 3 programs simultaneously to maximize your chances.',
+    'Explore scholarships: OFPPT, ANAPEC, and regional authorities all offer financial support.'
   ] : isAr ? [
-    'زيارة المواقع الرسمية للمؤسسات الموصى بها وتدوين مواعيد التقديم والمتطلبات والرسوم.',
-    'التواصل مع مكتب خدمات الطلاب في مؤسستك المفضلة لطلب زيارة الحرم الجامعي أو جلسة معلومات.',
-    'التقديم في ما لا يقل عن 3 برامج في آنٍ واحد لزيادة فرصك — لا تعتمد على طلب واحد فقط.',
-    'استكشاف فرص المنح: OFPPT وANAPEC والسلطات الإقليمية تقدم تمويلاً يمكن أن يقلل عبءك المالي بشكل كبير.'
+    'زيارة المواقع الرسمية وتدوين مواعيد التقديم والمتطلبات.',
+    'التواصل مع مكتب خدمات الطلاب في مؤسستك المفضلة.',
+    'التقديم في ما لا يقل عن 3 برامج في آنٍ واحد.',
+    'استكشاف فرص المنح: OFPPT وANAPEC والسلطات الإقليمية.'
   ] : [
-    'Consultez les sites officiels des établissements recommandés et notez les dates limites de candidature, les prérequis et les frais de scolarité.',
-    'Contactez le service des étudiants de votre établissement de premier choix pour demander une visite du campus ou une séance d\'information.',
-    'Postulez simultanément à au moins 3 formations pour maximiser vos chances — ne misez pas sur une seule candidature.',
-    'Explorez les bourses disponibles : OFPPT, ANAPEC et les autorités régionales proposent des financements qui peuvent réduire significativement votre charge financière.'
+    'Consultez les sites officiels des établissements recommandés et notez les dates limites et prérequis.',
+    'Contactez le service étudiants de votre établissement de premier choix pour une visite.',
+    'Postulez simultanément à au moins 3 formations pour maximiser vos chances.',
+    'Explorez les bourses : OFPPT, ANAPEC et les autorités régionales proposent des financements.'
   ];
-  body += recBlk(isAr?'خطوات التسجيل':isEn?'Enrollment Action Steps':'Étapes de Candidature', acRec, '#d4a328');
+  body += recBlk(isAr?'خطوات التسجيل':isEn?'Enrollment Steps':'Étapes de Candidature', acRec, '#d4a328');
+  body += '</div>';
+  body += pgFtr(4);
+  body += '</div>'; // end page 4
 
-  // ── VI E-Learning ────────────────────────────────────────────────────
-  body += '<div class="avoid">';
+  // ══════════════════════════════════════════
+  // PAGE 5 — Section VI: E-Learning Roadmap
+  // ══════════════════════════════════════════
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += pgHdr(5);
+  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += secHd('VI', L.sec6||'E-Learning Roadmap');
   body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;gap:10px">';
-  var eIcons = ['🎯','📚','💡','🏆'];
+  var eIcons = ['\u{1F3AF}','\u{1F4DA}','\u{1F4A1}','\u{1F3C6}'];
   var eLevels = isEn ? ['Start','Start','Build','Advance'] : isAr ? ['ابدأ','ابدأ','تطور','تقدم'] : ['Démarrer','Démarrer','Consolider','Avancer'];
   el.cs.slice(0,4).forEach(function(course, ci) {
     body += '<div style="display:flex;align-items:center;gap:12px"><span style="width:30px;height:30px;border-radius:9px;background:#e9f7f6;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none">' + eIcons[ci] + '</span><div style="flex:1"><div style="font-size:12.5px;font-weight:700;color:#15302f">' + course + '</div><div style="font-size:11px;color:#7d908f">' + el.p + '</div></div><span style="font-size:10.5px;font-weight:700;color:#0f7e7d;background:#e4f5f4;padding:3px 9px;border-radius:999px;white-space:nowrap">' + eLevels[ci] + '</span></div>';
   });
-  body += '<div style="padding:9px 12px;background:#f0fdf4;border-radius:9px;border:1px solid #bbf7d0;font-size:11.5px;color:#0f7e7d;font-weight:700;margin-top:2px">🏅 ' + (L.certif||'Certification cible') + ': ' + el.c + '</div>';
-  body += '</div></div>';
-
-  body += nBlk(isAr?"مسار التعلم الإلكتروني":isEn?"E-Learning Pathway":"Parcours E-Learning", eNarr, isAdv, "#22c55e");
+  body += '<div style="padding:9px 12px;background:#f0fdf4;border-radius:9px;border:1px solid #bbf7d0;font-size:11.5px;color:#0f7e7d;font-weight:700">\u{1F3C5} ' + (L.certif||'Certification cible') + ': ' + el.c + '</div>';
+  body += '</div>';
+  body += nBlk(isAr?'مسار التعلم الإلكتروني':isEn?'E-Learning Pathway':'Parcours E-Learning', eNarr, isAdv, "#22c55e");
   var eRec = isEn ? [
-    'Create a free account on ' + el.p + ' today and browse the course catalog — identify your first course from the recommended list above.',
-    'Block 30-45 minutes daily in your calendar (morning is best) — treat it as a non-negotiable appointment with your future self.',
-    'After completing ' + (el.cs[0]||'your first course') + ', request the completion certificate and save it in a dedicated "Certifications" folder.',
-    'Share your learning progress with your advisor at each follow-up — accountability accelerates completion rates by up to 3x.'
+    'Create a free account on ' + el.p + ' today and browse the course catalog.',
+    'Block 30-45 minutes daily in your calendar — a non-negotiable appointment with your future.',
+    'After completing ' + (el.cs[0]||'your first course') + ', save the certificate in a dedicated folder.',
+    'Share your learning progress with your advisor at each follow-up for accountability.'
   ] : isAr ? [
-    'إنشاء حساب مجاني على ' + el.p + ' اليوم واستعراض كتالوج الدورات — تعرّف على دورتك الأولى من القائمة الموصى بها أعلاه.',
-    'حجز 30-45 دقيقة يومياً في جدولك الزمني (الصباح أفضل) — تعامل معها كموعد غير قابل للتفاوض مع مستقبلك.',
-    'بعد إكمال ' + (el.cs[0]||'دورتك الأولى') + '، طلب شهادة الإتمام وحفظها في مجلد "الشهادات" مخصص.',
-    'مشاركة تقدمك في التعلم مع مستشارك في كل متابعة — المساءلة تسرّع معدلات الإتمام بما يصل إلى 3 أضعاف.'
+    'إنشاء حساب مجاني على ' + el.p + ' اليوم واستعراض الدورات.',
+    'خصص 30-45 دقيقة يومياً في جدولك.',
+    'بعد إتمام ' + (el.cs[0]||'دورتك الأولى') + '، احفظ شهادة الإتمام.',
+    'شارك تقدمك مع مستشارك في كل متابعة.'
   ] : [
-    'Créez gratuitement un compte sur ' + el.p + ' aujourd\'hui et parcourez le catalogue — identifiez votre premier cours dans la liste recommandée ci-dessus.',
-    'Bloquez 30 à 45 minutes par jour dans votre agenda (le matin est idéal) — traitez-les comme un rendez-vous non négociable avec votre avenir.',
-    'Après avoir complété ' + (el.cs[0]||'votre premier cours') + ', demandez le certificat de réussite et conservez-le dans un dossier "Certifications" dédié.',
-    'Partagez votre progression avec votre conseiller à chaque suivi — la responsabilisation augmente les taux de complétion jusqu\'à 3 fois.'
+    'Créez un compte gratuit sur ' + el.p + ' aujourd\'hui et parcourez le catalogue.',
+    'Bloquez 30-45 minutes par jour dans votre agenda.',
+    'Après avoir complété ' + (el.cs[0]||'votre premier cours') + ', sauvegardez le certificat.',
+    'Partagez votre progression avec votre conseiller à chaque suivi.'
   ];
-  body += recBlk(isAr?'خطوات التطبيق':isEn?'Implementation Steps':'Plan de Mise en Œuvre', eRec, '#22c55e');
-
-  body += '</div>'; // end page 2 content
-  body += pgFtr(2);
-  body += '</div>'; // end page 2
+  body += recBlk(isAr?'خطوات التطبيق':isEn?'Learning Steps':'Plan d\'Apprentissage', eRec, '#22c55e');
+  body += '</div>';
+  body += pgFtr(5);
+  body += '</div>'; // end page 5
 
   // ══════════════════════════════════════════
-  // PAGE 3 — Career Roadmap + INDH
+  // PAGE 6 — Section VII: Career Roadmap
   // ══════════════════════════════════════════
   body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
-  body += pgHdr(3);
-  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:18px;flex:1">';
-
-  // ── VII Career Roadmap ────────────────────────────────────────────────
-  body += '<div class="avoid">';
+  body += pgHdr(6);
+  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += secHd('VII', L.sec7||'Career Roadmap');
   body += '<div style="display:flex;align-items:flex-start">';
   var dotColors = ["#1aabaa","#27c4be","#0f7e7d","#ff7a59","#9aa8a8"];
   rm.forEach(function(step, ri) {
     body += '<div style="flex:1;padding:0 6px"><div style="display:flex;align-items:center"><div style="width:12px;height:12px;border-radius:50%;background:' + (dotColors[ri]||'#1aabaa') + ';flex:none"></div>' + (ri < rm.length-1 ? '<div style="flex:1;height:2px;background:#dde6e6"></div>' : '') + '</div><div style="font-size:10.5px;font-weight:800;color:#0f7e7d;margin-top:9px">' + step.p + '</div><div style="font-size:11px;color:#3a4f4e;line-height:1.4;margin-top:3px">' + step.a + '</div></div>';
   });
-  body += '</div></div>';
+  body += '</div>';
+  body += nBlk(isAr?'قراءة خارطة الطريق':isEn?'Reading Your Roadmap':'Lecture de votre Feuille de Route', rmNarr, isAdv, "#3b82f6");
+  var rmRec = isEn ? [
+    'Print or save this roadmap and place it somewhere visible — review it weekly to stay on track.',
+    'For each phase, identify one specific action you can start this week.',
+    'Share your 3-month goals with your advisor at the next session.',
+    'At each phase transition, acknowledge your progress — it builds momentum.'
+  ] : isAr ? [
+    'احفظ خارطة الطريق وراجعها أسبوعياً.',
+    'لكل مرحلة، حدد إجراءً واحداً يمكنك البدء به هذا الأسبوع.',
+    'شارك أهداف 3 أشهر مع مستشارك.',
+    'عند كل انتقال بين المراحل، احتفل بتقدمك.'
+  ] : [
+    'Imprimez ou sauvegardez cette feuille de route et placez-la dans un endroit visible.',
+    'Pour chaque phase, identifiez une action concrète à démarrer cette semaine.',
+    'Partagez vos objectifs des 3 prochains mois avec votre conseiller.',
+    'À chaque transition de phase, reconnaissez vos progrès — cela construit l\'élan.'
+  ];
+  body += recBlk(isAr?'خطوات المتابعة':isEn?'Follow-up Steps':'Étapes de Suivi', rmRec, '#3b82f6');
+  body += '</div>';
+  body += pgFtr(6);
+  body += '</div>'; // end page 6
 
-  body += nBlk(isAr?"قراءة خارطة الطريق":isEn?"Reading Your Roadmap":"Lecture de votre Feuille de Route", rmNarr, isAdv, "#3b82f6");
-
-  // ── VIII INDH ─────────────────────────────────────────────────────────
-  body += '<div class="avoid">';
+  // ══════════════════════════════════════════
+  // PAGE 7 — Section VIII: INDH Programs
+  // ══════════════════════════════════════════
+  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+  body += pgHdr(7);
+  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += secHd('VIII', L.sec8||'INDH Programs');
   body += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">';
   var indhBC = ["#b9d6d5","#e8c975","#b9d9c5"];
@@ -1473,65 +1489,73 @@ function buildReportHTML(profile, scores, role, reportLang) {
   indh.forEach(function(rec, ri) {
     body += '<div style="border:1.5px solid ' + (indhBC[ri]||'#e0eaea') + ';border-radius:13px;padding:14px;background:' + (indhBG[ri]||'#fff') + '"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">' + (rec.icon||'') + '</span><span style="font-size:12px;font-weight:800;color:#15302f">' + (rec.prog||'') + '</span></div><div style="font-size:11px;color:#5d7170;line-height:1.45;margin-top:6px">' + (rec.desc||'').substring(0,120) + '</div><div style="font-size:10.5px;font-weight:700;color:' + (indhMC[ri]||'#0f7e7d') + ';margin-top:7px">' + (rec.priority||'→') + ' · ' + (rec.pct||0) + '%</div></div>';
   });
-  body += '</div></div>';
-
-  body += nBlk(isAr?"تحليل البرامج":isEn?"Program Analysis":"Analyse des Programmes", indhNarr, isAdv, "#15803d");
-
-  body += '</div>'; // end page 3 content
-  body += pgFtr(3);
-  body += '</div>'; // end page 3
+  body += '</div>';
+  body += nBlk(isAr?'تحليل البرامج':isEn?'Program Analysis':'Analyse des Programmes', indhNarr, isAdv, "#15803d");
+  var indhRec = isEn ? [
+    'Contact the INDH office in ' + (profile.region||'your region') + ' this week — ask about your eligibility.',
+    'Prepare a 2-3 minute personal presentation describing your project and its alignment with INDH goals.',
+    'Gather required documents: national ID, diplomas, proof of residence, and project description.',
+    'Ask specifically about current funding cycles and application deadlines.'
+  ] : isAr ? [
+    'التواصل مع مكتب INDH في ' + (profile.region||'منطقتك') + ' هذا الأسبوع.',
+    'إعداد عرض تقديمي موجز (2-3 دقائق) يصف مشروعك.',
+    'جمع الوثائق المطلوبة: بطاقة وطنية، شهادات، إثبات الإقامة.',
+    'اسأل تحديداً عن دورات التمويل الحالية ومواعيد التقديم.'
+  ] : [
+    'Contactez le bureau INDH de ' + (profile.region||'votre région') + ' cette semaine — discutez de votre éligibilité.',
+    'Préparez une présentation de 2-3 minutes décrivant votre projet et son alignement.',
+    'Réunissez les documents requis : CIN, diplômes, justificatif de domicile.',
+    'Demandez les cycles de financement actuels et les délais de dépôt.'
+  ];
+  body += recBlk(isAr?'خطوات التقديم':isEn?'Application Steps':'Étapes de Candidature INDH', indhRec, '#15803d');
+  body += '</div>';
+  body += pgFtr(7);
+  body += '</div>'; // end page 7
 
   // ══════════════════════════════════════════
-  // PAGE 4 — Candidate Conclusion
+  // PAGE 8 — Conclusion & Next Steps
   // ══════════════════════════════════════════
   body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
-  body += pgHdr(4);
+  body += pgHdr(8);
   body += '<div style="padding:18px 44px;flex:1;display:flex;flex-direction:column;gap:14px">';
-  // Conclusion heading
   var ccLabel = isAr?'خلاصة وتوصيات':isEn?'Conclusion & Recommendations':'Conclusion et Recommandations';
   body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:14px;padding:20px 24px;color:#fff"><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:18px;margin-bottom:6px">' + ccLabel + '</div><div style="font-size:12px;color:rgba(255,255,255,.85)">' + name + ' · ' + date + '</div></div>';
-  // Profile narrative
   var profNarr = isAr ? 'تُظهر نتائجك توجهًا مهنيًا واضحًا نحو النمط ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' و' + (HL[hTop[1]]||hTop[1]):'') + '. يشكّل هذا التوجه أساسًا قويًا لبناء مسار مهني ناجح.' :
     isEn ? 'Your results show a strong professional orientation toward the ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' and ' + (HL[hTop[1]]||hTop[1]):'') + ' profile. This orientation is the foundation for a fulfilling career path.' :
     'Vos résultats révèlent une orientation professionnelle marquée vers le profil ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' et ' + (HL[hTop[1]]||hTop[1]):'') + '. Cette orientation constitue la base d\'un parcours professionnel épanouissant.';
   body += '<div style="background:#f3faf9;border:1.5px solid #b9d6d5;border-radius:13px;padding:16px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isAr?'ملفك المهني':isEn?'Your Professional Profile':'Votre Profil Professionnel') + '</div><p style="font-size:12.5px;color:#3a4f4e;line-height:1.65;margin:0">' + profNarr + '</p></div>';
-  // Strengths + Development in 2 cols
   body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
-  // Strengths
   body += '<div style="background:#f3faf9;border:1.5px solid #b9d6d5;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'نقاط القوة':isEn?'Core Strengths':'Points Forts') + '</div>';
   (ld.str||[]).slice(0,4).forEach(function(st){ body += '<div style="font-size:11.5px;color:#3a4f4e;padding:5px 0;border-bottom:1px solid #e0eaea">✓ ' + st + '</div>'; });
-  body += '</div>';
-  // Development
-  body += '<div style="background:#fff8ef;border:1.5px solid #e8c975;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'محاور التطوير':isEn?'Development Areas':'Axes de Développement') + '</div>';
+  body += '</div><div style="background:#fff8ef;border:1.5px solid #e8c975;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'محاور التطوير':isEn?'Development Areas':'Axes de Développement') + '</div>';
   (ld.dev||[]).slice(0,4).forEach(function(d){ body += '<div style="font-size:11.5px;color:#3a4f4e;padding:5px 0;border-bottom:1px solid #f0e0c0">▸ ' + d + '</div>'; });
   body += '</div></div>';
-  // Next steps
-  var nextLabel = isAr?'خطوات عملية':isEn?'Concrete Next Steps':'Prochaines Étapes';
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + nextLabel + '</div>';
-  var s1 = isEn?'Schedule an orientation session with your advisor':'Réservez une séance d\'orientation avec votre conseiller';
-  var s2 = (isEn?'Start with the e-learning platform suited to your level: ':'Commencez par la plateforme e-learning adaptée à votre niveau : ') + el.p;
-  var s3 = (isEn?'Target your priority certification: ':'Visez la certification prioritaire : ') + el.c;
-  var s4 = (isEn?'Explore recommended training paths: ':'Explorez les filières recommandées : ') + (acList[0]||'-').replace(/\([^)]+\)/g,'').trim();
-  var s5 = isEn?'Set short-term (3-month) and long-term (3-year) goals':'Fixez des objectifs à court terme (3 mois) et long terme (3 ans)';
-  [s1,s2,s3,s4,s5].forEach(function(step, si){ body += '<div style="display:flex;gap:10px;margin-bottom:7px;font-size:11.5px;color:#3a4f4e"><span style="font-weight:800;color:#1aabaa;flex-shrink:0">' + (si+1) + '.</span><span>' + step + '</span></div>'; });
+  body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'خطوات عملية':isEn?'Concrete Next Steps':'Prochaines Étapes') + '</div>';
+  var ps1 = isEn?'Schedule an orientation session with your advisor':isAr?'حجز جلسة توجيه مع مستشارك':'Réservez une séance d\'orientation avec votre conseiller';
+  var ps2 = (isEn?'Start with the e-learning platform: ':isAr?'ابدأ بمنصة التعلم: ':'Commencez par la plateforme e-learning : ') + el.p;
+  var ps3 = (isEn?'Target your priority certification: ':isAr?'استهدف شهادتك: ':'Visez la certification prioritaire : ') + el.c;
+  var ps4 = (isEn?'Explore recommended training: ':isAr?'استكشف المسارات: ':'Explorez les formations : ') + (acList[0]||'-').replace(/\([^)]+\)/g,'').trim();
+  var ps5 = isEn?'Set short-term (3-month) and long-term (3-year) goals':isAr?'ضع أهدافاً قصيرة وطويلة المدى':'Fixez des objectifs à court et long terme';
+  [ps1,ps2,ps3,ps4,ps5].forEach(function(step, si){ body += '<div style="display:flex;gap:10px;margin-bottom:7px;font-size:11.5px;color:#3a4f4e"><span style="font-weight:800;color:#1aabaa;flex-shrink:0">' + (si+1) + '.</span><span>' + step + '</span></div>'; });
   body += '</div>';
-  // Closing note
-  var closeNote = isEn ? 'This report is a tool to help you understand your profile and guide your career path. Results reflect your current inclinations. With your advisor\'s support, you can achieve your professional goals.' : 'Ce rapport est un outil pour vous aider à mieux vous connaître et à orienter votre parcours. Les résultats reflètent vos inclinations actuelles. Avec l\'accompagnement de votre conseiller, vous atteindrez vos objectifs.';
+  var closeNote = isEn ? 'This report is a tool to help you understand your profile and guide your career path. Results reflect your current inclinations. With your advisor\'s support, you can achieve your professional goals.' : isAr ? 'هذا التقرير أداة لمساعدتك على فهم ملفك وتوجيه مسارك. بدعم مستشارك، يمكنك تحقيق أهدافك.' : 'Ce rapport est un outil pour vous aider à mieux vous connaître et à orienter votre parcours. Avec l\'accompagnement de votre conseiller, vous atteindrez vos objectifs.';
   body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:12px;padding:14px 18px"><p style="font-size:11.5px;color:rgba(255,255,255,.9);line-height:1.7;margin:0;font-style:italic">' + closeNote + '</p></div>';
-  body += '</div>'; // end page 4 content
-  body += pgFtr(4);
-  body += '</div>'; // end page 4
+  body += '</div>';
+  body += pgFtr(8);
+  body += '</div>'; // end page 8
 
   // ══════════════════════════════════════════
-  // PAGE 5 — Advisor Clinical Plan (advisor only)
+  // ADVISOR CLINICAL PAGES (IX)
   // ══════════════════════════════════════════
   if (role === 'advisor') {
+
+    // PAGE 9 — Holland Clinical
     body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
-    body += pgHdr(5);
+    body += pgHdr(9);
     body += '<div style="padding:22px 44px;flex:1">';
     body += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' + secB('IX','11') + '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:18px;color:#15302f">' + (L.sec9||'Clinical Intervention Plan') + '</div><span style="font-size:10px;font-weight:700;color:#b9791f;background:#fbf0df;padding:3px 10px;border-radius:999px;margin-left:auto">' + (isEn?'Advisor only':isAr?'للمستشار فقط':'Conseiller uniquement') + '</span></div>';
+    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">' + (isEn?'Holland RIASEC Analysis':isAr?'تحليل هولاند RIASEC':'Analyse Holland RIASEC') + '</div>';
     body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;overflow:hidden">';
-    // Holland clinical
     var clinCols = "#1d4ed8,#d97706,#15803d,#0f7e7d,#1aabaa,#9aa8a8".split(",");
     var hollandCodes = ["R","I","A","S","E","C"];
     hollandCodes.forEach(function(code) {
@@ -1539,17 +1563,136 @@ function buildReportHTML(profile, scores, role, reportLang) {
       var level = v>=65?"HIGH":v>=45?"MED":"LOW";
       var clinColor = clinCols[hollandCodes.indexOf(code)];
       var clinText = isEn ?
-        (level==="HIGH"?"High score ("+v+"%) on Holland "+HL[code]+" dimension. Channel this strength toward aligned career paths and leverage it as the primary orientation driver.":level==="MED"?"Moderate score ("+v+"%) on Holland "+HL[code]+". Explore how this dimension can complement primary axes through targeted career exploration.":"Low score ("+v+"%) on Holland "+HL[code]+". No specific intervention needed; avoid steering toward environments centered on this type.") :
-        (level==="HIGH"?"Score élevé ("+v+"%) sur la dimension Holland "+HL[code]+". Exploiter cette force comme levier principal d'orientation. Proposer des formations et débouchés cohérents.":level==="MED"?"Score intermédiaire ("+v+"%) sur la dimension Holland "+HL[code]+". Explorer comment ce domaine complète les axes principaux via des exercices d'exploration.":"Score faible ("+v+"%) sur la dimension Holland "+HL[code]+". Pas d'intervention spécifique nécessaire. Veiller à ne pas orienter vers des environnements centrés sur ce type.");
+        (level==="HIGH"?"High score ("+v+"%) on Holland "+HL[code]+" dimension. Channel this strength toward aligned career paths and leverage it as the primary orientation driver.":level==="MED"?"Moderate score ("+v+"%) on Holland "+HL[code]+". Explore how this dimension complements primary axes through targeted career exploration.":"Low score ("+v+"%) on Holland "+HL[code]+". No specific intervention needed; avoid steering toward environments centered on this type.") :
+        (level==="HIGH"?"Score élevé ("+v+"%) sur la dimension Holland "+HL[code]+". Exploiter comme levier principal d'orientation.":level==="MED"?"Score intermédiaire ("+v+"%) sur "+HL[code]+". Explorer comment ce domaine complète les axes principaux.":"Score faible ("+v+"%) sur "+HL[code]+". Pas d'intervention spécifique nécessaire.");
       body += '<div style="display:flex;gap:16px;padding:12px 18px;border-bottom:1px solid #eef3f3"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + clinColor + ';line-height:1.3">' + (HL[code]||code) + ' (' + code + ')</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + v + '% — ' + level + '</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + clinText + '</div></div>';
     });
     body += '</div>';
-    // Advisor note
-    body += '<div style="border:1.5px dashed #b9d6d5;border-radius:16px;padding:18px;background:#fafdfd;margin-top:14px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#9aa8a8;text-transform:uppercase">' + (isEn?'Advisor Note':isAr?'ملاحظة المستشار':'Note du Conseiller') + '</div><p style="font-size:12px;line-height:1.6;color:#3a4f4e;margin-top:8px">' + (isEn?'Dominant profile: ':'Profil dominant : ') + '<strong>' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' — '+(HL[hTop[1]]||hTop[1]):'') + '</strong>. ' + (isEn?'Leadership style : ':'Style de leadership : ') + '<strong>' + (ld.style||'-') + '</strong>. ' + (isEn?'Schedule a follow-up session to discuss academic and career path alignment.':'Prévoir une session de suivi pour aligner orientation académique et projet professionnel.') + '</p></div>';
-    body += '</div>'; // end content
-    body += pgFtr(5);
-    body += '</div>'; // end page 5
-  }
+    body += '</div>';
+    body += pgFtr(9);
+    body += '</div>'; // end page 9
+
+    // PAGE 10 — OCEAN Clinical
+    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+    body += pgHdr(10);
+    body += '<div style="padding:22px 44px;flex:1">';
+    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">' + (isEn?'Big Five OCEAN Clinical Analysis':isAr?'التحليل السريري Big Five':'Analyse Clinique Big Five OCEAN') + '</div>';
+    body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;overflow:hidden">';
+    var oceanKs = [{t:"O",lbl:isEn?"Openness":isAr?"الانفتاح":"Ouverture",col:"#1aabaa"},{t:"C2",lbl:isEn?"Conscientiousness":isAr?"الضمير":"Conscience",col:"#27c4be"},{t:"E2",lbl:isEn?"Extraversion":isAr?"الانبساطية":"Extraversion",col:"#0f7e7d"},{t:"A2",lbl:isEn?"Agreeableness":isAr?"الطيبوطية":"Agréabilité",col:"#ff7a59"},{t:"N",lbl:isEn?"Emotional Stability":isAr?"الاستقرار العاطفي":"Stabilité Émotionnelle",col:"#3a5074"}];
+    oceanKs.forEach(function(o) {
+      var v = b[o.t]||0;
+      var lv = v>=65?"HIGH":v>=40?"MED":"LOW";
+      var ct = isEn ?
+        (lv==="HIGH"?"High "+o.lbl+" ("+v+"%) — leverage as a core strength in role design. Foster opportunities that channel this dimension productively." :
+         lv==="MED"?"Moderate "+o.lbl+" ("+v+"%) — balanced profile. Provide targeted support where contextually needed." :
+         "Low "+o.lbl+" ("+v+"%) — targeted development recommended. Structured support, coaching, and concrete tools to strengthen this dimension.") :
+        (lv==="HIGH"?"Score élevé en "+o.lbl+" ("+v+"%) — capitaliser sur cette force dans la conception de rôles." :
+         lv==="MED"?"Score modéré en "+o.lbl+" ("+v+"%) — profil équilibré. Soutien ciblé selon le contexte." :
+         "Score faible en "+o.lbl+" ("+v+"%) — développement ciblé recommandé. Accompagnement structuré et outils concrets.");
+      body += '<div style="display:flex;gap:16px;padding:12px 18px;border-bottom:1px solid #eef3f3"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + o.col + '">' + o.lbl + '</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + v + '% — ' + lv + '</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + ct + '</div></div>';
+    });
+    body += '</div>';
+    body += '</div>';
+    body += pgFtr(10);
+    body += '</div>'; // end page 10
+
+    // PAGE 11 — Skill Up + Leadership Clinical
+    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+    body += pgHdr(11);
+    body += '<div style="padding:22px 44px;flex:1;display:flex;flex-direction:column;gap:16px">';
+    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'Employability & Leadership Clinical Analysis':isAr?'تحليل سريري — الاستعداد والقيادة':'Analyse Clinique — Employabilité et Leadership') + '</div>';
+    body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;overflow:hidden">';
+    var suClin = [{k:"A",lbl:isEn?"Readiness":isAr?"الاستعداد":"Préparation",col:"#1aabaa"},{k:"E",lbl:isEn?"Autonomy":isAr?"الاستقلالية":"Autonomie",col:"#27c4be"},{k:"C",lbl:isEn?"Collaboration":isAr?"التعاون":"Collaboration",col:"#0f7e7d"},{k:"R",lbl:isEn?"Adaptability":isAr?"التكيف":"Adaptabilité",col:"#ff7a59"}];
+    suClin.forEach(function(sk) {
+      var v = s[sk.k]||0;
+      var lv = v>=65?"HIGH":v>=45?"MED":"LOW";
+      var ct = isEn ?
+        (lv==="HIGH"?"High "+sk.lbl+" ("+v+"%) — strong asset. Build through advanced challenges and leadership opportunities." :
+         lv==="MED"?"Moderate "+sk.lbl+" ("+v+"%) — solid base. Targeted internship and peer mentoring will develop this further." :
+         "Low "+sk.lbl+" ("+v+"%) — priority area. Structured training, supervised practice, and incremental goal-setting recommended.") :
+        (lv==="HIGH"?"Score élevé en "+sk.lbl+" ("+v+"%) — atout fort. Renforcer par des défis de rôles avancés." :
+         lv==="MED"?"Score modéré en "+sk.lbl+" ("+v+"%) — base solide. Stage ciblé et mentorat recommandés." :
+         "Score faible en "+sk.lbl+" ("+v+"%) — axe prioritaire. Formation structurée et objectifs incrémentaux.");
+      body += '<div style="display:flex;gap:16px;padding:10px 18px;border-bottom:1px solid #eef3f3"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + sk.col + '">' + sk.lbl + '</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + v + '% — ' + lv + '</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + ct + '</div></div>';
+    });
+    body += '</div>';
+    body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;padding:14px 18px">';
+    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isEn?'Leadership Profile':isAr?'ملف القيادة':'Profil de Leadership') + '</div>';
+    body += '<div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:0 0 160px"><div style="font-size:13px;font-weight:800;color:#15302f">' + (ld.style||'') + '</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + (isEn?'Score':'Score') + ' ' + (ld.score||0) + '</div></div>';
+    var ldClin = isEn ? 'Style: <strong>' + (ld.style||'') + '</strong> (score: ' + (ld.score||0) + '). ' + (ld.desc||'') + (ld.str&&ld.str.length?' Key strengths: '+ld.str.join(', ')+'.':'') + (ld.dev&&ld.dev.length?' Development priorities: '+ld.dev.join(', ')+'. Recommend leadership coaching and cross-functional project exposure.':'') : 'Style : <strong>' + (ld.style||'') + '</strong> (score : ' + (ld.score||0) + '). ' + (ld.desc||'') + (ld.str&&ld.str.length?' Forces : '+ld.str.join(', ')+'.':'') + (ld.dev&&ld.dev.length?' Axes de développement : '+ld.dev.join(', ')+'. Coaching leadership et projets transversaux recommandés.':'');
+    body += '<div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + ldClin + '</div></div>';
+    body += '</div>';
+    body += '</div>';
+    body += pgFtr(11);
+    body += '</div>'; // end page 11
+
+    // PAGE 12 — INDH Clinical + Action Plan
+    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+    body += pgHdr(12);
+    body += '<div style="padding:22px 44px;flex:1;display:flex;flex-direction:column;gap:16px">';
+    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'INDH Programs & Advisor Action Plan':isAr?'برامج INDH وخطة عمل المستشار':'Programmes INDH et Plan d\'Action Conseiller') + '</div>';
+    body += '<div style="border:1.5px solid #e0eaea;border-radius:16px;overflow:hidden">';
+    indh.forEach(function(rec, ri) {
+      var indhCT = isEn ?
+        (rec.pct>=70?'HIGH priority ('+rec.pct+'%). Initiate contact with local INDH office to begin enrollment. Gather required documents and prepare candidate presentation.':rec.pct>=45?'MODERATE match ('+rec.pct+'%). Explore eligibility with the INDH office. Preparatory support recommended before formal application.':'LOW match ('+rec.pct+'%). Not recommended as primary program. Monitor eligibility as project evolves.') :
+        (rec.pct>=70?'Correspondance ÉLEVÉE ('+rec.pct+'%). Initier le contact avec le bureau INDH local pour démarrer l\'inscription.':rec.pct>=45?'Correspondance MODÉRÉE ('+rec.pct+'%). Explorer les conditions d\'éligibilité avec le bureau INDH.':'Correspondance FAIBLE ('+rec.pct+'%). Pas recommandé comme programme principal.');
+      body += '<div style="display:flex;gap:16px;padding:12px 18px;border-bottom:1px solid #eef3f3"><div style="flex:0 0 160px"><div style="font-size:12px;font-weight:800;color:' + (indhMC[ri]||'#0f7e7d') + '">' + (rec.prog||'') + '</div><div style="font-size:10.5px;color:#9aa8a8;margin-top:4px">' + (rec.priority||'') + ' · ' + (rec.pct||0) + '%</div></div><div style="flex:1;font-size:11.5px;line-height:1.55;color:#3a4f4e">' + indhCT + '</div></div>';
+    });
+    body += '</div>';
+    var actionItems = isEn ? [
+      'Schedule a 60-minute follow-up session within the next 2 weeks to review results and build the personalized action plan.',
+      'Share the RIASEC and Big Five profiles with the candidate and record their initial reactions.',
+      'Contact ANAPEC or OFPPT to verify current program availability in ' + (profile.region||'the candidate\'s region') + '.',
+      'Assign one e-learning course before the next session: <strong>' + (el.cs[0]||'first recommended course') + '</strong>.',
+      'Document session notes and update the candidate file in the CareerMap platform.'
+    ] : isAr ? [
+      'جدولة جلسة متابعة (60 دقيقة) خلال الأسبوعين القادمين.',
+      'مشاركة ملفي RIASEC وBig Five مع المرشح وتسجيل ردود أفعاله الأولية.',
+      'التواصل مع ANAPEC أو OFPPT للتحقق من البرامج المتاحة في ' + (profile.region||'منطقة المرشح') + '.',
+      'تكليف المرشح بدورة إلكترونية قبل الجلسة التالية: <strong>' + (el.cs[0]||'الدورة الأولى') + '</strong>.',
+      'توثيق ملاحظات الجلسة وتحديث ملف المرشح.'
+    ] : [
+      'Planifier une session de suivi de 60 minutes dans les 2 semaines pour passer en revue les résultats.',
+      'Partager les profils RIASEC et Big Five avec le candidat et recueillir ses premières réactions.',
+      'Contacter l\'ANAPEC ou l\'OFPPT pour vérifier la disponibilité des programmes dans la région ' + (profile.region||'concernée') + '.',
+      'Assigner un cours e-learning avant la prochaine séance : <strong>' + (el.cs[0]||'premier cours recommandé') + '</strong>.',
+      'Documenter les notes de session et mettre à jour le dossier candidat.'
+    ];
+    body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:800;color:#0f7e7d;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">' + (isEn?'Advisor Action Plan':isAr?'خطة عمل المستشار':'Plan d\'Action Conseiller') + '</div>';
+    actionItems.forEach(function(item, idx) {
+      body += '<div style="display:flex;gap:10px;margin-bottom:7px;align-items:flex-start"><span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:#0f7e7d;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">' + (idx+1) + '</span><span style="font-size:12px;color:#3a4f4e;line-height:1.6;flex:1">' + item + '</span></div>';
+    });
+    body += '</div>';
+    body += '</div>';
+    body += pgFtr(12);
+    body += '</div>'; // end page 12
+
+    // PAGE 13 — Advisor Notes & Session Summary
+    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
+    body += pgHdr(13);
+    body += '<div style="padding:22px 44px;flex:1;display:flex;flex-direction:column;gap:16px">';
+    body += '<div style="font-size:11px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'Advisor Notes & Session Summary':isAr?'ملاحظات المستشار وملخص الجلسة':'Notes du Conseiller et Synthèse') + '</div>';
+    body += '<div style="background:linear-gradient(120deg,#072f2e,#0f7e7d);border-radius:14px;padding:18px 22px;color:#fff">';
+    body += '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:15px;margin-bottom:12px">' + (isEn?'Assessment Summary':isAr?'ملخص التقييم':'Synthèse d\'Évaluation') + '</div>';
+    body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Holland Code':'Code Holland') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:24px;color:#fff">' + (hTop[0]||'') + (hTop[1]||'') + '</div></div>';
+    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Leadership Style':'Style Leadership') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:14px;color:#fff">' + (ld.style||'') + '</div></div>';
+    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Employability':'Employabilité') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:24px;color:#fff">' + Math.round(suTotal) + '%</div></div>';
+    body += '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px"><div style="font-size:9.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (isEn?'Priority Program':'Programme Prioritaire') + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:12px;color:#fff">' + (indhTop ? indhTop.prog : '-') + '</div></div>';
+    body += '</div></div>';
+    body += '<div style="border:1.5px dashed #b9d6d5;border-radius:16px;padding:18px;background:#fafdfd">';
+    body += '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#9aa8a8;text-transform:uppercase;margin-bottom:10px">' + (isEn?'Advisor Note':isAr?'ملاحظة المستشار':'Note du Conseiller') + '</div>';
+    body += '<p style="font-size:12px;line-height:1.65;color:#3a4f4e;margin:0">' + (isEn?'Dominant profile: ':'Profil dominant : ') + '<strong>' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' — '+(HL[hTop[1]]||hTop[1]):'') + '</strong>. ' + (isEn?'Leadership: ':'Leadership : ') + '<strong>' + (ld.style||'-') + '</strong>. ' + (isEn?'Schedule a follow-up within 2 weeks. Document key points and any immediate referrals planned.':'Planifier un suivi dans les 2 semaines. Documenter les points clés de cette séance.') + '</p>';
+    body += '</div>';
+    body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:16px;flex:1">';
+    body += '<div style="font-size:10px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isEn?'Session Notes (write here)':isAr?'ملاحظات الجلسة (اكتب هنا)':'Notes de séance (à compléter)') + '</div>';
+    for (var bl = 0; bl < 10; bl++) { body += '<div style="border-bottom:1px solid #eef3f3;height:28px"></div>'; }
+    body += '</div>';
+    body += '</div>';
+    body += pgFtr(13);
+    body += '</div>'; // end page 13
+
+  } // end advisor clinical pages
 
   body += '</div>'; // end outer wrapper
 
@@ -1578,7 +1721,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     'image:{type:"jpeg",quality:.98},' +
     'html2canvas:{scale:2,useCORS:true,logging:false,allowTaint:true,scrollY:0},' +
     'jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},' +
-    'pagebreak:{mode:["css","legacy"],before:".pdf-page",avoid:".avoid"}})' +
+    'pagebreak:{mode:["css"],avoid:".avoid"}})' +
     '.from(document.body).save().then(function(){' +
     'setTimeout(function(){try{window.close();}catch(e){}},1800);});' +
     '}else{setTimeout(window.print,600);}' +
