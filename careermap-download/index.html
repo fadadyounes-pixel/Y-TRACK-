@@ -1358,7 +1358,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Profile narrative
   var profNarr = isAr ? 'تُظهر نتائجك توجهًا مهنيًا واضحًا نحو النمط ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' و' + (HL[hTop[1]]||hTop[1]):'') + '. يشكّل هذا التوجه أساسًا قويًا لبناء مسار مهني ناجح.' :
     isEn ? 'Your results show a strong professional orientation toward the ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' and ' + (HL[hTop[1]]||hTop[1]):'') + ' profile. This orientation is the foundation for a fulfilling career path.' :
-    'Vos résultats révèlent une orientation professionnelle marquée vers le profil ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' et ' + (HL[hTop[1]]||hTop[1]):'') + '. Cette orientation constitue la base d’un parcours professionnel épanouissant.';
+    ‘Vos résultats révèlent une orientation professionnelle marquée vers le profil ‘ + (HL[hTop[0]]||hTop[0]) + (hTop[1]?’ et ‘ + (HL[hTop[1]]||hTop[1]):’’) + ‘. Cette orientation constitue la base d\’un parcours professionnel épanouissant.’;
   body += '<div style="background:#f3faf9;border:1.5px solid #b9d6d5;border-radius:13px;padding:16px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isAr?'ملفك المهني':isEn?'Your Professional Profile':'Votre Profil Professionnel') + '</div><p style="font-size:12.5px;color:#3a4f4e;line-height:1.65;margin:0">' + profNarr + '</p></div>';
   // Strengths + Development in 2 cols
   body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
@@ -1373,7 +1373,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Next steps
   var nextLabel = isAr?'خطوات عملية':isEn?'Concrete Next Steps':'Prochaines Étapes';
   body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + nextLabel + '</div>';
-  var s1 = isEn?'Schedule an orientation session with your advisor':'Réservez une séance d’orientation avec votre conseiller';
+  var s1 = isEn?’Schedule an orientation session with your advisor’:’Réservez une séance d\’orientation avec votre conseiller’;
   var s2 = (isEn?'Start with the e-learning platform suited to your level: ':'Commencez par la plateforme e-learning adaptée à votre niveau : ') + el.p;
   var s3 = (isEn?'Target your priority certification: ':'Visez la certification prioritaire : ') + el.c;
   var s4 = (isEn?'Explore recommended training paths: ':'Explorez les filières recommandées : ') + (acList[0]||'-').replace(/\([^)]+\)/g,'').trim();
@@ -1381,7 +1381,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   [s1,s2,s3,s4,s5].forEach(function(step, si){ body += '<div style="display:flex;gap:10px;margin-bottom:7px;font-size:11.5px;color:#3a4f4e"><span style="font-weight:800;color:#1aabaa;flex-shrink:0">' + (si+1) + '.</span><span>' + step + '</span></div>'; });
   body += '</div>';
   // Closing note
-  var closeNote = isEn ? 'This report is a tool to help you understand your profile and guide your career path. Results reflect your current inclinations. With your advisor’s support, you can achieve your professional goals.' : 'Ce rapport est un outil pour vous aider à mieux vous connaître et à orienter votre parcours. Les résultats reflètent vos inclinations actuelles. Avec l’accompagnement de votre conseiller, vous atteindrez vos objectifs.';
+  var closeNote = isEn ? ‘This report is a tool to help you understand your profile and guide your career path. Results reflect your current inclinations. With your advisor\’s support, you can achieve your professional goals.’ : ‘Ce rapport est un outil pour vous aider à mieux vous connaître et à orienter votre parcours. Les résultats reflètent vos inclinations actuelles. Avec l\’accompagnement de votre conseiller, vous atteindrez vos objectifs.’;
   body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:12px;padding:14px 18px"><p style="font-size:11.5px;color:rgba(255,255,255,.9);line-height:1.7;margin:0;font-style:italic">' + closeNote + '</p></div>';
   body += '</div>'; // end page 3 content
   body += pgFtr(4);
