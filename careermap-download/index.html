@@ -1103,9 +1103,9 @@ function buildReportHTML(profile, scores, role, reportLang) {
   var suAvg = Math.round(((s.A||0)+(s.E||0)+(s.C||0)+(s.R||0))/4);
   var topIndh = indh && indh.length ? indh.slice().sort(function(a,b){ return (b.pct||0)-(a.pct||0); })[0] : null;
   // Compute initials early (also computed again in PAGE 1 header — no conflict, same values)
-  var initials = ‘’;
-  var _nameParts = (name||’’).trim().split(‘ ‘);
-  for (var _ni = 0; _ni < _nameParts.length && _ni < 2; _ni++) { initials += (_nameParts[_ni][0]||’’).toUpperCase(); }
+  var initials = '';
+  var _nameParts = (name||'').trim().split(' ');
+  for (var _ni = 0; _ni < _nameParts.length && _ni < 2; _ni++) { initials += (_nameParts[_ni][0]||'').toUpperCase(); }
   if (!initials) initials = candId.substring(0,2).toUpperCase();
   // Compute profParts early (same)
   var profParts = [];
@@ -1114,56 +1114,56 @@ function buildReportHTML(profile, scores, role, reportLang) {
   if (profile.edu) profParts.push(profile.edu);
   if (profile.status) profParts.push(profile.status);
   if (profile.region) profParts.push(profile.region);
-  var cvBadgeBg = role === ‘advisor’ ? ‘rgba(255,122,89,.35)’ : ‘rgba(255,255,255,.18)’;
-  var cvVersionLbl = role === ‘advisor’ ? (L.advReport||’Rapport Conseiller’) : (L.candReport||’Rapport Candidat’);
+  var cvBadgeBg = role === 'advisor' ? 'rgba(255,122,89,.35)' : 'rgba(255,255,255,.18)';
+  var cvVersionLbl = role === 'advisor' ? (L.advReport||'Rapport Conseiller') : (L.candReport||'Rapport Candidat');
   var cvAvatar = profile.photo
-    ? ‘<img src="’ + profile.photo + ‘" style="width:100%;height:100%;object-fit:cover;" alt=""/>’
-    : ‘<span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;line-height:1">’ + initials + ‘</span>’;
+    ? '<img src="' + profile.photo + '" style="width:100%;height:100%;object-fit:cover;" alt=""/>'
+    : '<span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;line-height:1">' + initials + '</span>';
   var cvToc = (isAdv
     ? [L.sec1,L.sec2,L.sec3,L.sec4,L.sec5,L.sec6,L.sec7,L.sec8,L.sec9]
     : [L.sec1,L.sec2,L.sec3,L.sec4,L.sec5,L.sec6,L.sec7,L.sec8]).filter(Boolean);
   // Full-bleed gradient cover
-  body += ‘<div style="width:794px;height:1123px;background:linear-gradient(150deg,#072f2e 0%,#0f7e7d 42%,#1aabaa 100%);display:flex;flex-direction:column;position:relative;overflow:hidden">’;
+  body += '<div style="width:794px;height:1123px;background:linear-gradient(150deg,#072f2e 0%,#0f7e7d 42%,#1aabaa 100%);display:flex;flex-direction:column;position:relative;overflow:hidden">';
   // Decorative blobs
-  body += ‘<div style="position:absolute;top:-130px;right:-130px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.07),transparent 70%);pointer-events:none"></div>’;
-  body += ‘<div style="position:absolute;bottom:-160px;left:-100px;width:540px;height:540px;border-radius:50%;background:radial-gradient(circle,rgba(255,122,89,.11),transparent 70%);pointer-events:none"></div>’;
+  body += '<div style="position:absolute;top:-130px;right:-130px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.07),transparent 70%);pointer-events:none"></div>';
+  body += '<div style="position:absolute;bottom:-160px;left:-100px;width:540px;height:540px;border-radius:50%;background:radial-gradient(circle,rgba(255,122,89,.11),transparent 70%);pointer-events:none"></div>';
   // Top bar
-  body += ‘<div style="position:relative;padding:28px 44px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">’;
-  body += ‘<div style="display:flex;align-items:center;gap:11px"><svg width="38" height="38" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,.8)" stroke-width="2.6"/><polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/><polygon points="24,40 27.5,24 20.5,24" fill="rgba(255,255,255,.55)"/><circle cx="24" cy="24" r="2.6" fill="#0f7e7d" stroke="#fff" stroke-width="1.3"/></svg><span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.4px;color:#fff">CareerMap</span></div>’;
-  body += ‘<span style="background:’ + cvBadgeBg + ‘;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:7px 18px;font-size:11.5px;font-weight:700;letter-spacing:.5px">’ + cvVersionLbl + ‘</span>’;
-  body += ‘</div>’;
+  body += '<div style="position:relative;padding:28px 44px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">';
+  body += '<div style="display:flex;align-items:center;gap:11px"><svg width="38" height="38" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,.8)" stroke-width="2.6"/><polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/><polygon points="24,40 27.5,24 20.5,24" fill="rgba(255,255,255,.55)"/><circle cx="24" cy="24" r="2.6" fill="#0f7e7d" stroke="#fff" stroke-width="1.3"/></svg><span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.4px;color:#fff">CareerMap</span></div>';
+  body += '<span style="background:' + cvBadgeBg + ';color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:7px 18px;font-size:11.5px;font-weight:700;letter-spacing:.5px">' + cvVersionLbl + '</span>';
+  body += '</div>';
   // Center: photo, name, metrics
-  body += ‘<div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:0 60px;text-align:center">’;
-  body += ‘<div style="width:100px;height:100px;border-radius:50%;border:4px solid rgba(255,255,255,.6);background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">’ + cvAvatar + ‘</div>’;
-  body += ‘<div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;letter-spacing:-.8px;line-height:1.15">’ + name + ‘</div>’;
-  if (profParts.length) { body += ‘<div style="font-size:13px;color:rgba(255,255,255,.65);margin-top:8px">’ + profParts.join(‘ · ‘) + ‘</div>’; }
-  body += ‘</div>’;
+  body += '<div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:0 60px;text-align:center">';
+  body += '<div style="width:100px;height:100px;border-radius:50%;border:4px solid rgba(255,255,255,.6);background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">' + cvAvatar + '</div>';
+  body += '<div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;letter-spacing:-.8px;line-height:1.15">' + name + '</div>';
+  if (profParts.length) { body += '<div style="font-size:13px;color:rgba(255,255,255,.65);margin-top:8px">' + profParts.join(' · ') + '</div>'; }
+  body += '</div>';
   // Key metrics strip
-  body += ‘<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:6px">’;
+  body += '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:6px">';
   var cvMetrics = [
-    { lbl: isAr?’رمز هولاند’:isEn?’Holland Code’:’Code Holland’, val: (hTop[0]||’’)+(hTop[1]||’’), big:true },
-    { lbl: isAr?’القيادة’:isEn?’Leadership’:’Leadership’, val: (ld.style||’-’).split(‘ ‘).slice(0,2).join(‘ ‘), big:false },
-    { lbl: isAr?’الاستعداد’:isEn?’Employability’:’Employabilité’, val: suAvg+’%’, big:true }
+    { lbl: isAr?'رمز هولاند':isEn?'Holland Code':'Code Holland', val: (hTop[0]||'')+(hTop[1]||''), big:true },
+    { lbl: isAr?'القيادة':isEn?'Leadership':'Leadership', val: (ld.style||'-').split(' ').slice(0,2).join(' '), big:false },
+    { lbl: isAr?'الاستعداد':isEn?'Employability':'Employabilité', val: suAvg+'%', big:true }
   ];
   cvMetrics.forEach(function(m) {
-    body += ‘<div style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:14px 20px;min-width:86px">’;
-    body += ‘<div style="font-size:9px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:5px">’ + m.lbl + ‘</div>’;
-    body += ‘<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:’ + (m.big?30:15) + ‘px;color:#fff;line-height:1.1">’ + m.val + ‘</div>’;
-    body += ‘</div>’;
+    body += '<div style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:14px 20px;min-width:86px">';
+    body += '<div style="font-size:9px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:5px">' + m.lbl + '</div>';
+    body += '<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:' + (m.big?30:15) + 'px;color:#fff;line-height:1.1">' + m.val + '</div>';
+    body += '</div>';
   });
-  body += ‘</div>’;
-  body += ‘<div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:4px;letter-spacing:.3px">’ + (L.evalTitle||’Évaluation Carrière et Personnalité’) + ‘</div>’;
-  body += ‘</div>’; // end center
+  body += '</div>';
+  body += '<div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:4px;letter-spacing:.3px">' + (L.evalTitle||'Évaluation Carrière et Personnalité') + '</div>';
+  body += '</div>'; // end center
   // Bottom: section TOC + footer
-  body += ‘<div style="position:relative;padding:16px 44px 22px;background:rgba(0,0,0,.22);flex-shrink:0">’;
-  body += ‘<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px 8px;margin-bottom:12px">’;
+  body += '<div style="position:relative;padding:16px 44px 22px;background:rgba(0,0,0,.22);flex-shrink:0">';
+  body += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px 8px;margin-bottom:12px">';
   cvToc.slice(0,8).forEach(function(item) {
-    body += ‘<div style="font-size:9px;color:rgba(255,255,255,.52);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">’ + item + ‘</div>’;
+    body += '<div style="font-size:9px;color:rgba(255,255,255,.52);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + item + '</div>';
   });
-  body += ‘</div>’;
-  body += ‘<div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.32);border-top:1px solid rgba(255,255,255,.12);padding-top:10px"><span>’ + candId + ‘ · ‘ + date + ‘</span><span>CareerMap Assessment Platform</span></div>’;
-  body += ‘</div>’;
-  body += ‘</div>’; // end cover page
+  body += '</div>';
+  body += '<div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.32);border-top:1px solid rgba(255,255,255,.12);padding-top:10px"><span>' + candId + ' · ' + date + '</span><span>CareerMap Assessment Platform</span></div>';
+  body += '</div>';
+  body += '</div>'; // end cover page
 
   // ══════════════════════════════════════════
   // PAGE 1
@@ -1358,7 +1358,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Profile narrative
   var profNarr = isAr ? 'تُظهر نتائجك توجهًا مهنيًا واضحًا نحو النمط ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' و' + (HL[hTop[1]]||hTop[1]):'') + '. يشكّل هذا التوجه أساسًا قويًا لبناء مسار مهني ناجح.' :
     isEn ? 'Your results show a strong professional orientation toward the ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' and ' + (HL[hTop[1]]||hTop[1]):'') + ' profile. This orientation is the foundation for a fulfilling career path.' :
-    ‘Vos résultats révèlent une orientation professionnelle marquée vers le profil ‘ + (HL[hTop[0]]||hTop[0]) + (hTop[1]?’ et ‘ + (HL[hTop[1]]||hTop[1]):’’) + ‘. Cette orientation constitue la base d\’un parcours professionnel épanouissant.’;
+    'Vos résultats révèlent une orientation professionnelle marquée vers le profil ' + (HL[hTop[0]]||hTop[0]) + (hTop[1]?' et ' + (HL[hTop[1]]||hTop[1]):'') + '. Cette orientation constitue la base d\'un parcours professionnel épanouissant.';
   body += '<div style="background:#f3faf9;border:1.5px solid #b9d6d5;border-radius:13px;padding:16px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isAr?'ملفك المهني':isEn?'Your Professional Profile':'Votre Profil Professionnel') + '</div><p style="font-size:12.5px;color:#3a4f4e;line-height:1.65;margin:0">' + profNarr + '</p></div>';
   // Strengths + Development in 2 cols
   body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
@@ -1373,7 +1373,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Next steps
   var nextLabel = isAr?'خطوات عملية':isEn?'Concrete Next Steps':'Prochaines Étapes';
   body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:14px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + nextLabel + '</div>';
-  var s1 = isEn?’Schedule an orientation session with your advisor’:’Réservez une séance d\’orientation avec votre conseiller’;
+  var s1 = isEn?'Schedule an orientation session with your advisor':'Réservez une séance d\'orientation avec votre conseiller';
   var s2 = (isEn?'Start with the e-learning platform suited to your level: ':'Commencez par la plateforme e-learning adaptée à votre niveau : ') + el.p;
   var s3 = (isEn?'Target your priority certification: ':'Visez la certification prioritaire : ') + el.c;
   var s4 = (isEn?'Explore recommended training paths: ':'Explorez les filières recommandées : ') + (acList[0]||'-').replace(/\([^)]+\)/g,'').trim();
@@ -1381,7 +1381,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   [s1,s2,s3,s4,s5].forEach(function(step, si){ body += '<div style="display:flex;gap:10px;margin-bottom:7px;font-size:11.5px;color:#3a4f4e"><span style="font-weight:800;color:#1aabaa;flex-shrink:0">' + (si+1) + '.</span><span>' + step + '</span></div>'; });
   body += '</div>';
   // Closing note
-  var closeNote = isEn ? ‘This report is a tool to help you understand your profile and guide your career path. Results reflect your current inclinations. With your advisor\’s support, you can achieve your professional goals.’ : ‘Ce rapport est un outil pour vous aider à mieux vous connaître et à orienter votre parcours. Les résultats reflètent vos inclinations actuelles. Avec l\’accompagnement de votre conseiller, vous atteindrez vos objectifs.’;
+  var closeNote = isEn ? 'This report is a tool to help you understand your profile and guide your career path. Results reflect your current inclinations. With your advisor\'s support, you can achieve your professional goals.' : 'Ce rapport est un outil pour vous aider à mieux vous connaître et à orienter votre parcours. Les résultats reflètent vos inclinations actuelles. Avec l\'accompagnement de votre conseiller, vous atteindrez vos objectifs.';
   body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:12px;padding:14px 18px"><p style="font-size:11.5px;color:rgba(255,255,255,.9);line-height:1.7;margin:0;font-style:italic">' + closeNote + '</p></div>';
   body += '</div>'; // end page 3 content
   body += pgFtr(4);
