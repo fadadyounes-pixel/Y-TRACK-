@@ -532,81 +532,101 @@ function getLeadership(b, s, lang) {
 
 function getRoadmap(hTop, s, profile, lang) {
   lang = lang || "fr";
-  const ei=getEduIdx(profile.edu||""), young=["Under 18","18\u201320"].includes(profile.age||"");
-  const higher=ei>=6, ready=(s.R||0)>60;
+  var ei = getEduIdx(profile.edu || "");
+  var young = ["Under 18","18\u201320"].indexOf(profile.age || "") >= 0;
+  var higher = ei >= 6;
+  var ready = (s.R || 0) > 60;
+  var st = (profile.status || "").toLowerCase();
+  var employed = st.indexOf("employ") >= 0;
+  var jobSeeker = st.indexOf("job") >= 0 || st.indexOf("demandeur") >= 0 || st.indexOf("chercheur") >= 0;
+  var elD = (ei < 0 || ei >= 6) ? (ELEARN[hTop] || ELEARN.I) : ei >= 4 ? (ELEARN_MID[hTop] || ELEARN_MID.I) : (ELEARN_BASIC[hTop] || ELEARN_BASIC.I);
+  var c1 = (elD.cs && elD.cs[0]) ? elD.cs[0] : "";
+  var c2 = (elD.cs && elD.cs[1]) ? elD.cs[1] : "";
+  var cert = elD.c || "";
+  var plat = elD.p || "";
+  var HCC = {
+    fr:{ R:"Technicien / Ing\u00e9nieur", I:"Chercheur / Data Analyst", A:"Designer / Communicant", S:"Enseignant / Accompagnateur Social", E:"Manager / Entrepreneur", C:"Comptable / Administrateur" },
+    en:{ R:"Technician / Engineer", I:"Researcher / Data Analyst", A:"Designer / Creative", S:"Teacher / Social Support Worker", E:"Manager / Entrepreneur", C:"Accountant / Administrator" },
+    ar:{ R:"\u062a\u0642\u0646\u064a / \u0645\u0647\u0646\u062f\u0633", I:"\u0628\u0627\u062d\u062b / \u0645\u062d\u0644\u0644 \u0628\u064a\u0627\u0646\u0627\u062a", A:"\u0645\u0635\u0645\u0645 / \u0645\u0628\u062f\u0639", S:"\u0645\u062f\u0631\u0633 / \u0645\u0631\u0627\u0641\u0642 \u0627\u062c\u062a\u0645\u0627\u0639\u064a", E:"\u0645\u062f\u064a\u0631 / \u0631\u0627\u0626\u062f \u0623\u0639\u0645\u0627\u0644", C:"\u0645\u062d\u0627\u0633\u0628 / \u0625\u062f\u0627\u0631\u064a" }
+  };
+  var cc = (HCC[lang] || HCC.fr)[hTop] || hTop;
+  var rgn = profile.region || (lang==="en" ? "your region" : lang==="ar" ? "\u0645\u0646\u0637\u0642\u062a\u0643" : "votre r\u00e9gion");
   var RM = {
     fr:{
       young:[
-        {p:"0\u20133 mois",a:"Explorer les m\u00e9tiers "+( HN[hTop]||hTop)+" sur Coursera et YouTube. D\u00e9couvrir les fili\u00e8res correspondantes."},
-        {p:"3\u20136 mois",a:"S'inscrire \u00e0 une certification ou un programme pr\u00e9paratoire pertinent."},
-        {p:"6\u201312 mois",a:"Obtenir le Baccalaur\u00e9at ou \u00e9quivalent. Postuler dans une institution adapt\u00e9e."},
-        {p:"1\u20133 ans",a:"Suivre une licence ou un dipl\u00f4me technique. Rechercher des stages dans votre domaine."},
-        {p:"3\u20135 ans",a:"Entrer sur le march\u00e9 du travail. Construire votre r\u00e9seau professionnel."},
+        {p:"0\u20133 mois",a:"Explorer les m\u00e9tiers " + cc + " sur YouTube et Coursera. Commencer imm\u00e9diatement par le cours \u00ab\u00a0" + c1 + "\u00a0\u00bb pour construire votre premi\u00e8re comp\u00e9tence concr\u00e8te. Cr\u00e9er un profil LinkedIn et rejoindre des groupes professionnels li\u00e9s au profil " + hTop + "."},
+        {p:"3\u20136 mois",a:"Pr\u00e9parer le Baccalaur\u00e9at ou l'examen d'entr\u00e9e \u00e0 la formation vis\u00e9e. Compl\u00e9ter la certification \u00ab\u00a0" + cert + "\u00a0\u00bb sur " + plat + ". Rejoindre un club, une association ou un projet b\u00e9n\u00e9vole dans votre domaine \u00e0 " + rgn + "."},
+        {p:"6\u201312 mois",a:"Postuler dans les institutions correspondant \u00e0 votre profil " + hTop + ". Terminer \u00ab\u00a0" + c2 + "\u00a0\u00bb et cr\u00e9er un premier portfolio de r\u00e9alisations. Prendre contact avec l'OFPPT ou l'ANAPEC de " + rgn + " pour explorer les programmes disponibles."},
+        {p:"1\u20133 ans",a:"Suivre une licence ou un dipl\u00f4me technique dans le domaine " + cc + ". Rechercher des stages et alternances dans des organisations align\u00e9es avec votre profil. D\u00e9velopper votre r\u00e9seau professionnel local et national."},
+        {p:"3\u20135 ans",a:"Acc\u00e9der \u00e0 un premier poste en tant que " + cc + ". Viser une promotion ou une sp\u00e9cialisation avanc\u00e9e. Explorer les opportunit\u00e9s INDH pour lancer un projet personnel si souhait\u00e9."}
       ],
       higher:[
-        {p:"0\u20133 mois",a:"Mettre \u00e0 jour votre CV et LinkedIn. Cibler 10 candidatures qualit\u00e9 par semaine."},
-        {p:"3\u20136 mois",a:"D\u00e9crocher un stage ou premier contrat professionnel. Compl\u00e9ter une certification."},
-        {p:"6\u201312 mois",a:"\u00c9tablir des jalons de performance. Construire un r\u00e9seau dans votre domaine. Trouver un mentor."},
-        {p:"1\u20133 ans",a:"Acc\u00e9der \u00e0 un poste interm\u00e9diaire. Envisager une sp\u00e9cialisation ou certification professionnelle."},
-        {p:"3\u20135 ans",a:"Viser un r\u00f4le senior ou manag\u00e9rial. Lancer un projet entrepreneurial si souhait\u00e9."},
+        {p:"0\u20133 mois",a:"Mettre \u00e0 jour votre CV, profil LinkedIn et portfolio en mettant en valeur votre formation " + hTop + ". Lancer la certification \u00ab\u00a0" + cert + "\u00a0\u00bb sur " + plat + " en parall\u00e8le de vos candidatures. Cibler 5 \u00e0 10 offres qualit\u00e9 par semaine dans les secteurs " + cc + "."},
+        {p:"3\u20136 mois",a:"D\u00e9crocher un stage ou premier contrat en tant que " + cc + ". Terminer \u00ab\u00a0" + c1 + "\u00a0\u00bb et ajouter la certification \u00e0 votre profil. Rejoindre des associations professionnelles et des \u00e9v\u00e9nements networking \u00e0 " + rgn + "."},
+        {p:"6\u201312 mois",a:"\u00c9tablir des jalons de performance professionnelle mesurables. Compl\u00e9ter \u00ab\u00a0" + c2 + "\u00a0\u00bb pour approfondir votre expertise. Trouver un mentor exp\u00e9riment\u00e9 dans le domaine " + hTop + " et planifier des points de suivi r\u00e9guliers."},
+        {p:"1\u20133 ans",a:"Acc\u00e9der \u00e0 un poste interm\u00e9diaire de " + cc + ". Envisager une sp\u00e9cialisation avanc\u00e9e ou une deuxi\u00e8me certification professionnelle reconnue. Explorer les march\u00e9s r\u00e9gionaux et \u00e0 l'international si opportunit\u00e9."},
+        {p:"3\u20135 ans",a:"Viser un r\u00f4le senior ou man\u00e9g\u00e9rial dans votre secteur. Envisager une consultance ind\u00e9pendante ou un projet entrepreneurial. Contribuer \u00e0 la formation et au mentorat de la prochaine g\u00e9n\u00e9ration dans votre domaine."}
       ],
       default:[
-        {p:"0\u20133 mois",a:"Identifier vos lacunes. S'inscrire \u00e0 un cours e-learning de votre liste recommand\u00e9e."},
-        {p:"3\u20136 mois",a:"Compl\u00e9ter votre certification ou programme. Commencer \u00e0 networker dans votre secteur cible."},
-        {p:"6\u201312 mois",a:"Postuler \u00e0 des postes juniors ou stages. Construire un portfolio de travaux pratiques."},
-        {p:"1\u20133 ans",a:"Obtenir un emploi stable. Poursuivre une certification avanc\u00e9e ou \u00e9tudes partielles."},
-        {p:"3\u20135 ans",a:"Acc\u00e9der \u00e0 des responsabilit\u00e9s interm\u00e9diaires. Explorer les opportunit\u00e9s de leadership."},
+        {p:"0\u20133 mois",a:"Identifier vos lacunes prioritaires et commencer imm\u00e9diatement par \u00ab\u00a0" + c1 + "\u00a0\u00bb (" + plat + "). Contacter l'ANAPEC de " + rgn + " pour les programmes de formation subventionn\u00e9s. Cr\u00e9er ou mettre \u00e0 jour votre profil LinkedIn."},
+        {p:"3\u20136 mois",a:"Compl\u00e9ter la certification \u00ab\u00a0" + cert + "\u00a0\u00bb et la mettre en avant sur votre CV et LinkedIn. Constituer un portfolio de projets r\u00e9alis\u00e9s. R\u00e9seauter activement\u00a0: \u00e9v\u00e9nements locaux, groupes LinkedIn, associations professionnelles \u00e0 " + rgn + "."},
+        {p:"6\u201312 mois",a:"Postuler \u00e0 des postes juniors ou stages dans le domaine " + cc + ". Terminer \u00ab\u00a0" + c2 + "\u00a0\u00bb pour consolider vos comp\u00e9tences. Approfondir votre connaissance du march\u00e9 local \u00e0 " + rgn + " et identifier les employeurs cibles."},
+        {p:"1\u20133 ans",a:"Obtenir un emploi stable en tant que " + cc + ". Poursuivre une certification avanc\u00e9e ou des \u00e9tudes partielles \u00e0 temps partiel. Envisager les opportunit\u00e9s INDH pour un projet personnel ou une activit\u00e9 ind\u00e9pendante."},
+        {p:"3\u20135 ans",a:"Acc\u00e9der \u00e0 des responsabilit\u00e9s interm\u00e9diaires et d\u00e9velopper votre expertise sectorielle. Explorer les opportunit\u00e9s de leadership et de mentorat. Construire une r\u00e9putation professionnelle solide dans votre domaine \u00e0 " + rgn + " et au-del\u00e0."}
       ]
     },
     en:{
       young:[
-        {p:"0\u20133 Months",a:"Explore "+( HN[hTop]||hTop)+" career paths on Coursera and YouTube. Discover related programs."},
-        {p:"3\u20136 Months",a:"Enroll in a relevant certification or preparatory program."},
-        {p:"6\u201312 Months",a:"Complete your Baccalaureate or equivalent. Apply to a suitable institution."},
-        {p:"1\u20133 Years",a:"Pursue a bachelor degree or technical diploma. Seek internships in your field."},
-        {p:"3\u20135 Years",a:"Enter the job market. Build your professional network."},
+        {p:"0\u20133 Months",a:"Explore " + cc + " career paths on YouTube and Coursera. Start immediately with the course \"" + c1 + "\" to build your first concrete skill. Create a LinkedIn profile and join professional groups related to Holland type " + hTop + "."},
+        {p:"3\u20136 Months",a:"Prepare for your Baccalaureate or training entry exam. Complete the certification \"" + cert + "\" on " + plat + ". Join a club, association, or volunteer project in your field in " + rgn + "."},
+        {p:"6\u201312 Months",a:"Apply to institutions aligned with your " + hTop + " profile. Complete \"" + c2 + "\" and build your first portfolio of projects. Contact OFPPT or ANAPEC in " + rgn + " to explore available training programs."},
+        {p:"1\u20133 Years",a:"Pursue a bachelor degree or technical diploma in the " + cc + " field. Seek internships and apprenticeships in aligned organizations. Build your local and national professional network."},
+        {p:"3\u20135 Years",a:"Land your first professional role as a " + cc + ". Target promotion or advanced specialization. Explore INDH opportunities to launch a personal project if desired."}
       ],
       higher:[
-        {p:"0\u20133 Months",a:"Update your CV and LinkedIn. Target 10 quality applications per week."},
-        {p:"3\u20136 Months",a:"Secure an internship or first professional contract. Complete one certification."},
-        {p:"6\u201312 Months",a:"Establish performance milestones. Build a network in your field. Find a mentor."},
-        {p:"1\u20133 Years",a:"Move into a mid-level position. Consider a specialisation or professional certification."},
-        {p:"3\u20135 Years",a:"Target a senior or managerial role. Launch a side project if entrepreneurially inclined."},
+        {p:"0\u20133 Months",a:"Update your CV, LinkedIn, and portfolio highlighting your " + hTop + " background. Launch the \"" + cert + "\" certification on " + plat + " alongside your job search. Target 5 to 10 quality applications per week in " + cc + " sectors."},
+        {p:"3\u20136 Months",a:"Land an internship or first contract as a " + cc + ". Complete \"" + c1 + "\" and add the certification to your profile. Join professional associations and networking events in " + rgn + "."},
+        {p:"6\u201312 Months",a:"Set measurable professional performance milestones. Complete \"" + c2 + "\" to deepen your expertise. Find an experienced mentor in the " + hTop + " field and schedule regular check-ins."},
+        {p:"1\u20133 Years",a:"Move into an intermediate " + cc + " position. Consider advanced specialization or a second recognized professional certification. Explore regional and international market opportunities."},
+        {p:"3\u20135 Years",a:"Target a senior or managerial role in your sector. Consider independent consulting or an entrepreneurial project. Contribute to training and mentoring the next generation in your field."}
       ],
       default:[
-        {p:"0\u20133 Months",a:"Identify your key skill gaps. Enroll in one e-learning course from your recommended list."},
-        {p:"3\u20136 Months",a:"Complete your certification or diploma. Begin networking in your target community."},
-        {p:"6\u201312 Months",a:"Apply for entry-level positions or internships. Build a portfolio of practical work."},
-        {p:"1\u20133 Years",a:"Secure stable employment. Pursue advanced certification or part-time higher education."},
-        {p:"3\u20135 Years",a:"Advance to mid-level responsibility. Explore leadership opportunities."},
+        {p:"0\u20133 Months",a:"Identify your priority skill gaps and start immediately with \"" + c1 + "\" (" + plat + "). Contact ANAPEC in " + rgn + " for subsidized training programs. Create or update your LinkedIn profile."},
+        {p:"3\u20136 Months",a:"Complete the \"" + cert + "\" certification and highlight it on your CV and LinkedIn. Build a portfolio of completed projects. Network actively: local events, LinkedIn groups, and professional associations in " + rgn + "."},
+        {p:"6\u201312 Months",a:"Apply to entry-level roles or internships in the " + cc + " field. Complete \"" + c2 + "\" to consolidate your skills. Deepen your knowledge of the local market in " + rgn + " and identify target employers."},
+        {p:"1\u20133 Years",a:"Secure stable employment as a " + cc + ". Pursue advanced certification or part-time studies. Explore INDH opportunities for a personal project or independent activity."},
+        {p:"3\u20135 Years",a:"Move into intermediate responsibilities and develop sector expertise. Explore leadership and mentoring opportunities. Build a strong professional reputation in " + rgn + " and beyond."}
       ]
     },
     ar:{
       young:[
-        {p:"\u0635\u0641\u0631\u20133 \u0623\u0634\u0647\u0631",a:"\u0627\u0633\u062a\u0643\u0634\u0627\u0641 \u0645\u0633\u0627\u0631\u0627\u062a "+( HN[hTop]||hTop)+" \u0639\u0628\u0631 Coursera \u0648YouTube. \u0627\u0643\u062a\u0634\u0627\u0641 \u0627\u0644\u062a\u062e\u0635\u0635\u0627\u062a \u0627\u0644\u0645\u0644\u0627\u0626\u0645\u0629."},
-        {p:"3\u20136 \u0623\u0634\u0647\u0631",a:"\u0627\u0644\u0627\u0644\u062a\u062d\u0627\u0642 \u0628\u0634\u0647\u0627\u062f\u0629 \u0623\u0648 \u0628\u0631\u0646\u0627\u0645\u062c \u062a\u062d\u0636\u064a\u0631\u064a \u0645\u0644\u0627\u0626\u0645."},
-        {p:"6\u201312 \u0634\u0647\u0631\u0627\u064b",a:"\u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0627\u0644\u0628\u0627\u0643\u0627\u0644\u0648\u0631\u064a\u0627 \u0623\u0648 \u0645\u0627 \u064a\u0639\u0627\u062f\u0644\u0647\u0627. \u0627\u0644\u062a\u0642\u062f\u0651\u0645 \u0625\u0644\u0649 \u0645\u0624\u0633\u0633\u0629 \u0645\u0646\u0627\u0633\u0628\u0629."},
-        {p:"1\u20133 \u0633\u0646\u0648\u0627\u062a",a:"\u0645\u062a\u0627\u0628\u0639\u0629 \u0644\u064a\u0633\u0627\u0646\u0633 \u0623\u0648 \u062f\u0628\u0644\u0648\u0645 \u062a\u0642\u0646\u064a. \u0627\u0644\u0628\u062d\u062b \u0639\u0646 \u062a\u062f\u0631\u064a\u0628 \u0645\u064a\u062f\u0627\u0646\u064a \u0641\u064a \u0645\u062c\u0627\u0644\u0643."},
-        {p:"3\u20135 \u0633\u0646\u0648\u0627\u062a",a:"\u0627\u0644\u062f\u062e\u0648\u0644 \u0625\u0644\u0649 \u0633\u0648\u0642 \u0627\u0644\u0639\u0645\u0644. \u0628\u0646\u0627\u0621 \u0634\u0628\u0643\u062a\u0643 \u0627\u0644\u0645\u0647\u0646\u064a\u0629."},
+        {p:"\u0635\u0641\u0631\u20133 \u0623\u0634\u0647\u0631",a:"\u0627\u0633\u062a\u0643\u0634\u0627\u0641 \u0645\u0633\u0627\u0631\u0627\u062a " + cc + " \u0639\u0628\u0631 YouTube \u0648Coursera. \u0627\u0644\u0628\u062f\u0621 \u0641\u0648\u0631\u064b\u0627 \u0628\u062f\u0648\u0631\u0629 \u00ab\u00a0" + c1 + "\u00a0\u00bb \u0644\u0628\u0646\u0627\u0621 \u0623\u0648\u0644 \u0645\u0647\u0627\u0631\u0629 \u0645\u0644\u0645\u0648\u0633\u0629. \u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628 LinkedIn \u0648\u0627\u0644\u0627\u0646\u0636\u0645\u0627\u0645 \u0644\u0645\u062c\u0645\u0648\u0639\u0627\u062a \u0645\u0647\u0646\u064a\u0629."},
+        {p:"3\u20136 \u0623\u0634\u0647\u0631",a:"\u0627\u0644\u062a\u062d\u0636\u064a\u0631 \u0644\u0627\u0645\u062a\u062d\u0627\u0646 \u0627\u0644\u0628\u0627\u0643\u0627\u0644\u0648\u0631\u064a\u0627 \u0623\u0648 \u0634\u0647\u0627\u062f\u0629 \u0627\u0644\u0642\u0628\u0648\u0644. \u0625\u062a\u0645\u0627\u0645 \u00ab\u00a0" + cert + "\u00a0\u00bb \u0639\u0644\u0649 " + plat + "."},
+        {p:"6\u201312 \u0634\u0647\u0631\u064b\u0627",a:"\u0627\u0644\u062a\u0642\u062f\u0645 \u0625\u0644\u0649 \u0645\u0624\u0633\u0633\u0627\u062a \u062a\u062a\u0648\u0627\u0641\u0642 \u0645\u0639 \u0645\u0644\u0641\u0643 " + hTop + ". \u0625\u062a\u0645\u0627\u0645 \u00ab\u00a0" + c2 + "\u00a0\u00bb \u0648\u0625\u0646\u0634\u0627\u0621 \u0645\u062d\u0641\u0638\u0629 \u0623\u0639\u0645\u0627\u0644. \u0627\u0644\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 OFPPT \u0623\u0648 ANAPEC \u0641\u064a " + rgn + "."},
+        {p:"1\u20133 \u0633\u0646\u0648\u0627\u062a",a:"\u0645\u062a\u0627\u0628\u0639\u0629 \u0644\u064a\u0633\u0627\u0646\u0633 \u0623\u0648 \u062f\u0628\u0644\u0648\u0645 \u062a\u0642\u0646\u064a \u0641\u064a \u0645\u062c\u0627\u0644 " + cc + ". \u0627\u0644\u0628\u062d\u062b \u0639\u0646 \u062a\u062f\u0631\u064a\u0628 \u0645\u064a\u062f\u0627\u0646\u064a \u0648\u062a\u0637\u0648\u064a\u0631 \u0634\u0628\u0643\u062a\u0643 \u0627\u0644\u0645\u0647\u0646\u064a\u0629."},
+        {p:"3\u20135 \u0633\u0646\u0648\u0627\u062a",a:"\u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0623\u0648\u0644 \u0648\u0638\u064a\u0641\u0629 \u0628\u0648\u0635\u0641\u0643 " + cc + ". \u0627\u0633\u062a\u0643\u0634\u0627\u0641 \u0641\u0631\u0635 INDH."}
       ],
       higher:[
-        {p:"\u0635\u0641\u0631\u20133 \u0623\u0634\u0647\u0631",a:"\u062a\u062d\u062f\u064a\u062b \u0633\u064a\u0631\u062a\u0643 \u0627\u0644\u0630\u0627\u062a\u064a\u0629 \u0648LinkedIn. \u0627\u0633\u062a\u0647\u062f\u0627\u0641 10 \u0637\u0644\u0628\u0627\u062a \u062c\u0648\u062f\u0629 \u0623\u0633\u0628\u0648\u0639\u064a\u0627\u064b."},
-        {p:"3\u20136 \u0623\u0634\u0647\u0631",a:"\u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u062a\u062f\u0631\u064a\u0628 \u0623\u0648 \u0639\u0642\u062f \u0645\u0647\u0646\u064a \u0623\u0648\u0644. \u0625\u062a\u0645\u0627\u0645 \u0634\u0647\u0627\u062f\u0629 \u0648\u0627\u062d\u062f\u0629."},
-        {p:"6\u201312 \u0634\u0647\u0631\u0627\u064b",a:"\u062a\u062d\u062f\u064a\u062f \u0645\u0639\u0627\u0644\u0645 \u0623\u062f\u0627\u0621 \u0648\u0628\u0646\u0627\u0621 \u0634\u0628\u0643\u0629 \u0641\u064a \u0645\u062c\u0627\u0644\u0643. \u0625\u064a\u062c\u0627\u062f \u0645\u0631\u0634\u062f."},
-        {p:"1\u20133 \u0633\u0646\u0648\u0627\u062a",a:"\u0627\u0644\u0627\u0646\u062a\u0642\u0627\u0644 \u0625\u0644\u0649 \u0645\u0646\u0635\u0628 \u0645\u062a\u0648\u0633\u0637. \u0627\u0644\u062a\u0641\u0643\u064a\u0631 \u0641\u064a \u062a\u062e\u0635\u0635 \u0623\u0648 \u0634\u0647\u0627\u062f\u0629 \u0645\u0647\u0646\u064a\u0629."},
-        {p:"3\u20135 \u0633\u0646\u0648\u0627\u062a",a:"\u0627\u0633\u062a\u0647\u062f\u0627\u0641 \u062f\u0648\u0631 \u0642\u064a\u0627\u062f\u064a \u0623\u0648 \u0625\u062f\u0627\u0631\u064a. \u0625\u0637\u0644\u0627\u0642 \u0645\u0634\u0631\u0648\u0639 \u0631\u064a\u0627\u062f\u064a \u0625\u0646 \u0631\u063a\u0628\u062a."},
+        {p:"\u0635\u0641\u0631\u20133 \u0623\u0634\u0647\u0631",a:"\u062a\u062d\u062f\u064a\u062b \u0633\u064a\u0631\u062a\u0643 \u0627\u0644\u0630\u0627\u062a\u064a\u0629 \u0648LinkedIn. \u0628\u062f\u0621 \u00ab\u00a0" + cert + "\u00a0\u00bb \u0639\u0644\u0649 " + plat + " \u0628\u0627\u0644\u062a\u0648\u0627\u0632\u064a \u0645\u0639 \u0637\u0644\u0628\u0627\u062a\u0643. \u0627\u0633\u062a\u0647\u062f\u0627\u0641 5 \u0625\u0644\u0649 10 \u0639\u0631\u0648\u0636 \u062c\u0648\u062f\u0629 \u0623\u0633\u0628\u0648\u0639\u064a\u064b\u0627 \u0641\u064a \u0645\u062c\u0627\u0644 " + cc + "."},
+        {p:"3\u20136 \u0623\u0634\u0647\u0631",a:"\u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u062a\u062f\u0631\u064a\u0628 \u0623\u0648 \u0639\u0642\u062f \u0645\u0647\u0646\u064a \u0623\u0648\u0644 \u0628\u0648\u0635\u0641\u0643 " + cc + ". \u0625\u062a\u0645\u0627\u0645 \u00ab\u00a0" + c1 + "\u00a0\u00bb \u0648\u0625\u0636\u0627\u0641\u062a\u0647\u0627 \u0644\u0645\u0644\u0641\u0643. \u0627\u0644\u0627\u0646\u0636\u0645\u0627\u0645 \u0644\u062c\u0645\u0639\u064a\u0627\u062a \u0645\u0647\u0646\u064a\u0629 \u0641\u064a " + rgn + "."},
+        {p:"6\u201312 \u0634\u0647\u0631\u064b\u0627",a:"\u062a\u062d\u062f\u064a\u062f \u0645\u0639\u0627\u0644\u0645 \u0623\u062f\u0627\u0621 \u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0642\u064a\u0627\u0633. \u0625\u062a\u0645\u0627\u0645 \u00ab\u00a0" + c2 + "\u00a0\u00bb \u0644\u062a\u0639\u0645\u064a\u0642 \u062e\u0628\u0631\u062a\u0643. \u0625\u064a\u062c\u0627\u062f \u0645\u0631\u0634\u062f \u0645\u062a\u0645\u0631\u0633 \u0641\u064a \u0645\u062c\u0627\u0644 " + hTop + "."},
+        {p:"1\u20133 \u0633\u0646\u0648\u0627\u062a",a:"\u0627\u0644\u0627\u0646\u062a\u0642\u0627\u0644 \u0625\u0644\u0649 \u0645\u0646\u0635\u0628 \u0645\u062a\u0648\u0633\u0637 \u0628\u0648\u0635\u0641\u0643 " + cc + ". \u0627\u0644\u062a\u0641\u0643\u064a\u0631 \u0641\u064a \u062a\u062e\u0635\u0635 \u0645\u062a\u0642\u062f\u0645 \u0623\u0648 \u0634\u0647\u0627\u062f\u0629 \u062b\u0627\u0646\u064a\u0629. \u0627\u0633\u062a\u0643\u0634\u0627\u0641 \u0627\u0644\u0623\u0633\u0648\u0627\u0642 \u0627\u0644\u0625\u0642\u0644\u064a\u0645\u064a\u0629 \u0648\u0627\u0644\u062f\u0648\u0644\u064a\u0629."},
+        {p:"3\u20135 \u0633\u0646\u0648\u0627\u062a",a:"\u0627\u0633\u062a\u0647\u062f\u0627\u0641 \u062f\u0648\u0631 \u0642\u064a\u0627\u062f\u064a \u0623\u0648 \u0625\u062f\u0627\u0631\u064a. \u0627\u0644\u062a\u0641\u0643\u064a\u0631 \u0641\u064a \u0631\u064a\u0627\u062f\u0629 \u0627\u0644\u0623\u0639\u0645\u0627\u0644. \u0627\u0644\u0645\u0633\u0627\u0647\u0645\u0629 \u0641\u064a \u062a\u0643\u0648\u064a\u0646 \u0627\u0644\u062c\u064a\u0644 \u0627\u0644\u0642\u0627\u062f\u0645."}
       ],
       default:[
-        {p:"\u0635\u0641\u0631\u20133 \u0623\u0634\u0647\u0631",a:"\u062a\u062d\u062f\u064a\u062f \u062b\u063a\u0631\u0627\u062a \u0645\u0647\u0627\u0631\u0627\u062a\u0643. \u0627\u0644\u062a\u0633\u062c\u064a\u0644 \u0641\u064a \u062f\u0648\u0631\u0629 \u062a\u0639\u0644\u0651\u0645 \u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0645\u0646 \u0642\u0627\u0626\u0645\u062a\u0643."},
-        {p:"3\u20136 \u0623\u0634\u0647\u0631",a:"\u0625\u062a\u0645\u0627\u0645 \u0634\u0647\u0627\u062f\u062a\u0643. \u0627\u0644\u0628\u062f\u0621 \u0628\u0628\u0646\u0627\u0621 \u0634\u0628\u0643\u0629 \u0641\u064a \u0645\u062c\u062a\u0645\u0639\u0643 \u0627\u0644\u0645\u0647\u0646\u064a \u0627\u0644\u0645\u0633\u062a\u0647\u062f\u0641."},
-        {p:"6\u201312 \u0634\u0647\u0631\u0627\u064b",a:"\u0627\u0644\u062a\u0642\u062f\u064f\u0651\u0645 \u0644\u0648\u0638\u0627\u0626\u0641 \u0645\u0628\u062a\u062f\u0626\u0629 \u0623\u0648 \u062a\u062f\u0631\u064a\u0628\u0627\u062a. \u0628\u0646\u0627\u0621 \u0645\u062d\u0641\u0638\u0629 \u0623\u0639\u0645\u0627\u0644."},
-        {p:"1\u20133 \u0633\u0646\u0648\u0627\u062a",a:"\u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0639\u0645\u0644 \u0645\u0633\u062a\u0642\u0631. \u0645\u062a\u0627\u0628\u0639\u0629 \u0634\u0647\u0627\u062f\u0627\u062a \u0645\u062a\u0642\u062f\u0645\u0629 \u0623\u0648 \u062f\u0631\u0627\u0633\u0629 \u062c\u0632\u0626\u064a\u0629."},
-        {p:"3\u20135 \u0633\u0646\u0648\u0627\u062a",a:"\u062a\u0648\u0644\u064a \u0645\u0633\u0624\u0648\u0644\u064a\u0627\u062a \u0645\u062a\u0648\u0633\u0637\u0629. \u0627\u0633\u062a\u0643\u0634\u0627\u0641 \u0641\u0631\u0635 \u0627\u0644\u0642\u064a\u0627\u062f\u0629."},
+        {p:"\u0635\u0641\u0631\u20133 \u0623\u0634\u0647\u0631",a:"\u062a\u062d\u062f\u064a\u062f \u0627\u0644\u0641\u062c\u0648\u0627\u062a \u0627\u0644\u0645\u0647\u0627\u0631\u064a\u0629 \u0627\u0644\u0623\u0648\u0644\u0648\u064a\u0629 \u0648\u0627\u0644\u0628\u062f\u0621 \u0641\u0648\u0631\u064b\u0627 \u0628 \u00ab\u00a0" + c1 + "\u00a0\u00bb (" + plat + "). \u0627\u0644\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 ANAPEC \u0641\u064a " + rgn + ". \u0625\u0646\u0634\u0627\u0621 \u0645\u0644\u0641 LinkedIn."},
+        {p:"3\u20136 \u0623\u0634\u0647\u0631",a:"\u0625\u062a\u0645\u0627\u0645 \u00ab\u00a0" + cert + "\u00a0\u00bb \u0648\u0625\u0628\u0631\u0627\u0632\u0647\u0627 \u0639\u0644\u0649 \u0633\u064a\u0631\u062a\u0643 \u0648LinkedIn. \u0628\u0646\u0627\u0621 \u0645\u062d\u0641\u0638\u0629 \u0645\u0634\u0627\u0631\u064a\u0639. \u0628\u0646\u0627\u0621 \u0634\u0628\u0643\u0629 \u0641\u064a " + rgn + "."},
+        {p:"6\u201312 \u0634\u0647\u0631\u064b\u0627",a:"\u0627\u0644\u062a\u0642\u062f\u0645 \u0644\u0648\u0638\u0627\u0626\u0641 \u0645\u0628\u062a\u062f\u0626\u0629 \u0623\u0648 \u062a\u062f\u0631\u064a\u0628\u0627\u062a \u0641\u064a \u0645\u062c\u0627\u0644 " + cc + ". \u0625\u062a\u0645\u0627\u0645 \u00ab\u00a0" + c2 + "\u00a0\u00bb. \u062a\u0639\u0645\u064a\u0642 \u0645\u0639\u0631\u0641\u062a\u0643 \u0628\u0633\u0648\u0642 \u0627\u0644\u0639\u0645\u0644 \u0641\u064a " + rgn + "."},
+        {p:"1\u20133 \u0633\u0646\u0648\u0627\u062a",a:"\u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0639\u0645\u0644 \u0645\u0633\u062a\u0642\u0631 \u0628\u0648\u0635\u0641\u0643 " + cc + ". \u0645\u062a\u0627\u0628\u0639\u0629 \u0634\u0647\u0627\u062f\u0627\u062a \u0645\u062a\u0642\u062f\u0645\u0629. \u0627\u0633\u062a\u0643\u0634\u0627\u0641 \u0641\u0631\u0635 INDH."},
+        {p:"3\u20135 \u0633\u0646\u0648\u0627\u062a",a:"\u062a\u0648\u0644\u064a \u0645\u0633\u0624\u0648\u0644\u064a\u0627\u062a \u0645\u062a\u0648\u0633\u0637\u0629 \u0648\u062a\u0637\u0648\u064a\u0631 \u0627\u0644\u062e\u0628\u0631\u0629 \u0627\u0644\u0642\u0637\u0627\u0639\u064a\u0629. \u0627\u0633\u062a\u0643\u0634\u0627\u0641 \u0641\u0631\u0635 \u0627\u0644\u0642\u064a\u0627\u062f\u0629. \u0628\u0646\u0627\u0621 \u0633\u0645\u0639\u0629 \u0645\u0647\u0646\u064a\u0629 \u0641\u064a " + rgn + " \u0648\u0645\u0627 \u0648\u0631\u0627\u0626\u0647\u0627."}
       ]
     }
   };
-  var RD = RM[lang]||RM.fr;
-  return young && ei<4 ? RD.young : (higher && ready ? RD.higher : RD.default);
+  var trackKey = (young && ei < 4) ? "young" : (employed || (higher && ready)) ? "higher" : "default";
+  if (jobSeeker && !young && !higher) trackKey = "default";
+  if (employed && !young) trackKey = "higher";
+  var RD = RM[lang] || RM.fr;
+  return RD[trackKey] || RD.default;
 }
 
 function getINDH(s, ld, profile, lang, eq, entre) {
@@ -922,11 +942,14 @@ function buildReportHTML(profile, scores, role, reportLang) {
 
 
   // ── Per-section narrative helpers ────────────────────────────────────────
-  function nBlk(lbl, txt, isAdv) {
-    var bg = isAdv ? "#fef9ef" : "#f3faf9";
-    var bdr = isAdv ? "#e8c975" : "#b9d6d5";
-    var lc = isAdv ? "#b45309" : "#0f7e7d";
-    return '<div style="background:' + bg + ';border:1.5px solid ' + bdr + ';border-radius:13px;padding:14px 18px;margin-top:12px"><div style="font-size:10px;font-weight:700;color:' + lc + ';text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + lbl + '</div><p style="font-size:12.5px;color:#3a4f4e;line-height:1.7;margin:0">' + txt + '</p></div>';
+  function nBlk(lbl, txt, isAdv, accentCol) {
+    var col = accentCol || (isAdv ? "#b45309" : "#0f7e7d");
+    var hexR = parseInt(col.slice(1,3), 16);
+    var hexG = parseInt(col.slice(3,5), 16);
+    var hexBl = parseInt(col.slice(5,7), 16);
+    var bg = "rgba(" + hexR + "," + hexG + "," + hexBl + ",.07)";
+    var bdrL = "rgba(" + hexR + "," + hexG + "," + hexBl + ",.2)";
+    return '<div style="background:' + bg + ';border-left:4px solid ' + col + ';border-top:1px solid ' + bdrL + ';border-right:1px solid ' + bdrL + ';border-bottom:1px solid ' + bdrL + ';border-radius:0 13px 13px 0;padding:15px 20px;margin-top:14px"><div style="font-size:10px;font-weight:800;color:' + col + ';text-transform:uppercase;letter-spacing:1.2px;margin-bottom:9px">' + lbl + '</div><p style="font-size:12.5px;color:#3a4f4e;line-height:1.78;margin:0">' + txt + '</p></div>';
   }
   var isAdv = role === "advisor";
   var nLbl = isAr ? (isAdv ? "التشخيص السريري" : "تحليل الملف") : isEn ? (isAdv ? "Clinical Diagnosis" : "Profile Analysis") : (isAdv ? "Analyse Clinique" : "Analyse du Profil");
@@ -1046,11 +1069,15 @@ function buildReportHTML(profile, scores, role, reportLang) {
     "Les formations académiques recommandées ci-dessus sont sélectionnées à partir de l'intersection de votre profil Holland (<strong>" + (hTop[0]||"") + (hTop[1]||"") + "</strong>) et de votre niveau d'études actuel (" + (profile.edu||"non précisé") + "). " + (isAdv ? "Note clinique : vérifier les prérequis académiques du candidat et explorer les options de financement disponibles (OFPPT, ANAPEC, bourses institutionnelles). S'assurer que le parcours choisi correspond à la demande du marché local dans la région " + (profile.region||"du candidat") + "." : "Ces formations représentent les voies les plus prometteuses vers des carrières alignées avec vos forces naturelles et vos intérêts profonds. Nous vous recommandons de visiter chaque établissement, d'échanger avec des étudiants actuels et d'explorer les aides financières disponibles pour une décision éclairée.");
   // ── E-Learning narrative ──────────────────────────────────────────────────
   var eTierLabel = (ei < 0 || ei >= 6) ? (isEn?"Advanced (international platforms)":isAr?"متقدم (منصات دولية)":"Avancé (plateformes internationales)") : ei >= 4 ? (isEn?"Intermediate (Coursera · FUN-MOOC)":isAr?"متوسط (Coursera · FUN-MOOC)":"Intermédiaire (Coursera · FUN-MOOC)") : (isEn?"Foundation (YouTube · Darija)":isAr?"أساسي (يوتيوب · دارجة)":"Fondamental (YouTube · Darija)");
+  var elSt = (profile.status || "").toLowerCase();
+  var eIsJobSeeker = elSt.indexOf("job") >= 0 || elSt.indexOf("demandeur") >= 0 || elSt.indexOf("chercheur") >= 0;
+  var eIsStudent = elSt.indexOf("student") >= 0 || elSt.indexOf("etudiant") >= 0 || elSt.indexOf("\u00e9tudiant") >= 0 || elSt.indexOf("lyc") >= 0;
+  var eStatNote = isEn ? (eIsJobSeeker ? "As a job seeker, prioritize certifications completable in 30 to 90 days — recruiters increasingly recognize credentials from Coursera, Google, and IBM. Adding a recognized certification to your profile can double your interview rate." : eIsStudent ? "As a student, you can access free audit tracks on Coursera and edX — the same courses offered by MIT, Stanford, and leading European universities, at zero cost. Take advantage of your student status to build credentials before entering the job market." : "A consistent e-learning investment of 30 to 45 minutes per day will produce visible, measurable results within 90 days of starting.") : isAr ? (eIsJobSeeker ? "\u0628\u0648\u0635\u0641\u0643 \u0628\u0627\u062d\u062b\u064b\u0627 \u0639\u0646 \u0639\u0645\u0644\u060c \u0623\u0639\u0637\u0650 \u0627\u0644\u0623\u0648\u0644\u0648\u064a\u0629 \u0644\u0644\u0634\u0647\u0627\u062f\u0627\u062a \u0627\u0644\u062a\u064a \u062a\u0633\u062a\u063a\u0631\u0642 30 \u0625\u0644\u0649 90 \u064a\u0648\u0645\u064b\u0627." : eIsStudent ? "\u0628\u0648\u0635\u0641\u0643 \u0637\u0627\u0644\u0628\u064b\u0627\u060c \u064a\u0645\u0643\u0646\u0643 \u0627\u0644\u0648\u0635\u0648\u0644 \u0645\u062c\u0627\u0646\u064b\u0627 \u0625\u0644\u0649 Coursera \u0648edX." : "\u0627\u0633\u062a\u062b\u0645\u0627\u0631 \u0645\u0646\u062a\u0638\u0645 30 \u062f\u0642\u064a\u0642\u0629 \u064a\u0648\u0645\u064a\u064b\u0627 \u0633\u064a\u062d\u0642\u0642 \u0646\u062a\u0627\u0626\u062c \u0645\u0644\u0645\u0648\u0633\u0629.") : (eIsJobSeeker ? "En tant que demandeur d'emploi, priorisez les certifications r\u00e9alisables en 30 \u00e0 90 jours et directement ajoutables \u00e0 votre CV \u2014 les recruteurs reconnaissent de plus en plus les certifications Coursera, Google et IBM. L'ajout d'une certification reconnue sur votre profil peut doubler votre taux de convocation \u00e0 des entretiens." : eIsStudent ? "En tant qu'\u00e9tudiant(e), vous pouvez acc\u00e9der gratuitement aux pistes d'audit sur Coursera et edX, qui proposent les m\u00eames cours que le MIT, Stanford et les meilleures universit\u00e9s europ\u00e9ennes. Profitez de votre statut \u00e9tudiant pour construire des certifications avant d'entrer sur le march\u00e9 du travail." : "Un investissement r\u00e9gulier de 30 \u00e0 45 minutes par jour produira des r\u00e9sultats visibles et mesurables dans les 90 premiers jours.");
   var eNarr = isEn ?
-    "Your e-learning tier is <strong>" + eTierLabel + "</strong>, calibrated to your education level and Holland profile. The platform <strong>" + el.p + "</strong> offers content in formats and languages suited to your current baseline. Your priority certification — <strong>" + el.c + "</strong> — will serve as a concrete credential to accelerate your job search and professional credibility. " + (isAdv ? "Clinical note: assess digital literacy before recommending advanced online learning. Evaluate internet access and device availability as potential barriers in the " + (profile.region||"candidate's") + " region." : "Approach your e-learning journey step by step: start with the first course, complete it fully, then progress to the next. Consistency over 30 minutes per day will produce significant results within 3 to 6 months.") :
+    "Your e-learning tier is <strong>" + eTierLabel + "</strong>, calibrated to your education level (" + (profile.edu||"not specified") + ") and your Holland <strong>" + (hTop[0]||"") + "</strong> profile. The recommended platform \u2014 <strong>" + el.p + "</strong> \u2014 offers structured content in accessible formats, most of it available for free or at very low cost. Your priority certification \u2014 <strong>" + el.c + "</strong> \u2014 is a concrete, internationally recognized credential that will significantly strengthen your professional credibility and accelerate your career transition. " + eStatNote + " The two courses to prioritize first are <strong>" + (el.cs[0]||"") + "</strong>, then <strong>" + (el.cs[1]||"") + "</strong>: complete each one fully before starting the next, as each course builds the foundation for what follows. " + (isAdv ? "Clinical note: before recommending advanced platforms, assess the candidate's digital literacy and internet access in " + (profile.region||"their region") + ". For candidates with connectivity constraints, prioritize YouTube-based or offline-capable content. Track course completion rates at each follow-up session and adjust the pathway accordingly." : "Adopt a consistent rhythm of 30 to 45 minutes per day, 5 days a week. In 3 to 6 months, you will have built a tangible portfolio of digital competencies that employers actively seek. Your advisor can help you sequence the courses and validate your progress at each check-in, adjusting the learning path as your goals evolve.") :
     isAr ?
-    "مستوى التعلم الإلكتروني الخاص بك هو <strong>" + eTierLabel + "</strong>، محدد وفق مستواك الدراسي وملفك الهولاندي. منصة <strong>" + el.p + "</strong> تقدم محتوى بتنسيقات ولغات مناسبة لمستواك الحالي. شهادتك الأولوية — <strong>" + el.c + "</strong> — ستمثل وثيقة ملموسة تسرّع بحثك عن العمل. " + (isAdv ? "ملاحظة سريرية: تقييم محو الأمية الرقمية قبل توصية بالتعلم الإلكتروني المتقدم." : "تعامل مع رحلة التعلم الإلكتروني خطوة بخطوة: ابدأ بالدورة الأولى وأتمها كاملاً، ثم تقدم للتالية.") :
-    "Votre niveau e-learning est <strong>" + eTierLabel + "</strong>, calibré selon votre niveau d'études et votre profil Holland. La plateforme <strong>" + el.p + "</strong> propose des contenus dans des formats et des langues adaptés à votre niveau actuel. Votre certification prioritaire — <strong>" + el.c + "</strong> — constituera un titre concret pour accélérer votre recherche d'emploi et renforcer votre crédibilité professionnelle. " + (isAdv ? "Note clinique : évaluer la littératie numérique avant de recommander un apprentissage en ligne avancé. Évaluer l'accès à internet et aux équipements comme barrières potentielles dans la région " + (profile.region||"du candidat") + "." : "Abordez votre parcours e-learning étape par étape : commencez par le premier cours, achevez-le entièrement, puis progressez vers le suivant. Une régularité de 30 minutes par jour produira des résultats significatifs en 3 à 6 mois.");
+    "\u0645\u0633\u062a\u0648\u0649 \u0627\u0644\u062a\u0639\u0644\u0645 \u0627\u0644\u0625\u0644\u0643\u062a\u0631\u0648\u0646\u064a \u0647\u0648 <strong>" + eTierLabel + "</strong>\u060c \u0645\u062d\u062f\u062f \u0648\u0641\u0642 \u0645\u0633\u062a\u0648\u0627\u0643 \u0627\u0644\u062f\u0631\u0627\u0633\u064a (" + (profile.edu||"\u063a\u064a\u0631 \u0645\u062d\u062f\u062f") + ") \u0648\u0645\u0644\u0641\u0643 \u0627\u0644\u0647\u0648\u0644\u0627\u0646\u062f\u064a <strong>" + (hTop[0]||"") + "</strong>. \u0627\u0644\u0645\u0646\u0635\u0629 \u0627\u0644\u0645\u0648\u0635\u0649 \u0628\u0647\u0627 \u2014 <strong>" + el.p + "</strong> \u2014 \u062a\u0642\u062f\u0645 \u0645\u062d\u062a\u0648\u0649 \u0645\u0646\u0638\u0645\u064b\u0627 \u0648\u0645\u062a\u0627\u062d\u064b\u0627 \u0645\u062c\u0627\u0646\u064b\u0627. \u0634\u0647\u0627\u062f\u062a\u0643 \u0627\u0644\u0623\u0648\u0644\u0648\u064a\u0629 \u2014 <strong>" + el.c + "</strong> \u2014 \u0648\u062b\u064a\u0642\u0629 \u0645\u0644\u0645\u0648\u0633\u0629 \u0648\u0645\u0639\u062a\u0631\u0641 \u0628\u0647\u0627 \u062f\u0648\u0644\u064a\u064b\u0627. " + eStatNote + " \u0627\u0628\u062f\u0623 \u0628\u2019<strong>" + (el.cs[0]||"") + "</strong>\u060c \u062b\u0645 \u0627\u0646\u062a\u0642\u0644 \u0625\u0644\u0649 <strong>" + (el.cs[1]||"") + "</strong>. " + (isAdv ? "\u0645\u0644\u0627\u062d\u0638\u0629 \u0633\u0631\u064a\u0631\u064a\u0629: \u062a\u0642\u064a\u064a\u0645 \u0645\u0633\u062a\u0648\u0649 \u0627\u0644\u0645\u0639\u0631\u0641\u0629 \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0648\u0625\u0645\u0643\u0627\u0646\u064a\u0629 \u0627\u0644\u0648\u0635\u0648\u0644 \u0644\u0644\u0625\u0646\u062a\u0631\u0646\u062a \u0641\u064a " + (profile.region||"\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0645\u0631\u0634\u062d") + "." : "\u0627\u062a\u0628\u0639 \u0648\u062a\u064a\u0631\u0629 \u0645\u0646\u062a\u0638\u0645\u0629 \u0645\u0646 30 \u062f\u0642\u064a\u0642\u0629 \u064a\u0648\u0645\u064a\u064b\u0627. \u064a\u0645\u0643\u0646 \u0644\u0645\u0633\u062a\u0634\u0627\u0631\u0643 \u0645\u0633\u0627\u0639\u062f\u062a\u0643.") :
+    "Votre niveau e-learning est <strong>" + eTierLabel + "</strong>, calibr\u00e9 selon votre niveau d'\u00e9tudes (" + (profile.edu||"non pr\u00e9cis\u00e9") + ") et votre profil Holland <strong>" + (hTop[0]||"") + "</strong>. La plateforme recommand\u00e9e \u2014 <strong>" + el.p + "</strong> \u2014 propose des contenus structur\u00e9s dans des formats accessibles, la plupart disponibles gratuitement ou \u00e0 tr\u00e8s faible co\u00fbt. Votre certification prioritaire \u2014 <strong>" + el.c + "</strong> \u2014 est un titre concret et internationalement reconnu qui renforcera significativement votre cr\u00e9dibilit\u00e9 professionnelle et acc\u00e9l\u00e9rera votre insertion sur le march\u00e9 du travail. " + eStatNote + " Les deux premi\u00e8res \u00e9tapes de votre parcours sont <strong>" + (el.cs[0]||"") + "</strong>, puis <strong>" + (el.cs[1]||"") + "</strong> : terminez chaque cours int\u00e9gralement avant d'en d\u00e9marrer un autre, car chacun pose les bases du suivant. " + (isAdv ? "Note clinique : avant de recommander des plateformes avanc\u00e9es, \u00e9valuer la ma\u00eetrise num\u00e9rique du candidat et l'acc\u00e8s \u00e0 internet dans la r\u00e9gion " + (profile.region||"concern\u00e9e") + ". Pour les candidats avec des contraintes de connectivit\u00e9, privil\u00e9gier les ressources YouTube ou t\u00e9l\u00e9chargeables hors ligne. Pr\u00e9voir un suivi du taux de compl\u00e9tion \u00e0 chaque entretien." : "Adoptez un rythme de 30 \u00e0 45 minutes par jour, 5 jours par semaine : en 3 \u00e0 6 mois, vous aurez constitu\u00e9 un portfolio de comp\u00e9tences num\u00e9riques que les employeurs recherchent activement dans des profils comme le v\u00f4tre. Votre conseiller peut vous aider \u00e0 s\u00e9quencer les cours et \u00e0 valider vos progr\u00e8s \u00e0 chaque point de suivi.");
   // ── Career Roadmap narrative ──────────────────────────────────────────────
   var rmNarr = isEn ?
     (isAdv ? "The career roadmap below is tailored to the candidate's Holland profile (" + (hTop[0]||"") + (hTop[1]||"") + ") and current profile. Clinical note: review the timeline at each follow-up session, adjusting milestones based on the candidate's progress, external constraints (regional job market, family situation), and emerging opportunities. Prioritize actions in the first 3-month phase as they lay the foundation for all subsequent stages." : "The career roadmap below is your personalized action plan, structured in progressive phases that align with your profile and current situation. Each phase builds on the previous one — the foundation you lay in the first 3 months determines the trajectory of the following years. Your advisor is your partner throughout this journey: schedule regular check-ins to assess progress and adapt the plan to new opportunities.") :
@@ -1176,8 +1203,8 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '</div></div>';
   body += '</div>'; // end RIASEC
 
-  body += nBlk(nLbl, hNarrText, isAdv);
-  body += nBlk(isAr?"سياق رمز هولاند":isEn?"Holland Code Context":"Contexte du Code Holland", hCode2Narr, isAdv);
+  body += nBlk(nLbl, hNarrText, isAdv, "#1aabaa");
+  body += nBlk(isAr?"سياق رمز هولاند":isEn?"Holland Code Context":"Contexte du Code Holland", hCode2Narr, isAdv, "#0f7e7d");
 
 
   // ── II Big Five ───────────────────────────────────────────────────────────
@@ -1190,7 +1217,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   });
   body += '</div></div>';
 
-  body += nBlk(nLbl, b5Narr, isAdv);
+  body += nBlk(nLbl, b5Narr, isAdv, "#8b5cf6");
 
   // ── III Skill Up + IV Leadership ─────────────────────────────────────────
   body += '<div style="display:flex;gap:16px">';
@@ -1221,8 +1248,8 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '</div></div>';
   body += '</div>'; // end row
 
-  body += nBlk(isAr?"الاستعداد للتوظيف":isEn?"Employability Readiness":"Préparation à l'Employabilité", suNarr, isAdv);
-  body += nBlk(isAr?"تحليل القيادة":isEn?"Leadership Analysis":"Analyse du Leadership", ldNarr, isAdv);
+  body += nBlk(isAr?"الاستعداد للتوظيف":isEn?"Employability Readiness":"Préparation à l'Employabilité", suNarr, isAdv, "#f97316");
+  body += nBlk(isAr?"تحليل القيادة":isEn?"Leadership Analysis":"Analyse du Leadership", ldNarr, isAdv, "#ff7a59");
 
 
   body += '</div>'; // end page 1 content
@@ -1252,7 +1279,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   });
   body += '</div></div>';
 
-  body += nBlk(isAr?"التوجيه الأكاديمي":isEn?"Academic Pathway":"Parcours Académique", acNarr, isAdv);
+  body += nBlk(isAr?"التوجيه الأكاديمي":isEn?"Academic Pathway":"Parcours Académique", acNarr, isAdv, "#d4a328");
 
   // ── VI E-Learning ────────────────────────────────────────────────────
   body += '<div>';
@@ -1266,7 +1293,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '<div style="padding:9px 12px;background:#f0fdf4;border-radius:9px;border:1px solid #bbf7d0;font-size:11.5px;color:#0f7e7d;font-weight:700;margin-top:2px">🏅 ' + (L.certif||'Certification cible') + ': ' + el.c + '</div>';
   body += '</div></div>';
 
-  body += nBlk(isAr?"مسار التعلم الإلكتروني":isEn?"E-Learning Pathway":"Parcours E-Learning", eNarr, isAdv);
+  body += nBlk(isAr?"مسار التعلم الإلكتروني":isEn?"E-Learning Pathway":"Parcours E-Learning", eNarr, isAdv, "#22c55e");
 
   // ── VII Career Roadmap ────────────────────────────────────────────────
   body += '<div>';
@@ -1278,7 +1305,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   });
   body += '</div></div>';
 
-  body += nBlk(isAr?"قراءة خارطة الطريق":isEn?"Reading Your Roadmap":"Lecture de votre Feuille de Route", rmNarr, isAdv);
+  body += nBlk(isAr?"قراءة خارطة الطريق":isEn?"Reading Your Roadmap":"Lecture de votre Feuille de Route", rmNarr, isAdv, "#3b82f6");
 
   // ── VIII INDH ─────────────────────────────────────────────────────────
   body += '<div>';
@@ -1292,7 +1319,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   });
   body += '</div></div>';
 
-  body += nBlk(isAr?"تحليل البرامج":isEn?"Program Analysis":"Analyse des Programmes", indhNarr, isAdv);
+  body += nBlk(isAr?"تحليل البرامج":isEn?"Program Analysis":"Analyse des Programmes", indhNarr, isAdv, "#15803d");
 
   body += '</div>'; // end page 2 content
   body += pgFtr(3);
