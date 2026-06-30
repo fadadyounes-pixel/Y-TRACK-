@@ -1,4 +1,4 @@
-const CACHE = 'careermap-v77';
+const CACHE = 'careermap-v78';
 const PRECACHE = ['/lib/react.js', '/lib/react-dom.js', '/lib/babel.js', '/lib/html2pdf.bundle.min.js'];
 
 self.addEventListener('message', e => {
