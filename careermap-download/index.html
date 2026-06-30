@@ -1212,11 +1212,6 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '<span style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:4px 12px;font-size:11px;color:rgba(255,255,255,.8);font-weight:600">' + c + '</span>';
   });
   body += '</div>';
-  // Holland + employability line
-  body += '<div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:4px">';
-  body += (isAr?'رمز هولاند':isEn?'Holland Code':'Code Holland') + ': <strong style="color:rgba(255,255,255,.8)">' + (hTop[0]||'') + (hTop[1]||'') + '</strong>';
-  body += ' &nbsp;·&nbsp; ' + (isAr?'الاستعداد':isEn?'Employability':'Employabilité') + ': <strong style="color:rgba(255,255,255,.8)">' + suAvg + '%</strong>';
-  body += '</div>';
   body += '</div>'; // end glass card
   // Audience badge + note
   body += '<div style="display:flex;align-items:center;gap:14px">';
