@@ -1,5 +1,5 @@
-const CACHE = 'careermap-v70';
-const PRECACHE = ['/lib/react.js', '/lib/react-dom.js', '/lib/babel.js'];
+const CACHE = 'careermap-v71';
+const PRECACHE = ['/lib/react.js', '/lib/react-dom.js', '/lib/babel.js', '/lib/html2pdf.bundle.min.js'];
 
 self.addEventListener('message', e => {
   if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
