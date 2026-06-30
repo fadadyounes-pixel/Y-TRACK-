@@ -1099,51 +1099,60 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '<div style="min-height:100vh;width:100%;display:flex;flex-direction:column;align-items:center;gap:24px;padding:32px 16px;background:#e7e9e9;font-family:Epilogue,Arial,sans-serif;color:#15302f;-webkit-font-smoothing:antialiased">';
 
   // ══════════════════════════════════════════
-  // PAGE 0 — Executive Summary
+  // PAGE 0 — Cover Page (full-bleed)
   // ══════════════════════════════════════════
-  var execLabel = isAr?'الملخص التنفيذي':isEn?'Executive Summary':'Résumé Exécutif';
   var suAvg = Math.round(((s.A||0)+(s.E||0)+(s.C||0)+(s.R||0))/4);
   var topIndh = indh && indh.length ? indh.slice().sort(function(a,b){ return (b.pct||0)-(a.pct||0); })[0] : null;
-  body += '<div style="width:794px;min-height:1123px;background:#fff;box-shadow:0 12px 40px rgba(8,64,63,.18);display:flex;flex-direction:column">';
-  body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);padding:30px 44px;color:#fff;position:relative;overflow:hidden">';
-  body += '<div style="position:absolute;top:-70px;right:-50px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,122,89,.45),rgba(255,122,89,0) 70%)"></div>';
-  body += '<div style="position:relative;display:flex;align-items:center;justify-content:space-between">';
-  body += '<div style="display:flex;align-items:center;gap:11px"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="#fff" stroke-width="2.6"/><polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/><polygon points="24,40 27.5,24 20.5,24" fill="#fff"/><circle cx="24" cy="24" r="2.6" fill="#0f7e7d" stroke="#fff" stroke-width="1.3"/></svg><span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.4px">CareerMap</span></div>';
-  var execBadgeBg = role === 'advisor' ? 'rgba(255,122,89,.35)' : 'rgba(255,255,255,.18)';
-  var execVersionLbl = role === 'advisor' ? (L.advReport||'Rapport Conseiller') : (L.candReport||'Rapport Candidat');
-  body += '<div style="text-align:right;font-size:11.5px;color:rgba(255,255,255,.85);line-height:1.6"><span style="display:inline-block;background:' + execBadgeBg + ';padding:4px 11px;border-radius:999px;font-weight:700;letter-spacing:.5px">' + execVersionLbl + '</span><div style="margin-top:6px">' + candId + ' · ' + date + '</div></div></div>';
-  body += '<div style="position:relative;margin-top:22px"><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:27px;letter-spacing:-.5px">' + execLabel + '</div><div style="font-size:12.5px;color:rgba(255,255,255,.85);margin-top:4px">' + name + ' · ' + (L.evalTitle||'Évaluation Carrière et Personnalité') + '</div></div>';
-  body += '</div>'; // end header
-  body += '<div style="padding:26px 44px;display:flex;flex-direction:column;gap:18px;flex:1">';
-  // Key stat cards
-  body += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">';
-  var execStats = [
-    { lbl: isAr?'الرمز':isEn?'Holland Code':'Code Holland', val: (hTop[0]||'') + (hTop[1]||''), col:"#1aabaa" },
-    { lbl: isAr?'القيادة':isEn?'Leadership':'Leadership', val: ld.style||'-', col:"#ff7a59" },
-    { lbl: isAr?'الاستعداد للتوظيف':isEn?'Employability':'Employabilité', val: suAvg+'%', col:"#0f7e7d" },
-    { lbl: isAr?'المرونة':isEn?'Resilience':'Résilience', val: (scores.resi!=null?scores.resi:'-')+(scores.resi!=null?'%':''), col:"#27c4be" }
+  var cvBadgeBg = role === ‘advisor’ ? ‘rgba(255,122,89,.35)’ : ‘rgba(255,255,255,.18)’;
+  var cvVersionLbl = role === ‘advisor’ ? (L.advReport||’Rapport Conseiller’) : (L.candReport||’Rapport Candidat’);
+  var cvAvatar = profile.photo
+    ? ‘<img src="’ + profile.photo + ‘" style="width:100%;height:100%;object-fit:cover;" alt=""/>’
+    : ‘<span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;line-height:1">’ + initials + ‘</span>’;
+  var cvToc = (isAdv
+    ? [L.sec1,L.sec2,L.sec3,L.sec4,L.sec5,L.sec6,L.sec7,L.sec8,L.sec9]
+    : [L.sec1,L.sec2,L.sec3,L.sec4,L.sec5,L.sec6,L.sec7,L.sec8]).filter(Boolean);
+  // Full-bleed gradient cover
+  body += ‘<div style="width:794px;height:1123px;background:linear-gradient(150deg,#072f2e 0%,#0f7e7d 42%,#1aabaa 100%);display:flex;flex-direction:column;position:relative;overflow:hidden">’;
+  // Decorative blobs
+  body += ‘<div style="position:absolute;top:-130px;right:-130px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.07),transparent 70%);pointer-events:none"></div>’;
+  body += ‘<div style="position:absolute;bottom:-160px;left:-100px;width:540px;height:540px;border-radius:50%;background:radial-gradient(circle,rgba(255,122,89,.11),transparent 70%);pointer-events:none"></div>’;
+  // Top bar
+  body += ‘<div style="position:relative;padding:28px 44px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">’;
+  body += ‘<div style="display:flex;align-items:center;gap:11px"><svg width="38" height="38" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,.8)" stroke-width="2.6"/><polygon points="24,8 27.5,24 20.5,24" fill="#ff7a59"/><polygon points="24,40 27.5,24 20.5,24" fill="rgba(255,255,255,.55)"/><circle cx="24" cy="24" r="2.6" fill="#0f7e7d" stroke="#fff" stroke-width="1.3"/></svg><span style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.4px;color:#fff">CareerMap</span></div>’;
+  body += ‘<span style="background:’ + cvBadgeBg + ‘;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:7px 18px;font-size:11.5px;font-weight:700;letter-spacing:.5px">’ + cvVersionLbl + ‘</span>’;
+  body += ‘</div>’;
+  // Center: photo, name, metrics
+  body += ‘<div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:0 60px;text-align:center">’;
+  body += ‘<div style="width:100px;height:100px;border-radius:50%;border:4px solid rgba(255,255,255,.6);background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">’ + cvAvatar + ‘</div>’;
+  body += ‘<div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;letter-spacing:-.8px;line-height:1.15">’ + name + ‘</div>’;
+  if (profParts.length) { body += ‘<div style="font-size:13px;color:rgba(255,255,255,.65);margin-top:8px">’ + profParts.join(‘ · ‘) + ‘</div>’; }
+  body += ‘</div>’;
+  // Key metrics strip
+  body += ‘<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:6px">’;
+  var cvMetrics = [
+    { lbl: isAr?’رمز هولاند’:isEn?’Holland Code’:’Code Holland’, val: (hTop[0]||’’)+(hTop[1]||’’), big:true },
+    { lbl: isAr?’القيادة’:isEn?’Leadership’:’Leadership’, val: (ld.style||’-’).split(‘ ‘).slice(0,2).join(‘ ‘), big:false },
+    { lbl: isAr?’الاستعداد’:isEn?’Employability’:’Employabilité’, val: suAvg+’%’, big:true }
   ];
-  execStats.forEach(function(st){
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:14px;padding:14px;text-align:center"><div style="font-size:10px;font-weight:700;letter-spacing:.5px;color:#9aa8a8;text-transform:uppercase">' + st.lbl + '</div><div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:20px;color:' + st.col + ';margin-top:6px">' + st.val + '</div></div>';
+  cvMetrics.forEach(function(m) {
+    body += ‘<div style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:14px 20px;min-width:86px">’;
+    body += ‘<div style="font-size:9px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:5px">’ + m.lbl + ‘</div>’;
+    body += ‘<div style="font-family:Syne,Arial,sans-serif;font-weight:800;font-size:’ + (m.big?30:15) + ‘px;color:#fff;line-height:1.1">’ + m.val + ‘</div>’;
+    body += ‘</div>’;
   });
-  body += '</div>';
-  // Narrative summary
-  var execNarr = isAr ? 'يُظهر هذا التقييم الشامل ملفك المهني والشخصي عبر ستة محاور رئيسية. يتميز ملفك بتوجه ' + (HL[hTop[0]]||hTop[0]) + ' قوي، مع نمط قيادة ' + (ld.style||'-') + '. توضح الصفحات التالية تفاصيل نتائجك وتوصيات مخصصة لمسارك المهني.' :
-    isEn ? 'This comprehensive assessment maps your professional and personal profile across six key dimensions. Your profile shows a strong ' + (HL[hTop[0]]||hTop[0]) + ' orientation, paired with a ' + (ld.style||'-') + ' leadership style. The following pages detail your results and provide tailored recommendations for your career path.' :
-    'Cette évaluation complète dresse votre profil professionnel et personnel à travers six dimensions clés. Votre profil révèle une orientation ' + (HL[hTop[0]]||hTop[0]) + ' marquée, associée à un style de leadership ' + (ld.style||'-') + '. Les pages suivantes détaillent vos résultats et proposent des recommandations personnalisées pour votre parcours.';
-  body += '<div style="background:#f3faf9;border:1.5px solid #b9d6d5;border-radius:13px;padding:16px"><div style="font-size:10px;font-weight:700;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isAr?'نظرة عامة':isEn?'Overview':'Vue d’ensemble') + '</div><p style="font-size:12.5px;color:#3a4f4e;line-height:1.65;margin:0">' + execNarr + '</p></div>';
-  // Priority recommendation
-  if (topIndh) {
-    body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:14px;display:flex;align-items:center;gap:12px"><span style="font-size:22px">' + (topIndh.icon||'🎯') + '</span><div><div style="font-size:10px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:.5px">' + (isAr?'البرنامج الموصى به':isEn?'Top Recommendation':'Recommandation Prioritaire') + '</div><div style="font-size:13px;font-weight:700;color:#15302f;margin-top:3px">' + (topIndh.prog||'') + ' · ' + (topIndh.pct||0) + '%</div></div></div>';
-  }
-  // Table of contents
-  var execToc = [L.sec1, L.sec2, L.sec3, L.sec4, L.sec5, L.sec6, L.sec7, L.sec8].filter(Boolean);
-  body += '<div style="border:1.5px solid #e0eaea;border-radius:13px;padding:14px 18px;margin-top:auto"><div style="font-size:10px;font-weight:700;color:#9aa8a8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'محتوى التقرير':isEn?'Report Contents':'Sommaire du Rapport') + '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 18px">';
-  execToc.forEach(function(item){ body += '<div style="font-size:11.5px;color:#3a4f4e;padding:3px 0">' + item + '</div>'; });
-  body += '</div></div>';
-  body += '</div>'; // end exec content
-  body += pgFtr(1);
-  body += '</div>'; // end exec page
+  body += ‘</div>’;
+  body += ‘<div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:4px;letter-spacing:.3px">’ + (L.evalTitle||’Évaluation Carrière et Personnalité’) + ‘</div>’;
+  body += ‘</div>’; // end center
+  // Bottom: section TOC + footer
+  body += ‘<div style="position:relative;padding:16px 44px 22px;background:rgba(0,0,0,.22);flex-shrink:0">’;
+  body += ‘<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px 8px;margin-bottom:12px">’;
+  cvToc.slice(0,8).forEach(function(item) {
+    body += ‘<div style="font-size:9px;color:rgba(255,255,255,.52);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">’ + item + ‘</div>’;
+  });
+  body += ‘</div>’;
+  body += ‘<div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.32);border-top:1px solid rgba(255,255,255,.12);padding-top:10px"><span>’ + candId + ‘ · ‘ + date + ‘</span><span>CareerMap Assessment Platform</span></div>’;
+  body += ‘</div>’;
+  body += ‘</div>’; // end cover page
 
   // ══════════════════════════════════════════
   // PAGE 1
