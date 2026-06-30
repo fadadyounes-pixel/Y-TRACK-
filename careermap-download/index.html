@@ -1102,6 +1102,18 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   var suAvg = Math.round(((s.A||0)+(s.E||0)+(s.C||0)+(s.R||0))/4);
   var topIndh = indh && indh.length ? indh.slice().sort(function(a,b){ return (b.pct||0)-(a.pct||0); })[0] : null;
+  // Compute initials early (also computed again in PAGE 1 header — no conflict, same values)
+  var initials = ‘’;
+  var _nameParts = (name||’’).trim().split(‘ ‘);
+  for (var _ni = 0; _ni < _nameParts.length && _ni < 2; _ni++) { initials += (_nameParts[_ni][0]||’’).toUpperCase(); }
+  if (!initials) initials = candId.substring(0,2).toUpperCase();
+  // Compute profParts early (same)
+  var profParts = [];
+  if (profile.age) profParts.push(profile.age);
+  if (profile.gender) profParts.push(profile.gender);
+  if (profile.edu) profParts.push(profile.edu);
+  if (profile.status) profParts.push(profile.status);
+  if (profile.region) profParts.push(profile.region);
   var cvBadgeBg = role === ‘advisor’ ? ‘rgba(255,122,89,.35)’ : ‘rgba(255,255,255,.18)’;
   var cvVersionLbl = role === ‘advisor’ ? (L.advReport||’Rapport Conseiller’) : (L.candReport||’Rapport Candidat’);
   var cvAvatar = profile.photo
