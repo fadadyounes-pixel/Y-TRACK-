@@ -1,0 +1,22 @@
+{
+  "name": "CareerMap – Career Assessment",
+  "short_name": "CareerMap",
+  "description": "Career guidance and assessment platform",
+  "start_url": "/careerMap/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1aabaa",
+  "background_color": "#06111f",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "en",
+  "dir": "ltr"
+}
