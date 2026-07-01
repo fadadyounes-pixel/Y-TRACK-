@@ -1169,7 +1169,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   if (profile.status) profParts.push(profile.status);
   if (profile.region) profParts.push(profile.region);
   var cvBadgeBg = role === 'advisor' ? 'rgba(255,122,89,.35)' : 'rgba(255,255,255,.18)';
-  var cvVersionLbl = role === 'advisor' ? (L.advReport||'Rapport Conseiller') : (L.candReport||'Rapport Candidat');
+  var cvVersionLbl = role === 'advisor' ? (isAr?'نسخة المستشار':isEn?'Advisor Copy':'Exemplaire Conseiller') : (isAr?'نسخة المرشح':isEn?'Candidate Copy':'Exemplaire Candidat');
   var cvAvatar = profile.photo
     ? '<img src="' + profile.photo + '" style="width:100%;height:100%;object-fit:cover;" alt=""/>'
     : '<span style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:34px;color:#fff;line-height:1">' + initials + '</span>';
@@ -1203,11 +1203,10 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // Info chips row
   body += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">';
   var cvChips = [];
-  cvChips.push(isAr?'الرمز':'Code' + ': ' + candId);
-  if (profile.region) cvChips.push(profile.region);
-  if (profile.edu) cvChips.push(profile.edu);
-  if (profile.age) cvChips.push((profile.age) + (isAr?' سنة':isEn?' yrs':' ans'));
-  cvChips.push(date);
+  cvChips.push((isAr?'الرمز':isEn?'Code':'Code') + ': ' + candId);
+  if (profile.region) cvChips.push((isAr?'الجهة':isEn?'Region':'Région') + ': ' + profile.region);
+  if (profile.edu) cvChips.push((isAr?'المستوى':isEn?'Profile':'Profil') + ': ' + profile.edu);
+  cvChips.push((isAr?'التاريخ':isEn?'Date':'Date') + ': ' + date);
   cvChips.forEach(function(c) {
     body += '<span style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:4px 12px;font-size:11px;color:rgba(255,255,255,.8);font-weight:600">' + c + '</span>';
   });
@@ -1230,7 +1229,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 1 — Section I: RIASEC
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(1); // gradient header — matches reference design
   // Content
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
@@ -1301,7 +1300,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 2 — Section II: Big Five OCEAN
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(2);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += secHd('II', L.sec2||'Personality — Big Five OCEAN', null, '#9050d0');
@@ -1366,7 +1365,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 3 — Sections III/IV: Skill Up + Leadership
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(3);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += '<div style="display:flex;gap:16px">';
@@ -1401,7 +1400,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 4 — Section V: Academic Orientation
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(4);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   var eduTag = ei>=6 ? (isEn?'Bachelor+':isAr?'ليسانس+':'Bac+3 et plus') : ei>=4 ? (isEn?'Bac level':isAr?'مستوى بكالوريا':'Niveau Bac') : (isEn?'Secondary':isAr?'ثانوي':'Secondaire');
@@ -1434,6 +1433,18 @@ function buildReportHTML(profile, scores, role, reportLang) {
     'Explorez les bourses : OFPPT, ANAPEC et les autorités régionales proposent des financements.'
   ];
   body += recBlk(isAr?'خطوات التسجيل':isEn?'Enrollment Steps':'Étapes de Candidature', acRec, '#d4a328');
+  var acMoreProgs = acList.slice(4, 8);
+  if (acMoreProgs.length) {
+    body += '<div style="margin-top:4px"><div style="font-size:10px;font-weight:800;color:#0f7e7d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">' + (isAr?'مسارات إضافية':isEn?'Additional Pathways':'Autres Filières Recommandées') + '</div>';
+    body += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+    acMoreProgs.forEach(function(prog) {
+      var mp = prog.match(/\(([^)]+)\)/); var mainP2 = prog.replace(/\([^)]+\)/g,'').trim();
+      body += '<div style="border:1px solid #e6ecf2;border-radius:10px;padding:10px 12px"><div style="font-size:11.5px;font-weight:700;color:#0d1f33">' + mainP2 + '</div>' + (mp?'<div style="font-size:10px;color:#8295a7;margin-top:2px">'+mp[1]+'</div>':'') + '</div>';
+    });
+    body += '</div></div>';
+  }
+  var acTip = isEn ? 'Tip: The first week after receiving this report is the most important. Contact at least one institution today — every day of delay reduces the probability of acting.' : isAr ? 'نصيحة: الأسبوع الأول بعد استلام هذا التقرير هو الأهم. تواصل مع مؤسسة واحدة على الأقل اليوم.' : 'Conseil : La première semaine après la réception de ce rapport est la plus importante. Contactez au moins un établissement aujourd\'hui — chaque jour de délai réduit la probabilité de passage à l\'acte.';
+  body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:12px;padding:13px 18px;margin-top:4px"><p style="font-size:11.5px;color:rgba(255,255,255,.92);line-height:1.65;margin:0;font-style:italic">' + acTip + '</p></div>';
   body += '</div>';
   body += pgFtr(4);
   body += '</div>'; // end page 4
@@ -1441,7 +1452,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 5 — Section VI: E-Learning Roadmap
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(5);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += secHd('VI', L.sec6||'E-Learning Roadmap', null, '#0f7e7d');
@@ -1480,7 +1491,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 6 — Section VII: Career Roadmap
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(6);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += secHd('VII', L.sec7||'Career Roadmap', null, '#1aabaa');
@@ -1517,7 +1528,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 7 — Section VIII: INDH Programs
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(7);
   body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += secHd('VIII', L.sec8||'INDH Programs', null, '#e09030');
@@ -1552,6 +1563,25 @@ function buildReportHTML(profile, scores, role, reportLang) {
     'Demandez les cycles de financement actuels et les délais de dépôt.'
   ];
   body += recBlk(isAr?'خطوات التقديم':isEn?'Application Steps':'Étapes de Candidature INDH', indhRec, '#15803d');
+  var indhMotiv = isEn ? 'INDH programs are designed for candidates exactly like you — motivated individuals ready to take the next step. The key differentiator between those who access funding and those who do not is not eligibility: it is preparation and persistence. A well-prepared dossier, a clear project idea, and a confident presentation to the INDH committee are the three levers in your control. Your advisor has supported dozens of candidates through this process — lean on that experience.' : isAr ? 'برامج INDH مصممة لمرشحين مثلك تماماً. العامل الفارق بين من يحصل على التمويل ومن لا يحصل عليه ليس الأهلية، بل الإعداد والمثابرة. ملف جيد الإعداد وفكرة مشروع واضحة وعرض تقديمي واثق هي الرافعات الثلاث بيدك.' : 'Les programmes INDH sont conçus pour des candidats exactement comme vous — des personnes motivées prêtes à passer à l\'étape suivante. Ce qui différencie ceux qui obtiennent un financement de ceux qui ne l\'obtiennent pas n\'est pas l\'éligibilité : c\'est la préparation et la persévérance. Un dossier bien préparé, une idée de projet claire et une présentation confiante au comité INDH sont les trois leviers en votre pouvoir.';
+  body += nBlk(isAr?'المفتاح للنجاح':isEn?'Key to Success':'Clé de la Réussite', indhMotiv, isAdv, '#14532d');
+  var indhContact = isEn ? [
+    'INDH Regional Coordination Office: contact your wilaya or prefecture for the regional focal point.',
+    'ANAPEC regional agencies: free career coaching and referral to INDH programs.',
+    'OFPPT centers: vocational training aligned with INDH program requirements.',
+    'Your CareerMap advisor has the local contacts and can make direct introductions on your behalf.'
+  ] : isAr ? [
+    'مكتب تنسيق INDH الجهوي: تواصل مع ولايتك أو عمالتك للحصول على جهة الاتصال الجهوية.',
+    'وكالات ANAPEC الجهوية: توجيه مجاني وإحالة إلى برامج INDH.',
+    'مراكز OFPPT: تكوين مهني متوافق مع متطلبات برامج INDH.',
+    'مستشارك CareerMap لديه جهات الاتصال المحلية ويمكنه التعريف المباشر باسمك.'
+  ] : [
+    'Bureau de coordination INDH régional : contactez votre wilaya ou préfecture pour le point focal régional.',
+    'Agences régionales ANAPEC : coaching carrière gratuit et orientation vers les programmes INDH.',
+    'Centres OFPPT : formation professionnelle alignée sur les exigences des programmes INDH.',
+    'Votre conseiller CareerMap dispose des contacts locaux et peut effectuer des introductions directes en votre nom.'
+  ];
+  body += recBlk(isAr?'جهات الاتصال':isEn?'Key Contacts':'Contacts Clés', indhContact, '#166534');
   body += '</div>';
   body += pgFtr(7);
   body += '</div>'; // end page 7
@@ -1559,7 +1589,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   // PAGE 8 — Conclusion & Next Steps
   // ══════════════════════════════════════════
-  body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+  body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(8);
   body += '<div style="padding:18px 44px;flex:1;display:flex;flex-direction:column;gap:14px">';
   var ccLabel = isAr?'خلاصة وتوصيات':isEn?'Conclusion & Recommendations':'Conclusion et Recommandations';
@@ -1584,6 +1614,35 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '</div>';
   var closeNote = isEn ? 'This report is a tool to help you understand your profile and guide your career path. Results reflect your current inclinations. With your advisor\'s support, you can achieve your professional goals.' : isAr ? 'هذا التقرير أداة لمساعدتك على فهم ملفك وتوجيه مسارك. بدعم مستشارك، يمكنك تحقيق أهدافك.' : 'Ce rapport est un outil pour vous aider à mieux vous connaître et à orienter votre parcours. Avec l\'accompagnement de votre conseiller, vous atteindrez vos objectifs.';
   body += '<div style="background:linear-gradient(120deg,#0f7e7d,#1aabaa);border-radius:12px;padding:14px 18px"><p style="font-size:11.5px;color:rgba(255,255,255,.9);line-height:1.7;margin:0;font-style:italic">' + closeNote + '</p></div>';
+  var commitItems = isEn ? [
+    'I will take my first concrete action within the next 7 days',
+    'I will keep this report and refer back to it monthly',
+    'I will attend my next advisor session fully prepared',
+    'I will track my progress on each roadmap phase'
+  ] : isAr ? [
+    'سأتخذ إجراءي الأول الملموس في غضون 7 أيام القادمة',
+    'سأحتفظ بهذا التقرير وأعود إليه شهرياً',
+    'سأحضر جلستي القادمة مع المستشار مستعداً تماماً',
+    'سأتابع تقدمي في كل مرحلة من خارطة الطريق'
+  ] : [
+    'Je prendrai ma première action concrète dans les 7 prochains jours',
+    'Je garderai ce rapport et y ferai référence chaque mois',
+    'J\'assisterai à ma prochaine séance conseiller pleinement préparé(e)',
+    'Je suivrai mes progrès à chaque phase de la feuille de route'
+  ];
+  body += '<div style="border:1.5px solid #e6ecf2;border-radius:13px;padding:14px 18px">';
+  body += '<div style="font-size:10px;font-weight:800;color:#1aabaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + (isAr?'تعهداتي':isEn?'My Commitments':'Mes Engagements') + '</div>';
+  commitItems.forEach(function(item) {
+    body += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #eef2f6">' +
+      '<div style="width:16px;height:16px;border:2px solid #1aabaa;border-radius:4px;flex-shrink:0"></div>' +
+      '<span style="font-size:11.5px;color:#41566a">' + item + '</span></div>';
+  });
+  body += '</div>';
+  body += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid #eef2f6;margin-top:4px">';
+  body += '<div style="font-size:10.5px;color:#8295a7">' + (isAr?'توقيع المرشح':isEn?'Candidate signature':'Signature du candidat') + ': ____________________</div>';
+  body += '<div style="font-size:10.5px;color:#8295a7">' + (isAr?'التاريخ':isEn?'Date':'Date') + ': ' + date + '</div>';
+  body += '<div style="font-size:10.5px;color:#8295a7">' + (isAr?'توقيع المستشار':isEn?'Advisor signature':'Signature du conseiller') + ': ____________________</div>';
+  body += '</div>';
   body += '</div>';
   body += pgFtr(8);
   body += '</div>'; // end page 8
@@ -1594,7 +1653,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   if (role === 'advisor') {
 
     // PAGE 9 — Holland Clinical
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(9);
     body += '<div style="padding:22px 44px;flex:1">';
     body += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' + secB('IX','11') + '<div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:18px;color:#0d1f33">' + (L.sec9||'Clinical Intervention Plan') + '</div><span style="font-size:10px;font-weight:700;color:#b9791f;background:#fbf0df;padding:3px 10px;border-radius:999px;margin-left:auto">' + (isEn?'Advisor only':isAr?'للمستشار فقط':'Conseiller uniquement') + '</span></div>';
@@ -1617,7 +1676,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '</div>'; // end page 9
 
     // PAGE 10 — OCEAN Clinical
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(10);
     body += '<div style="padding:22px 44px;flex:1">';
     body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">' + (isEn?'Big Five OCEAN Clinical Analysis':isAr?'التحليل السريري Big Five':'Analyse Clinique Big Five OCEAN') + '</div>';
@@ -1641,7 +1700,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '</div>'; // end page 10
 
     // PAGE 11 — Skill Up + Leadership Clinical
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(11);
     body += '<div style="padding:22px 44px;flex:1;display:flex;flex-direction:column;gap:16px">';
     body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'Employability & Leadership Clinical Analysis':isAr?'تحليل سريري — الاستعداد والقيادة':'Analyse Clinique — Employabilité et Leadership') + '</div>';
@@ -1671,7 +1730,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '</div>'; // end page 11
 
     // PAGE 12 — INDH Clinical + Action Plan
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(12);
     body += '<div style="padding:22px 44px;flex:1;display:flex;flex-direction:column;gap:16px">';
     body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'INDH Programs & Advisor Action Plan':isAr?'برامج INDH وخطة عمل المستشار':'Programmes INDH et Plan d\'Action Conseiller') + '</div>';
@@ -1712,7 +1771,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     body += '</div>'; // end page 12
 
     // PAGE 13 — Advisor Notes & Session Summary
-    body += '<div class="pdf-page" style="width:794px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
+    body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
     body += pgHdr(13);
     body += '<div style="padding:22px 44px;flex:1;display:flex;flex-direction:column;gap:16px">';
     body += '<div style="font-size:11px;font-weight:700;color:#8295a7;text-transform:uppercase;letter-spacing:.8px">' + (isEn?'Advisor Notes & Session Summary':isAr?'ملاحظات المستشار وملخص الجلسة':'Notes du Conseiller et Synthèse') + '</div>';
