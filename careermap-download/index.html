@@ -1797,31 +1797,18 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">' +
     '<style>' +
     '*{box-sizing:border-box;margin:0;padding:0}' +
-    'body{margin:0;padding:0;background:#fff;font-family:Archivo,Arial,sans-serif}' +
+    'body{margin:0;padding:0;background:#fff;font-family:Archivo,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
     '@page{size:A4;margin:0}' +
-    '.pdf-page{page-break-after:always;break-after:page}' +
+    '.pdf-page{page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid}' +
     '.pdf-page:last-child{page-break-after:auto;break-after:auto}' +
     '.avoid{break-inside:avoid;page-break-inside:avoid}' +
     '@media print{' +
-    'body{background:#fff;padding:0}' +
+    'body{background:#fff!important;padding:0}' +
     '.pdf-page{margin:0!important;box-shadow:none!important;break-after:page;page-break-after:always}' +
     '.pdf-page:last-child{page-break-after:auto;break-after:auto}' +
-    '.avoid{break-inside:avoid;page-break-inside:avoid}' +
-    '-webkit-print-color-adjust:exact;print-color-adjust:exact' +
     '}' +
     '</style>' +
-    '<script src="lib/html2pdf.bundle.min.js"><\/script>' +
-    '</head><body>' + body + '<script>window.addEventListener("load",function(){' +
-    'if(typeof html2pdf!=="undefined"){' +
-    'html2pdf().set({margin:0,filename:"' + pdfName + '",' +
-    'image:{type:"jpeg",quality:.98},' +
-    'html2canvas:{scale:2,useCORS:true,logging:false,allowTaint:true,scrollY:0},' +
-    'jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},' +
-    'pagebreak:{mode:[]}})' +
-    '.from(document.body).save().then(function(){' +
-    'setTimeout(function(){try{window.close();}catch(e){}},1800);});' +
-    '}else{setTimeout(window.print,600);}' +
-    '});<\/script></body></html>';
+    '</head><body>' + body + '<script>window.addEventListener("load",function(){setTimeout(window.print,800);});<\/script></body></html>';
 }
 
 function openPDF(profile, scores, role) {
