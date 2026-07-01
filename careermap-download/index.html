@@ -722,6 +722,227 @@ function computeFlags(riasec, ocean, skillup, eq, entre, resi) {
   return flags;
 }
 
+
+/* ─── LANGUAGE PLACEMENT TESTS ──────────────────────────────────────────── */
+function skillToCEFR(score) {
+  return score <= 4  ? "A1" :
+         score <= 8  ? "A2" :
+         score <= 13 ? "B1" :
+         score <= 18 ? "B2" :
+         score <= 22 ? "C1" : "C2";
+}
+function overallCEFR(gL, vL, rL, wL) {
+  var ord = ["A1","A2","B1","B2","C1","C2"];
+  var cnt = {};
+  [gL,vL,rL,wL].forEach(function(l){ cnt[l]=(cnt[l]||0)+1; });
+  var max=0, res="A1";
+  ord.forEach(function(l){ if((cnt[l]||0)>max){ max=cnt[l]; res=l; } });
+  return res;
+}
+function scoreLanguageTest(answers, testType) {
+  var G=0,V=0,R=0,W=0;
+  answers.forEach(function(a){
+    if(!a.correct) return;
+    if(a.skill==="G") G++;
+    if(a.skill==="V") V++;
+    if(a.skill==="R") R++;
+    if(a.skill==="W") W++;
+  });
+  var gL=skillToCEFR(G), vL=skillToCEFR(V), rL=skillToCEFR(R), wL=skillToCEFR(W);
+  return { test:testType, G:G,gLevel:gL, V:V,vLevel:vL, R:R,rLevel:rL, W:W,wLevel:wL,
+           overall:overallCEFR(gL,vL,rL,wL), date:new Date().toLocaleDateString("fr-MA") };
+}
+function cefrColor(l) {
+  return l==="A1"?"#dc4c3c":l==="A2"?"#e09030":l==="B1"?"#d4a328":
+         l==="B2"?"#1aabaa":l==="C1"?"#1db87a":"#9050d0";
+}
+function cefrLabel(level, lang) {
+  var m = {
+    A1:{fr:"Debutant",en:"Beginner",ar:"مبتدئ"},
+    A2:{fr:"Elementaire",en:"Elementary",ar:"أساسي"},
+    B1:{fr:"Intermediaire",en:"Intermediate",ar:"متوسط"},
+    B2:{fr:"Independant sup.",en:"Upper-Intermediate",ar:"فوق المتوسط"},
+    C1:{fr:"Avance",en:"Advanced",ar:"متقدم"},
+    C2:{fr:"Maitrise",en:"Proficient",ar:"إتقان"}
+  };
+  return (m[level]&&m[level][lang])||level;
+}
+function _langSkillCard(skillName, score, level, lang) {
+  var col=cefrColor(level), pct=Math.round(score/25*100);
+  return "<div style='background:#0d1f33;border-radius:12px;padding:16px;'>" +
+    "<div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;'>" +
+      "<div><div style='color:#8faac0;font-size:9px;letter-spacing:2px;margin-bottom:3px;'>" + skillName.toUpperCase() + "</div>" +
+      "<div style='color:"+col+";font-size:26px;font-weight:900;line-height:1;'>" + level + "</div>" +
+      "<div style='color:"+col+";font-size:10px;margin-top:2px;'>" + cefrLabel(level,lang) + "</div></div>" +
+      "<div style='text-align:right;'><div style='color:#fff;font-size:20px;font-weight:800;'>" + score + "</div>" +
+      "<div style='color:#8faac0;font-size:10px;'>/25</div>" +
+      "<div style='color:"+col+";font-size:10px;font-weight:700;'>" + pct + "%</div></div>" +
+    "</div>" +
+    "<div style='background:#1a3a55;border-radius:4px;height:5px;'>" +
+      "<div style='background:"+col+";width:"+pct+"%;height:5px;border-radius:4px;'></div>" +
+    "</div></div>";
+}
+function buildEnglishCertificate(profile, scores) {
+  var s = scores.englishMap; if (!s) return;
+  var col = cefrColor(s.overall);
+  function badge(skill, lvl) {
+    return "<div style='text-align:center;background:#0d1f33;border-radius:8px;padding:8px 10px;min-width:64px;border-top:2px solid "+cefrColor(lvl)+";'>" +
+      "<div style='color:#8faac0;font-size:7px;letter-spacing:1px;'>"+skill.toUpperCase()+"</div>" +
+      "<div style='color:"+cefrColor(lvl)+";font-size:18px;font-weight:900;'>"+lvl+"</div></div>";
+  }
+  var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>EnglishMap Certificate</title>" +
+    "<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff;font-family:Calibri,Georgia,serif}" +
+    "@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.np{display:none}}</style></head><body>" +
+    "<div class='np' style='padding:12px;background:#f5f5f5;text-align:center;'>" +
+    "<button onclick='window.print()' style='background:#1aabaa;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:14px;cursor:pointer;font-weight:700;'>Print / Save as PDF</button></div>" +
+    "<div style='width:210mm;min-height:148mm;margin:0 auto;background:#06111f;position:relative;overflow:hidden;'>" +
+      "<div style='position:absolute;top:-50px;right:-50px;width:200px;height:200px;border-radius:50%;background:#1aabaa;opacity:0.07;'></div>" +
+      "<div style='position:absolute;bottom:-30px;left:-30px;width:150px;height:150px;border-radius:50%;background:#9050d0;opacity:0.07;'></div>" +
+      "<div style='position:absolute;top:10px;left:10px;right:10px;bottom:10px;border:2px solid #d4a328;border-radius:10px;opacity:0.55;'></div>" +
+      "<div style='position:relative;padding:28px 44px;'>" +
+        "<div style='text-align:center;margin-bottom:4px;'>" +
+          "<span style='font-size:28px;font-weight:900;color:#fff;letter-spacing:3px;'>CAREER</span>" +
+          "<span style='font-size:28px;font-weight:900;color:#1aabaa;letter-spacing:3px;'>MAP</span></div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:9px;letter-spacing:3px;margin-bottom:14px;'>LANGUAGE ASSESSMENT PLATFORM</div>" +
+        "<div style='width:50px;height:2px;background:#d4a328;margin:0 auto 14px;'></div>" +
+        "<div style='text-align:center;color:#d4a328;font-size:10px;letter-spacing:4px;margin-bottom:5px;'>CERTIFICATE OF ENGLISH PROFICIENCY</div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:9px;letter-spacing:2px;margin-bottom:14px;'>EnglishMap · CEFR A1–C2</div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:9px;letter-spacing:2px;margin-bottom:4px;'>THIS CERTIFIES THAT</div>" +
+        "<div style='text-align:center;color:#fff;font-size:24px;font-weight:800;'>" + (profile.name||profile.id) + "</div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:9px;margin-top:2px;margin-bottom:10px;'>Code: " + (profile.id||profile.code||"") + "</div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:10px;margin-bottom:10px;'>has demonstrated English proficiency at level</div>" +
+        "<div style='text-align:center;margin-bottom:12px;'>" +
+          "<div style='display:inline-block;background:"+col+";border-radius:10px;padding:8px 36px;'>" +
+            "<div style='color:#06111f;font-size:38px;font-weight:900;line-height:1;'>" + s.overall + "</div>" +
+            "<div style='color:#06111f;font-size:11px;font-weight:700;'>" + cefrLabel(s.overall,"en") + "</div>" +
+          "</div></div>" +
+        "<div style='display:flex;justify-content:center;gap:10px;margin-bottom:12px;'>" +
+          badge("Grammar",s.gLevel) + badge("Vocabulary",s.vLevel) + badge("Reading",s.rLevel) + badge("Writing",s.wLevel) +
+        "</div>" +
+        "<div style='width:50px;height:2px;background:#d4a328;margin:10px auto 8px;'></div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:8px;letter-spacing:2px;'>INITIATIVE LIBRE POUR LA JEUNESSE MAROCAINE · " + s.date + "</div>" +
+      "</div></div></body></html>";
+  var win = window.open("","_blank"); win.document.write(html); win.document.close();
+}
+function buildFrenchCertificate(profile, scores) {
+  var s = scores.frenchMap; if (!s) return;
+  var col = cefrColor(s.overall);
+  var delfRef = {A1:"DELF A1",A2:"DELF A2",B1:"DELF B1",B2:"DELF B2",C1:"DALF C1",C2:"DALF C2"};
+  function badge(skill, lvl) {
+    return "<div style='text-align:center;background:#0d1f33;border-radius:8px;padding:8px 10px;min-width:64px;border-top:2px solid "+cefrColor(lvl)+";'>" +
+      "<div style='color:#8faac0;font-size:7px;letter-spacing:1px;'>"+skill.toUpperCase()+"</div>" +
+      "<div style='color:"+cefrColor(lvl)+";font-size:18px;font-weight:900;'>"+lvl+"</div></div>";
+  }
+  var html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>FrenchMap Certificat</title>" +
+    "<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff;font-family:Calibri,Georgia,serif}" +
+    "@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.np{display:none}}</style></head><body>" +
+    "<div class='np' style='padding:12px;background:#f5f5f5;text-align:center;'>" +
+    "<button onclick='window.print()' style='background:#9050d0;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:14px;cursor:pointer;font-weight:700;'>Imprimer / Enregistrer en PDF</button></div>" +
+    "<div style='width:210mm;min-height:148mm;margin:0 auto;background:#06111f;position:relative;overflow:hidden;'>" +
+      "<div style='position:absolute;top:-50px;right:-50px;width:200px;height:200px;border-radius:50%;background:#9050d0;opacity:0.07;'></div>" +
+      "<div style='position:absolute;bottom:-30px;left:-30px;width:150px;height:150px;border-radius:50%;background:#1aabaa;opacity:0.07;'></div>" +
+      "<div style='position:absolute;top:10px;left:10px;right:10px;bottom:10px;border:2px solid #9050d0;border-radius:10px;opacity:0.45;'></div>" +
+      "<div style='position:relative;padding:28px 44px;'>" +
+        "<div style='text-align:center;margin-bottom:4px;'>" +
+          "<span style='font-size:28px;font-weight:900;color:#fff;letter-spacing:3px;'>CAREER</span>" +
+          "<span style='font-size:28px;font-weight:900;color:#1aabaa;letter-spacing:3px;'>MAP</span></div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:9px;letter-spacing:3px;margin-bottom:14px;'>PLATEFORME D’ÉVALUATION LINGUISTIQUE</div>" +
+        "<div style='width:50px;height:2px;background:#9050d0;margin:0 auto 14px;'></div>" +
+        "<div style='text-align:center;color:#9050d0;font-size:10px;letter-spacing:4px;margin-bottom:5px;'>CERTIFICAT DE COMPÉTENCE EN FRANÇAIS</div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:9px;letter-spacing:2px;margin-bottom:14px;'>FrenchMap · Référentiel CEFR A1–C2 · Référence DELF/DALF</div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:9px;letter-spacing:2px;margin-bottom:4px;'>CERTIFIE QUE</div>" +
+        "<div style='text-align:center;color:#fff;font-size:24px;font-weight:800;'>" + (profile.name||profile.id) + "</div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:9px;margin-top:2px;margin-bottom:10px;'>Code : " + (profile.id||profile.code||"") + "</div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:10px;margin-bottom:10px;'>a démontré un niveau de compétence en langue française équivalent à</div>" +
+        "<div style='text-align:center;margin-bottom:12px;'>" +
+          "<div style='display:inline-block;background:"+col+";border-radius:10px;padding:8px 36px;'>" +
+            "<div style='color:#06111f;font-size:38px;font-weight:900;line-height:1;'>" + s.overall + "</div>" +
+            "<div style='color:#06111f;font-size:11px;font-weight:700;'>" + cefrLabel(s.overall,"fr") + "</div>" +
+            "<div style='color:#06111f;font-size:9px;margin-top:3px;'>Equiv. " + delfRef[s.overall] + "</div>" +
+          "</div></div>" +
+        "<div style='display:flex;justify-content:center;gap:10px;margin-bottom:12px;'>" +
+          badge("Grammaire",s.gLevel) + badge("Vocabulaire",s.vLevel) + badge("Compréh.",s.rLevel) + badge("Expression",s.wLevel) +
+        "</div>" +
+        "<div style='width:50px;height:2px;background:#9050d0;margin:10px auto 8px;'></div>" +
+        "<div style='text-align:center;color:#8faac0;font-size:8px;letter-spacing:2px;'>INITIATIVE LIBRE · مجاني لجميع الطلاب المغاربة · " + s.date + "</div>" +
+      "</div></div></body></html>";
+  var win = window.open("","_blank"); win.document.write(html); win.document.close();
+}
+function pageEnglishMap(scores, lang) {
+  var s = scores.englishMap; if (!s) return "";
+  var col = cefrColor(s.overall);
+  var title = lang==="ar" ? "مستوى اللغة الإنجليزية — EnglishMap" :
+              lang==="fr" ? "Positionnement Anglais — EnglishMap" : "English Proficiency — EnglishMap";
+  var sub  = lang==="ar" ? "اختبار تحديد المستوى — معيار CEFR — 100 سؤال" :
+              lang==="fr" ? "Test de positionnement — Référentiel CEFR — 100 questions" :
+              "Placement test — CEFR European Framework — 100 questions";
+  var gL = lang==="ar"?"القواعد":lang==="fr"?"Grammaire":"Grammar";
+  var vL = lang==="ar"?"المفردات":lang==="fr"?"Vocabulaire":"Vocabulary";
+  var rL = lang==="ar"?"القراءة":lang==="fr"?"Compréhension":"Reading";
+  var wL = lang==="ar"?"الكتابة":lang==="fr"?"Expression":"Writing";
+  var mktTitle = lang==="ar"?"سوق العمل المغربي":lang==="fr"?"Marché de l’emploi marocain":"Moroccan job market";
+  var mkt = {
+    A1:lang==="fr"?"Secteur informel uniquement":"Informal sector only",
+    A2:lang==="fr"?"Tourisme de base, artisanat":"Basic tourism, crafts",
+    B1:lang==="fr"?"Call centers, hôtellerie, PME":"Call centers, hospitality, SMEs",
+    B2:lang==="fr"?"Multinationales, ENSA, ENSIAS, postes cadre":"Multinationals, ENSA, ENSIAS, executive roles",
+    C1:lang==="fr"?"Management international, consulting":"International management, consulting",
+    C2:lang==="fr"?"Traduction, médias, diplomatie":"Translation, media, diplomacy"
+  };
+  return "<div style='page-break-before:always;padding:36px;font-family:Calibri,sans-serif;background:#06111f;min-height:297mm;'>" +
+    "<div style='color:#1aabaa;font-size:10px;letter-spacing:3px;margin-bottom:6px;'>ENGLISHMAP</div>" +
+    "<div style='color:#fff;font-size:22px;font-weight:800;margin-bottom:4px;'>" + title + "</div>" +
+    "<div style='color:#8faac0;font-size:11px;font-style:italic;margin-bottom:20px;'>" + sub + "</div>" +
+    "<div style='background:"+col+";border-radius:14px;padding:16px 28px;margin-bottom:20px;display:inline-block;'>" +
+      "<div style='color:#06111f;font-size:40px;font-weight:900;line-height:1;'>" + s.overall + "</div>" +
+      "<div style='color:#06111f;font-size:13px;font-weight:700;'>" + cefrLabel(s.overall,lang) + "</div></div>" +
+    "<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;'>" +
+      _langSkillCard(gL,s.G,s.gLevel,lang) + _langSkillCard(vL,s.V,s.vLevel,lang) +
+      _langSkillCard(rL,s.R,s.rLevel,lang) + _langSkillCard(wL,s.W,s.wLevel,lang) +
+    "</div>" +
+    "<div style='background:#0a2a1a;border-left:3px solid #1db87a;border-radius:0 10px 10px 0;padding:14px 18px;'>" +
+      "<div style='color:#1db87a;font-size:11px;font-weight:700;margin-bottom:6px;'>🇲🇦  " + mktTitle + "</div>" +
+      "<div style='color:#c8daf0;font-size:12px;'>" + (mkt[s.overall]||"") + "</div>" +
+    "</div></div>";
+}
+function pageFrenchMap(scores, lang) {
+  var s = scores.frenchMap; if (!s) return "";
+  var col = cefrColor(s.overall);
+  var delfRef = {A1:"DELF A1",A2:"DELF A2",B1:"DELF B1",B2:"DELF B2",C1:"DALF C1",C2:"DALF C2"};
+  var title = lang==="ar" ? "مستوى اللغة الفرنسية — FrenchMap" : "Positionnement Français — FrenchMap";
+  var sub  = lang==="ar" ? "اختبار تحديد المستوى — CEFR — 100 سؤال — DELF/DALF" :
+              "Test de positionnement — CEFR — 100 questions — Référence DELF/DALF";
+  var gL = lang==="ar"?"القواعد":"Grammaire";
+  var vL = lang==="ar"?"المفردات":"Vocabulaire";
+  var rL = lang==="ar"?"الفهم":"Compréhension";
+  var wL = lang==="ar"?"التعبير":"Expression";
+  var certTitle = lang==="ar"?"الشهادة الموصى بها":"Certification recommandée";
+  var certMap = {
+    A1:"DELF A1 — débutant",
+    A2:"DELF A2 — valide à vie, reconnu internationalement",
+    B1:"DELF B1 — requis pour certains postes de la fonction publique",
+    B2:"DELF B2 — ouvre les universités françaises et canadiennes",
+    C1:"DALF C1 — équivalent locuteur natif qualifié",
+    C2:"DALF C2 — niveau le plus élevé du CECRL"
+  };
+  return "<div style='page-break-before:always;padding:36px;font-family:Calibri,sans-serif;background:#06111f;min-height:297mm;'>" +
+    "<div style='color:#9050d0;font-size:10px;letter-spacing:3px;margin-bottom:6px;'>FRENCHMAP</div>" +
+    "<div style='color:#fff;font-size:22px;font-weight:800;margin-bottom:4px;'>" + title + "</div>" +
+    "<div style='color:#8faac0;font-size:11px;font-style:italic;margin-bottom:20px;'>" + sub + "</div>" +
+    "<div style='background:"+col+";border-radius:14px;padding:16px 28px;margin-bottom:20px;display:inline-block;'>" +
+      "<div style='color:#06111f;font-size:40px;font-weight:900;line-height:1;'>" + s.overall + "</div>" +
+      "<div style='color:#06111f;font-size:13px;font-weight:700;'>" + cefrLabel(s.overall,lang) + "</div>" +
+      "<div style='color:#06111f;font-size:10px;margin-top:3px;'>Equiv. " + delfRef[s.overall] + "</div></div>" +
+    "<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;'>" +
+      _langSkillCard(gL,s.G,s.gLevel,lang) + _langSkillCard(vL,s.V,s.vLevel,lang) +
+      _langSkillCard(rL,s.R,s.rLevel,lang) + _langSkillCard(wL,s.W,s.wLevel,lang) +
+    "</div>" +
+    "<div style='background:#0a1a2a;border-left:3px solid #9050d0;border-radius:0 10px 10px 0;padding:14px 18px;'>" +
+      "<div style='color:#9050d0;font-size:11px;font-weight:700;margin-bottom:6px;'>🎓  " + certTitle + "</div>" +
+      "<div style='color:#c8daf0;font-size:12px;'>" + (certMap[s.overall]||"") + "</div>" +
+    "</div></div>";
+}
+
 /* ─── PDF REPORT ─────────────────────────────────────────────────────────── */
 function buildReportHTML(profile, scores, role, reportLang) {
   reportLang = reportLang || "fr";
@@ -1759,6 +1980,8 @@ function buildReportHTML(profile, scores, role, reportLang) {
 
   } // end advisor clinical pages
 
+  if (scores.englishMap) { body += pageEnglishMap(scores, reportLang); }
+  if (scores.frenchMap)  { body += pageFrenchMap(scores, reportLang);  }
   body += '</div>'; // end outer wrapper
 
   var pdfName = 'CareerMap_' + (name||candId).replace(/[^a-zA-Z0-9_-]/g,'_') + '_' + reportLang + '.pdf';
@@ -2886,7 +3109,7 @@ function buildCertificate(user, code, lang) {
     + '</body></html>';
 }
 
-function CandidateCode({ lang, setLang, user, code, scores, profile, onLogout }) {
+function CandidateCode({ lang, setLang, user, code, scores, profile, onLogout, onOptionalTests }) {
   var ar = lang === "ar";
   var [copied, setCopied] = useState(false);
   function doCopy() {
@@ -2937,6 +3160,14 @@ function CandidateCode({ lang, setLang, user, code, scores, profile, onLogout })
               {ar ? "📋 احتفظ بهذا الكود وشاركه مع مستشارك." : lang==="fr" ? "📋 Conservez ce code et partagez-le avec votre conseiller." : "📋 Keep this code and share it with your advisor."}
             </p>
           </div>
+          {onOptionalTests && (
+            <button onClick={onOptionalTests} style={{ marginTop:12, width:"100%", padding:12,
+              background:"rgba(26,171,170,.1)", color:"#1aabaa",
+              border:"1px solid rgba(26,171,170,.3)", borderRadius:12,
+              fontFamily:"inherit", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              🌐 {ar?"اختبارات اللغة":lang==="fr"?"Tests de placement linguistique":"Language Placement Tests"}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -4812,7 +5043,544 @@ function LandingPage({ onStart, lang, setLang }) {
     </div>
   );
 }
-function ReturningScreen({ lang, setLang, user, code, onLogout, onRetakeTests, onViewReport }) {
+var EN_P1 = 'Read: "My name is Sara. I am 16 years old. I live in Casablanca. I have a dog."\n\n';
+var EN_P2 = 'Read: "Ahmed works in a bank in Rabat. He starts work at 9am and finishes at 5pm. He takes the bus every day because he doesn\'t have a car. He enjoys his job but the traffic is sometimes a problem."\n\n';
+var EN_P3 = 'Read: "Morocco has made significant progress in renewable energy. The Noor solar complex near Ouarzazate is one of the world\'s largest solar power plants. The government aims to produce 52% of electricity from renewable sources by 2030, driven by environmental concerns and the need to reduce fossil fuel imports."\n\n';
+var EN_P4 = 'Read: "Artificial intelligence is transforming the job market at a pace that challenges traditional education. While AI automates routine tasks, it creates demand for creativity, emotional intelligence, and complex problem-solving. The World Economic Forum estimates 85 million jobs may be displaced by 2027 while 97 million new roles emerge."\n\n';
+var EN_P5 = 'Read: "Zygmunt Bauman\'s \'liquid modernity\' describes a world where social forms dissolve faster than they can solidify. Unlike solid modernity — with stable institutions and predictable careers — liquid modernity is marked by flexibility, uncertainty, and constant identity renegotiation. Young people must develop the metacognitive capacity to learn, unlearn, and relearn throughout life."\n\n';
+var EN_P6 = 'Read: "The Sapir-Whorf hypothesis posits that language does not merely reflect thought but actively determines it. While the strong version has been largely discredited, linguistic relativity continues to attract empirical support. Studies show language influences perception of colour, spatial relationships, and temporal sequences. If language shapes perception, multilingualism may offer cognitive as well as communicative advantages."\n\n';
+
+var EN_QUESTIONS = [
+  // A1 Grammar Q1-Q4
+  {text:"Choose the correct sentence.",options:{A:"She have a cat.",B:"She has a cat.",C:"She is have a cat.",D:"She haves a cat."},correct:"B",skill:"G"},
+  {text:'Complete: "I ___ a student."',options:{A:"is",B:"are",C:"am",D:"be"},correct:"C",skill:"G"},
+  {text:"Which is correct?",options:{A:"They is happy.",B:"They are happy.",C:"They am happy.",D:"They be happy."},correct:"B",skill:"G"},
+  {text:"Choose the correct question:",options:{A:"Where you live?",B:"Where does you live?",C:"Where do you live?",D:"Where living you?"},correct:"C",skill:"G"},
+  // A1 Vocabulary Q5-Q8
+  {text:'What is the opposite of "big"?',options:{A:"tall",B:"heavy",C:"small",D:"old"},correct:"C",skill:"V"},
+  {text:"Which word is a color?",options:{A:"table",B:"blue",C:"happy",D:"eat"},correct:"B",skill:"V"},
+  {text:'"I ___ coffee every morning."',options:{A:"eat",B:"wear",C:"drink",D:"read"},correct:"C",skill:"V"},
+  {text:'What is the number after "nineteen"?',options:{A:"ninety",B:"twelve",C:"twenty",D:"eleven"},correct:"C",skill:"V"},
+  // A1 Reading Q9-Q12
+  {text:EN_P1+"Where does Sara live?",options:{A:"Rabat",B:"Agadir",C:"Casablanca",D:"Tangier"},correct:"C",skill:"R"},
+  {text:EN_P1+"How old is Sara?",options:{A:"6",B:"60",C:"26",D:"16"},correct:"D",skill:"R"},
+  {text:EN_P1+"What animal does Sara have?",options:{A:"a cat",B:"a dog",C:"a bird",D:"a fish"},correct:"B",skill:"R"},
+  {text:EN_P1+"What is her name?",options:{A:"Salma",B:"Sofia",C:"Sara",D:"Samira"},correct:"C",skill:"R"},
+  // A1 Writing Q13-Q16
+  {text:'"This is ___ apple."',options:{A:"a",B:"an",C:"the",D:"some"},correct:"B",skill:"W"},
+  {text:'"There ___ two books on the table."',options:{A:"is",B:"am",C:"are",D:"be"},correct:"C",skill:"W"},
+  {text:'"What ___ your name?"',options:{A:"is",B:"are",C:"am",D:"be"},correct:"A",skill:"W"},
+  {text:'"I ___ from Morocco."',options:{A:"is",B:"am",C:"are",D:"be"},correct:"B",skill:"W"},
+  // A2 Grammar Q17-Q20
+  {text:'"Yesterday I ___ to school."',options:{A:"go",B:"goes",C:"went",D:"gone"},correct:"C",skill:"G"},
+  {text:"Which sentence is correct?",options:{A:"I didn't went to the party.",B:"I didn't go to the party.",C:"I not go to the party.",D:"I don't went to the party."},correct:"B",skill:"G"},
+  {text:'"She ___ TV when I called her."',options:{A:"watches",B:"watch",C:"was watching",D:"watched"},correct:"C",skill:"G"},
+  {text:'"This book is ___ than that one."',options:{A:"more interesting",B:"interestinger",C:"most interesting",D:"interestingmore"},correct:"A",skill:"G"},
+  // A2 Vocabulary Q21-Q24
+  {text:'Choose the word that means "very tired":',options:{A:"hungry",B:"exhausted",C:"bored",D:"angry"},correct:"B",skill:"V"},
+  {text:'What is a "pharmacy"?',options:{A:"a place to eat",B:"a place to buy medicine",C:"a place to study",D:"a place to exercise"},correct:"B",skill:"V"},
+  {text:'"Make a ___" — which word goes with make?',options:{A:"run",B:"decision",C:"play",D:"walk"},correct:"B",skill:"V"},
+  {text:'"The train ___ at 8am."',options:{A:"arrives",B:"comes to",C:"reaches at",D:"gets in"},correct:"A",skill:"V"},
+  // A2 Reading Q25-Q28
+  {text:EN_P2+"Where does Ahmed work?",options:{A:"in a school",B:"in a hospital",C:"in a bank",D:"in a shop"},correct:"C",skill:"R"},
+  {text:EN_P2+"How does Ahmed travel to work?",options:{A:"by car",B:"by train",C:"by bus",D:"on foot"},correct:"C",skill:"R"},
+  {text:EN_P2+"What is sometimes a problem for Ahmed?",options:{A:"his colleagues",B:"the traffic",C:"his salary",D:"the weather"},correct:"B",skill:"R"},
+  {text:EN_P2+"When does Ahmed finish work?",options:{A:"at 8am",B:"at 9am",C:"at 5am",D:"at 5pm"},correct:"D",skill:"R"},
+  // A2 Writing Q29-Q32
+  {text:'"I have lived here ___ 2019."',options:{A:"for",B:"since",C:"ago",D:"during"},correct:"B",skill:"W"},
+  {text:'"I can\'t find ___ keys."',options:{A:"my",B:"me",C:"I",D:"mine"},correct:"A",skill:"W"},
+  {text:'"She is taller ___ her sister."',options:{A:"as",B:"from",C:"that",D:"than"},correct:"D",skill:"W"},
+  {text:'"We ___ friends since primary school."',options:{A:"are",B:"were",C:"have been",D:"had been"},correct:"C",skill:"W"},
+  // B1 Grammar Q33-Q36
+  {text:'"The report ___ by the manager yesterday."',options:{A:"was written",B:"is written",C:"has been written",D:"wrote"},correct:"A",skill:"G"},
+  {text:"Which uses the third conditional correctly?",options:{A:"If I studied harder, I will pass.",B:"If I had studied harder, I would have passed.",C:"If I study harder, I would pass.",D:"If I studied harder, I would pass."},correct:"B",skill:"G"},
+  {text:'He said: "I am tired." → He said that he ___',options:{A:"is tired",B:"was tired",C:"were tired",D:"had been tired"},correct:"B",skill:"G"},
+  {text:'"You ___ smoke inside — it is forbidden."',options:{A:"should",B:"might",C:"mustn\'t",D:"needn\'t"},correct:"C",skill:"G"},
+  // B1 Vocabulary Q37-Q40
+  {text:'Word closest in meaning to "obtain":',options:{A:"lose",B:"acquire",C:"give",D:"avoid"},correct:"B",skill:"V"},
+  {text:'Which phrasal verb means "to investigate"?',options:{A:"look up",B:"look after",C:"look out",D:"look down"},correct:"A",skill:"V"},
+  {text:'"The company ___ 200 new employees last year."',options:{A:"hired",B:"rented",C:"borrowed",D:"lent"},correct:"A",skill:"V"},
+  {text:'What does "mandatory" mean?',options:{A:"temporary",B:"optional",C:"required",D:"expensive"},correct:"C",skill:"V"},
+  // B1 Reading Q41-Q44
+  {text:EN_P3+"What is the Noor complex?",options:{A:"a wind farm",B:"a solar power plant",C:"a hydroelectric dam",D:"a nuclear station"},correct:"B",skill:"R"},
+  {text:EN_P3+"Where is the Noor complex located?",options:{A:"near Agadir",B:"near Rabat",C:"near Ouarzazate",D:"near Fès"},correct:"C",skill:"R"},
+  {text:EN_P3+"Morocco's renewable energy target for 2030?",options:{A:"25%",B:"35%",C:"62%",D:"52%"},correct:"D",skill:"R"},
+  {text:EN_P3+"Why does Morocco want more renewable energy?",options:{A:"To attract tourists",B:"Environmental reasons and to reduce fossil fuel imports",C:"To increase oil production",D:"To compete with Europe"},correct:"B",skill:"R"},
+  // B1 Writing Q45-Q48
+  {text:'"Despite ___ hard all year, she failed the exam."',options:{A:"studying",B:"studied",C:"to study",D:"study"},correct:"A",skill:"W"},
+  {text:'"He is very intelligent; ___, he struggles with exams."',options:{A:"therefore",B:"moreover",C:"however",D:"furthermore"},correct:"C",skill:"W"},
+  {text:'"The meeting has been ___ until next week."',options:{A:"cancelled",B:"postponed",C:"refused",D:"rejected"},correct:"B",skill:"W"},
+  {text:'"It is important ___ on time."',options:{A:"arrive",B:"arriving",C:"to arrive",D:"arrived"},correct:"C",skill:"W"},
+  // B2 Grammar Q49-Q52
+  {text:'"___ had I left the office when my phone rang."',options:{A:"Barely",B:"Rarely",C:"Hardly ever",D:"Seldom"},correct:"A",skill:"G"},
+  {text:'Which sentence uses "wish" correctly for an impossible present situation?',options:{A:"I wish I can speak French.",B:"I wish I could speak French.",C:"I wish I will speak French.",D:"I wish I spoke French yesterday."},correct:"B",skill:"G"},
+  {text:"Choose the correct cleft sentence:",options:{A:"It was the manager who approved the plan.",B:"It was the manager which approved the plan.",C:"It is the manager who approved the plan.",D:"It was the manager that has approved the plan."},correct:"A",skill:"G"},
+  {text:'"___ in 1956, the building is now a national monument."',options:{A:"Built",B:"Building",C:"Having build",D:"Been built"},correct:"A",skill:"G"},
+  // B2 Vocabulary Q53-Q56
+  {text:'Word closest to "ambiguous":',options:{A:"clear",B:"uncertain",C:"boring",D:"dangerous"},correct:"B",skill:"V"},
+  {text:"Which collocation is correct?",options:{A:"do a mistake",B:"make a mistake",C:"have a mistake",D:"take a mistake"},correct:"B",skill:"V"},
+  {text:'"The new policy will ___ significant changes to healthcare."',options:{A:"bring about",B:"bring up",C:"bring in",D:"bring on"},correct:"A",skill:"V"},
+  {text:'What does "unprecedented" mean?',options:{A:"happening regularly",B:"well-documented",C:"never having happened before",D:"extremely expensive"},correct:"C",skill:"V"},
+  // B2 Reading Q57-Q60
+  {text:EN_P4+"What skills does AI create demand for?",options:{A:"routine tasks and data entry",B:"creativity, emotional intelligence, and problem-solving",C:"manual labor",D:"traditional academic knowledge"},correct:"B",skill:"R"},
+  {text:EN_P4+"WEF estimate about 2027?",options:{A:"85 million new jobs",B:"97 million jobs lost",C:"Net creation of 12 million roles",D:"Equal jobs lost and created"},correct:"C",skill:"R"},
+  {text:EN_P4+'What does "displaced" most closely mean?',options:{A:"improved",B:"replaced",C:"employed",D:"trained"},correct:"B",skill:"R"},
+  {text:EN_P4+"The author's view on AI for developing countries:",options:{A:"Only negative",B:"Only positive",C:"Both threat and opportunity",D:"Irrelevant"},correct:"C",skill:"R"},
+  // B2 Writing Q61-Q64
+  {text:"Most academic way to express disagreement:",options:{A:"That's totally wrong.",B:"I completely disagree.",C:"While this view has merit, the evidence suggests otherwise.",D:"No, that is not correct."},correct:"C",skill:"W"},
+  {text:'"The results, ___ were surprising, led to a major change in policy."',options:{A:"that",B:"who",C:"which",D:"whose"},correct:"C",skill:"W"},
+  {text:'"___ the high cost, the project was approved."',options:{A:"Despite",B:"Although",C:"However",D:"Even so"},correct:"A",skill:"W"},
+  {text:'"She ___ the report three times before submitting it."',options:{A:"has proofread",B:"had proofread",C:"proofread",D:"was proofreading"},correct:"B",skill:"W"},
+  // C1 Grammar Q65-Q68
+  {text:'"The committee recommended that he ___ the decision immediately."',options:{A:"makes",B:"make",C:"made",D:"would make"},correct:"B",skill:"G"},
+  {text:"Which uses ellipsis correctly?",options:{A:"She studied hard, and so did he.",B:"She studied hard, and so he did.",C:"She studied hard, and he did so.",D:"She studied hard, and so he studied."},correct:"A",skill:"G"},
+  {text:"Correct mixed conditional:",options:{A:"If she had taken the medicine, she would feel better now.",B:"If she took the medicine, she would have felt better.",C:"If she has taken the medicine, she would feel better.",D:"If she had taken the medicine, she would have felt better now."},correct:"A",skill:"G"},
+  {text:"Correct nominalization:",options:{A:"The government decided to intervene.",B:"The government's decision to intervene was controversial.",C:"The government intervening was decided.",D:"The government had a decision of intervention."},correct:"B",skill:"G"},
+  // C1 Vocabulary Q69-Q72
+  {text:'"The minister\'s speech was met with ___ applause."',options:{A:"generous",B:"thunderous",C:"loud",D:"heavy"},correct:"B",skill:"V"},
+  {text:'What does "inveterate" mean?',options:{A:"highly skilled",B:"deeply entrenched in a habit",C:"extremely innovative",D:"newly appointed"},correct:"B",skill:"V"},
+  {text:'"The scandal ___ serious questions about corporate governance."',options:{A:"lifted",B:"rose",C:"raised",D:"arose"},correct:"C",skill:"V"},
+  {text:'"The new regulation will ___ small businesses disproportionately."',options:{A:"affect",B:"impact",C:"burden",D:"change"},correct:"C",skill:"V"},
+  // C1 Reading Q73-Q76
+  {text:EN_P5+"What does Bauman's concept primarily describe?",options:{A:"Environmental changes in modern cities",B:"A world where social structures dissolve rapidly",C:"The stability of contemporary institutions",D:"Economic inequality"},correct:"B",skill:"R"},
+  {text:EN_P5+'What characterized "solid modernity"?',options:{A:"Flexibility and uncertainty",B:"Constant identity renegotiation",C:"Stable institutions and predictable life patterns",D:"Digital transformation"},correct:"C",skill:"R"},
+  {text:EN_P5+"What do young people need most today?",options:{A:"Technical expertise in one field",B:"Financial independence",C:"The ability to learn, unlearn and relearn",D:"Strong institutional connections"},correct:"C",skill:"R"},
+  {text:EN_P5+'"Metacognitive" most closely refers to:',options:{A:"thinking about how one thinks and learns",B:"advanced mathematical reasoning",C:"cross-cultural communication",D:"physical and emotional resilience"},correct:"A",skill:"R"},
+  // C1 Writing Q77-Q80
+  {text:"Most appropriate academic hedge:",options:{A:"The data proves that...",B:"The data confirms definitely that...",C:"The data suggests that...",D:"The data shows clearly that..."},correct:"C",skill:"W"},
+  {text:'"The board ___ to address shareholders\' concerns at the earliest opportunity."',options:{A:"will try",B:"undertakes",C:"is going",D:"plans"},correct:"B",skill:"W"},
+  {text:'Best cohesive sentence to follow "The study yielded inconclusive results.":',options:{A:"It was bad.",B:"Nobody understood it.",C:"Nonetheless, several important trends were identified.",D:"The researchers liked it anyway."},correct:"C",skill:"W"},
+  {text:'"___ the complexity of the situation, the team opted for a phased approach."',options:{A:"Recognizing",B:"Recognized",C:"To recognize",D:"Having recognizing"},correct:"A",skill:"W"},
+  // C2 Grammar Q81-Q84
+  {text:'Correct formal counterfactual with "were":',options:{A:"If he was here, he would understand.",B:"Were he here, he would understand.",C:"Was he here, he would understand.",D:"If he were here, he will understand."},correct:"B",skill:"G"},
+  {text:"Correct apposition:",options:{A:"My colleague, who is also a linguist, is Dr Amara.",B:"My colleague, which is also a linguist, is Dr Amara.",C:"My colleague being a linguist is Dr Amara.",D:'My colleague, a linguist also, Dr Amara is.'},correct:"A",skill:"G"},
+  {text:'Correct causative "have":',options:{A:"I had my car repaired.",B:"I had my car to repair.",C:"I had repaired my car by myself.",D:"I had my car repairing."},correct:"A",skill:"G"},
+  {text:"Correct fused participle:",options:{A:"I disapprove of him leaving early.",B:"I disapprove of his leaving early.",C:"I disapprove of he leaving early.",D:"I disapprove of him to leave early."},correct:"B",skill:"G"},
+  // C2 Vocabulary Q85-Q88
+  {text:'"His argument was based on a ___ of logic that few could follow."',options:{A:"stream",B:"thread",C:"line",D:"chain"},correct:"B",skill:"V"},
+  {text:'What does "tendentious" mean?',options:{A:"promoting a particular cause in a biased way",B:"inclined toward caution",C:"deliberately vague",D:"excessively emotional"},correct:"A",skill:"V"},
+  {text:'Correct idiom for "starting from basics":',options:{A:"from the ground up",B:"from scratch forward",C:"from zero base",D:"from the beginning point"},correct:"A",skill:"V"},
+  {text:'"The economist\'s ___ analysis exposed flaws overlooked for decades."',options:{A:"thorough",B:"incisive",C:"complete",D:"careful"},correct:"B",skill:"V"},
+  // C2 Reading Q89-Q92
+  {text:EN_P6+"What does the strong Sapir-Whorf hypothesis claim?",options:{A:"Language reflects thought accurately",B:"Language determines thought and shapes cognitive reality",C:"Different languages have equal cognitive effects",D:"Thought exists independently of language"},correct:"B",skill:"R"},
+  {text:EN_P6+"Current academic status of the strong hypothesis:",options:{A:"Widely accepted",B:"Under active investigation",C:"Largely discredited",D:"Newly proposed"},correct:"C",skill:"R"},
+  {text:EN_P6+"What empirical evidence supports linguistic relativity?",options:{A:"Evidence that all languages share universal grammar",B:"Studies on colour, space, and time perception",C:"Research showing bilinguals have lower IQs",D:"Data proving language has no effect"},correct:"B",skill:"R"},
+  {text:EN_P6+"Author's implied conclusion about multilingualism:",options:{A:"Primarily useful for travel",B:"Communicative and cognitive advantages",C:"Creates confusion between cognitive systems",D:"Limited to the strong Sapir-Whorf version"},correct:"B",skill:"R"},
+  // C2 Writing Q93-Q96
+  {text:"Most rhetorically effective academic opening:",options:{A:"This essay will talk about climate change.",B:"Few challenges of our era demand more urgent rethinking than the intersection of climate policy and economic justice.",C:"Climate change is a very important topic nowadays.",D:"I think climate change is really serious."},correct:"B",skill:"W"},
+  {text:'"The treaty was ___ by all parties, rendering it legally void."',options:{A:"broken",B:"repudiated",C:"refused",D:"rejected"},correct:"B",skill:"W"},
+  {text:"Best register-consistent C2 sentence:",options:{A:"The policy demonstrates considerable theoretical merit; however, its practical implementation remains fraught with methodological challenges.",B:"The policy is good in theory but hard to do in real life.",C:"The policy is very theoretically good but practically there are loads of problems.",D:"Despite being theoretically sound, the policy has got lots of implementation issues."},correct:"A",skill:"W"},
+  {text:"Correct antithesis:",options:{A:"The problem is both large and complex.",B:"Not failure, but low aim, is the real crime.",C:"The solution requires effort and dedication.",D:"Change is necessary for progress."},correct:"B",skill:"W"},
+  // Mixed Q97-Q100
+  {text:"Most natural sentence:",options:{A:"Despite he was tired, he continued working.",B:"Despite being tired, he continued working.",C:"Despite of being tired, he continued working.",D:"Despite tired, he continued working."},correct:"B",skill:"G"},
+  {text:'Which word does NOT belong with "argument"?',options:{A:"compelling",B:"flawed",C:"heated",D:"delicious"},correct:"D",skill:"V"},
+  {text:'"Procrastination is not a time management problem; it is an emotion regulation problem." Main claim:',options:{A:"People need better schedules",B:"Procrastination is caused by poor planning",C:"The root of procrastination is emotional, not organizational",D:"Time management courses solve procrastination"},correct:"C",skill:"R"},
+  {text:'Best formal paraphrase of "The boss fired him":',options:{A:"He was dismissed from his position.",B:"He lost his job.",C:"They told him to go away.",D:"He got sacked."},correct:"A",skill:"W"}
+];
+
+var FR_P1 = 'Lisez : "Je m\'appelle Fatima. J\'ai 16 ans. J\'habite à Casablanca. J\'ai un chien."\n\n';
+var FR_P2 = 'Lisez : "Karim travaille dans une banque à Rabat. Il commence à 9h et finit à 17h. Il prend le bus tous les jours parce qu\'il n\'a pas de voiture. Il aime son travail mais la circulation est parfois un problème."\n\n';
+var FR_P3 = 'Lisez : "Le Maroc a réalisé des progrès importants dans le domaine des énergies renouvelables. Le complexe solaire Noor, situé près de Ouarzazate, est l\'un des plus grands du monde. Le gouvernement vise 52% d\'électricité renouvelable d\'ici 2030, pour des raisons environnementales et pour réduire la dépendance aux combustibles fossiles importés."\n\n';
+var FR_P4 = 'Lisez : "L\'intelligence artificielle transforme le marché du travail à un rythme qui met à l\'épreuve les systèmes éducatifs. Si l\'IA automatise les tâches routinières, elle crée de la demande pour la créativité, l\'intelligence émotionnelle et la résolution de problèmes. Le Forum économique mondial estime que 85 millions d\'emplois pourraient être déplacés d\'ici 2027, tandis que 97 millions de nouveaux rôles pourraient émerger."\n\n';
+var FR_P5 = 'Lisez : "La \'modernité liquide\' de Bauman décrit un monde où les formes sociales se dissolvent plus vite qu\'elles ne se solidifient. Contrairement à la modernité solide — institutions stables, trajectoires prévisibles — la modernité liquide se définit par la flexibilité, l\'incertitude et la renégociation permanente de l\'identité. Les jeunes doivent développer la capacité métacognitive d\'apprendre, de désapprendre et de réapprendre."\n\n';
+var FR_P6 = 'Lisez : "L\'hypothèse de Sapir-Whorf postule que la langue ne reflète pas simplement la pensée, mais la détermine. Si la version forte a été réfutée, la relativité linguistique continue d\'attirer un soutien empirique. Des études montrent que la langue influence la perception des couleurs, des relations spatiales et des séquences temporelles. Si la langue façonne la perception, le multilinguisme offre un avantage cognitif en plus de l\'avantage communicatif."\n\n';
+
+var FR_QUESTIONS = [
+  // A1 Grammaire Q1-Q4
+  {text:"Choisissez la phrase correcte :",options:{A:"Elle avoir un chat.",B:"Elle est un chat.",C:"Elle a un chat.",D:"Elle es un chat."},correct:"C",skill:"G"},
+  {text:'Complétez : "Je ___ français."',options:{A:"suis",B:"parle",C:"parles",D:"parlons"},correct:"B",skill:"G"},
+  {text:"Quelle est la bonne forme ?",options:{A:"Ils est contents.",B:"Ils sont contents.",C:"Ils sommes contents.",D:"Ils es contents."},correct:"B",skill:"G"},
+  {text:"Choisissez la bonne question :",options:{A:"Où vous habitez ?",B:"Où tu habites ?",C:"Où tu habite ?",D:"Où habiter tu ?"},correct:"B",skill:"G"},
+  // A1 Vocabulaire Q5-Q8
+  {text:'Quel est le contraire de "grand" ?',options:{A:"lourd",B:"vieux",C:"petit",D:"lent"},correct:"C",skill:"V"},
+  {text:"Quel mot est une couleur ?",options:{A:"table",B:"bleu",C:"manger",D:"heureux"},correct:"B",skill:"V"},
+  {text:'"Je ___ du café chaque matin."',options:{A:"mange",B:"porte",C:"bois",D:"lis"},correct:"C",skill:"V"},
+  {text:'Quel est le nombre après "dix-neuf" ?',options:{A:"quatre-vingt",B:"douze",C:"vingt",D:"onze"},correct:"C",skill:"V"},
+  // A1 Compréhension Q9-Q12
+  {text:FR_P1+"Où habite Fatima ?",options:{A:"à Rabat",B:"à Agadir",C:"à Casablanca",D:"à Tanger"},correct:"C",skill:"R"},
+  {text:FR_P1+"Quel âge a Fatima ?",options:{A:"6 ans",B:"60 ans",C:"26 ans",D:"16 ans"},correct:"D",skill:"R"},
+  {text:FR_P1+"Quel animal a Fatima ?",options:{A:"un chat",B:"un chien",C:"un oiseau",D:"un poisson"},correct:"B",skill:"R"},
+  {text:FR_P1+"Comment s'appelle la personne du texte ?",options:{A:"Salma",B:"Sofia",C:"Fatima",D:"Samira"},correct:"C",skill:"R"},
+  // A1 Expression Q13-Q16
+  {text:'"C\'est ___ orange."',options:{A:"un",B:"une",C:"le",D:"du"},correct:"B",skill:"W"},
+  {text:'"Il y a ___ livres sur la table."',options:{A:"un",B:"du",C:"deux",D:"de la"},correct:"C",skill:"W"},
+  {text:'"Comment ___ tu ?"',options:{A:"vas",B:"va",C:"allez",D:"aller"},correct:"A",skill:"W"},
+  {text:'"Je ___ du Maroc."',options:{A:"est",B:"suis",C:"sommes",D:"êtes"},correct:"B",skill:"W"},
+  // A2 Grammaire Q17-Q20
+  {text:'"Hier, je ___ à l\'école."',options:{A:"vais",B:"va",C:"suis allé",D:"allais"},correct:"C",skill:"G"},
+  {text:"Quelle phrase est correcte ?",options:{A:"Je ne suis pas allé pas à la fête.",B:"Je suis pas allé à la fête.",C:"Je ne suis pas allé à la fête.",D:"Je ne allé pas à la fête."},correct:"C",skill:"G"},
+  {text:'"Elle ___ la télé quand j\'ai appelé."',options:{A:"regarde",B:"regardait",C:"a regardé",D:"regardera"},correct:"B",skill:"G"},
+  {text:'"Ce livre est ___ que l\'autre."',options:{A:"plus intéressant",B:"intéressantement plus",C:"le plus intéressant",D:"plus intéressantement"},correct:"A",skill:"G"},
+  // A2 Vocabulaire Q21-Q24
+  {text:'"Très fatigué" — quel mot ?',options:{A:"affamé",B:"épuisé",C:"ennuyé",D:"en colère"},correct:"B",skill:"V"},
+  {text:"Qu'est-ce qu'une pharmacie ?",options:{A:"un endroit pour manger",B:"un endroit pour acheter des médicaments",C:"un endroit pour étudier",D:"un endroit pour faire du sport"},correct:"B",skill:"V"},
+  {text:'"Prendre une ___" — quel mot ?',options:{A:"course",B:"décision",C:"jeu",D:"marche"},correct:"B",skill:"V"},
+  {text:'"Le train ___ à 8h."',options:{A:"arrive",B:"vient à",C:"atteint à",D:"entre dans"},correct:"A",skill:"V"},
+  // A2 Compréhension Q25-Q28
+  {text:FR_P2+"Où travaille Karim ?",options:{A:"dans une école",B:"dans un hôpital",C:"dans une banque",D:"dans un magasin"},correct:"C",skill:"R"},
+  {text:FR_P2+"Comment Karim va-t-il au travail ?",options:{A:"en voiture",B:"en train",C:"en bus",D:"à pied"},correct:"C",skill:"R"},
+  {text:FR_P2+"Qu'est-ce qui est parfois un problème pour Karim ?",options:{A:"ses collègues",B:"la circulation",C:"son salaire",D:"la météo"},correct:"B",skill:"R"},
+  {text:FR_P2+"À quelle heure Karim finit-il le travail ?",options:{A:"à 8h",B:"à 9h",C:"à 5h",D:"à 17h"},correct:"D",skill:"R"},
+  // A2 Expression Q29-Q32
+  {text:'"J\'habite ici ___ 2019."',options:{A:"pour",B:"depuis",C:"il y a",D:"pendant"},correct:"B",skill:"W"},
+  {text:'"Je ne trouve pas ___ clés."',options:{A:"mes",B:"me",C:"je",D:"moi"},correct:"A",skill:"W"},
+  {text:'"Elle est plus grande ___ sa sœur."',options:{A:"comme",B:"de",C:"qu\'",D:"aussi"},correct:"C",skill:"W"},
+  {text:'"Nous sommes amis ___ l\'école primaire."',options:{A:"pour",B:"de",C:"depuis",D:"pendant"},correct:"C",skill:"W"},
+  // B1 Grammaire Q33-Q36
+  {text:'"Le rapport ___ par le directeur hier."',options:{A:"était écrit",B:"a été écrit",C:"est écrit",D:"a écrit"},correct:"B",skill:"G"},
+  {text:"Conditionnel passé correct ?",options:{A:"Si j'avais étudié, je réussirai.",B:"Si j'avais étudié, j'aurais réussi.",C:"Si j'étudiais, j'aurais réussi.",D:"Si j'étudiais, je réussirais."},correct:"B",skill:"G"},
+  {text:'Il a dit : "Je suis fatigué." → Il a dit qu\'il ___',options:{A:"est fatigué",B:"était fatigué",C:"soit fatigué",D:"a été fatigué"},correct:"B",skill:"G"},
+  {text:'"Il ___ fumer dans le bâtiment — c\'est interdit."',options:{A:"devrait",B:"pourrait",C:"est interdit de",D:"ne doit pas"},correct:"D",skill:"G"},
+  // B1 Vocabulaire Q37-Q40
+  {text:"Le plus proche d'\"obtenir\" :",options:{A:"perdre",B:"acquérir",C:"donner",D:"éviter"},correct:"B",skill:"V"},
+  {text:'"Chercher des informations" → expression :',options:{A:"se renseigner",B:"se souvenir",C:"se méfier",D:"se plaindre"},correct:"A",skill:"V"},
+  {text:'"L\'entreprise ___ 200 nouveaux employés l\'année dernière."',options:{A:"a embauché",B:"a loué",C:"a emprunté",D:"a prêté"},correct:"A",skill:"V"},
+  {text:'"Obligatoire" signifie :',options:{A:"temporaire",B:"facultatif",C:"requis",D:"coûteux"},correct:"C",skill:"V"},
+  // B1 Compréhension Q41-Q44
+  {text:FR_P3+"Qu'est-ce que le complexe Noor ?",options:{A:"un parc éolien",B:"une centrale solaire",C:"un barrage hydroélectrique",D:"une centrale nucléaire"},correct:"B",skill:"R"},
+  {text:FR_P3+"Où se trouve le complexe Noor ?",options:{A:"près d'Agadir",B:"près de Rabat",C:"près de Ouarzazate",D:"près de Fès"},correct:"C",skill:"R"},
+  {text:FR_P3+"Objectif 2030 du Maroc :",options:{A:"25%",B:"35%",C:"62%",D:"52%"},correct:"D",skill:"R"},
+  {text:FR_P3+"Pourquoi développer les énergies renouvelables ?",options:{A:"Pour attirer les touristes",B:"Raisons environnementales et réduire les importations",C:"Pour augmenter la production de pétrole",D:"Pour concurrencer les pays européens"},correct:"B",skill:"R"},
+  // B1 Expression Q45-Q48
+  {text:'"Bien qu\'elle ___ beaucoup, elle a échoué à l\'examen."',options:{A:"étudie",B:"ait étudié",C:"a étudié",D:"étudierait"},correct:"B",skill:"W"},
+  {text:'"Il est très intelligent ; ___, il a du mal avec les examens."',options:{A:"donc",B:"de plus",C:"cependant",D:"en outre"},correct:"C",skill:"W"},
+  {text:'"La réunion a été ___ à la semaine prochaine."',options:{A:"annulée",B:"reportée",C:"refusée",D:"rejetée"},correct:"B",skill:"W"},
+  {text:'"Il est important ___ à l\'heure."',options:{A:"arriver",B:"arrivant",C:"d\'arriver",D:"arrivé"},correct:"C",skill:"W"},
+  // B2 Grammaire Q49-Q52
+  {text:'"___ avais-je quitté le bureau que mon téléphone a sonné."',options:{A:"À peine",B:"Rarement",C:"Jamais",D:"Parfois"},correct:"A",skill:"G"},
+  {text:"Souhait irréel au présent :",options:{A:"Je voudrais parler français.",B:"J'aimerais parler français.",C:"Si seulement je pouvais parler français.",D:"Je souhaite parler français."},correct:"C",skill:"G"},
+  {text:"Subordonnée relative correcte :",options:{A:"C'est le directeur qui a approuvé le plan.",B:"C'est le directeur qu'a approuvé le plan.",C:"C'est le directeur lequel a approuvé le plan.",D:"C'est le directeur dont a approuvé le plan."},correct:"A",skill:"G"},
+  {text:'"___ en 1956, le bâtiment est maintenant un monument national."',options:{A:"Construit",B:"Construisant",C:"Ayant construit",D:"Étant construit"},correct:"A",skill:"G"},
+  // B2 Vocabulaire Q53-Q56
+  {text:"Proche d'\"ambigu\" :",options:{A:"clair",B:"équivoque",C:"ennuyeux",D:"dangereux"},correct:"B",skill:"V"},
+  {text:"Collocation correcte :",options:{A:"faire une erreur",B:"prendre une erreur",C:"avoir une erreur",D:"mettre une erreur"},correct:"A",skill:"V"},
+  {text:'"La nouvelle politique va ___ des changements importants dans le système de santé."',options:{A:"apporter",B:"amener à",C:"mettre dans",D:"donner sur"},correct:"A",skill:"V"},
+  {text:'"Sans précédent" signifie :',options:{A:"qui se produit régulièrement",B:"bien documenté",C:"qui ne s\'est jamais produit auparavant",D:"extrêmement coûteux"},correct:"C",skill:"V"},
+  // B2 Compréhension Q57-Q60
+  {text:FR_P4+"Quelles compétences l'IA crée-t-elle de la demande ?",options:{A:"les tâches routinières",B:"créativité, intelligence émotionnelle et résolution de problèmes",C:"le travail manuel",D:"les connaissances académiques traditionnelles"},correct:"B",skill:"R"},
+  {text:FR_P4+'Prévision du Forum économique mondial pour 2027 :',options:{A:"85 millions de nouveaux emplois",B:"97 millions d'emplois perdus",C:"Création nette de 12 millions de rôles",D:"Nombre égal perdu et créé"},correct:"C",skill:"R"},
+  {text:FR_P4+'"Déplacés" signifie :',options:{A:"améliorés",B:"remplacés",C:"recrutés",D:"formés"},correct:"B",skill:"R"},
+  {text:FR_P4+"Attitude de l'auteur envers les jeunes des pays en développement :",options:{A:"pessimiste",B:"neutre",C:"nuancée — risques et chances",D:"optimiste sans réserve"},correct:"C",skill:"R"},
+  // B2 Expression Q61-Q64
+  {text:"Façon la plus académique d'exprimer un désaccord :",options:{A:"C'est complètement faux.",B:"Je ne suis pas du tout d'accord.",C:"Si cette perspective mérite considération, les données semblent indiquer le contraire.",D:"Non, ce n'est pas correct."},correct:"C",skill:"W"},
+  {text:'"Les résultats, ___ ont été surprenants, ont conduit à une grande réforme."',options:{A:"que",B:"qui",C:"dont",D:"lesquels"},correct:"B",skill:"W"},
+  {text:'"___ le coût élevé, le projet a été approuvé."',options:{A:"Malgré",B:"Bien que",C:"Cependant",D:"Pourtant"},correct:"A",skill:"W"},
+  {text:'"Elle ___ le rapport trois fois avant de le soumettre."',options:{A:"a relu",B:"avait relu",C:"relu",D:"relisait"},correct:"B",skill:"W"},
+  // C1 Grammaire Q65-Q68
+  {text:'"Le comité a recommandé qu\'il ___ la décision immédiatement."',options:{A:"prenne",B:"prend",C:"prendrait",D:"a pris"},correct:"A",skill:"G"},
+  {text:"Proposition participiale détachée correcte :",options:{A:"Ayant terminé son travail, il est rentré chez lui.",B:"Ayant terminé son travail, la maison l'attendait.",C:"Terminant son travail, il est rentré chez lui.",D:"Son travail étant terminé lui, il est rentré."},correct:"A",skill:"G"},
+  {text:"Conditionnel mixte correct :",options:{A:"Si elle avait pris le médicament, elle se sentirait mieux maintenant.",B:"Si elle prenait le médicament, elle se serait sentie mieux.",C:"Si elle a pris le médicament, elle se sentirait mieux.",D:"Si elle avait pris le médicament, elle se serait sentie mieux maintenant."},correct:"A",skill:"G"},
+  {text:"Nominalisation correcte :",options:{A:"Le gouvernement a décidé d'intervenir.",B:"La décision du gouvernement d'intervenir a été controversée.",C:"Le gouvernement intervenant a été décidé.",D:"Le gouvernement a eu une décision d'intervention."},correct:"B",skill:"G"},
+  // C1 Vocabulaire Q69-Q72
+  {text:'"Le discours a été accueilli par des applaudissements ___."',options:{A:"généreux",B:"tonitruants",C:"forts",D:"lourds"},correct:"B",skill:"V"},
+  {text:'"Invétéré" signifie :',options:{A:"très qualifié",B:"profondément ancré dans une habitude",C:"extrêmement innovant",D:"nouvellement nommé"},correct:"B",skill:"V"},
+  {text:'"Le scandale ___ de sérieuses questions sur la gouvernance."',options:{A:"a soulevé",B:"a monté",C:"a élevé",D:"s\'est posé"},correct:"A",skill:"V"},
+  {text:'"La réglementation va ___ les petites entreprises de façon disproportionnée."',options:{A:"affecter",B:"impacter",C:"pénaliser",D:"changer"},correct:"C",skill:"V"},
+  // C1 Compréhension Q73-Q76
+  {text:FR_P5+'Que décrit la "modernité liquide" ?',options:{A:"Les changements environnementaux dans les villes modernes",B:"Un monde où les structures sociales se dissolvent rapidement",C:"La stabilité des institutions contemporaines",D:"Les inégalités économiques dans les sociétés industrielles"},correct:"B",skill:"R"},
+  {text:FR_P5+'Qu\'est-ce qui caractérisait la "modernité solide" ?',options:{A:"La flexibilité et l'incertitude",B:"La renégociation permanente de l'identité",C:"Des institutions stables et des modes de vie prévisibles",D:"La transformation numérique"},correct:"C",skill:"R"},
+  {text:FR_P5+"Besoin des jeunes selon l'auteur :",options:{A:"Une expertise technique précise",B:"L'indépendance financière",C:"La capacité d'apprendre, désapprendre et réapprendre",D:"Des connections institutionnelles solides"},correct:"C",skill:"R"},
+  {text:FR_P5+'"Métacognitive" désigne :',options:{A:"la réflexion sur sa propre façon d'apprendre",B:"le raisonnement mathématique avancé",C:"les compétences de communication interculturelle",D:"la résilience physique et émotionnelle"},correct:"A",skill:"R"},
+  // C1 Expression Q77-Q80
+  {text:"Formulation académique appropriée :",options:{A:"Les données prouvent que...",B:"Les données confirment clairement que...",C:"Les données suggèrent que...",D:"Les données montrent clairement que..."},correct:"C",skill:"W"},
+  {text:'"Le conseil ___ à répondre aux préoccupations des actionnaires dans les meilleurs délais."',options:{A:"va essayer",B:"s\'engage",C:"va",D:"a l'intention"},correct:"B",skill:"W"},
+  {text:'Meilleure suite à "L\'étude a donné des résultats peu concluants." :',options:{A:"C'était mauvais.",B:"Personne ne l'a compris.",C:"Néanmoins, plusieurs tendances importantes ont été identifiées.",D:"Les chercheurs l'ont aimée quand même."},correct:"C",skill:"W"},
+  {text:'"___ la complexité de la situation, l\'équipe a opté pour une approche progressive."',options:{A:"Reconnaissant",B:"Reconnue",C:"Pour reconnaître",D:"Ayant reconnaissant"},correct:"A",skill:"W"},
+  // C2 Grammaire Q81-Q84
+  {text:"Inversion stylistique correcte :",options:{A:"Si peu de gens comprenaient sa pensée.",B:"Peu de gens comprenaient sa pensée.",C:"Rares étaient ceux qui comprenaient sa pensée.",D:"Ceux qui comprenaient sa pensée étaient rares."},correct:"C",skill:"G"},
+  {text:"Apposition correcte :",options:{A:"Mon collègue, qui est également linguiste, est le Dr Amara.",B:"Mon collègue, lequel est également linguiste, est le Dr Amara.",C:"Mon collègue étant linguiste est le Dr Amara.",D:"Mon collègue, un linguiste également, le Dr Amara est."},correct:"A",skill:"G"},
+  {text:"Causatif correct :",options:{A:"J'ai fait réparer ma voiture.",B:"J'ai fait ma voiture à réparer.",C:"J'ai réparé ma voiture moi-même.",D:"J'ai fait ma voiture en réparant."},correct:"A",skill:"G"},
+  {text:"Subjonctif après expression de doute :",options:{A:"Il est peu probable qu'il réussira.",B:"Il est peu probable qu'il réussit.",C:"Il est peu probable qu'il réussisse.",D:"Il est peu probable qu'il a réussi."},correct:"C",skill:"G"},
+  // C2 Vocabulaire Q85-Q88
+  {text:'"Son argumentation reposait sur un ___ de logique."',options:{A:"courant",B:"fil",C:"ligne",D:"chaîne"},correct:"B",skill:"V"},
+  {text:'"Tendancieux" signifie :',options:{A:"orienté de manière partisane",B:"enclin à la prudence",C:"délibérément vague",D:"excessivement émotionnel"},correct:"A",skill:"V"},
+  {text:'Expression pour "depuis le début, sans rien de préexistant" :',options:{A:"de zéro base",B:"depuis toujours",C:"de toutes pièces",D:"depuis le commencement"},correct:"C",skill:"V"},
+  {text:'"L\'analyse ___ de l\'économiste a mis en évidence des failles."',options:{A:"minutieuse",B:"incisive",C:"complète",D:"soigneuse"},correct:"B",skill:"V"},
+  // C2 Compréhension Q89-Q92
+  {text:FR_P6+"Version forte de Sapir-Whorf :",options:{A:"La langue reflète fidèlement la pensée",B:"La langue détermine la pensée et façonne la réalité cognitive",C:"Toutes les langues ont des effets cognitifs équivalents",D:"La pensée existe indépendamment de la langue"},correct:"B",skill:"R"},
+  {text:FR_P6+"Statut académique actuel de la version forte :",options:{A:"Largement acceptée",B:"En cours d'investigation",C:"Largement réfutée",D:"Nouvellement proposée"},correct:"C",skill:"R"},
+  {text:FR_P6+"Preuves empiriques de la relativité linguistique :",options:{A:"Preuves d'une grammaire universelle",B:"Études sur la perception des couleurs, de l'espace et du temps",C:"Recherches montrant que les bilingues ont un QI plus faible",D:"Données prouvant que la langue n'a aucun effet cognitif"},correct:"B",skill:"R"},
+  {text:FR_P6+"Conclusion implicite sur le multilinguisme :",options:{A:"Utile surtout pour les voyages",B:"Avantages à la fois communicatifs et cognitifs",C:"Crée de la confusion entre systèmes cognitifs",D:"Limité à la version forte de Sapir-Whorf"},correct:"B",skill:"R"},
+  // C2 Expression Q93-Q96
+  {text:"Introduction académique la plus efficace :",options:{A:"Cet essai va parler du changement climatique.",B:"Rares sont les défis de notre époque qui exigent une remise en question aussi urgente que l'intersection entre politique climatique et justice économique.",C:"Le changement climatique est un sujet très important de nos jours.",D:"Je pense que le changement climatique est vraiment grave."},correct:"B",skill:"W"},
+  {text:'"Le traité a été ___ par toutes les parties, le rendant juridiquement nul."',options:{A:"rompu",B:"répudié",C:"refusé",D:"rejeté"},correct:"B",skill:"W"},
+  {text:"Cohérence de registre C2 :",options:{A:"La politique présente un mérite théorique considérable ; cependant, sa mise en œuvre pratique reste empreinte de difficultés méthodologiques.",B:"La politique est bonne en théorie mais difficile à faire en vrai.",C:"La politique est très bien en théorie mais en pratique il y a plein de problèmes.",D:"Malgré ses atouts théoriques, la politique a beaucoup de problèmes."},correct:"A",skill:"W"},
+  {text:"Antithèse correcte :",options:{A:"Le problème est à la fois vaste et complexe.",B:"Ce n'est pas l'échec, mais la médiocrité de l'ambition, qui constitue le vrai crime.",C:"La solution exige effort et dévouement.",D:"Le changement est nécessaire au progrès."},correct:"B",skill:"W"},
+  // Révision mixte Q97-Q100
+  {text:"Phrase la plus naturelle :",options:{A:"Malgré il était fatigué, il a continué à travailler.",B:"Malgré sa fatigue, il a continué à travailler.",C:"Malgré de être fatigué, il a continué à travailler.",D:"Malgré fatigué, il a continué à travailler."},correct:"B",skill:"G"},
+  {text:'Quel mot ne va PAS avec "argument" ?',options:{A:"convaincant",B:"fondé",C:"houleux",D:"savoureux"},correct:"D",skill:"V"},
+  {text:'"La procrastination n\'est pas un problème de gestion du temps ; c\'est un problème de régulation émotionnelle." Thèse :',options:{A:"Les gens ont besoin de meilleurs agendas",B:"La procrastination est causée par un mauvais planning",C:"La racine de la procrastination est émotionnelle, non organisationnelle",D:"Les cours de gestion du temps résolvent la procrastination"},correct:"C",skill:"R"},
+  {text:'Meilleure reformulation formelle de "Le patron l\'a viré" :',options:{A:"Il a été licencié.",B:"Il a perdu son travail.",C:"On lui a dit de partir.",D:"Il s'est fait renvoyer."},correct:"A",skill:"W"}
+];
+
+function PlacementTest({ testType, questions, profile, lang, setLang, user, onLogout, onComplete }) {
+  var isEn = testType === "english";
+  var [idx, setIdx]         = useState(0);
+  var [answers, setAnswers] = useState([]);
+  var [selected, setSelected] = useState(null);
+  var [timeLeft, setTimeLeft] = useState(20);
+  var answersRef = useRef([]);
+  var idxRef     = useRef(0);
+  useEffect(function(){ answersRef.current = answers; }, [answers]);
+  useEffect(function(){ idxRef.current = idx; }, [idx]);
+
+  var q = questions[idx];
+  var maxTime = (q.skill === "G" || q.skill === "V") ? 20 : 30;
+
+  useEffect(function(){ setTimeLeft(maxTime); setSelected(null); }, [idx]);
+
+  useEffect(function(){
+    if (timeLeft <= 0) {
+      var qi = questions[idxRef.current];
+      var na = answersRef.current.concat([{ skill: qi.skill, correct: false }]);
+      setAnswers(na); answersRef.current = na;
+      if (idxRef.current + 1 >= questions.length) { onComplete(scoreLanguageTest(na, testType)); }
+      else { setIdx(idxRef.current + 1); }
+      return;
+    }
+    var t = setTimeout(function(){ setTimeLeft(function(v){ return v - 1; }); }, 1000);
+    return function(){ clearTimeout(t); };
+  }, [timeLeft]);
+
+  function handleNext() {
+    var correct = selected !== null && selected === q.correct;
+    var na = answers.concat([{ skill: q.skill, correct: correct }]);
+    setAnswers(na); answersRef.current = na;
+    if (idx + 1 >= questions.length) { onComplete(scoreLanguageTest(na, testType)); }
+    else { setIdx(idx + 1); }
+  }
+
+  var pct = timeLeft / maxTime;
+  var r = 22, circ = 2 * Math.PI * r, dash = pct * circ;
+  var skillNames = {
+    G: isEn ? "Grammar" : "Grammaire",
+    V: isEn ? "Vocabulary" : "Vocabulaire",
+    R: isEn ? "Reading" : "Compréhension",
+    W: isEn ? "Writing" : "Expression"
+  };
+  var ar = lang === "ar";
+  var fr = lang === "fr";
+
+  // Split passage from question if present
+  var parts = q.text.split("\n\n");
+  var passage = parts.length > 1 ? parts[0] : null;
+  var qText   = parts.length > 1 ? parts[1] : parts[0];
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
+      <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
+      <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
+        {/* Progress bar */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+          <div style={{ flex:1, background:C.bdr, borderRadius:4, height:4 }}>
+            <div style={{ width:((idx+1)/questions.length*100)+"%", height:4, background:"#1aabaa", borderRadius:4, transition:"width .3s" }}/>
+          </div>
+          <div style={{ color:C.mu, fontSize:11, minWidth:50, textAlign:"right" }}>{idx+1} / {questions.length}</div>
+          <svg width="48" height="48">
+            <circle cx="24" cy="24" r={r} fill="none" stroke={C.bdr} strokeWidth="3.5"/>
+            <circle cx="24" cy="24" r={r} fill="none" stroke={timeLeft<=5?"#dc4c3c":"#1aabaa"} strokeWidth="3.5"
+              strokeDasharray={circ} strokeDashoffset={circ - dash} strokeLinecap="round"
+              transform="rotate(-90 24 24)"/>
+            <text x="24" y="29" textAnchor="middle" fontSize="12" fontWeight="bold"
+              fill={timeLeft<=5?"#dc4c3c":"#c8daf0"}>{timeLeft}</text>
+          </svg>
+        </div>
+        {/* Skill tag */}
+        <div style={{ fontSize:9, fontWeight:700, color:"#1aabaa", letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>
+          {isEn ? testType.toUpperCase() : "FRENCHMAP"} · {skillNames[q.skill]}
+        </div>
+        {/* Passage */}
+        {passage && (
+          <div style={{ background:C.cardB, borderRadius:10, padding:"10px 14px", marginBottom:10,
+              border:"1px solid "+C.bdr, fontSize:12, color:C.muB, lineHeight:1.7, whiteSpace:"pre-wrap" }}>
+            {passage.replace(/^Read: |^Lisez : /, "")}
+          </div>
+        )}
+        {/* Question */}
+        <div style={{ background:C.sur, borderRadius:12, padding:"14px 16px", color:C.wh,
+            fontSize:14, lineHeight:1.6, marginBottom:14, fontWeight:600 }}>
+          {qText}
+        </div>
+        {/* Options */}
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {["A","B","C","D"].map(function(opt) {
+            var isSel = selected === opt;
+            return (
+              <button key={opt} onClick={function(){ setSelected(opt); }}
+                style={{ background: isSel ? "rgba(26,171,170,.15)" : C.sur,
+                  border:"2px solid "+(isSel?"#1aabaa":C.bdr), borderRadius:10,
+                  padding:"12px 16px", color: isSel?"#1aabaa":C.body,
+                  fontSize:13, textAlign:"left", cursor:"pointer", fontFamily:"inherit", transition:"all .2s" }}>
+                <span style={{ fontWeight:700, marginRight:8, color:isSel?"#1aabaa":C.mu }}>{opt}.</span>
+                {q.options[opt]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {/* Footer */}
+      {selected && (
+        <div style={{ padding:"12px 14px", borderTop:"1px solid "+C.bdr, background:C.deep,
+            display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div style={{ color:C.mu, fontSize:11 }}>
+            {ar ? "تم تسجيل الإجابة" : fr ? "Réponse enregistrée" : "Answer recorded"}
+          </div>
+          <button onClick={handleNext}
+            style={{ background:"#1aabaa", color:C.bg, border:"none", borderRadius:8,
+              padding:"10px 22px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+            {idx + 1 >= questions.length
+              ? (ar ? "النتائج" : fr ? "Voir les résultats" : "See Results")
+              : (ar ? "التالي" : fr ? "Suivant" : "Next")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlacementResults({ result, profile, testType, lang, setLang, user, onLogout, onBack }) {
+  var isEn = testType === "english";
+  var ar = lang === "ar", fr = lang === "fr";
+  var col = cefrColor(result.overall);
+  var skills = isEn
+    ? [["Grammar",result.G,result.gLevel],["Vocabulary",result.V,result.vLevel],
+       ["Reading",result.R,result.rLevel],["Writing",result.W,result.wLevel]]
+    : [["Grammaire",result.G,result.gLevel],["Vocabulaire",result.V,result.vLevel],
+       ["Compréhension",result.R,result.rLevel],["Expression",result.W,result.wLevel]];
+
+  function downloadCert() {
+    if (isEn) buildEnglishCertificate(profile, { englishMap: result });
+    else      buildFrenchCertificate(profile, { frenchMap: result });
+  }
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
+      <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
+      <div style={{ flex:1, overflowY:"auto", padding:"16px 14px" }}>
+        <div className="fadeUp">
+          <div style={{ color: isEn?"#1aabaa":"#9050d0", fontSize:9, letterSpacing:3, fontWeight:700, marginBottom:6 }}>
+            {isEn ? "ENGLISHMAP" : "FRENCHMAP"}
+          </div>
+          <h2 style={{ color:C.wh, fontSize:20, fontWeight:800, marginBottom:16 }}>
+            {ar ? (isEn?"مستواك في الإنجليزية":"مستواك في الفرنسية")
+               : fr ? (isEn?"Votre niveau d'anglais":"Votre niveau de français")
+               : (isEn?"Your English Proficiency":"Your French Proficiency")}
+          </h2>
+          {/* Overall badge */}
+          <div style={{ background:col, borderRadius:14, padding:"14px 28px",
+              display:"inline-block", marginBottom:16 }}>
+            <div style={{ color:C.bg, fontSize:40, fontWeight:900, lineHeight:1 }}>{result.overall}</div>
+            <div style={{ color:C.bg, fontSize:12, fontWeight:700 }}>{cefrLabel(result.overall, ar?"ar":fr?"fr":"en")}</div>
+          </div>
+          {/* Skill cards */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
+            {skills.map(function(sk) {
+              return (
+                <div key={sk[0]} dangerouslySetInnerHTML={{ __html: _langSkillCard(sk[0],sk[1],sk[2], ar?"ar":fr?"fr":"en") }}/>
+              );
+            })}
+          </div>
+          {/* Certificate button */}
+          <button onClick={downloadCert}
+            style={{ width:"100%", background:col, color:C.bg, border:"none",
+              borderRadius:10, padding:14, fontSize:14, fontWeight:700, cursor:"pointer", marginBottom:10 }}>
+            🎓 {ar ? "تحميل الشهادة" : fr ? "Télécharger le Certificat" : "Download Certificate"}
+          </button>
+          <button onClick={onBack}
+            style={{ width:"100%", background:"transparent", color:C.mu, border:"1px solid "+C.bdr,
+              borderRadius:10, padding:12, fontSize:13, fontWeight:600, cursor:"pointer" }}>
+            ← {ar ? "العودة" : fr ? "Retour" : "Back"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OptionalTests({ lang, setLang, user, onLogout, cands, scores, onStartTest, onBack }) {
+  var ar = lang === "ar", fr = lang === "fr";
+  var cand = cands.find(function(c){ return user && c.id === user.id; }) || {};
+  var access = cand.placementAccess || { english: true, french: true };
+  var enDone = scores && scores.englishMap;
+  var frDone = scores && scores.frenchMap;
+
+  function testCard(type) {
+    var isEn   = type === "english";
+    var color  = isEn ? "#1aabaa" : "#9050d0";
+    var flag   = isEn ? "🇬🇧" : "🇫🇷";
+    var name   = isEn ? "EnglishMap" : "FrenchMap";
+    var skills = isEn
+      ? (ar ? "قواعد · مفردات · قراءة · كتابة" : "Grammar · Vocabulary · Reading · Writing")
+      : (ar ? "قواعد · مفردات · فهم · تعبير"  : fr ? "Grammaire · Vocabulaire · Compréhension · Expression" : "Grammaire · Vocabulaire · Compréhension · Expression");
+    var label  = ar ? "اختبار تحديد المستوى" : fr ? "Test de placement" : "Placement test";
+    var done   = isEn ? enDone : frDone;
+    var hasAcc = access[type];
+    var scoreObj = done;
+    return (
+      <div style={{ background:C.sur, borderRadius:14, padding:"16px", border:"1px solid "+(done?color:C.bdr),
+          marginBottom:12, position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", top:0, left:0, width:3, bottom:0, background:color, borderRadius:"3px 0 0 3px" }}/>
+        <div style={{ paddingLeft:8 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+            <span style={{ fontSize:22 }}>{flag}</span>
+            <span style={{ fontWeight:800, color:C.wh, fontSize:16 }}>{name}</span>
+            {done && <span style={{ fontSize:10, fontWeight:700, color:color, background:color+"22",
+              borderRadius:20, padding:"2px 8px" }}>{scoreObj.overall}</span>}
+          </div>
+          <div style={{ fontSize:10, color:C.mu, marginBottom:6 }}>100Q · ~35 min · CEFR A1–C2</div>
+          <div style={{ fontSize:10, color:C.muB, marginBottom:12 }}>{skills}</div>
+          {done ? (
+            <button onClick={function(){ onStartTest(type); }}
+              style={{ fontSize:11, fontWeight:700, color:color, background:color+"22",
+                border:"1px solid "+color+"44", borderRadius:8, padding:"6px 14px", cursor:"pointer" }}>
+              {ar?"إعادة الاختبار":fr?"Recommencer":"Retake"}
+            </button>
+          ) : hasAcc ? (
+            <button onClick={function(){ onStartTest(type); }}
+              style={{ fontSize:12, fontWeight:700, color:C.bg, background:color,
+                border:"none", borderRadius:8, padding:"8px 20px", cursor:"pointer" }}>
+              {ar?"بدء الاختبار":fr?"Commencer":"Start Test"}
+            </button>
+          ) : (
+            <div style={{ fontSize:11, color:C.mu, fontStyle:"italic" }}>
+              {ar?"يحتاج موافقة المستشار":fr?"Accès à demander à votre conseiller":"Ask your advisor for access"}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
+      <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
+      <div style={{ flex:1, overflowY:"auto", padding:"20px 14px", maxWidth:440, margin:"0 auto", width:"100%" }}>
+        <div className="fadeUp">
+          <div style={{ fontSize:9, fontWeight:700, color:"#1aabaa", letterSpacing:3, marginBottom:8, textTransform:"uppercase" }}>
+            {ar?"اختبارات اللغة الاختيارية":fr?"Tests de Langue Optionnels":"Optional Language Tests"}
+          </div>
+          <h2 style={{ color:C.wh, fontSize:18, fontWeight:800, marginBottom:6 }}>
+            {ar?"حدّد مستواك اللغوي":fr?"Évaluez votre niveau de langue":"Assess Your Language Level"}
+          </h2>
+          <p style={{ color:C.muB, fontSize:11, lineHeight:1.7, marginBottom:18 }}>
+            {ar?"اختر اختباراً أو كليهما. كل اختبار مكوّن من 100 سؤال (≈ 35 دقيقة)."
+              :fr?"Choisissez un test ou les deux. Chaque test comprend 100 questions (≈ 35 min)."
+              :"Choose one or both tests. Each test has 100 questions (≈ 35 min)."}
+          </p>
+          {testCard("english")}
+          {testCard("french")}
+          <button onClick={onBack}
+            style={{ width:"100%", background:"transparent", color:C.mu, border:"1px solid "+C.bdr,
+              borderRadius:10, padding:12, fontSize:12, fontWeight:600, cursor:"pointer", marginTop:4 }}>
+            {ar?"تخطي":fr?"Passer":"Skip"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReturningScreen({ lang, setLang, user, code, onLogout, onRetakeTests, onViewReport, onOptionalTests }) {
   var ar = lang === "ar";
   var fr = lang === "fr";
   var [copied, setCopied] = useState(false);
@@ -4854,7 +5622,7 @@ function ReturningScreen({ lang, setLang, user, code, onLogout, onRetakeTests, o
               marginBottom:16, cursor:"pointer", transition:"all .3s" }}>
             {copied ? (ar?"تم النسخ ✓":fr?"Copié ✓":"Copied ✓") : (ar?"نسخ الكود":fr?"Copier le code":"Copy Code")}
           </button>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
             <button onClick={onRetakeTests}
               style={{ padding:"14px 10px", background:"rgba(26,171,170,.12)",
                 color:"#1aabaa", border:"1px solid rgba(26,171,170,.3)", borderRadius:12,
@@ -4868,6 +5636,14 @@ function ReturningScreen({ lang, setLang, user, code, onLogout, onRetakeTests, o
               {ar ? "🧭 التوجيه" : fr ? "🧭 Mon orientation" : "🧭 My Orientation"}
             </button>
           </div>
+          {onOptionalTests && (
+            <button onClick={onOptionalTests}
+              style={{ width:"100%", padding:12, background:"rgba(144,80,208,.12)",
+                color:"#9050d0", border:"1px solid rgba(144,80,208,.3)", borderRadius:12,
+                fontFamily:"inherit", fontSize:12, fontWeight:800, cursor:"pointer" }}>
+              {ar ? "🌐 اختبارات اللغة" : fr ? "🌐 Tests de langue (EN/FR)" : "🌐 Language Tests (EN/FR)"}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -4885,6 +5661,7 @@ function App() {
   var [viewIdx, setViewIdx] = useState(null);
   var [advisors, setAdvisors] = useState(function() { try { return JSON.parse(localStorage.getItem("cm_advisors")||"[]"); } catch(e){ return []; } });
   var [resultCode, setResultCode] = useState("");
+  var [activePlacementTest, setActivePlacementTest] = useState(null);
   var [reportHTML, setReportHTML] = useState(null);
   var [showQR, setShowQR] = useState(false);
 
@@ -4947,6 +5724,26 @@ function App() {
 
   function showReport(p, sc, role) {
     setReportHTML({profile:p||{name:user.name,id:user.id,age:'-',gender:'-',edu:'-',region:'-'},scores:sc||{h:{},b:{},s:{}},role:role});
+  }
+
+  function onPlacementComplete(result) {
+    var field = result.test === "english" ? "englishMap" : "frenchMap";
+    var newScores = Object.assign({}, scores);
+    newScores[field] = result;
+    setScores(newScores);
+    // Save back to candidate record
+    var updated = cands.map(function(c) {
+      if (c.id !== user.id) return c;
+      var newCandScores = Object.assign({}, c.scores, newScores);
+      var updatedCand = Object.assign({}, c, { scores: newCandScores });
+      if (_db && c._docId) {
+        var upd = {}; upd["scores." + field] = result;
+        _db.collection("candidates").doc(c._docId).update(upd).catch(function(e){ console.error(e); });
+      }
+      return updatedCand;
+    });
+    setCands(updated);
+    setScreen(result.test === "english" ? "en-results" : "fr-results");
   }
 
   function onProfile(pf) {
@@ -5042,6 +5839,7 @@ function App() {
         setScreen("profile");
       }}
       onViewReport={function() { setScreen("report-returning"); }}
+      onOptionalTests={function() { setScreen("optional-tests"); }}
     />
   );
   if (screen === "report-returning") return wrap(
@@ -5051,7 +5849,33 @@ function App() {
   if (screen === "profile") return wrap(<ProfileForm lang={lang} setLang={setLangDir} user={user} onNext={onProfile} onLogout={onLogout}/>);
   if (screen === "welcome") return wrap(<Welcome lang={lang} setLang={setLangDir} user={user} onStart={function(){ setScreen("assess"); }} onLogout={onLogout}/>);
   if (screen === "assess")  return wrap(<Assessment lang={lang} setLang={setLangDir} user={user} onFinish={onFinish}/>);
-  if (screen === "code")    return wrap(<CandidateCode lang={lang} setLang={setLangDir} user={user} code={resultCode} scores={scores} profile={profile} onLogout={onLogout}/>);
+  if (screen === "code")    return wrap(<CandidateCode lang={lang} setLang={setLangDir} user={user} code={resultCode} scores={scores} profile={profile} onLogout={onLogout} onOptionalTests={function(){ setScreen("optional-tests"); }}/>);
+  if (screen === "optional-tests") return wrap(
+    <OptionalTests lang={lang} setLang={setLangDir} user={user} onLogout={onLogout} cands={cands} scores={scores}
+      onStartTest={function(type){ setActivePlacementTest(type); setScreen(type==="english"?"en-test":"fr-test"); }}
+      onBack={function(){ setScreen(resultCode?"code":"returning"); }}
+    />
+  );
+  if (screen === "en-test") return wrap(
+    <PlacementTest testType="english" questions={EN_QUESTIONS} profile={profile||{name:user&&user.name,id:user&&user.id}}
+      lang={lang} setLang={setLangDir} user={user} onLogout={onLogout} onComplete={onPlacementComplete}/>
+  );
+  if (screen === "fr-test") return wrap(
+    <PlacementTest testType="french" questions={FR_QUESTIONS} profile={profile||{name:user&&user.name,id:user&&user.id}}
+      lang={lang} setLang={setLangDir} user={user} onLogout={onLogout} onComplete={onPlacementComplete}/>
+  );
+  if (screen === "en-results") return wrap(
+    <PlacementResults result={scores.englishMap||{}} testType="english"
+      profile={profile||{name:user&&user.name,id:user&&user.id}}
+      lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
+      onBack={function(){ setScreen("optional-tests"); }}/>
+  );
+  if (screen === "fr-results") return wrap(
+    <PlacementResults result={scores.frenchMap||{}} testType="french"
+      profile={profile||{name:user&&user.name,id:user&&user.id}}
+      lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
+      onBack={function(){ setScreen("optional-tests"); }}/>
+  );
   if (screen === "report-v") {
     var cv = cands[viewIdx] || {};
     return wrap(<div style={{ position:"relative", flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
