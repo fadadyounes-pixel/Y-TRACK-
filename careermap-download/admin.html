@@ -58,6 +58,11 @@ const ADVISORS=[
   {code:'@HaddouADV',    region:'Béni Mellal-Khénifra',      active:false},
 ];
 const REF=new Date('2026-06-28');
+const CASA_PREFS=[
+  'El Fida-Mers Sultan','Aïn Sebaâ','Anfa','Ben M\'Sick',
+  'Hay Hassani','Moulay Rachid','Sidi Bernoussi','Aïn Chock'
+];
+const CASA_PREF_W=[16,14,12,11,14,11,12,10];
 
 // ── SEEDED PRNG ───────────────────────────────────────────────────────────────
 function mkRng(seed){
@@ -81,6 +86,8 @@ function generate(n){
   const rw=[22,18,14,12,10,7,5,4,3,2,2,1];
   const rc=rw.reduce((a,w,i)=>{a.push((a[i-1]||0)+w);return a;},[]);
   const pickR=()=>{const v=r()*rc[rc.length-1];return REGIONS[rc.findIndex(c=>c>=v)];};
+  const cpw=CASA_PREF_W.reduce((a,w,i)=>{a.push((a[i-1]||0)+w);return a;},[]);
+  const pickPref=()=>{const v=r()*cpw[cpw.length-1];return CASA_PREFS[cpw.findIndex(c=>c>=v)];};
   const fnames=['Amina','Fatima','Sara','Layla','Hind','Nadia','Rim','Aya','Meryem','Zineb'];
   const mnames=['Mohamed','Youssef','Ahmed','Omar','Karim','Mehdi','Rachid','Hassan','Amine','Bilal'];
   const lnames=['El Amrani','Benali','Zahraoui','Cherkaoi','Mansouri','El Idrissi','Bouazza','Haddou','Moussaoui','Berrada','Tahiri','Laghrari'];
@@ -92,6 +99,7 @@ function generate(n){
     const ln=lnames[Math.floor(r()*lnames.length)];
     const age=Math.round(clamp(gauss(24,6),16,45));
     const region=pickR();
+    const prefecture=region==='Casablanca-Settat'?pickPref():null;
     const edu=Math.floor(clamp(gauss(4.5,2.5),0,9));
     const lv=r();
     const lang=lv<0.55?'fr':lv<0.85?'ar':'en';
@@ -134,7 +142,7 @@ function generate(n){
         if(r()<0.72)reportDownloaded=true;
       }
     }
-    return{code:`CM${String(i+1).padStart(4,'0')}`,name:`${fn} ${ln}`,age,gender:female?'F':'M',region,edu,lang,date,started,completed,scores,indhRoute,flags,advisorCode,reportDownloaded,domRiasec};
+    return{code:`CM${String(i+1).padStart(4,'0')}`,name:`${fn} ${ln}`,age,gender:female?'F':'M',region,prefecture,edu,lang,date,started,completed,scores,indhRoute,flags,advisorCode,reportDownloaded,domRiasec};
   });
 }
 
@@ -363,6 +371,10 @@ function Demographe({filtered}){
   const rc={};
   filtered.forEach(c=>{rc[c.region]=(rc[c.region]||0)+1;});
   const regionRows=Object.entries(rc).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,v])=>({label:l,v,c:P.gold}));
+  const pc={};
+  filtered.filter(c=>c.prefecture).forEach(c=>{pc[c.prefecture]=(pc[c.prefecture]||0)+1;});
+  const prefRows=CASA_PREFS.map(p=>({label:p,v:pc[p]||0,c:P.orange}));
+  const casaTotal=filtered.filter(c=>c.region==='Casablanca-Settat').length;
   const fr=filtered.filter(c=>c.lang==='fr').length;
   const ar=filtered.filter(c=>c.lang==='ar').length;
   const en=filtered.filter(c=>c.lang==='en').length;
@@ -379,6 +391,13 @@ function Demographe({filtered}){
       </Card>
       <Card style={{gridColumn:'1/-1'}}><Label>Niveau d'éducation</Label><HBar rows={eduRows}/></Card>
       <Card style={{gridColumn:'1/-1'}}><Label>Top régions</Label><HBar rows={regionRows}/></Card>
+      <Card style={{gridColumn:'1/-1'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <Label mb={0}>Casablanca-Settat · Répartition par préfecture</Label>
+          <span style={{background:`${P.orange}22`,color:P.orange,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:999}}>{casaTotal} candidats</span>
+        </div>
+        <HBar rows={prefRows}/>
+      </Card>
     </div>
   );
 }
@@ -640,8 +659,8 @@ function Donnees({candidates}){
 
   const exportCSV=()=>{
     const BOM='﻿';
-    const hdrs=['Code','Nom','Âge','Genre','Région','Niveau','Date','RIASEC','EQ','Resi','INDH','Alerte','Conseiller'];
-    const body=candidates.map(c=>[c.code,c.name,c.age,c.gender==='F'?'Féminin':'Masculin',c.region,EDU[c.edu],c.date,c.domRiasec||'',c.scores.eqTotal||'',c.scores.resimap??'',c.indhRoute||'',alertOf(c),c.advisorCode||'']);
+    const hdrs=['Code','Nom','Âge','Genre','Région','Préfecture','Niveau','Date','RIASEC','EQ','Resi','INDH','Alerte','Conseiller'];
+    const body=candidates.map(c=>[c.code,c.name,c.age,c.gender==='F'?'Féminin':'Masculin',c.region,c.prefecture||'',EDU[c.edu],c.date,c.domRiasec||'',c.scores.eqTotal||'',c.scores.resimap??'',c.indhRoute||'',alertOf(c),c.advisorCode||'']);
     const csv=BOM+[hdrs,...body].map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='careermap_candidats.csv';a.click();
   };
@@ -682,7 +701,7 @@ function Donnees({candidates}){
             <thead>
               <tr>
                 {th('code','Code',false)}{th('name','Nom',false)}{th('age','Âge ⇅',true)}
-                {th('gender','Genre',false)}{th('region','Région',false)}{th('edu','Niveau',false)}
+                {th('gender','Genre',false)}{th('region','Région',false)}{th('prefecture','Préfecture',false)}{th('edu','Niveau',false)}
                 {th('date','Date ⇅',true)}{th('riasec','RIASEC',false)}{th('eq','EQ ⇅',true)}
                 {th('resi','Resi ⇅',true)}{th('indh','INDH',false)}{th('alert','Alerte',false)}{th('adv','Conseiller',false)}
               </tr>
@@ -697,6 +716,7 @@ function Donnees({candidates}){
                     <td style={{padding:'7px 11px',fontSize:12,color:P.bright,textAlign:'center'}}>{c.age}</td>
                     <td style={{padding:'7px 11px'}}><Pill text={c.gender} color={c.gender==='F'?P.purple:P.teal}/></td>
                     <td style={{padding:'7px 11px',fontSize:11,color:P.muted,maxWidth:110,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.region}</td>
+                    <td style={{padding:'7px 11px',fontSize:11,color:c.prefecture?P.orange:P.muted3,whiteSpace:'nowrap'}}>{c.prefecture||'—'}</td>
                     <td style={{padding:'7px 11px',fontSize:11,color:P.muted,whiteSpace:'nowrap'}}>{EDU[c.edu]}</td>
                     <td style={{padding:'7px 11px',fontSize:12,color:P.body,whiteSpace:'nowrap'}}>{c.date}</td>
                     <td style={{padding:'7px 11px',fontSize:13,fontWeight:700,color:P.teal,textAlign:'center'}}>{c.domRiasec||'—'}</td>
