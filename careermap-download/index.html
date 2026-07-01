@@ -1279,7 +1279,6 @@ function buildReportHTML(profile, scores, role, reportLang) {
   });
   body += '</div></div>';
   body += nBlk(nLbl, hNarrText, isAdv, "#1aabaa");
-  body += nBlk(isAr?'سياق الرمز المهني':isEn?'Career Code Context':'Contexte du Code Professionnel', hCode2Narr, isAdv, "#0f7e7d");
   var riasecRec = isAdv ? (isEn ? [
     'Prioritize sectors aligned with the dominant ' + (HL[hTop[0]]||hTop[0]) + ' profile — highest engagement and performance.',
     'Use the recommended careers list for career exploration interviews with professionals in those fields.',
@@ -1343,8 +1342,6 @@ function buildReportHTML(profile, scores, role, reportLang) {
   });
   body += '</div>';
   body += nBlk(nLbl, b5Narr, isAdv, "#9050d0");
-  var b5Comb = isEn ? 'The combination of your Big Five scores creates a distinctive personality fingerprint. High scores (65%+) reflect natural strengths you can leverage immediately. Moderate scores (40-64%) indicate flexible capacities that adapt well to context. Areas below 40% are development opportunities — with focused effort and regular feedback, these dimensions can shift meaningfully over 12 to 24 months of intentional practice.' : isAr ? '\u064a\u064f\u0634\u0643\u0651\u0644 \u0645\u0632\u064a\u062c \u062f\u0631\u062c\u0627\u062a\u0643 \u0639\u0644\u0649 Big Five \u0628\u0635\u0645\u0629 \u0634\u062e\u0635\u064a\u0629 \u0645\u0645\u064a\u0632\u0629. \u0627\u0644\u062f\u0631\u062c\u0627\u062a \u0641\u0648\u0642 65% \u062a\u0639\u0643\u0633 \u0646\u0642\u0627\u0637 \u0642\u0648\u0629 \u0637\u0628\u064a\u0639\u064a\u0629. \u0627\u0644\u062f\u0631\u062c\u0627\u062a \u062f\u0648\u0646 40% \u062a\u0645\u062b\u0644 \u0641\u0631\u0635 \u062a\u0637\u0648\u064a\u0631 \u0628\u062c\u0647\u062f \u0645\u0648\u062c\u0651\u0647 \u062e\u0644\u0627\u0644 12-24 \u0634\u0647\u0631\u064b\u0627.' : 'La combinaison de vos scores Big Five cr\u00e9e une empreinte de personnalit\u00e9 distinctive. Les scores \u00e9lev\u00e9s (65%+) refl\u00e8tent des forces naturelles imm\u00e9diatement exploitables. Les scores mod\u00e9r\u00e9s (40-64%) indiquent des capacit\u00e9s flexibles. Les dimensions en dessous de 40% repr\u00e9sentent des opportunit\u00e9s de d\u00e9veloppement significatives en 12 \u00e0 24 mois de pratique intentionnelle.';
-  body += nBlk(isAr?'\u062a\u0641\u0633\u064a\u0631 \u0627\u0644\u0645\u0644\u0641':isEn?'Profile Interpretation':'Interpr\u00e9tation du Profil', b5Comb, isAdv, '#9050d0');
   var b5Rec = isAdv ? (isEn ? [
     'Build on high Big Five scores by channeling strengths into role design and task allocation.',
     'Address low scores through targeted development: workshops, coaching, or peer-learning groups.',
@@ -1359,9 +1356,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     'Capitaliser sur les scores élevés pour concevoir des rôles qui maximisent ces forces.',
     'Aborder les scores faibles par des activités de développement ciblées.',
     'Surveiller la Stabilité Émotionnelle (N=' + (b.N||0) + '%) : si inférieure à 45%, prioriser les ressources de gestion du stress.',
-    'Réévaluer le profil Big Five après 12 mois d\'expérience professionnelle.',
-    'Relier les traits de personnalité aux compétences transversales identifiées dans le bilan Skill Up pour un accompagnement cohérent.',
-    'Intégrer ces résultats dans un plan de développement professionnel personnalisé avec des jalons trimestriels.'
+    'Réévaluer le profil Big Five après 12 mois d\'expérience professionnelle.'
   ]) : (isEn ? [
     'Your highest Big Five scores reveal your natural workplace strengths — look for roles that engage these every day.',
     'For your lowest scores, choose one concrete habit to develop this month.',
@@ -1376,9 +1371,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     'Vos scores les plus élevés révèlent vos forces naturelles — cherchez des rôles qui les mobilisent chaque jour.',
     'Pour vos scores les plus faibles, choisissez une habitude concrète à développer ce mois-ci.',
     'Partagez votre profil Big Five avec un mentor de confiance pour un retour sur ces traits.',
-    'Les traits Big Five sont des tendances, pas des limites fixes — un effort constant les fait évoluer.',
-    'Choisissez UN trait faible ce mois-ci et identifiez une micro-habitude hebdomadaire spécifique pour le renforcer.',
-    'Observez comment vos traits Big Five se manifestent dans différentes situations — notez 3 observations par semaine pendant un mois.'
+    'Les traits Big Five sont des tendances, pas des limites fixes — un effort constant les fait évoluer.'
   ]);
   body += recBlk(isAr?'توصيات التطوير':isEn?'Development Recommendations':'Recommandations de Développement', b5Rec, '#9050d0');
   body += '</div>';
@@ -1414,8 +1407,6 @@ function buildReportHTML(profile, scores, role, reportLang) {
   var suDetail = isEn ? 'The four Skill Up dimensions — Readiness, Autonomy, Collaboration, and Adaptability — together define your overall employability score of ' + Math.round(suTotal) + '%. Readiness reflects your awareness of the job market and proactivity in preparing for entry. Autonomy measures your capacity to act independently and manage your own development. Collaboration captures your effectiveness in team environments. Adaptability assesses how well you navigate change and respond to unexpected challenges. Your highest dimension is where you should already be leveraging your strengths; your lowest is where a focused 90-day development plan will have the most measurable impact on your professional profile.' : isAr ? '\u062a\u0642\u064a\u0633 \u0627\u0644\u0623\u0628\u0639\u0627\u062f \u0627\u0644\u0623\u0631\u0628\u0639\u0629 \u0644\u0640 Skill Up \u0645\u062c\u062a\u0645\u0639\u0629 \u062f\u0631\u062c\u0629 \u0627\u0633\u062a\u0639\u062f\u0627\u062f\u0643 \u0644\u0644\u062a\u0648\u0638\u064a\u0641 (' + Math.round(suTotal) + '%). \u0628\u064f\u0639\u062f\u0643 \u0627\u0644\u0623\u0639\u0644\u0649 \u0647\u0648 \u062d\u064a\u062b \u062a\u0633\u062a\u062b\u0645\u0631 \u0637\u0627\u0642\u062a\u0643 \u0627\u0644\u064a\u0648\u0645\u061b \u0627\u0644\u0623\u062f\u0646\u0649 \u0647\u0648 \u062d\u064a\u062b \u0633\u062a\u0645\u0646\u062d\u0643 90 \u064a\u0648\u0645\u064b\u0627 \u0645\u0646 \u0627\u0644\u062a\u0631\u0643\u064a\u0632 \u0623\u0643\u0628\u0631 \u062a\u0623\u062b\u064a\u0631.' : 'Les quatre dimensions Skill Up d\u00e9finissent ensemble votre score global d\'employabilit\u00e9 de ' + Math.round(suTotal) + '%. La Pr\u00e9paration refl\u00e8te votre connaissance du march\u00e9 et votre proactivit\u00e9. L\'Autonomie mesure votre capacit\u00e9 \u00e0 agir de fa\u00e7on ind\u00e9pendante. La Collaboration capture votre efficacit\u00e9 en \u00e9quipe. L\'Adaptabilit\u00e9 \u00e9value votre r\u00e9ponse au changement. La dimension la plus haute est l\u00e0 o\u00f9 capitaliser aujourd\'hui ; la plus basse est l\u00e0 o\u00f9 90 jours de d\u00e9veloppement cibl\u00e9 auront le plus grand impact mesurable.';
   body += nBlk(isAr?'\u062a\u0641\u0633\u064a\u0631 \u0627\u0644\u0623\u0628\u0639\u0627\u062f':isEn?'Dimensions Explained':'D\u00e9tail des Dimensions', suDetail, isAdv, '#ea580c');
   body += nBlk(isAr?'تحليل القيادة':isEn?'Leadership Analysis':'Analyse du Leadership', ldNarr, isAdv, "#ff7a59");
-  var ldDetail = isEn ? 'Leadership style shapes how you communicate, delegate, solve conflicts, and motivate others in every professional context. Your ' + (ld.style||'') + ' style means you naturally tend to ' + (ld.desc||'bring a distinctive approach to influencing others') + ' This is your leadership signature — the consistent pattern others will observe and rely on. Your greatest leverage is leaning into this natural style where it is an asset, while developing conscious flexibility for situations where a different approach would serve better. This dual awareness separates effective leaders from merely natural ones.' : isAr ? '\u064a\u064f\u062d\u062f\u0651\u062f \u0623\u0633\u0644\u0648\u0628 \u0627\u0644\u0642\u064a\u0627\u062f\u0629 \u0637\u0631\u064a\u0642\u0629 \u062a\u0648\u0627\u0635\u0644\u0643 \u0648\u062a\u0641\u0648\u064a\u0636\u0643 \u0648\u062d\u0644 \u0627\u0644\u0646\u0632\u0627\u0639\u0627\u062a. \u0623\u0633\u0644\u0648\u0628\u0643 ' + (ld.style||'') + ' \u064a\u0639\u0646\u064a \u0623\u0646\u0643 \u062a\u0645\u064a\u0644 \u0628\u0634\u0643\u0644 \u0637\u0628\u064a\u0639\u064a \u0625\u0644\u0649 ' + (ld.desc||'\u0646\u0647\u062c \u0645\u0645\u064a\u0632') + '. \u0647\u0630\u0627 \u062a\u0648\u0642\u064a\u0639\u0643 \u0627\u0644\u0642\u064a\u0627\u062f\u064a \u0627\u0644\u0630\u064a \u0633\u064a\u0644\u0627\u062d\u0638\u0647 \u0627\u0644\u0622\u062e\u0631\u0648\u0646.' : 'Le style de leadership fa\u00e7onne la fa\u00e7on dont vous communiquez, d\u00e9l\u00e9guez, g\u00e9rez les conflits et motivez les autres dans chaque contexte professionnel. Votre style ' + (ld.style||'') + ' signifie que vous avez naturellement tendance \u00e0 ' + (ld.desc||'adopter une approche distinctive') + '. C\'est votre signature de leadership — le sch\u00e9ma constant que les autres observeront et sur lequel ils s\'appuieront. Votre plus grand levier est d\'exploiter ce style naturel l\u00e0 o\u00f9 il est un atout, tout en d\u00e9veloppant une flexibilit\u00e9 consciente pour les situations o\u00f9 une approche diff\u00e9rente servirait mieux.';
-  body += nBlk(isAr?'\u062a\u0637\u0648\u064a\u0631 \u0627\u0644\u0642\u064a\u0627\u062f\u0629':isEn?'Leadership Development':'D\u00e9veloppement du Leadership', ldDetail, isAdv, '#dc2626');
   body += '</div>';
   body += pgFtr(3);
   body += '</div>'; // end page 3
@@ -1477,7 +1468,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   // ══════════════════════════════════════════
   body += '<div class="pdf-page" style="width:794px;min-height:1123px;background:#fff;box-shadow:0 4px 24px rgba(13,31,51,.08);display:flex;flex-direction:column">';
   body += pgHdr(5);
-  body += '<div style="padding:22px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
+  body += '<div style="padding:16px 44px;display:flex;flex-direction:column;gap:16px;flex:1">';
   body += secHd('VI', L.sec6||'E-Learning Roadmap', null, '#0f7e7d');
   body += '<div style="border:1.5px solid #e6ecf2;border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;gap:10px">';
   var eIcons = ['\u{1F3AF}','\u{1F4DA}','\u{1F4A1}','\u{1F3C6}'];
@@ -1488,8 +1479,6 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '<div style="padding:9px 12px;background:#f0fdf4;border-radius:9px;border:1px solid #bbf7d0;font-size:11.5px;color:#0f7e7d;font-weight:700">\u{1F3C5} ' + (L.certif||'Certification cible') + ': ' + el.c + '</div>';
   body += '</div>';
   body += nBlk(isAr?'مسار التعلم الإلكتروني':isEn?'E-Learning Pathway':'Parcours E-Learning', eNarr, isAdv, "#22c55e");
-  var eDeep = isEn ? 'Digital credentials are rapidly becoming as valuable as traditional degrees for entry and mid-level roles. A focused 90-day e-learning sprint — one structured course completed fully, followed immediately by the certification assessment — produces a tangible portfolio item you can add to LinkedIn and your CV the same day. This is not a replacement for your formal education: it is a parallel track that accelerates your profile while your studies continue, giving you a measurable edge over peers who wait until graduation. Moroccan and international recruiters increasingly scan CVs for recognised platform certifications (Google, IBM, Meta, Coursera Specialisations) alongside formal qualifications — these credentials signal initiative, self-directed learning, and relevant skills all at once.' : isAr ? '\u0623\u0635\u0628\u062d\u062a \u0627\u0644\u0634\u0647\u0627\u062f\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0633\u0631\u064a\u0639\u064b\u0627 \u0630\u0627\u062a \u0642\u064a\u0645\u0629 \u0645\u0633\u0627\u0648\u064a\u0629 \u0644\u0644\u0634\u0647\u0627\u062f\u0627\u062a \u0627\u0644\u062a\u0642\u0644\u064a\u062f\u064a\u0629. \u0633\u0628\u0631\u064a\u0646\u062a 90 \u064a\u0648\u0645\u064b\u0627 \u064a\u0646\u062a\u062c \u0639\u0646\u0635\u0631 \u0645\u062d\u0641\u0638\u0629 \u0645\u0644\u0645\u0648\u0633\u064b\u0627 \u064a\u0645\u0643\u0646 \u0625\u0636\u0627\u0641\u062a\u0647 \u0641\u0648\u0631\u064b\u0627 \u0625\u0644\u0649 LinkedIn.' : 'Les certifications num\u00e9riques deviennent aussi pr\u00e9cieuses que les dipl\u00f4mes traditionnels. Un sprint d\'e-learning cibl\u00e9 de 90 jours — un cours structur\u00e9 compl\u00e9t\u00e9 int\u00e9gralement, suivi imm\u00e9diatement de l\'\u00e9valuation — produit un item de portfolio tangible ajouteable ce jour m\u00eame \u00e0 LinkedIn. Ce n\'est pas un remplacement de votre parcours acad\u00e9mique — c\'est une voie parall\u00e8le qui acc\u00e9l\u00e8re votre profil pendant que vos \u00e9tudes se poursuivent, vous donnant un avantage mesurable sur des pairs qui attendent la remise du dipl\u00f4me.';
-  body += nBlk(isAr?'\u0642\u064a\u0645\u0629 \u0627\u0644\u0634\u0647\u0627\u062f\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629':isEn?'Value of Digital Credentials':'Valeur des Certifications Num\u00e9riques', eDeep, isAdv, '#16a34a');
   var eRec = isEn ? [
     'Create a free account on ' + el.p + ' today and browse the course catalog.',
     'Block 30-45 minutes daily in your calendar — a non-negotiable appointment with your future.',
@@ -1586,25 +1575,6 @@ function buildReportHTML(profile, scores, role, reportLang) {
     'Demandez les cycles de financement actuels et les délais de dépôt.'
   ];
   body += recBlk(isAr?'خطوات التقديم':isEn?'Application Steps':'Étapes de Candidature INDH', indhRec, '#15803d');
-  var indhMotiv = isEn ? 'INDH programs are designed for candidates exactly like you — motivated individuals ready to take the next step. The key differentiator between those who access funding and those who do not is not eligibility: it is preparation and persistence. A well-prepared dossier, a clear project idea, and a confident presentation to the INDH committee are the three levers in your control. Your advisor has supported dozens of candidates through this process — lean on that experience.' : isAr ? 'برامج INDH مصممة لمرشحين مثلك تماماً. العامل الفارق بين من يحصل على التمويل ومن لا يحصل عليه ليس الأهلية، بل الإعداد والمثابرة. ملف جيد الإعداد وفكرة مشروع واضحة وعرض تقديمي واثق هي الرافعات الثلاث بيدك.' : 'Les programmes INDH sont conçus pour des candidats exactement comme vous — des personnes motivées prêtes à passer à l\'étape suivante. Ce qui différencie ceux qui obtiennent un financement de ceux qui ne l\'obtiennent pas n\'est pas l\'éligibilité : c\'est la préparation et la persévérance. Un dossier bien préparé, une idée de projet claire et une présentation confiante au comité INDH sont les trois leviers en votre pouvoir.';
-  body += nBlk(isAr?'المفتاح للنجاح':isEn?'Key to Success':'Clé de la Réussite', indhMotiv, isAdv, '#14532d');
-  var indhContact = isEn ? [
-    'INDH Regional Coordination Office: contact your wilaya or prefecture for the regional focal point.',
-    'ANAPEC regional agencies: free career coaching and referral to INDH programs.',
-    'OFPPT centers: vocational training aligned with INDH program requirements.',
-    'Your CareerMap advisor has the local contacts and can make direct introductions on your behalf.'
-  ] : isAr ? [
-    'مكتب تنسيق INDH الجهوي: تواصل مع ولايتك أو عمالتك للحصول على جهة الاتصال الجهوية.',
-    'وكالات ANAPEC الجهوية: توجيه مجاني وإحالة إلى برامج INDH.',
-    'مراكز OFPPT: تكوين مهني متوافق مع متطلبات برامج INDH.',
-    'مستشارك CareerMap لديه جهات الاتصال المحلية ويمكنه التعريف المباشر باسمك.'
-  ] : [
-    'Bureau de coordination INDH régional : contactez votre wilaya ou préfecture pour le point focal régional.',
-    'Agences régionales ANAPEC : coaching carrière gratuit et orientation vers les programmes INDH.',
-    'Centres OFPPT : formation professionnelle alignée sur les exigences des programmes INDH.',
-    'Votre conseiller CareerMap dispose des contacts locaux et peut effectuer des introductions directes en votre nom.'
-  ];
-  body += recBlk(isAr?'جهات الاتصال':isEn?'Key Contacts':'Contacts Clés', indhContact, '#166534');
   body += '</div>';
   body += pgFtr(7);
   body += '</div>'; // end page 7
