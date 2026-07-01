@@ -1808,7 +1808,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '.pdf-page:last-child{page-break-after:auto;break-after:auto}' +
     '}' +
     '</style>' +
-    '</head><body>' + body + '<script>window.addEventListener("load",function(){setTimeout(window.print,800);});<\/script></body></html>';
+    '</head><body>' + body + '<script>window.addEventListener("load",function(){if(window.top===window.self){setTimeout(window.print,800);}});<\/script></body></html>';
 }
 
 function openPDF(profile, scores, role) {
