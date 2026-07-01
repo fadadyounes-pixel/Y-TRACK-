@@ -3552,86 +3552,183 @@ function CandidateDetailModal({ c, rptLang, onClose, onDelete, onReport, isReal 
   );
 }
 
-function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onAddAdvisor, onDeleteAdvisor, onDeleteCand, onShowReport }) {
-  var ar = lang === "ar";
-  var fr = lang === "fr";
-  var [tab, setTab]           = useState("overview");
-  var [search, setSearch]     = useState("");
-  var [filterRegion, setFilterRegion] = useState("");
-  var [filterGender, setFilterGender] = useState("");
-  var [filterHolland, setFilterHolland] = useState("");
-  var [newName, setNewName]   = useState("");
-  var [copied, setCopied]     = useState(null);
-  var [localReport, setLocalReport] = useState(null);
-  var [sortCol, setSortCol]   = useState("savedAt");
-  var [sortDir, setSortDir]   = useState("desc");
-  var [detailCand, setDetailCand] = useState(null);
+// ── ADMIN DASHBOARD CHART PRIMITIVES ─────────────────────────────────────────
+const AD_P = {
+  bg:'#06111f', card:'#0d1f33', deep:'#0a1828',
+  border:'#14304a', border2:'#1a3a55',
+  teal:'#1aabaa', green:'#1db87a', purple:'#9050d0',
+  gold:'#d4a328', orange:'#e09030', red:'#dc4c3c',
+  bright:'#eaf3ff', body:'#c8daf0',
+  muted:'#8faac0', muted2:'#6f8aa3', muted3:'#5b7186'
+};
+const AD_CASA_PREFS = ['El Fida-Mers Sultan','Aïn Sebaâ','Anfa','Ben M\'Sick','Hay Hassani','Moulay Rachid','Sidi Bernoussi','Aïn Chock'];
+const AD_HCOLS = {R:"#1aabaa",I:"#8b5cf6",A:"#d4a328",S:"#22c55e",E:"#f97316",C:"#6b8aaa"};
+const AD_HN = {R:"Réaliste",I:"Investigateur",A:"Artistique",S:"Social",E:"Entrepreneur",C:"Conventionnel"};
 
+function AD_Donut({segs, size, thick, label, sub}) {
+  size = size || 160; thick = thick || 26;
+  var tot2 = segs.reduce(function(s,d){return s+d.v;},0)||1;
+  var cx=size/2, cy=size/2, r=(size-thick)/2-2;
+  var C2 = 2*Math.PI*r;
+  var cum=0;
+  var arcs = segs.map(function(s) {
+    var dash=(s.v/tot2)*C2; var o=-cum; cum+=dash; return Object.assign({},s,{dash:dash,o:o});
+  });
+  return (
+    <svg width={size} height={size} viewBox={"0 0 "+size+" "+size}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={AD_P.deep} strokeWidth={thick}/>
+      {arcs.map(function(a,i){
+        return <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={a.c} strokeWidth={thick-2}
+          strokeDasharray={a.dash+" "+(C2-a.dash)} strokeDashoffset={a.o}
+          transform={"rotate(-90 "+cx+" "+cy+")"}/>;
+      })}
+      {label!=null&&(
+        <g>
+          <text x={cx} y={cy+2} textAnchor="middle" dominantBaseline="middle" fill={AD_P.bright} fontSize="21" fontWeight="800" fontFamily="Archivo,Arial,sans-serif">{label}</text>
+          {sub&&<text x={cx} y={cy+18} textAnchor="middle" fill={AD_P.muted} fontSize="10" fontFamily="Archivo,Arial,sans-serif">{sub}</text>}
+        </g>
+      )}
+    </svg>
+  );
+}
+
+function AD_HBar({rows, barColor}) {
+  var max = Math.max.apply(null, rows.map(function(d){return d.v;}).concat([1]));
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:9}}>
+      {rows.map(function(d,i){
+        return (
+          <div key={i} style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:118,fontSize:11.5,color:AD_P.muted,textAlign:'right',flexShrink:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.label}</div>
+            <div style={{flex:1,height:20,background:'rgba(20,48,74,.35)',borderRadius:4,overflow:'hidden'}}>
+              <div style={{width:((d.v/max)*100)+"%",height:'100%',background:d.c||barColor||AD_P.teal,borderRadius:4,transition:'width .3s'}}/>
+            </div>
+            <div style={{width:34,fontSize:12,fontWeight:700,color:AD_P.bright,flexShrink:0,textAlign:'right'}}>{d.v}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AD_Spark({data, color, h}) {
+  color = color || AD_P.teal; h = h || 80;
+  if(!data||data.length<2) return null;
+  var W=400, H=h, pad={l:6,r:6,t:10,b:6};
+  var mx=Math.max.apply(null,data.concat([1])), mn=0, range=mx-mn||1;
+  var w=W-pad.l-pad.r, hh=H-pad.t-pad.b;
+  var xs=data.map(function(_,i){return pad.l+(i/(data.length-1))*w;});
+  var ys=data.map(function(v){return pad.t+hh-((v-mn)/range)*hh;});
+  var line=xs.map(function(x,i){return (i===0?'M':'L')+x.toFixed(1)+","+ys[i].toFixed(1);}).join(' ');
+  var area=line+" L"+xs[xs.length-1]+","+(pad.t+hh)+" L"+xs[0]+","+(pad.t+hh)+" Z";
+  var gid="adsg"+color.replace('#','');
+  return (
+    <svg width="100%" viewBox={"0 0 "+W+" "+H} preserveAspectRatio="none" style={{display:'block'}}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.32"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+        </linearGradient>
+      </defs>
+      <path d={area} fill={"url(#"+gid+")"}/>
+      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+      {xs.map(function(x,i){return <circle key={i} cx={x} cy={ys[i]} r="3" fill={color} stroke={AD_P.card} strokeWidth="1.5"/>;})}
+    </svg>
+  );
+}
+
+function AD_Radar({data, size}) {
+  size = size || 190;
+  var n=data.length, cx=size/2, cy=size/2, maxR=size/2-22;
+  var ang=function(i){return -Math.PI/2+i*(2*Math.PI/n);};
+  var pt=function(i,r){return [cx+r*Math.cos(ang(i)),cy+r*Math.sin(ang(i))];};
+  var rings=[0.25,0.5,0.75,1];
+  var pts=data.map(function(v,i){return pt(i,(v/100)*maxR);});
+  var RKEYS=["R","I","A","S","E","C"];
+  return (
+    <svg width={size} height={size} viewBox={"0 0 "+size+" "+size}>
+      {rings.map(function(f,ri){
+        return <polygon key={ri} points={RKEYS.map(function(_,i){return pt(i,maxR*f).join(',');}).join(' ')} fill="none" stroke={AD_P.border} strokeWidth="1"/>;
+      })}
+      {RKEYS.map(function(_,i){
+        var p=pt(i,maxR);
+        return <line key={i} x1={cx} y1={cy} x2={p[0]} y2={p[1]} stroke={AD_P.border} strokeWidth="1"/>;
+      })}
+      <polygon points={pts.map(function(p){return p.join(',');}).join(' ')} fill={AD_P.teal+"2a"} stroke={AD_P.teal} strokeWidth="2"/>
+      {pts.map(function(p,i){return <circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill={AD_P.teal} stroke={AD_P.card} strokeWidth="1.5"/>;})}
+      {RKEYS.map(function(t,i){
+        var p=pt(i,maxR+15);
+        return <text key={i} x={p[0]} y={p[1]+4} textAnchor="middle" fill={AD_P.muted} fontSize="10" fontFamily="Archivo,Arial,sans-serif">{t}</text>;
+      })}
+    </svg>
+  );
+}
+
+function AD_Card({children, style}) {
+  return <div style={Object.assign({},{ background:AD_P.card,border:"1px solid "+AD_P.border,borderRadius:14,padding:'18px 20px'},style||{})}>{children}</div>;
+}
+function AD_Label({children, mb}) {
+  mb = (mb==null)?12:mb;
+  return <div style={{fontSize:11,letterSpacing:'1.5px',fontWeight:700,color:AD_P.muted3,textTransform:'uppercase',marginBottom:mb}}>{children}</div>;
+}
+function AD_Pill({text, color}) {
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:999,background:color+"22",color:color,fontSize:12,fontWeight:600}}>{text}</span>;
+}
+function AD_DonutLegend({items, total}) {
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {items.map(function(item){
+        return (
+          <div key={item[0]} style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:10,height:10,borderRadius:'50%',background:item[2],flexShrink:0}}/>
+            <div>
+              <div style={{fontSize:12,color:AD_P.muted}}>{item[0]}</div>
+              <span style={{fontSize:14,fontWeight:700,color:AD_P.bright}}>{item[1]}</span>
+              <span style={{fontSize:11,color:AD_P.muted3,marginInlineStart:6}}>{Math.round(item[1]/(total||1)*100)}%</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── ADMIN DASHBOARD ───────────────────────────────────────────────────────────
+function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onAddAdvisor, onDeleteAdvisor, onDeleteCand, onShowReport }) {
+  var [tab, setTab]             = useState("overview");
+  var [period, setPeriod]       = useState("all");
+  var [search, setSearch]       = useState("");
+  var [filterRegion, setFReg]   = useState("");
+  var [filterGender, setFGender]= useState("");
+  var [filterHolland, setFHoll] = useState("");
+  var [sortCol, setSortCol]     = useState("savedAt");
+  var [sortDir, setSortDir]     = useState("desc");
+  var [newName, setNewName]     = useState("");
+  var [copied, setCopied]       = useState(null);
+  var [localReport, setLocalReport] = useState(null);
+  var [detailCand, setDetailCand]   = useState(null);
 
   var DEMO = [
     { name:"Ahmed Benali", id:"BJ367307", code:"RPT-BJ367307", savedAt: new Date(Date.now()-86400000).toISOString(), profile:{name:"Ahmed Benali",firstName:"Ahmed",lastName:"Benali",age:"21–24",gender:"Male",edu:"Bachelor (Bac+3)",region:"Rabat-Salé-Kénitra",phone:"+212612345678",status:"University Student",email:"ahmed@example.com"}, scores:{h:{R:45,I:78,A:62,S:55,E:40,C:50},b:{O:72,C2:65,E2:48,A2:80,N:35},s:{A:68,E:55,C:72,R:60}} },
     { name:"Fatima Zahra", id:"FZ291045", code:"RPT-FZ291045", savedAt: new Date(Date.now()-3600000).toISOString(),  profile:{name:"Fatima Zahra",firstName:"Fatima",lastName:"Zahra",age:"18–20",gender:"Female",edu:"Baccalaureate",region:"Casablanca-Settat",prefecture:"Anfa",phone:"+212698765432",status:"High School Student",email:"fatima@example.com"}, scores:{h:{R:30,I:55,A:88,S:75,E:60,C:42},b:{O:90,C2:50,E2:78,A2:70,N:45},s:{A:82,E:65,C:70,R:74}} },
   ];
-
-  var src  = cands.length ? cands : DEMO;
-  var HCOLS = {R:"#1aabaa",I:"#8b5cf6",A:"#d4a328",S:"#22c55e",E:"#f97316",C:"#6b8aaa"};
-  var HN   = {R:"Réaliste",I:"Investigateur",A:"Artistique",S:"Social",E:"Entrepreneur",C:"Conventionnel"};
-
-  /* ── filtered list ── */
-  var list = src.filter(function(c) {
-    var q  = search.toLowerCase();
-    var p  = c.profile || {};
-    var ht = ranked(c.scores&&c.scores.h||{});
-    return (!q || c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q) || (p.email||"").toLowerCase().includes(q))
-      && (!filterRegion  || p.region  === filterRegion)
-      && (!filterGender  || p.gender  === filterGender)
-      && (!filterHolland || ht[0]     === filterHolland);
-  }).slice().sort(function(a,b){
-    var va = sortCol==="name" ? a.name : sortCol==="emp" ? avg(a.scores&&a.scores.s||{}) : (a.savedAt||"");
-    var vb = sortCol==="name" ? b.name : sortCol==="emp" ? avg(b.scores&&b.scores.s||{}) : (b.savedAt||"");
-    return sortDir==="asc" ? (va>vb?1:-1) : (va<vb?1:-1);
-  });
-
-  /* ── KPIs ── */
-  var total   = src.length;
-  var avgEmp  = total ? Math.round(src.reduce(function(acc,c){ return acc+avg(c.scores&&c.scores.s||{}); },0)/total) : 0;
-  var hollandCounts = {};
-  src.forEach(function(c){ var r=ranked(c.scores&&c.scores.h||{})[0]; if(r) hollandCounts[r]=(hollandCounts[r]||0)+1; });
-  var topHL = Object.entries(hollandCounts).sort(function(a,b){return b[1]-a[1];})[0];
-  var recent = src.slice().sort(function(a,b){return (b.savedAt||"")>(a.savedAt||"")?1:-1;}).slice(0,6);
-  var regions = {}; src.forEach(function(c){ var r=(c.profile&&c.profile.region)||"—"; regions[r]=(regions[r]||0)+1; });
-  var topRegions = Object.entries(regions).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
-  var femaleCount = src.filter(function(c){ var g=(c.profile&&c.profile.gender)||""; return g==="Female"||g==="Femme"; }).length;
-  var femalePct = total ? Math.round(femaleCount/total*100) : 0;
-  var completedCount = src.filter(function(c){ return avg(c.scores&&c.scores.s||{}) >= 65; }).length;
-  var completionRate = total ? Math.round(completedCount/total*100) : 0;
-  var dropoutCount = src.filter(function(c){ return avg(c.scores&&c.scores.s||{}) < 45; }).length;
-  var dropoutRate = total ? Math.round(dropoutCount/total*100) : 0;
-  var platformRegions = Object.keys(regions).filter(function(r){return r!=="—";}).length;
-  var PROG_DEF = [
-    { key:"leadership", label:"Leadership & Civisme", icon:"🏛", color:"#8b5cf6", types:["S","E"] },
-    { key:"skills", label:"Formation & Compétences", icon:"🔧", color:"#f97316", types:["R","C"] },
-    { key:"entrepreneurship", label:"Entrepreneuriat", icon:"💡", color:"#d4a328", types:["I","A"] }
-  ];
-  var progCounts = {};
-  PROG_DEF.forEach(function(p){ progCounts[p.key] = src.filter(function(c){ return p.types.indexOf(ranked(c.scores&&c.scores.h||{})[0]||"") !== -1; }).length; });
+  var src = cands.length ? cands : DEMO;
 
   /* ── helpers ── */
-  function exportExcel() {
-    var headers = ["Prénom","Nom","ID","Email","Téléphone","Age","Genre","Education","Situation","Region","Prefecture","Code","Holland","Employabilite","R","I","A","S","E","C","O","C2","E2","A2","N","Autonomie","Economique","Collaboration","Readiness"];
-    var rows = src.map(function(c) {
-      var ht=ranked(c.scores&&c.scores.h||{}); var sv=Object.values(c.scores&&c.scores.s||{});
-      var emp=sv.length?Math.round(sv.reduce(function(a,b){return a+b;},0)/sv.length):0;
-      var h=c.scores&&c.scores.h||{}; var b5=c.scores&&c.scores.b||{}; var s=c.scores&&c.scores.s||{}; var p=c.profile||{};
-      return [p.firstName||c.name,p.lastName||"",c.id,p.email||"",p.phone||"",p.age||"",p.gender||"",p.edu||"",p.status||"",p.region||"",p.prefecture||"",c.code||"",
-              (ht[0]||"")+(ht[1]||""),emp,h.R||0,h.I||0,h.A||0,h.S||0,h.E||0,h.C||0,b5.O||0,b5.C2||0,b5.E2||0,b5.A2||0,b5.N||0,s.A||0,s.E||0,s.C||0,s.R||0];
-    });
-    var csv="﻿"+[headers].concat(rows).map(function(r){return r.join(";");}).join("\n");
-    try { var blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); var url=URL.createObjectURL(blob); var a=document.createElement("a"); a.href=url; a.download="CareerMap-Candidates.csv"; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},200); } catch(e){ alert("Export failed: "+e.message); }
+  function isFemale(c) {
+    var g=(c.profile&&c.profile.gender)||"";
+    return g==="Female"||g==="Femme";
   }
-  function exportAdvisors() {
-    var csv="﻿"+["Name,Code,Created"].concat(advisors.map(function(a){return [a.name,a.code,a.createdAt||""].join(",");})).join("\n");
-    try { var blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); var url=URL.createObjectURL(blob); var a=document.createElement("a"); a.href=url; a.download="CareerMap-Advisors.csv"; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},200); } catch(e){}
+  function hasScores(c) {
+    return c.scores && Object.keys(c.scores.h||{}).length > 0;
+  }
+  function isCompleted(c) {
+    return hasScores(c) && avg(c.scores.s||{}) >= 45;
+  }
+  function getRegion(c) { return (c.profile&&c.profile.region)||"—"; }
+  function getPref(c)   { return (c.profile&&c.profile.prefecture)||""; }
+  function nameInit(name) {
+    return (name||"?").trim().split(/\s+/).map(function(w){return w[0]||"";}).join("").slice(0,2).toUpperCase();
   }
   function genCode(name) {
     var parts=name.trim().split(/\s+/); var last=(parts[parts.length-1]||parts[0]).toLowerCase().replace(/[^a-z]/g,"");
@@ -3639,52 +3736,123 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
     while(advisors.some(function(a){return a.code.toLowerCase()===code.toLowerCase();})){code=base.replace("ADV",n+"ADV");n++;}
     return code;
   }
+  function copyCode(code) {
+    try { navigator.clipboard.writeText(code); } catch(e) {}
+    setCopied(code); setTimeout(function(){setCopied(null);},2000);
+  }
   function createAdvisor() {
     if (!newName.trim()) return;
     onAddAdvisor({ name:newName.trim(), code:genCode(newName), createdAt:new Date().toLocaleDateString() });
     setNewName("");
   }
-  function copyCode(code) {
-    try { navigator.clipboard.writeText(code); } catch(e) {}
-    setCopied(code); setTimeout(function(){ setCopied(null); }, 2000);
-  }
   function downloadReport(c, role) {
-    try {
-      var p=c.profile||{name:c.name,id:c.id,age:"-",gender:"-",edu:"-",region:"-"};
-      var sc=c.scores||{h:{},b:{},s:{}};
-      setLocalReport({profile:p, scores:sc, role:role});
-    } catch(err){ alert("Erreur: "+err.message); }
+    var p=c.profile||{name:c.name,id:c.id,age:"-",gender:"-",edu:"-",region:"-"};
+    setLocalReport({profile:p, scores:c.scores||{h:{},b:{},s:{}}, role:role});
   }
+  function exportCSV() {
+    var headers=["Prénom","Nom","ID","Email","Téléphone","Age","Genre","Education","Situation","Region","Prefecture","Code","Holland","Emploi%","R","I","A","S","E","C","O","C2","E2","A2","N","Autonomie","Economique","Collaboration","Readiness"];
+    var rows=src.map(function(c){
+      var ht=ranked(c.scores&&c.scores.h||{}); var h=c.scores&&c.scores.h||{}; var b5=c.scores&&c.scores.b||{}; var s=c.scores&&c.scores.s||{}; var p=c.profile||{};
+      var emp=avg(s);
+      return [p.firstName||c.name,p.lastName||"",c.id,p.email||"",p.phone||"",p.age||"",p.gender||"",p.edu||"",p.status||"",p.region||"",p.prefecture||"",c.code||"",(ht[0]||"")+(ht[1]||""),emp,h.R||0,h.I||0,h.A||0,h.S||0,h.E||0,h.C||0,b5.O||0,b5.C2||0,b5.E2||0,b5.A2||0,b5.N||0,s.A||0,s.E||0,s.C||0,s.R||0];
+    });
+    var csv="﻿"+[headers].concat(rows).map(function(r){return r.join(";");}).join("\n");
+    try{var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="CareerMap-Candidates.csv";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},200);}catch(e){alert("Export failed: "+e.message);}
+  }
+
+  /* ── period filter ── */
+  var filtered = useMemo(function(){
+    if (period==="all") return src;
+    var days={7:7,30:30,90:90}[period];
+    var cut=new Date(); cut.setDate(cut.getDate()-days);
+    return src.filter(function(c){return c.savedAt&&new Date(c.savedAt)>=cut;});
+  }, [src, period]);
+
+  /* ── KPIs ── */
+  var total          = filtered.length;
+  var femaleCount    = filtered.filter(isFemale).length;
+  var femalePct      = total ? Math.round(femaleCount/total*100) : 0;
+  var startedCount   = filtered.filter(hasScores).length;
+  var completedCount = filtered.filter(isCompleted).length;
+  var completionRate = total ? Math.round(completedCount/total*100) : 0;
+  var avgEmp         = total ? Math.round(filtered.reduce(function(acc,c){return acc+avg(c.scores&&c.scores.s||{});},0)/total) : 0;
+  var dropoutCount   = filtered.filter(function(c){return hasScores(c)&&avg(c.scores.s||{})<45;}).length;
+  var dropoutRate    = total ? Math.round(dropoutCount/total*100) : 0;
+  var hollandCounts  = {};
+  filtered.forEach(function(c){var r=ranked(c.scores&&c.scores.h||{})[0];if(r)hollandCounts[r]=(hollandCounts[r]||0)+1;});
+  var regions = {};
+  filtered.forEach(function(c){var r=getRegion(c);regions[r]=(regions[r]||0)+1;});
+  var platformRegions = Object.keys(regions).filter(function(r){return r!=="—";}).length;
+  var topRegions = Object.entries(regions).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+  var recent = filtered.slice().sort(function(a,b){return (b.savedAt||"")>(a.savedAt||"")?1:-1;}).slice(0,6);
+
+  /* ── week sparkline data ── */
+  var weekData = useMemo(function(){
+    var weeks=[];
+    for(var i=0;i<13;i++){
+      var end=new Date();end.setDate(end.getDate()-(12-i)*7);
+      var start=new Date(end);start.setDate(start.getDate()-6);
+      weeks.push({start:start,end:end,count:0});
+    }
+    filtered.forEach(function(c){
+      if(!c.savedAt)return;
+      var d=new Date(c.savedAt);
+      for(var i=0;i<weeks.length;i++){if(d>=weeks[i].start&&d<=weeks[i].end){weeks[i].count++;break;}}
+    });
+    return weeks.map(function(w){return w.count;});
+  },[filtered]);
+
+  var weekLbls = (function(){
+    var lbls=[];
+    for(var i=0;i<13;i+=3){var d=new Date();d.setDate(d.getDate()-(12-i)*7);lbls.push(d.getDate()+"/"+(d.getMonth()+1));}
+    return lbls;
+  })();
+
+  /* ── sorted+filtered list for Données tab ── */
+  var list = useMemo(function(){
+    return filtered.filter(function(c){
+      var q=search.toLowerCase(); var p=c.profile||{}; var ht=ranked(c.scores&&c.scores.h||{});
+      return (!q||c.name.toLowerCase().includes(q)||c.id.toLowerCase().includes(q)||(p.email||"").toLowerCase().includes(q))
+        &&(!filterRegion||getRegion(c)===filterRegion)
+        &&(!filterGender||p.gender===filterGender)
+        &&(!filterHolland||ht[0]===filterHolland);
+    }).slice().sort(function(a,b){
+      var va=sortCol==="name"?a.name:sortCol==="emp"?avg(a.scores&&a.scores.s||{}):(a.savedAt||"");
+      var vb=sortCol==="name"?b.name:sortCol==="emp"?avg(b.scores&&b.scores.s||{}):(b.savedAt||"");
+      return sortDir==="asc"?(va>vb?1:-1):(va<vb?1:-1);
+    });
+  },[filtered,search,filterRegion,filterGender,filterHolland,sortCol,sortDir]);
+
   function toggleSort(col) {
-    if (sortCol===col) setSortDir(function(d){return d==="asc"?"desc":"asc";});
-    else { setSortCol(col); setSortDir("desc"); }
+    if(sortCol===col)setSortDir(function(d){return d==="asc"?"desc":"asc";});
+    else{setSortCol(col);setSortDir("desc");}
   }
 
-  function MiniBar({ pct, color }) {
-    return (
-      <div style={{ flex:1, height:4, background:"rgba(255,255,255,.06)", borderRadius:99, overflow:"hidden" }}>
-        <div style={{ height:"100%", width:Math.min(pct,100)+"%", background:color, borderRadius:99 }}/>
-      </div>
-    );
-  }
+  /* ── KPI bar config ── */
+  var kpis = [
+    {label:'INSCRITS',      v:total,           c:AD_P.teal,   sub:'candidats'},
+    {label:'BILANS COMPLETS',v:completedCount, c:AD_P.green,  sub:completionRate+"% complétude"},
+    {label:'PARTICIPATION F.',v:femalePct+"%", c:AD_P.purple, sub:femaleCount+" femmes"},
+    {label:'CONSEILLERS',   v:advisors.length, c:AD_P.gold,   sub:'total'},
+    {label:'MOY. EMPLOI',   v:avgEmp+"%",      c:AD_P.orange, sub:'employabilité'},
+    {label:'RÉGIONS',       v:platformRegions, c:AD_P.muted2, sub:'/ 12 actives'},
+  ];
+  var TABS = [
+    {id:'overview',label:"Vue d'ensemble",icon:'◉'},
+    {id:'demo',    label:'Démographie',   icon:'◈'},
+    {id:'tests',   label:'Tests & Scores',icon:'◎'},
+    {id:'indh',    label:'INDH',          icon:'⬡'},
+    {id:'advisors',label:'Conseillers',   icon:'◈'},
+    {id:'data',    label:'Données',       icon:'▦'},
+  ];
 
-  function nameInit(name) {
-    return (name||"?").trim().split(/\s+/).map(function(w){return w[0]||"";}).join("").slice(0,2).toUpperCase();
-  }
-
+  /* ── candidate detail modal ── */
   function CandDetail({ c, onClose }) {
     if (!c) return null;
     var p=c.profile||{}; var ht=ranked(c.scores&&c.scores.h||{}); var emp=avg(c.scores&&c.scores.s||{});
     var h=c.scores&&c.scores.h||{}; var b5=c.scores&&c.scores.b||{}; var s=c.scores&&c.scores.s||{};
-    var col=HCOLS[ht[0]]||"#1aabaa"; var empCol=emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444";
+    var col=AD_HCOLS[ht[0]]||"#1aabaa"; var empCol=emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444";
     var init=nameInit(c.name);
-    var hasScores = Object.keys(h).length > 0;
-    var jStep = !hasScores ? 0 : emp >= 65 ? 3 : emp >= 45 ? 2 : emp > 0 ? 1 : 0;
-    var jSteps = ["Inscrit","Orientation","Actif","Résultat"];
-    var jColors = ["#6b8aaa","#8b5cf6","#1aabaa","#22c55e"];
-    var jOutcomes = ["Complété","Référé","Abandonné"];
-    var jOutColors = ["#22c55e","#8b5cf6","#ef4444"];
-    var jActiveOutcome = emp >= 65 ? 0 : emp > 0 && emp < 30 ? 2 : -1;
     return (
       <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"#060d18",zIndex:9998,display:"flex",flexDirection:"column",overflow:"hidden" }}>
         <div style={{ background:"linear-gradient(180deg,#0d1e38,#071228)",borderBottom:"1px solid rgba(26,171,170,.12)",padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexShrink:0 }}>
@@ -3704,40 +3872,10 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
               </div>:null;
             })}
           </div>
-          <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:13,padding:"13px",marginBottom:10 }}>
-            <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.55)",marginBottom:11 }}>Parcours Bénéficiaire</div>
-            <div style={{ display:"flex",alignItems:"flex-start",marginBottom:8 }}>
-              {jSteps.map(function(st,j){
-                var done = j < jStep;
-                var active = j === jStep;
-                var stCol = done ? "#22c55e" : active ? jColors[j] : "rgba(255,255,255,.12)";
-                return (
-                  <React.Fragment key={j}>
-                    <div style={{ display:"flex",flexDirection:"column",alignItems:"center",minWidth:0 }}>
-                      <div style={{ width:26,height:26,borderRadius:999,border:"2px solid "+stCol,background:done?"#22c55e":active?jColors[j]+"33":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:done?"#fff":active?jColors[j]:"rgba(255,255,255,.2)",fontWeight:800,flexShrink:0 }}>
-                        {done ? "✓" : (j+1)}
-                      </div>
-                      <div style={{ fontSize:7,color:active?jColors[j]:done?"#22c55e":"rgba(255,255,255,.22)",marginTop:3,fontWeight:active?800:400,textAlign:"center",maxWidth:38,lineHeight:1.2 }}>{st}</div>
-                    </div>
-                    {j < 3 && <div style={{ flex:1,height:2,background:j<jStep?"#22c55e":"rgba(255,255,255,.08)",marginTop:12,marginLeft:2,marginRight:2 }}/>}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-            <div style={{ fontSize:8,color:"rgba(255,255,255,.3)",textAlign:"center",marginBottom:8 }}>
-              Étape: <span style={{ color:jColors[jStep],fontWeight:700 }}>{jSteps[jStep]}</span>
-            </div>
-            <div style={{ display:"flex",gap:5,justifyContent:"center",flexWrap:"wrap" }}>
-              {jOutcomes.map(function(o,oi){
-                var isActive = oi === jActiveOutcome;
-                return <span key={oi} style={{ fontSize:7.5,padding:"3px 10px",borderRadius:99,background:isActive?jOutColors[oi]+"25":"rgba(255,255,255,.04)",color:isActive?jOutColors[oi]:"rgba(255,255,255,.2)",border:"1px solid "+(isActive?jOutColors[oi]+"50":"rgba(255,255,255,.07)"),fontWeight:isActive?700:400 }}>{o}</span>;
-              })}
-            </div>
-          </div>
           {[
-            { title:"Holland RIASEC", keys:["R","I","A","S","E","C"], vals:h, cols:HCOLS },
+            { title:"Holland RIASEC", keys:["R","I","A","S","E","C"], vals:h, cols:AD_HCOLS },
             { title:"Big Five OCEAN", keys:[["O","O"],["C2","C"],["E2","E"],["A2","A"],["N","N"]], vals:b5, col:"#8b5cf6" },
-            { title:"Skill Up", keys:[["A","A"],["E","E"],["C","C"],["R","R"]], vals:s, col:"#f97316" },
+            { title:"Skill Up",       keys:[["A","A"],["E","E"],["C","C"],["R","R"]],              vals:s, col:"#f97316" },
           ].map(function(sec,si){
             return (
               <div key={si} style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:14,padding:"14px",marginBottom:10 }}>
@@ -3747,7 +3885,9 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                   var col=sec.cols?sec.cols[key]:sec.col;
                   return <div key={key} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
                     <span style={{ width:20,fontSize:10,fontWeight:800,color:col }}>{lbl}</span>
-                    <MiniBar pct={sec.vals[key]||0} color={col}/>
+                    <div style={{ flex:1,height:4,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
+                      <div style={{ height:"100%",width:Math.min(sec.vals[key]||0,100)+"%",background:col,borderRadius:99 }}/>
+                    </div>
                     <span style={{ width:30,fontSize:10,fontWeight:700,color:col,textAlign:"right" }}>{sec.vals[key]||0}%</span>
                   </div>;
                 })}
@@ -3755,728 +3895,537 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
             );
           })}
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
-            <button onClick={function(){downloadReport(c,"candidate");setDetailCand(null);}}
+            <button onClick={function(){downloadReport(c,"candidate");onClose();}}
               style={{ padding:"13px",background:"rgba(26,171,170,.12)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.25)",borderRadius:12,fontSize:11,fontWeight:800,cursor:"pointer" }}>
-              🎓 Candidate
+              🎓 Candidat
             </button>
-            <button onClick={function(){downloadReport(c,"advisor");setDetailCand(null);}}
+            <button onClick={function(){downloadReport(c,"advisor");onClose();}}
               style={{ padding:"13px",background:"rgba(139,92,246,.12)",color:"#a78bfa",border:"1px solid rgba(139,92,246,.25)",borderRadius:12,fontSize:11,fontWeight:800,cursor:"pointer" }}>
-              🔒 Advisor
+              🔒 Conseiller
             </button>
           </div>
           {cands.length>0 && <button onClick={function(){
-            if(!window.confirm('Delete "'+c.name+'"? This cannot be undone.')) return;
-            onDeleteCand(c); setDetailCand(null);
+            if(!window.confirm('Supprimer "'+c.name+'" définitivement?'))return;
+            onDeleteCand(c); onClose();
           }} style={{ width:"100%",marginTop:10,padding:"11px",background:"rgba(239,68,68,.08)",color:"#ef4444",border:"1px solid rgba(239,68,68,.18)",borderRadius:12,fontSize:11,fontWeight:700,cursor:"pointer" }}>
-            🗑 Delete Candidate
+            🗑 Supprimer le candidat
           </button>}
         </div>
       </div>
     );
   }
 
-  return (
-    <div style={{ display:"flex",flexDirection:"column",height:"100%",background:"#060d18" }}>
+  /* ── TAB RENDER FUNCTIONS ─────────────────────────────── */
 
-      {/* ── Header ── */}
-      <div style={{ background:"linear-gradient(180deg,#0d1e38 0%,#071228 100%)",padding:"12px 16px 10px",borderBottom:"1px solid rgba(26,171,170,.1)",flexShrink:0 }}>
-        <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-          <div style={{ width:38,height:38,borderRadius:12,background:"linear-gradient(135deg,#1aabaa,#0f7e7d)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 18px rgba(26,171,170,.4),0 4px 12px rgba(0,0,0,.4)",flexShrink:0 }}>
+  function renderOverview() {
+    var maleC=filtered.filter(function(c){return !isFemale(c);}).length;
+    var femC=filtered.filter(isFemale).length;
+    var i01=filtered.filter(function(c){var t=ranked(c.scores&&c.scores.h||{})[0]||"";return t==="R"||t==="S"||t==="C";}).length;
+    var i02=filtered.filter(function(c){var t=ranked(c.scores&&c.scores.h||{})[0]||"";return t==="E";}).length;
+    var i03=filtered.filter(function(c){var t=ranked(c.scores&&c.scores.h||{})[0]||"";return t==="I"||t==="A";}).length;
+    var funnel=[
+      {label:'Inscrits',            v:total,          c:AD_P.teal},
+      {label:'Tests commencés',     v:startedCount,   c:AD_P.green},
+      {label:'Bilans complets',     v:completedCount, c:AD_P.gold},
+      {label:'Profils disponibles', v:completedCount, c:AD_P.purple},
+    ];
+    return (
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <AD_Card>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <AD_Label mb={0}>Inscriptions par semaine</AD_Label>
+            <span style={{background:AD_P.teal+"22",color:AD_P.teal,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:999}}>{total} total</span>
+          </div>
+          <div style={{height:80,marginBottom:6}}><AD_Spark data={weekData} color={AD_P.teal} h={80}/></div>
+          <div style={{display:'flex',justifyContent:'space-between'}}>
+            {weekLbls.map(function(l,i){return <span key={i} style={{fontSize:10,color:AD_P.muted3}}>{l}</span>;})}
+          </div>
+        </AD_Card>
+        <AD_Card>
+          <AD_Label>Entonnoir de complétion</AD_Label>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {funnel.map(function(f,i){
+              return (
+                <div key={i}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                    <span style={{fontSize:12,color:AD_P.muted}}>{f.label}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:AD_P.bright}}>
+                      {f.v} <span style={{fontWeight:400,color:AD_P.muted3}}>· {Math.round(f.v/(total||1)*100)}%</span>
+                    </span>
+                  </div>
+                  <div style={{height:9,background:'rgba(20,48,74,.35)',borderRadius:5,overflow:'hidden'}}>
+                    <div style={{width:((f.v/(total||1))*100)+"%",height:'100%',background:f.c,borderRadius:5}}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </AD_Card>
+        <AD_Card>
+          <AD_Label>Genre</AD_Label>
+          <div style={{display:'flex',alignItems:'center',gap:22}}>
+            <AD_Donut segs={[{v:maleC,c:AD_P.teal},{v:femC,c:AD_P.purple}]} size={140} thick={24} label={total} sub="total"/>
+            <AD_DonutLegend items={[['Masculin',maleC,AD_P.teal],['Féminin',femC,AD_P.purple]]} total={total}/>
+          </div>
+        </AD_Card>
+        <AD_Card>
+          <AD_Label>Répartition INDH (estimée)</AD_Label>
+          <div style={{display:'flex',alignItems:'center',gap:22}}>
+            <AD_Donut segs={[{v:i01,c:AD_P.teal},{v:i02,c:AD_P.orange},{v:i03,c:AD_P.green}]} size={140} thick={24} label={i01+i02+i03} sub="actifs"/>
+            <AD_DonutLegend items={[['01 Insertion',i01,AD_P.teal],['02 Auto-Emploi',i02,AD_P.orange],['03 Coopérative',i03,AD_P.green]]} total={i01+i02+i03}/>
+          </div>
+        </AD_Card>
+        {recent.length>0&&(
+          <div style={{gridColumn:'1/-1'}}>
+            <AD_Card>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                <AD_Label mb={0}>Dernières inscriptions</AD_Label>
+                <span style={{background:AD_P.teal+"22",color:AD_P.teal,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:999}}>{recent.length} récents</span>
+              </div>
+              {recent.map(function(c,i){
+                var ht=ranked(c.scores&&c.scores.h||{}); var emp=avg(c.scores&&c.scores.s||{});
+                var col=AD_HCOLS[ht[0]]||AD_P.teal;
+                var init=(c.name||"?").trim().split(/\s+/).map(function(w){return w[0]||"";}).join("").slice(0,2).toUpperCase();
+                return (
+                  <div key={i} onClick={function(){setDetailCand(c);}}
+                    style={{display:'flex',alignItems:'center',gap:11,padding:'10px 12px',background:'rgba(255,255,255,.03)',borderRadius:12,marginBottom:6,border:'1px solid rgba(255,255,255,.05)',cursor:'pointer'}}
+                    onMouseOver={function(e){e.currentTarget.style.background="rgba(26,171,170,.07)";e.currentTarget.style.borderColor="rgba(26,171,170,.2)";}}
+                    onMouseOut={function(e){e.currentTarget.style.background="rgba(255,255,255,.03)";e.currentTarget.style.borderColor="rgba(255,255,255,.05)";}}>
+                    <div style={{width:38,height:38,borderRadius:11,background:"linear-gradient(135deg,"+col+"33,"+col+"18)",border:"1px solid "+col+"44",display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:900,color:col,flexShrink:0}}>{init}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:12,color:AD_P.bright,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.name}</div>
+                      <div style={{fontSize:9,color:AD_P.muted3,marginTop:1}}>{getRegion(c)}</div>
+                    </div>
+                    <div style={{textAlign:'right',flexShrink:0}}>
+                      <div style={{fontSize:13,fontWeight:900,color:col}}>{ht[0]||"—"}{ht[1]||""}</div>
+                      <div style={{fontSize:9,fontWeight:700,color:emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444",marginTop:1}}>{emp}%</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </AD_Card>
+          </div>
+        )}
+        {total>0&&(
+          <div style={{gridColumn:'1/-1'}}>
+            <AD_Card>
+              <AD_Label>Distribution Holland RIASEC</AD_Label>
+              {["R","I","A","S","E","C"].map(function(code){
+                var n=hollandCounts[code]||0; var pct=total?Math.round(n/total*100):0;
+                return (
+                  <div key={code} style={{marginBottom:10}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                      <span style={{fontSize:10,fontWeight:700,color:AD_HCOLS[code]}}>{code} <span style={{color:AD_P.muted,fontWeight:400}}>{AD_HN[code]}</span></span>
+                      <span style={{fontSize:10,fontWeight:700,color:AD_HCOLS[code]}}>{n} <span style={{color:AD_P.muted3}}>({pct}%)</span></span>
+                    </div>
+                    <div style={{height:6,background:'rgba(20,48,74,.35)',borderRadius:99,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:pct+"%",background:"linear-gradient(90deg,"+AD_HCOLS[code]+","+AD_HCOLS[code]+"88)",borderRadius:99,transition:'width .8s'}}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </AD_Card>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderDemographe() {
+    var ageMap={};
+    filtered.forEach(function(c){var a=(c.profile&&c.profile.age)||"Inconnu";ageMap[a]=(ageMap[a]||0)+1;});
+    var ageRows=Object.entries(ageMap).sort(function(a,b){return b[1]-a[1];}).map(function(e){return{label:e[0],v:e[1],c:AD_P.teal};});
+    var maleC=filtered.filter(function(c){return !isFemale(c);}).length;
+    var femC=filtered.filter(isFemale).length;
+    var pc={};
+    filtered.filter(function(c){return getPref(c);}).forEach(function(c){var p=getPref(c);pc[p]=(pc[p]||0)+1;});
+    var prefRows=AD_CASA_PREFS.map(function(p){return{label:p,v:pc[p]||0,c:AD_P.orange};});
+    var casaTotal=filtered.filter(function(c){return getRegion(c)==='Casablanca-Settat';}).length;
+    var eduMap={};
+    filtered.forEach(function(c){var e=(c.profile&&c.profile.edu)||"Inconnu";eduMap[e]=(eduMap[e]||0)+1;});
+    var eduRows=Object.entries(eduMap).sort(function(a,b){return b[1]-a[1];}).map(function(e){return{label:e[0],v:e[1],c:AD_P.purple};});
+    var regRows=topRegions.map(function(e){return{label:e[0],v:e[1],c:AD_P.gold};});
+    return (
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <AD_Card><AD_Label>Répartition par âge</AD_Label><AD_HBar rows={ageRows}/></AD_Card>
+        <AD_Card>
+          <AD_Label>Genre</AD_Label>
+          <div style={{display:'flex',alignItems:'center',gap:20,justifyContent:'center',paddingTop:4}}>
+            <AD_Donut segs={[{v:maleC,c:AD_P.teal},{v:femC,c:AD_P.purple}]} size={148} thick={26} label={total} sub="total"/>
+            <AD_DonutLegend items={[['Masculin',maleC,AD_P.teal],['Féminin',femC,AD_P.purple]]} total={total}/>
+          </div>
+        </AD_Card>
+        <AD_Card style={{gridColumn:'1/-1'}}><AD_Label>Niveau d'éducation</AD_Label><AD_HBar rows={eduRows}/></AD_Card>
+        <AD_Card style={{gridColumn:'1/-1'}}><AD_Label>Top régions</AD_Label><AD_HBar rows={regRows}/></AD_Card>
+        <AD_Card style={{gridColumn:'1/-1'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <AD_Label mb={0}>Casablanca-Settat · Répartition par préfecture</AD_Label>
+            <span style={{background:AD_P.orange+"22",color:AD_P.orange,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:999}}>{casaTotal} candidats</span>
+          </div>
+          <AD_HBar rows={prefRows}/>
+        </AD_Card>
+      </div>
+    );
+  }
+
+  function renderTests() {
+    var withScores=filtered.filter(hasScores);
+    var withSkills=filtered.filter(function(c){return c.scores&&Object.keys(c.scores.s||{}).length>0;});
+    var compRows=[
+      {label:'Holland RIASEC',v:withScores.length,c:AD_P.teal},
+      {label:'Big Five OCEAN',v:withScores.length,c:AD_P.teal},
+      {label:'Skill Up',     v:withSkills.length, c:AD_P.green},
+    ];
+    var domCount={R:0,I:0,A:0,S:0,E:0,C:0};
+    withScores.forEach(function(c){var t=ranked(c.scores.h||{})[0];if(t)domCount[t]++;});
+    var riasecRows=["R","I","A","S","E","C"].map(function(t){return{label:t+" · "+AD_HN[t],v:domCount[t],c:AD_P.teal};});
+    var radarData=["R","I","A","S","E","C"].map(function(t){
+      var vs=withScores.filter(function(c){return c.scores.h[t]!=null;}).map(function(c){return c.scores.h[t];});
+      return vs.length?Math.round(vs.reduce(function(a,b){return a+b;},0)/vs.length):50;
+    });
+    var b5Keys=[{k:"O",l:"Ouverture"},{k:"C2",l:"Consciencieux"},{k:"E2",l:"Extraversion"},{k:"A2",l:"Agréabilité"},{k:"N",l:"Stabilité émot."}];
+    var b5Rows=b5Keys.map(function(item){
+      var vs=withScores.filter(function(c){return c.scores.b&&c.scores.b[item.k]!=null;}).map(function(c){return c.scores.b[item.k];});
+      return{label:item.l,v:vs.length?Math.round(vs.reduce(function(a,b){return a+b;},0)/vs.length):0,c:AD_P.purple};
+    });
+    var sKeys=[{k:"A",l:"Autonomie"},{k:"E",l:"Économique"},{k:"C",l:"Collaboration"},{k:"R",l:"Readiness"}];
+    var skillRows=sKeys.map(function(item){
+      var vs=withSkills.filter(function(c){return c.scores.s[item.k]!=null;}).map(function(c){return c.scores.s[item.k];});
+      return{label:item.l,v:vs.length?Math.round(vs.reduce(function(a,b){return a+b;},0)/vs.length):0,c:AD_P.orange};
+    });
+    var empHigh=filtered.filter(function(c){return avg(c.scores&&c.scores.s||{})>=65;}).length;
+    var empMid =filtered.filter(function(c){var e=avg(c.scores&&c.scores.s||{});return e>=45&&e<65;}).length;
+    var empLow =filtered.filter(function(c){return avg(c.scores&&c.scores.s||{})<45;}).length;
+    return (
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <AD_Card><AD_Label>Complétion par test</AD_Label><AD_HBar rows={compRows}/></AD_Card>
+        <AD_Card><AD_Label>Type dominant RIASEC</AD_Label><AD_HBar rows={riasecRows}/></AD_Card>
+        <AD_Card>
+          <AD_Label>Profil RIASEC moyen</AD_Label>
+          <div style={{display:'flex',justifyContent:'center',marginBottom:10}}><AD_Radar data={radarData} size={190}/></div>
+          <div style={{display:'flex',justifyContent:'center',gap:16,flexWrap:'wrap'}}>
+            {["R","I","A","S","E","C"].map(function(t,i){
+              return <div key={t} style={{textAlign:'center'}}>
+                <div style={{fontSize:11,fontWeight:700,color:AD_P.teal}}>{t}</div>
+                <div style={{fontSize:13,fontWeight:800,color:AD_P.bright}}>{radarData[i]}</div>
+              </div>;
+            })}
+          </div>
+        </AD_Card>
+        <AD_Card><AD_Label>Big Five OCEAN · Moyennes</AD_Label><AD_HBar rows={b5Rows}/></AD_Card>
+        <AD_Card><AD_Label>Skill Up · Moyennes</AD_Label><AD_HBar rows={skillRows}/></AD_Card>
+        <AD_Card>
+          <AD_Label>Employabilité · Distribution</AD_Label>
+          <div style={{display:'flex',alignItems:'center',gap:20,justifyContent:'center'}}>
+            <AD_Donut segs={[{v:empHigh,c:AD_P.green},{v:empMid,c:AD_P.orange},{v:empLow,c:AD_P.red}]} size={140} thick={24} label={total} sub="candidats"/>
+            <AD_DonutLegend items={[['Haute ≥65%',empHigh,AD_P.green],['Modérée 45–64%',empMid,AD_P.orange],['Faible <45%',empLow,AD_P.red]]} total={total}/>
+          </div>
+        </AD_Card>
+      </div>
+    );
+  }
+
+  function renderIndh() {
+    var i01=filtered.filter(function(c){var t=ranked(c.scores&&c.scores.h||{})[0]||"";return t==="R"||t==="S"||t==="C";}).length;
+    var i02=filtered.filter(function(c){var t=ranked(c.scores&&c.scores.h||{})[0]||"";return t==="E";}).length;
+    var i03=filtered.filter(function(c){var t=ranked(c.scores&&c.scores.h||{})[0]||"";return t==="I"||t==="A";}).length;
+    var routed=i01+i02+i03;
+    var empRisk=filtered.filter(function(c){return hasScores(c)&&avg(c.scores.s||{})<45;}).length;
+    var empHigh=filtered.filter(function(c){return avg(c.scores&&c.scores.s||{})>=65;}).length;
+    var byReg={};
+    filtered.forEach(function(c){
+      var reg=getRegion(c);if(reg==="—")return;
+      if(!byReg[reg])byReg[reg]={total:0,'01':0,'02':0,'03':0};
+      byReg[reg].total++;
+      var t=ranked(c.scores&&c.scores.h||{})[0]||"";
+      if(t==="R"||t==="S"||t==="C")byReg[reg]['01']++;
+      else if(t==="E")byReg[reg]['02']++;
+      else if(t==="I"||t==="A")byReg[reg]['03']++;
+    });
+    var topReg=Object.entries(byReg).sort(function(a,b){return b[1].total-a[1].total;}).slice(0,6);
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <AD_Card>
+            <AD_Label>Répartition INDH (estimée)</AD_Label>
+            <div style={{display:'flex',alignItems:'center',gap:28,justifyContent:'center',padding:'6px 0'}}>
+              <AD_Donut segs={[{v:i01,c:AD_P.teal},{v:i02,c:AD_P.orange},{v:i03,c:AD_P.green}]} size={175} thick={32} label={routed} sub="routés"/>
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                {[['01 Insertion professionnelle',i01,AD_P.teal],['02 Auto-Emploi',i02,AD_P.orange],['03 Coopérative',i03,AD_P.green]].map(function(item){
+                  return (
+                    <div key={item[0]} style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div style={{width:12,height:12,borderRadius:'50%',background:item[2],flexShrink:0}}/>
+                      <div>
+                        <div style={{fontSize:12,color:AD_P.muted}}>{item[0]}</div>
+                        <span style={{fontSize:18,fontWeight:800,color:AD_P.bright}}>{item[1]}</span>
+                        <span style={{fontSize:12,color:AD_P.muted3,marginInlineStart:8}}>{Math.round(item[1]/(routed||1)*100)}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </AD_Card>
+          <AD_Card>
+            <AD_Label>Indicateurs de risque</AD_Label>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              <div style={{background:AD_P.red+"18",border:"1px solid "+AD_P.red+"44",borderRadius:10,padding:'14px 16px'}}>
+                <div style={{fontSize:11,fontWeight:700,color:AD_P.red,letterSpacing:'1px',textTransform:'uppercase',marginBottom:4}}>Risque d'abandon</div>
+                <div style={{fontSize:24,fontWeight:800,color:AD_P.bright}}>{empRisk}</div>
+                <div style={{fontSize:12,color:AD_P.red+"cc"}}>Score Skill Up &lt; 45%</div>
+              </div>
+              <div style={{background:AD_P.green+"18",border:"1px solid "+AD_P.green+"44",borderRadius:10,padding:'14px 16px'}}>
+                <div style={{fontSize:11,fontWeight:700,color:AD_P.green,letterSpacing:'1px',textTransform:'uppercase',marginBottom:4}}>Profils forts</div>
+                <div style={{fontSize:24,fontWeight:800,color:AD_P.bright}}>{empHigh}</div>
+                <div style={{fontSize:12,color:AD_P.green+"cc"}}>Score Skill Up ≥ 65%</div>
+              </div>
+            </div>
+          </AD_Card>
+        </div>
+        <AD_Card>
+          <AD_Label>Répartition INDH par région</AD_Label>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead>
+              <tr>{['Région','Total','01 Insertion','02 Auto-Emploi','03 Coopérative'].map(function(h){
+                return <th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:AD_P.muted3,letterSpacing:'0.8px',borderBottom:"1px solid "+AD_P.border}}>{h}</th>;
+              })}</tr>
+            </thead>
+            <tbody>
+              {topReg.map(function(item,i){
+                var reg=item[0]; var d=item[1];
+                return (
+                  <tr key={reg} style={{background:i%2===0?'transparent':AD_P.deep}}>
+                    <td style={{padding:'10px 12px',fontSize:13,color:AD_P.body}}>{reg}</td>
+                    <td style={{padding:'10px 12px',fontSize:13,fontWeight:700,color:AD_P.bright}}>{d.total}</td>
+                    <td style={{padding:'10px 12px',fontSize:13,color:AD_P.teal}}>{d['01']||0}</td>
+                    <td style={{padding:'10px 12px',fontSize:13,color:AD_P.orange}}>{d['02']||0}</td>
+                    <td style={{padding:'10px 12px',fontSize:13,color:AD_P.green}}>{d['03']||0}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </AD_Card>
+      </div>
+    );
+  }
+
+  function renderConseillers() {
+    var adv=advisors; var totalAdv=adv.length;
+    var moy=totalAdv?Math.round(total/totalAdv):0;
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+          {[
+            {label:'Total conseillers',v:totalAdv,c:AD_P.teal},
+            {label:'Bénéficiaires',    v:total,   c:AD_P.gold},
+            {label:'Moy. / conseiller',v:moy,     c:AD_P.purple},
+          ].map(function(k){
+            return (
+              <div key={k.label} style={{background:AD_P.card,border:"1px solid "+AD_P.border,borderTop:"3px solid "+k.c,borderRadius:14,padding:'16px 18px'}}>
+                <div style={{fontSize:11,color:AD_P.muted3,fontWeight:700,letterSpacing:'1px',textTransform:'uppercase',marginBottom:8}}>{k.label}</div>
+                <div style={{fontSize:27,fontWeight:800,color:AD_P.bright}}>{k.v}</div>
+              </div>
+            );
+          })}
+        </div>
+        <AD_Card>
+          <AD_Label>Ajouter un conseiller</AD_Label>
+          <div style={{display:'flex',gap:8,marginBottom:8}}>
+            <input value={newName} onChange={function(e){setNewName(e.target.value);}}
+              onKeyDown={function(e){if(e.key==="Enter")createAdvisor();}}
+              placeholder="Nom complet du conseiller…"
+              style={{flex:1,padding:'10px 13px',background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,color:AD_P.bright,fontSize:12,outline:'none'}}/>
+            <button onClick={createAdvisor} disabled={!newName.trim()}
+              style={{padding:'10px 18px',background:newName.trim()?"linear-gradient(135deg,#7c3aed,#6d28d9)":"rgba(255,255,255,.05)",color:newName.trim()?"#fff":"rgba(255,255,255,.3)",border:'none',borderRadius:10,fontSize:12,fontWeight:800,cursor:newName.trim()?'pointer':'default'}}>
+              Créer
+            </button>
+          </div>
+          {newName.trim()&&<p style={{fontSize:10,color:"#8b5cf6",margin:'0 0 8px'}}>Code: <strong>{genCode(newName)}</strong></p>}
+        </AD_Card>
+        {totalAdv>0&&(
+          <AD_Card>
+            <AD_Label>Équipe conseillers ({totalAdv})</AD_Label>
+            {adv.map(function(a,i){
+              var init=(a.name||"?").trim().split(/\s+/).map(function(w){return w[0]||"";}).join("").slice(0,2).toUpperCase();
+              return (
+                <div key={i} style={{display:'flex',alignItems:'center',gap:11,padding:'13px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(139,92,246,.14)',borderRadius:14,marginBottom:8}}>
+                  <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(135deg,rgba(124,58,237,.3),rgba(109,40,217,.2))',border:'1.5px solid rgba(124,58,237,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:900,color:'#a78bfa',flexShrink:0}}>{init}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:800,fontSize:13,color:AD_P.bright}}>{a.name}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
+                      <code style={{fontSize:11,color:'#8b5cf6',fontWeight:700}}>{a.code}</code>
+                      {a.createdAt&&<span style={{fontSize:9,color:AD_P.muted3}}>{a.createdAt}</span>}
+                    </div>
+                  </div>
+                  <div style={{display:'flex',gap:6,flexShrink:0}}>
+                    <button onClick={function(){copyCode(a.code);}}
+                      style={{padding:'6px 11px',borderRadius:8,fontSize:10,fontWeight:700,cursor:'pointer',background:copied===a.code?'rgba(34,197,94,.15)':'rgba(255,255,255,.05)',color:copied===a.code?'#22c55e':'rgba(255,255,255,.4)',border:'1px solid '+(copied===a.code?'rgba(34,197,94,.25)':'rgba(255,255,255,.08)')}}>
+                      {copied===a.code?"✓":"Copier"}
+                    </button>
+                    <button onClick={function(){if(!window.confirm('Supprimer "'+a.name+'"?'))return;onDeleteAdvisor(i);}}
+                      style={{padding:'6px 10px',background:'rgba(239,68,68,.1)',color:'#ef4444',border:'1px solid rgba(239,68,68,.2)',borderRadius:8,fontSize:10,fontWeight:700,cursor:'pointer'}}>🗑</button>
+                  </div>
+                </div>
+              );
+            })}
+          </AD_Card>
+        )}
+      </div>
+    );
+  }
+
+  function renderDonnees() {
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <AD_Card style={{padding:'12px 16px'}}>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+            <input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Rechercher (nom / ID / email)…"
+              style={{flex:'1 1 160px',background:AD_P.deep,border:"1px solid "+AD_P.border,color:AD_P.body,borderRadius:8,padding:'6px 10px',fontSize:13,outline:'none'}}/>
+            <select value={filterRegion} onChange={function(e){setFReg(e.target.value);}}
+              style={{background:AD_P.deep,border:"1px solid "+AD_P.border,color:AD_P.body,borderRadius:8,padding:'6px 10px',fontSize:13,outline:'none'}}>
+              <option value="">Toutes les régions</option>
+              {Object.keys(regions).filter(function(r){return r!=="—";}).sort().map(function(r){return <option key={r} value={r}>{r}</option>;})}
+            </select>
+            <select value={filterGender} onChange={function(e){setFGender(e.target.value);}}
+              style={{background:AD_P.deep,border:"1px solid "+AD_P.border,color:AD_P.body,borderRadius:8,padding:'6px 10px',fontSize:13,outline:'none'}}>
+              <option value="">Genre</option><option value="Male">Masculin</option><option value="Female">Féminin</option>
+              <option value="Homme">Homme</option><option value="Femme">Femme</option>
+            </select>
+            <select value={filterHolland} onChange={function(e){setFHoll(e.target.value);}}
+              style={{background:AD_P.deep,border:"1px solid "+AD_P.border,color:AD_P.body,borderRadius:8,padding:'6px 10px',fontSize:13,outline:'none'}}>
+              <option value="">RIASEC</option>
+              {["R","I","A","S","E","C"].map(function(t){return <option key={t} value={t}>{t} — {AD_HN[t]}</option>;})}
+            </select>
+            <span style={{color:AD_P.muted,fontSize:12,marginInlineStart:'auto',whiteSpace:'nowrap'}}>{list.length} résultats</span>
+            <button onClick={exportCSV} style={{background:AD_P.green+"22",border:"1px solid "+AD_P.green+"55",color:AD_P.green,borderRadius:8,padding:'6px 14px',fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>↓ CSV</button>
+          </div>
+        </AD_Card>
+        <AD_Card style={{padding:0,overflow:'hidden'}}>
+          <div style={{overflowX:'auto',maxHeight:500,overflowY:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',minWidth:820}}>
+              <thead>
+                <tr>
+                  {[['savedAt','Date'],['name','Nom'],['gender','Genre'],['region','Région'],['prefecture','Préfecture'],['age','Âge'],['holland','RIASEC'],['emp','Emploi%']].map(function(col){
+                    var active=sortCol===col[0];
+                    return (
+                      <th key={col[0]} onClick={function(){toggleSort(col[0]);}}
+                        style={{padding:'9px 11px',textAlign:'left',fontSize:11,fontWeight:700,color:active?AD_P.teal:AD_P.muted3,letterSpacing:'0.8px',borderBottom:"1px solid "+AD_P.border,cursor:'pointer',whiteSpace:'nowrap',userSelect:'none',position:'sticky',top:0,background:AD_P.card,zIndex:2}}>
+                        {col[1]}{active?<span style={{marginInlineStart:3,color:AD_P.teal}}>{sortDir==='asc'?'▲':'▼'}</span>:<span style={{marginInlineStart:3,color:AD_P.muted3}}>⇅</span>}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {list.map(function(c,i){
+                  var ht=ranked(c.scores&&c.scores.h||{}); var emp=avg(c.scores&&c.scores.s||{});
+                  var col=AD_HCOLS[ht[0]]||AD_P.muted; var p=c.profile||{};
+                  var empCol=emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444";
+                  return (
+                    <tr key={c.id||i} onClick={function(){setDetailCand(c);}}
+                      style={{background:i%2===0?'transparent':AD_P.deep,cursor:'pointer'}}
+                      onMouseOver={function(e){e.currentTarget.style.background="rgba(26,171,170,.07)";}}
+                      onMouseOut={function(e){e.currentTarget.style.background=i%2===0?'transparent':AD_P.deep;}}>
+                      <td style={{padding:'7px 11px',fontSize:12,color:AD_P.body,whiteSpace:'nowrap'}}>{c.savedAt?new Date(c.savedAt).toLocaleDateString():"—"}</td>
+                      <td style={{padding:'7px 11px',fontSize:12,color:AD_P.bright,whiteSpace:'nowrap',fontWeight:600}}>{c.name}</td>
+                      <td style={{padding:'7px 11px'}}><AD_Pill text={isFemale(c)?'F':'M'} color={isFemale(c)?AD_P.purple:AD_P.teal}/></td>
+                      <td style={{padding:'7px 11px',fontSize:11,color:AD_P.muted,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.region||"—"}</td>
+                      <td style={{padding:'7px 11px',fontSize:11,color:p.prefecture?AD_P.orange:AD_P.muted3,whiteSpace:'nowrap'}}>{p.prefecture||"—"}</td>
+                      <td style={{padding:'7px 11px',fontSize:12,color:AD_P.bright,textAlign:'center'}}>{p.age||"—"}</td>
+                      <td style={{padding:'7px 11px',fontSize:13,fontWeight:700,color:col,textAlign:'center'}}>{ht[0]||"—"}{ht[1]||""}</td>
+                      <td style={{padding:'7px 11px',fontSize:12,textAlign:'center',fontWeight:700,color:empCol}}>{emp||0}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{padding:'8px 14px',borderTop:"1px solid "+AD_P.border,fontSize:11,color:AD_P.muted3}}>
+            {list.length} enregistrements · Cliquer sur une ligne pour voir le détail
+          </div>
+        </AD_Card>
+      </div>
+    );
+  }
+
+  /* ── MAIN RENDER ─── */
+  return (
+    <div style={{display:'flex',flexDirection:'column',height:'100%',background:AD_P.bg,overflow:'hidden'}}>
+
+      {/* HEADER */}
+      <div style={{background:AD_P.card,borderBottom:"1px solid "+AD_P.border,padding:'10px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{width:38,height:38,borderRadius:12,background:'linear-gradient(135deg,'+AD_P.teal+',#0f7e7d)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 0 18px rgba(26,171,170,.4)',flexShrink:0}}>
             <CompassLogo size={22}/>
           </div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:15,fontWeight:900,color:"#fff",letterSpacing:-.4,lineHeight:1.1 }}>
-              Y-<span style={{ color:"#1aabaa" }}>TRACK</span>
-              <span style={{ fontSize:9,background:"rgba(26,171,170,.15)",color:"#1aabaa",borderRadius:99,padding:"1px 7px",fontWeight:700,marginLeft:7,verticalAlign:"middle" }}>M&amp;E</span>
+          <div>
+            <div style={{fontSize:16,fontWeight:800,color:AD_P.bright,lineHeight:1.1}}>
+              Career<span style={{color:AD_P.teal}}>Map</span>
+              <span style={{fontSize:11,fontWeight:600,color:AD_P.muted,marginInlineStart:8,verticalAlign:'middle'}}>Admin</span>
             </div>
-            <div style={{ fontSize:9,color:"rgba(255,255,255,.3)",marginTop:2 }}>
-              {total} bénéficiaires · {platformRegions} plateformes INDH
-              {typeof _db !== "undefined" && _db && <span style={{ color:"#22c55e",marginLeft:6 }}>● LIVE</span>}
+            <div style={{fontSize:10,color:AD_P.muted3,letterSpacing:'0.5px',marginTop:2}}>Tableau de bord · Données réelles</div>
+          </div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:14}}>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:AD_P.green,boxShadow:'0 0 7px '+AD_P.green}}/>
+            <span style={{fontSize:12,color:AD_P.muted}}>{cands.length>0?'Données en direct':'Données démo'}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8,background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:999,padding:'6px 14px 6px 8px'}}>
+            <div style={{width:28,height:28,borderRadius:'50%',background:AD_P.teal,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#fff',flexShrink:0}}>{nameInit(user&&user.name||"Admin")}</div>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,color:AD_P.bright}}>{(user&&user.name)||"Administrator"}</div>
+              <div style={{fontSize:10,color:AD_P.muted3}}>Superviseur</div>
             </div>
           </div>
-          <button onClick={onLogout} style={{ width:34,height:34,borderRadius:10,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",color:"rgba(255,255,255,.4)",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>↩</button>
+          <button onClick={onLogout} style={{width:34,height:34,borderRadius:10,background:'rgba(255,255,255,.05)',border:"1px solid rgba(255,255,255,.08)",color:'rgba(255,255,255,.4)',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>↩</button>
         </div>
       </div>
 
-      {/* ── Scrollable content ── */}
-      <div style={{ flex:1,overflowY:"auto" }}>
-
-        {/* OVERVIEW */}
-        {tab==="overview" && (
-          <div style={{ padding:"16px" }}>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14 }}>
-              {[
-                { icon:"👥", label:"Bénéficiaires", value:total, color:"#1aabaa", sub:"total" },
-                { icon:"♀", label:"Participation F.", value:femalePct+"%", color:"#ec4899", sub:femaleCount+" femmes" },
-                { icon:"✅", label:"Taux Complét.", value:completionRate+"%", color:"#22c55e", sub:completedCount+" complétés" },
-                { icon:"🏢", label:"Plateformes", value:platformRegions, color:"#8b5cf6", sub:"régions actives" },
-                { icon:"⚡", label:"Moy. Skill Up", value:avgEmp+"%", color:"#f97316", sub:"employabilité" },
-                { icon:"📉", label:"Taux Abandon", value:dropoutRate+"%", color:"#ef4444", sub:dropoutCount+" <45%" },
-              ].map(function(kpi,i){
-                return (
-                  <div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+kpi.color+"20",borderTop:"2px solid "+kpi.color,borderRadius:13,padding:"11px 9px",position:"relative",overflow:"hidden" }}>
-                    <div style={{ position:"absolute",bottom:-7,right:-2,fontSize:26,opacity:.07 }}>{kpi.icon}</div>
-                    <div style={{ fontSize:7,color:kpi.color,fontWeight:800,textTransform:"uppercase",letterSpacing:.7,marginBottom:5 }}>{kpi.label}</div>
-                    <div style={{ fontSize:"clamp(18px,4.5vw,26px)",fontWeight:900,color:"#fff",lineHeight:1 }}>{kpi.value}</div>
-                    <div style={{ fontSize:7.5,color:"rgba(255,255,255,.28)",marginTop:4 }}>{kpi.sub}</div>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ marginBottom:16 }}>
-              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
-                <span style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)" }}>Recent Assessments</span>
-                <span style={{ fontSize:9,color:"#1aabaa",fontWeight:600 }}>{recent.length} latest</span>
-              </div>
-              {recent.length===0
-                ? <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",padding:"24px",fontSize:11 }}>No data yet</div>
-                : recent.map(function(c,i){
-                  var ht=ranked(c.scores&&c.scores.h||{}); var emp=avg(c.scores&&c.scores.s||{});
-                  var col=HCOLS[ht[0]]||"#1aabaa"; var init=nameInit(c.name);
-                  return (
-                    <div key={i} onClick={function(){setDetailCand(c);}}
-                      style={{ display:"flex",alignItems:"center",gap:11,padding:"10px 12px",background:"rgba(255,255,255,.03)",borderRadius:12,marginBottom:6,border:"1px solid rgba(255,255,255,.05)",cursor:"pointer",transition:"all .15s" }}
-                      onMouseOver={function(e){e.currentTarget.style.background="rgba(26,171,170,.07)";e.currentTarget.style.borderColor="rgba(26,171,170,.2)";}}
-                      onMouseOut={function(e){e.currentTarget.style.background="rgba(255,255,255,.03)";e.currentTarget.style.borderColor="rgba(255,255,255,.05)";}}>
-                      <div style={{ width:38,height:38,borderRadius:11,background:"linear-gradient(135deg,"+col+"33,"+col+"18)",border:"1px solid "+col+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900,color:col,flexShrink:0 }}>{init}</div>
-                      <div style={{ flex:1,minWidth:0 }}>
-                        <div style={{ fontWeight:700,fontSize:12,color:"rgba(255,255,255,.85)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{c.name}</div>
-                        <div style={{ fontSize:9,color:"rgba(255,255,255,.3)",marginTop:1 }}>{(c.profile&&c.profile.region)||"—"}</div>
-                      </div>
-                      <div style={{ textAlign:"right",flexShrink:0 }}>
-                        <div style={{ fontSize:13,fontWeight:900,color:col }}>{ht[0]||"—"}{ht[1]||""}</div>
-                        <div style={{ fontSize:9,fontWeight:700,color:emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444",marginTop:1 }}>{emp}%</div>
-                      </div>
-                    </div>
-                  );
-                })
-              }
-            </div>
-            {total>0 && (
-              <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"16px",marginBottom:12 }}>
-                <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:14 }}>Holland Distribution</div>
-                {["R","I","A","S","E","C"].map(function(code){
-                  var n=hollandCounts[code]||0; var pct=total?Math.round(n/total*100):0;
-                  return (
-                    <div key={code} style={{ marginBottom:10 }}>
-                      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
-                        <span style={{ fontSize:10,fontWeight:700,color:HCOLS[code] }}>{code} <span style={{ color:"rgba(255,255,255,.3)",fontWeight:400 }}>{HN[code]}</span></span>
-                        <span style={{ fontSize:10,fontWeight:700,color:HCOLS[code] }}>{n} <span style={{ color:"rgba(255,255,255,.25)" }}>({pct}%)</span></span>
-                      </div>
-                      <div style={{ height:6,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
-                        <div style={{ height:"100%",width:pct+"%",background:"linear-gradient(90deg,"+HCOLS[code]+","+HCOLS[code]+"88)",borderRadius:99,transition:"width .8s cubic-bezier(.22,.68,0,1.2)" }}/>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {total > 0 && (
-              <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"14px",marginBottom:12 }}>
-                <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:12 }}>Programmes INDH</div>
-                {PROG_DEF.map(function(p,i){
-                  var n = progCounts[p.key] || 0;
-                  var pct = total ? Math.round(n/total*100) : 0;
-                  return (
-                    <div key={i} style={{ display:"flex",alignItems:"center",gap:10,marginBottom:i<2?10:0 }}>
-                      <div style={{ width:32,height:32,borderRadius:9,background:"rgba(255,255,255,.04)",border:"1px solid "+p.color+"30",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0 }}>{p.icon}</div>
-                      <div style={{ flex:1 }}>
-                        <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
-                          <span style={{ fontSize:10,fontWeight:700,color:"rgba(255,255,255,.7)" }}>{p.label}</span>
-                          <span style={{ fontSize:10,fontWeight:700,color:p.color }}>{n} <span style={{ color:"rgba(255,255,255,.3)" }}>({pct}%)</span></span>
-                        </div>
-                        <div style={{ height:5,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
-                          <div style={{ height:"100%",width:pct+"%",background:p.color,borderRadius:99 }}/>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {topRegions.length>0 && (
-              <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"16px" }}>
-                <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:12 }}>Top Regions</div>
-                {topRegions.map(function(item,i){
-                  var pct=total?Math.round(item[1]/total*100):0;
-                  return (
-                    <div key={i} style={{ marginBottom:8 }}>
-                      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
-                        <span style={{ fontSize:10,color:"rgba(255,255,255,.4)",maxWidth:"70%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{item[0]}</span>
-                        <span style={{ fontSize:10,color:"#1aabaa",fontWeight:700 }}>{item[1]} ({pct}%)</span>
-                      </div>
-                      <div style={{ height:5,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
-                        <div style={{ height:"100%",width:pct+"%",background:"linear-gradient(90deg,#1aabaa,#1aabaa66)",borderRadius:99 }}/>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* CANDIDATES */}
-        {tab==="candidates" && (
-          <div style={{ padding:"12px" }}>
-            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:14,padding:"12px",marginBottom:12 }}>
-              <input value={search} onChange={function(e){setSearch(e.target.value);}}
-                placeholder="🔍 Search name, ID, email…"
-                style={{ width:"100%",padding:"10px 12px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:10,color:"#fff",fontSize:11,marginBottom:8,outline:"none",boxSizing:"border-box" }}/>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:6,alignItems:"center" }}>
-                <select value={filterGender} onChange={function(e){setFilterGender(e.target.value);}}
-                  style={{ padding:"8px 10px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:filterGender?"#1aabaa":"rgba(255,255,255,.4)",fontSize:10 }}>
-                  <option value="">All Genders</option>
-                  <option value="Male">Male</option><option value="Female">Female</option>
-                  <option value="Homme">Homme</option><option value="Femme">Femme</option>
-                </select>
-                <select value={filterHolland} onChange={function(e){setFilterHolland(e.target.value);}}
-                  style={{ padding:"8px 10px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:filterHolland?"#1aabaa":"rgba(255,255,255,.4)",fontSize:10 }}>
-                  <option value="">All Holland</option>
-                  {["R","I","A","S","E","C"].map(function(c){return <option key={c} value={c}>{c}</option>;})}
-                </select>
-                <button onClick={exportExcel}
-                  style={{ padding:"8px 13px",background:"linear-gradient(135deg,#16a34a,#15803d)",color:"#fff",border:"none",borderRadius:9,fontSize:10,fontWeight:800,cursor:"pointer" }}>
-                  ↓ CSV
-                </button>
-              </div>
-              {(filterGender||filterHolland||search) && (
-                <button onClick={function(){setSearch("");setFilterGender("");setFilterHolland("");}}
-                  style={{ marginTop:8,fontSize:9,color:"#ef4444",background:"none",border:"none",cursor:"pointer",padding:0 }}>
-                  ✕ Clear filters ({list.length}/{src.length})
-                </button>
-              )}
-            </div>
-            {list.length===0
-              ? <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",padding:"40px 20px",fontSize:12 }}>No candidates match your search.</div>
-              : list.map(function(c,i){
-                var ht=ranked(c.scores&&c.scores.h||{}); var emp=avg(c.scores&&c.scores.s||{});
-                var col=HCOLS[ht[0]]||"#1aabaa"; var p=c.profile||{};
-                var init=nameInit(c.name); var empCol=emp>=65?"#22c55e":emp>=45?"#f97316":"#ef4444";
-                return (
-                  <div key={i} onClick={function(){setDetailCand(c);}}
-                    style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"13px",marginBottom:8,cursor:"pointer",transition:"all .15s" }}
-                    onMouseOver={function(e){e.currentTarget.style.background="rgba(26,171,170,.06)";e.currentTarget.style.borderColor="rgba(26,171,170,.2)";e.currentTarget.style.transform="translateY(-1px)";}}
-                    onMouseOut={function(e){e.currentTarget.style.background="rgba(255,255,255,.03)";e.currentTarget.style.borderColor="rgba(255,255,255,.06)";e.currentTarget.style.transform="translateY(0)";}}>
-                    <div style={{ display:"flex",alignItems:"center",gap:11 }}>
-                      <div style={{ width:46,height:46,borderRadius:14,flexShrink:0,background:"linear-gradient(135deg,"+col+"33,"+col+"18)",border:"1.5px solid "+col+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:900,color:col }}>
-                        {init}
-                      </div>
-                      <div style={{ flex:1,minWidth:0 }}>
-                        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
-                          <div style={{ fontWeight:800,fontSize:13,color:"rgba(255,255,255,.9)" }}>{c.name}</div>
-                          <span style={{ fontSize:12,fontWeight:900,color:col,flexShrink:0,marginLeft:8 }}>{ht[0]||"—"}{ht[1]||""}</span>
-                        </div>
-                        <div style={{ fontSize:9,color:"rgba(255,255,255,.3)",marginTop:2 }}>{p.email||c.id} · {p.region||"—"}</div>
-                        <div style={{ display:"flex",alignItems:"center",gap:8,marginTop:8 }}>
-                          <div style={{ flex:1,height:4,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
-                            <div style={{ height:"100%",width:emp+"%",background:empCol,borderRadius:99 }}/>
-                          </div>
-                          <span style={{ fontSize:9,fontWeight:700,color:empCol,flexShrink:0 }}>{emp}%</span>
-                        </div>
-                        <div style={{ display:"flex",gap:4,marginTop:7,flexWrap:"wrap" }}>
-                          {[p.age,p.gender,p.edu&&p.edu.split(" ")[0]].filter(Boolean).map(function(tag,j){
-                            return <span key={j} style={{ fontSize:8,padding:"2px 7px",borderRadius:99,background:"rgba(255,255,255,.05)",color:"rgba(255,255,255,.4)",border:"1px solid rgba(255,255,255,.07)" }}>{tag}</span>;
-                          })}
-                          {c.savedAt && <span style={{ fontSize:8,padding:"2px 7px",borderRadius:99,background:"rgba(26,171,170,.1)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.2)",marginLeft:"auto" }}>{new Date(c.savedAt).toLocaleDateString()}</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            }
-          </div>
-        )}
-
-        {/* ADVISORS */}
-        {tab==="reports" && (
-          <div style={{ padding:"12px" }}>
-
-            {/* ── HEADER ── */}
-            <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:12,fontWeight:900,color:"rgba(255,255,255,.85)",marginBottom:2 }}>Rapports &amp; Analytics M&amp;E</div>
-              <div style={{ fontSize:8.5,color:"rgba(255,255,255,.3)" }}>Y-TRACK &#x2014; Suivi INDH Plateformes Jeunes</div>
-            </div>
-
-            {/* ── KPI SUMMARY — spec §2.1 §2.6 ── */}
-            <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:6,textTransform:"uppercase",letterSpacing:.5 }}>Indicateurs Clés</div>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5 }}>
-                {[
-                  { label:"Total Bénéf.", value:total, color:"#1aabaa", icon:"👥" },
-                  { label:"Part. Féminine", value:femalePct+"%", color:"#ec4899", icon:"♀" },
-                  { label:"Taux Complétude", value:completionRate+"%", color:"#22c55e", icon:"✅" },
-                  { label:"Plateformes", value:platformRegions, color:"#8b5cf6", icon:"🏢" },
-                  { label:"Abandon", value:dropoutRate+"%", color:"#ef4444", icon:"📉" },
-                  { label:"Moy. Emploi", value:avgEmp+"%", color:"#f97316", icon:"⚡" },
-                ].map(function(kpi,ki){
-                  return (
-                    <div key={ki} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+kpi.color+"25",borderRadius:10,padding:"9px 6px",textAlign:"center" }}>
-                      <div style={{ fontSize:13,marginBottom:2 }}>{kpi.icon}</div>
-                      <div style={{ fontSize:15,fontWeight:900,color:kpi.color }}>{kpi.value}</div>
-                      <div style={{ fontSize:7,color:"rgba(255,255,255,.3)",marginTop:2,lineHeight:1.3 }}>{kpi.label}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* ── PROGRAMME DISTRIBUTION — spec §2.4 ── */}
-            <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:6,textTransform:"uppercase",letterSpacing:.5 }}>Programmes INDH</div>
-              {PROG_DEF.map(function(p,pi){
-                var cnt = progCounts[p.key]||0;
-                var pct = total ? Math.round(cnt/total*100) : 0;
-                return (
-                  <div key={pi} style={{ display:"flex",alignItems:"center",gap:9,marginBottom:7 }}>
-                    <div style={{ fontSize:12,width:18,textAlign:"center",flexShrink:0 }}>{p.icon}</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
-                        <span style={{ fontSize:8.5,color:"rgba(255,255,255,.6)" }}>{p.label}</span>
-                        <span style={{ fontSize:8.5,fontWeight:700,color:p.color }}>{cnt} ({pct}%)</span>
-                      </div>
-                      <div style={{ height:5,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
-                        <div style={{ height:"100%",width:pct+"%",background:p.color,borderRadius:99 }}/>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* ── REPORT TYPE CARDS — spec §2.6 ── */}
-            <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:7,textTransform:"uppercase",letterSpacing:.5 }}>Générer un Rapport</div>
-            {[
-              {
-                icon:"📅", label:"Suivi Mensuel", freq:"Mensuel", color:"#1aabaa",
-                desc:"KPIs, qualité des données, risques identifiés",
-                fields:["Inscrits: "+total, "Complétés: "+completedCount, "Abandons: "+dropoutCount, "Données manquantes: 0"]
-              },
-              {
-                icon:"📊", label:"Performance Trimestrielle", freq:"Trimestriel", color:"#8b5cf6",
-                desc:"Cible vs réel, analyse régionale et genre",
-                fields:["Taux atteinte: "+completionRate+"%", "Femmes: "+femalePct+"%", "Régions: "+platformRegions, "Moy. emploi: "+avgEmp+"%"]
-              },
-              {
-                icon:"🏆", label:"Impact Annuel", freq:"Annuel", color:"#d4a328",
-                desc:"Analyse des résultats et success stories",
-                fields:["Emplois obtenus: "+completedCount, "Référés: 0", "Programmes: 3", "Plateformes: "+platformRegions]
-              },
-              {
-                icon:"🔍", label:"Rapport Ad-hoc", freq:"Ad-hoc", color:"#f97316",
-                desc:"Filtres personnalisés et plages de dates",
-                fields:null
-              },
-            ].map(function(r,ri){
-              return (
-                <div key={ri} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+r.color+"22",borderLeft:"3px solid "+r.color,borderRadius:12,padding:"12px",marginBottom:8 }}>
-                  <div style={{ display:"flex",alignItems:"center",gap:9,marginBottom:8 }}>
-                    <div style={{ width:32,height:32,borderRadius:9,background:r.color+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0 }}>{r.icon}</div>
-                    <div style={{ flex:1,minWidth:0 }}>
-                      <div style={{ fontWeight:800,fontSize:10.5,color:"rgba(255,255,255,.85)" }}>{r.label}</div>
-                      <div style={{ fontSize:7.5,color:"rgba(255,255,255,.3)",marginTop:1 }}>{r.desc}</div>
-                    </div>
-                    <span style={{ fontSize:7,padding:"3px 7px",borderRadius:99,background:r.color+"20",color:r.color,border:"1px solid "+r.color+"35",fontWeight:700,flexShrink:0 }}>{r.freq}</span>
-                  </div>
-                  {r.fields && (
-                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginBottom:8 }}>
-                      {r.fields.map(function(f,fi){
-                        return <div key={fi} style={{ fontSize:8,color:"rgba(255,255,255,.45)",background:"rgba(255,255,255,.03)",padding:"4px 7px",borderRadius:6,border:"1px solid rgba(255,255,255,.05)" }}>{f}</div>;
-                      })}
-                    </div>
-                  )}
-                  {!r.fields && (
-                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:8 }}>
-                      <div>
-                        <div style={{ fontSize:7.5,color:"rgba(255,255,255,.35)",marginBottom:3 }}>Date début</div>
-                        <input type="date" style={{ width:"100%",padding:"6px 7px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,color:"rgba(255,255,255,.7)",fontSize:8.5,outline:"none",boxSizing:"border-box" }}/>
-                      </div>
-                      <div>
-                        <div style={{ fontSize:7.5,color:"rgba(255,255,255,.35)",marginBottom:3 }}>Date fin</div>
-                        <input type="date" style={{ width:"100%",padding:"6px 7px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,color:"rgba(255,255,255,.7)",fontSize:8.5,outline:"none",boxSizing:"border-box" }}/>
-                      </div>
-                    </div>
-                  )}
-                  <div style={{ display:"flex",gap:5 }}>
-                    {["PDF","Excel","CSV","PPT"].map(function(fmt,fi){
-                      return <button key={fi} onClick={exportExcel} style={{ flex:1,padding:"6px 0",background:fi===3?r.color+"15":"rgba(255,255,255,.04)",color:fi===3?r.color:"rgba(255,255,255,.45)",border:"1px solid "+(fi===3?r.color+"40":"rgba(255,255,255,.08)"),borderRadius:7,fontSize:8,fontWeight:600,cursor:"pointer" }}>↓ {fmt}</button>;
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* ── CLOUD DRIVES — spec §2.7 ── */}
-            <div style={{ marginTop:14,marginBottom:14 }}>
-              <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:7,textTransform:"uppercase",letterSpacing:.5 }}>🔄 Synchronisation Cloud</div>
-              {topRegions.length===0 && (
-                <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",fontSize:10,padding:"16px 0" }}>Aucune plateforme enregistrée.</div>
-              )}
-              {topRegions.map(function(item,ci){
-                var odCol = item[1] > 0 ? "#22c55e" : "#f97316";
-                var gdCol = ci % 2 === 0 ? "#22c55e" : "#f97316";
-                var odLbl = item[1] > 0 ? "Synchronisé" : "En attente";
-                var gdLbl = ci % 2 === 0 ? "Synchronisé" : "En attente";
-                var pct = total ? Math.round(item[1]/total*100) : 0;
-                return (
-                  <div key={ci} style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.05)",borderRadius:11,padding:"11px",marginBottom:7 }}>
-                    <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8 }}>
-                      <div style={{ fontWeight:700,fontSize:10,color:"rgba(255,255,255,.75)" }}>🏢 {item[0]}</div>
-                      <div style={{ fontSize:7.5,color:"rgba(255,255,255,.3)" }}>{item[1]} bénéf. ({pct}%)</div>
-                    </div>
-                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:7 }}>
-                      <div style={{ background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px" }}>
-                        <div style={{ fontSize:7.5,color:"rgba(255,255,255,.35)",marginBottom:4 }}>☁ OneDrive</div>
-                        <div style={{ display:"flex",alignItems:"center",gap:4 }}>
-                          <div style={{ width:6,height:6,borderRadius:99,background:odCol,flexShrink:0 }}/>
-                          <span style={{ fontSize:8,color:odCol,fontWeight:600 }}>{odLbl}</span>
-                        </div>
-                      </div>
-                      <div style={{ background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px" }}>
-                        <div style={{ fontSize:7.5,color:"rgba(255,255,255,.35)",marginBottom:4 }}>🌐 Google Drive</div>
-                        <div style={{ display:"flex",alignItems:"center",gap:4 }}>
-                          <div style={{ width:6,height:6,borderRadius:99,background:gdCol,flexShrink:0 }}/>
-                          <span style={{ fontSize:8,color:gdCol,fontWeight:600 }}>{gdLbl}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display:"flex",gap:5 }}>
-                      <button style={{ flex:1,padding:"5px 0",background:"rgba(26,171,170,.08)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.2)",borderRadius:7,fontSize:8,fontWeight:600,cursor:"pointer" }}>🔄 Sync manuel</button>
-                      <button style={{ flex:1,padding:"5px 0",background:"rgba(255,255,255,.04)",color:"rgba(255,255,255,.4)",border:"1px solid rgba(255,255,255,.08)",borderRadius:7,fontSize:8,fontWeight:600,cursor:"pointer" }}>📂 Voir fichiers</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* ── ANALYTICS ── */}
-            <AdminStats src={src} lang={lang} ar={ar}/>
-
-            {/* ── ADVISOR MANAGEMENT ── */}
-            <div style={{ borderTop:"1px solid rgba(255,255,255,.06)",paddingTop:14,marginTop:12 }}>
-              <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.4)",marginBottom:10,textTransform:"uppercase",letterSpacing:.5 }}>👔 Comptes Conseillers</div>
-              <div style={{ display:"flex",gap:8,marginBottom:10 }}>
-                <input value={newName} onChange={function(e){setNewName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")createAdvisor();}}
-                  placeholder="Nom du conseiller..."
-                  style={{ flex:1,padding:"9px 12px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:"#fff",fontSize:11,outline:"none" }}/>
-                <button onClick={createAdvisor} disabled={!newName.trim()} style={{ padding:"9px 14px",background:newName.trim()?"linear-gradient(135deg,#7c3aed,#6d28d9)":"rgba(255,255,255,.05)",color:newName.trim()?"#fff":"rgba(255,255,255,.3)",border:"none",borderRadius:9,fontSize:12,fontWeight:800,cursor:newName.trim()?"pointer":"default" }}>+</button>
-              </div>
-              {newName.trim() && <p style={{ fontSize:10,color:"#8b5cf6",marginBottom:8 }}>Code: <strong>{genCode(newName)}</strong></p>}
-              {advisors.length===0
-                ? <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",fontSize:11,padding:"16px 0" }}>Aucun conseiller enregistré.</div>
-                : advisors.map(function(adv,i){
-                  var ainit=nameInit(adv.name);
-                  return (
-                    <div key={i} style={{ display:"flex",alignItems:"center",gap:10,padding:"11px",background:"rgba(255,255,255,.03)",border:"1px solid rgba(139,92,246,.14)",borderRadius:12,marginBottom:7 }}>
-                      <div style={{ width:38,height:38,borderRadius:11,background:"rgba(124,58,237,.25)",border:"1.5px solid rgba(124,58,237,.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:900,color:"#a78bfa",flexShrink:0 }}>{ainit}</div>
-                      <div style={{ flex:1,minWidth:0 }}>
-                        <div style={{ fontWeight:700,fontSize:12,color:"rgba(255,255,255,.85)" }}>{adv.name}</div>
-                        <code style={{ fontSize:10,color:"#8b5cf6" }}>{adv.code}</code>
-                      </div>
-                      <button onClick={function(){copyCode(adv.code);}} style={{ padding:"5px 10px",borderRadius:7,fontSize:9,fontWeight:700,cursor:"pointer",background:copied===adv.code?"rgba(34,197,94,.15)":"rgba(255,255,255,.05)",color:copied===adv.code?"#22c55e":"rgba(255,255,255,.4)",border:"1px solid "+(copied===adv.code?"rgba(34,197,94,.25)":"rgba(255,255,255,.08)") }}>{copied===adv.code?"✓":"Copy"}</button>
-                      <button onClick={function(){if(!window.confirm("Supprimer \""+adv.name+"\"?"))return;onDeleteAdvisor(i);}} style={{ padding:"5px 9px",background:"rgba(239,68,68,.1)",color:"#ef4444",border:"1px solid rgba(239,68,68,.2)",borderRadius:7,fontSize:9,cursor:"pointer" }}>🗑</button>
-                    </div>
-                  );
-                })
-              }
-            </div>
-
-          </div>
-        )}
-
-        {tab==="advisors" && (
-          <div style={{ padding:"12px" }}>
-            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(139,92,246,.18)",borderRadius:16,padding:"16px",marginBottom:14 }}>
-              <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:12 }}>
-                <div style={{ width:28,height:28,borderRadius:8,background:"rgba(139,92,246,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14 }}>➕</div>
-                <span style={{ fontSize:12,fontWeight:800,color:"rgba(255,255,255,.8)" }}>New Advisor Account</span>
-              </div>
-              <p style={{ fontSize:10,color:"rgba(255,255,255,.3)",marginBottom:12,lineHeight:1.6 }}>
-                Enter the advisor's full name — a unique <code style={{ color:"#8b5cf6" }}>@nameADV</code> login code will be generated automatically.
-              </p>
-              <div style={{ display:"flex",gap:8 }}>
-                <input value={newName} onChange={function(e){setNewName(e.target.value);}}
-                  onKeyDown={function(e){if(e.key==="Enter")createAdvisor();}}
-                  placeholder="Advisor full name…"
-                  style={{ flex:1,padding:"10px 13px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:10,color:"#fff",fontSize:12,outline:"none" }}/>
-                <button onClick={createAdvisor} disabled={!newName.trim()}
-                  style={{ padding:"10px 18px",background:newName.trim()?"linear-gradient(135deg,#7c3aed,#6d28d9)":"rgba(255,255,255,.05)",color:newName.trim()?"#fff":"rgba(255,255,255,.3)",border:"none",borderRadius:10,fontFamily:"inherit",fontSize:12,fontWeight:800,cursor:newName.trim()?"pointer":"default" }}>
-                  Create
-                </button>
-              </div>
-              {newName.trim() && <p style={{ fontSize:10,color:"#8b5cf6",marginTop:8 }}>Code will be: <strong>{genCode(newName)}</strong></p>}
-            </div>
-            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
-              <span style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)" }}>Team Accounts <span style={{ color:"rgba(255,255,255,.3)",fontWeight:400 }}>({advisors.length})</span></span>
-              {advisors.length>0 && <button onClick={exportAdvisors} style={{ padding:"6px 12px",background:"rgba(22,163,74,.12)",color:"#22c55e",border:"1px solid rgba(22,163,74,.22)",borderRadius:8,fontSize:10,fontWeight:700,cursor:"pointer" }}>↓ Export</button>}
-            </div>
-            {advisors.length===0
-              ? <div style={{ textAlign:"center",padding:"40px 20px",color:"rgba(255,255,255,.2)",fontSize:12 }}>No advisor accounts yet. Create one above.</div>
-              : advisors.map(function(adv,i){
-                var init=nameInit(adv.name);
-                return (
-                  <div key={i} style={{ display:"flex",alignItems:"center",gap:11,padding:"13px",background:"rgba(255,255,255,.03)",border:"1px solid rgba(139,92,246,.14)",borderRadius:14,marginBottom:8 }}>
-                    <div style={{ width:44,height:44,borderRadius:13,background:"linear-gradient(135deg,rgba(124,58,237,.3),rgba(109,40,217,.2))",border:"1.5px solid rgba(124,58,237,.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:900,color:"#a78bfa",flexShrink:0 }}>{init}</div>
-                    <div style={{ flex:1,minWidth:0 }}>
-                      <div style={{ fontWeight:800,fontSize:13,color:"rgba(255,255,255,.85)" }}>{adv.name}</div>
-                      <div style={{ display:"flex",alignItems:"center",gap:8,marginTop:3 }}>
-                        <code style={{ fontSize:11,color:"#8b5cf6",fontWeight:700 }}>{adv.code}</code>
-                        {adv.createdAt && <span style={{ fontSize:9,color:"rgba(255,255,255,.25)" }}>{adv.createdAt}</span>}
-                      </div>
-                    </div>
-                    <div style={{ display:"flex",gap:6,flexShrink:0 }}>
-                      <button onClick={function(){copyCode(adv.code);}}
-                        style={{ padding:"6px 11px",borderRadius:8,fontSize:10,fontWeight:700,cursor:"pointer",background:copied===adv.code?"rgba(34,197,94,.15)":"rgba(255,255,255,.05)",color:copied===adv.code?"#22c55e":"rgba(255,255,255,.4)",border:"1px solid "+(copied===adv.code?"rgba(34,197,94,.25)":"rgba(255,255,255,.08)") }}>
-                        {copied===adv.code?"✓":"Copy"}
-                      </button>
-                      <button onClick={function(){
-                        if(!window.confirm('Delete advisor "'+adv.name+'"?\nThis cannot be undone.')) return;
-                        onDeleteAdvisor(i);
-                      }} style={{ padding:"6px 10px",background:"rgba(239,68,68,.1)",color:"#ef4444",border:"1px solid rgba(239,68,68,.2)",borderRadius:8,fontSize:10,fontWeight:700,cursor:"pointer" }}>🗑</button>
-                    </div>
-                  </div>
-                );
-              })
-            }
-          </div>
-        )}
-
-        {tab==="platforms" && (
-          <div style={{ padding:"12px" }}>
-            <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:3 }}>Plateformes Jeunes INDH</div>
-              <div style={{ fontSize:9,color:"rgba(255,255,255,.3)" }}>{platformRegions} région(s) avec des bénéficiaires</div>
-            </div>
-            {Object.entries(regions).filter(function(r){return r[0]!=="—";}).sort(function(a,b){return b[1]-a[1];}).map(function(item,i){
-              var regName = item[0]; var regCount = item[1];
-              var regCands = src.filter(function(c){return (c.profile&&c.profile.region)===regName;});
-              var regFemale = regCands.filter(function(c){ var g=(c.profile&&c.profile.gender)||""; return g==="Female"||g==="Femme"; }).length;
-              var regFemalePct = regCount ? Math.round(regFemale/regCount*100) : 0;
-              var regEmp = regCount ? Math.round(regCands.reduce(function(acc,c){return acc+avg(c.scores&&c.scores.s||{});},0)/regCount) : 0;
-              var regCompleted = regCands.filter(function(c){ return avg(c.scores&&c.scores.s||{}) >= 65; }).length;
-              var cRate = regCount ? Math.round(regCompleted/regCount*100) : 0;
-              var statusColor = cRate >= 50 ? "#22c55e" : cRate >= 20 ? "#f97316" : "#1aabaa";
-              var statusLabel = cRate >= 50 ? "Actif" : cRate >= 20 ? "En cours" : "Démarrage";
-              var palCols = ["#1aabaa","#8b5cf6","#f97316","#d4a328","#22c55e","#ec4899","#06b6d4","#10b981","#f43f5e","#84cc16"];
-              var col = palCols[i % palCols.length];
-              return (
-                <div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+col+"25",borderLeft:"3px solid "+col,borderRadius:14,padding:"13px",marginBottom:10 }}>
-                  <div style={{ display:"flex",alignItems:"flex-start",gap:10,marginBottom:10 }}>
-                    <div style={{ width:34,height:34,borderRadius:10,background:col+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0 }}>🏢</div>
-                    <div style={{ flex:1,minWidth:0 }}>
-                      <div style={{ fontWeight:800,fontSize:12,color:"rgba(255,255,255,.9)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{regName}</div>
-                      <div style={{ display:"flex",gap:5,marginTop:4,flexWrap:"wrap" }}>
-                        <span style={{ fontSize:8,padding:"2px 8px",borderRadius:99,background:statusColor+"20",color:statusColor,border:"1px solid "+statusColor+"40",fontWeight:700 }}>{statusLabel}</span>
-                        <span style={{ fontSize:8,padding:"2px 7px",borderRadius:99,background:"rgba(255,255,255,.05)",color:"rgba(255,255,255,.28)",display:"flex",alignItems:"center",gap:3 }}><span style={{ width:5,height:5,borderRadius:999,background:statusColor,display:"inline-block" }}/>Sync</span>
-                      </div>
-                      <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:5 }}>
-                        <div style={{ width:16,height:16,borderRadius:999,background:"rgba(139,92,246,.2)",border:"1px solid rgba(139,92,246,.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:7.5,color:"#a78bfa",fontWeight:800,flexShrink:0 }}>C</div>
-                        <span style={{ fontSize:7.5,color:"rgba(255,255,255,.28)" }}>Coordinateur non assigné</span>
-                      </div>
-                    </div>
-                    <div style={{ textAlign:"right",flexShrink:0 }}>
-                      <div style={{ fontSize:20,fontWeight:900,color:col }}>{regCount}</div>
-                      <div style={{ fontSize:8,color:"rgba(255,255,255,.3)" }}>bénéf.</div>
-                    </div>
-                  </div>
-                  <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7 }}>
-                    {[
-                      { label:"Femmes", value:regFemalePct+"%", color:"#ec4899" },
-                      { label:"Moy. Emploi", value:regEmp+"%", color:regEmp>=65?"#22c55e":regEmp>=45?"#f97316":"#ef4444" },
-                      { label:"Complétés", value:regCompleted, color:"#22c55e" },
-                    ].map(function(stat,j){
-                      return (
-                        <div key={j} style={{ background:"rgba(255,255,255,.04)",borderRadius:8,padding:"7px 5px",textAlign:"center" }}>
-                          <div style={{ fontSize:13,fontWeight:900,color:stat.color }}>{stat.value}</div>
-                          <div style={{ fontSize:7,color:"rgba(255,255,255,.28)",marginTop:2 }}>{stat.label}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ display:"flex",gap:5,marginTop:9 }}>
-                    {[{l:"👁 Voir",c:"#1aabaa"},{l:"🔄 Sync",c:"#8b5cf6"},{l:"✉ Message",c:"#f97316"},{l:"✏️ Modifier",c:"rgba(255,255,255,.35)"}].map(function(btn,bi){
-                      return <button key={bi} style={{ flex:1,padding:"6px 2px",background:"rgba(255,255,255,.04)",color:btn.c,border:"1px solid "+btn.c+"35",borderRadius:7,fontSize:8,fontWeight:600,cursor:"pointer" }}>{btn.l}</button>;
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-            {platformRegions === 0 && (
-              <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",padding:"40px 20px",fontSize:12 }}>Aucune plateforme enregistrée.</div>
-            )}
-          </div>
-        )}
-
-        {tab==="programs" && (
-          <div style={{ padding:"12px" }}>
-            <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:3 }}>Programmes INDH</div>
-              <div style={{ fontSize:9,color:"rgba(255,255,255,.3)" }}>3 programmes core — répartition par profil Holland</div>
-            </div>
-            {PROG_DEF.map(function(p,i){
-              var n = progCounts[p.key] || 0;
-              var pct = total ? Math.round(n/total*100) : 0;
-              var progCands = src.filter(function(c){ return p.types.indexOf(ranked(c.scores&&c.scores.h||{})[0]||"") !== -1; });
-              var progFemale = progCands.filter(function(c){ var g=(c.profile&&c.profile.gender)||""; return g==="Female"||g==="Femme"; }).length;
-              var progEmp = n ? Math.round(progCands.reduce(function(acc,c){return acc+avg(c.scores&&c.scores.s||{});},0)/n) : 0;
-              var progCompleted = progCands.filter(function(c){ return avg(c.scores&&c.scores.s||{}) >= 65; }).length;
-              var cRate = n ? Math.round(progCompleted/n*100) : 0;
-              return (
-                <div key={i} style={{ background:"rgba(255,255,255,.03)",border:"1px solid "+p.color+"25",borderTop:"3px solid "+p.color,borderRadius:16,padding:"15px",marginBottom:12 }}>
-                  <div style={{ display:"flex",alignItems:"center",gap:11,marginBottom:13 }}>
-                    <div style={{ width:40,height:40,borderRadius:12,background:p.color+"22",border:"1.5px solid "+p.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,flexShrink:0 }}>{p.icon}</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:900,fontSize:13,color:"rgba(255,255,255,.9)" }}>{p.label}</div>
-                      <div style={{ fontSize:8,color:"rgba(255,255,255,.35)",marginTop:2 }}>Profils Holland: {p.types.join(", ")}</div>
-                    </div>
-                    <div style={{ textAlign:"right",flexShrink:0 }}>
-                      <div style={{ fontSize:22,fontWeight:900,color:p.color }}>{n}</div>
-                      <div style={{ fontSize:8,color:"rgba(255,255,255,.3)" }}>{pct}%</div>
-                    </div>
-                  </div>
-                  <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7,marginBottom:11 }}>
-                    {[
-                      { label:"Inscriptions", value:n, color:p.color },
-                      { label:"Femmes", value:progFemale, color:"#ec4899" },
-                      { label:"Complétés", value:progCompleted, color:"#22c55e" },
-                    ].map(function(stat,j){
-                      return (
-                        <div key={j} style={{ background:"rgba(255,255,255,.04)",borderRadius:9,padding:"9px 6px",textAlign:"center" }}>
-                          <div style={{ fontSize:17,fontWeight:900,color:stat.color }}>{stat.value}</div>
-                          <div style={{ fontSize:7.5,color:"rgba(255,255,255,.3)",marginTop:2 }}>{stat.label}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div>
-                    <div style={{ display:"flex",justifyContent:"space-between",fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:4 }}>
-                      <span>Taux de complétude</span>
-                      <span style={{ color:p.color,fontWeight:700 }}>{cRate}%</span>
-                    </div>
-                    <div style={{ height:7,background:"rgba(255,255,255,.05)",borderRadius:99,overflow:"hidden" }}>
-                      <div style={{ height:"100%",width:cRate+"%",background:p.color,borderRadius:99 }}/>
-                    </div>
-                  </div>
-                  {n > 0 && (
-                    <div style={{ marginTop:10,display:"flex",gap:8,alignItems:"center" }}>
-                      <span style={{ fontSize:9,color:"rgba(255,255,255,.4)" }}>Moy. Employabilité:</span>
-                      <span style={{ fontSize:11,fontWeight:800,color:progEmp>=65?"#22c55e":progEmp>=45?"#f97316":"#ef4444" }}>{progEmp}%</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {total === 0 && <div style={{ textAlign:"center",color:"rgba(255,255,255,.2)",padding:"40px 20px",fontSize:12 }}>Aucun bénéficiaire enregistré.</div>}
-          </div>
-        )}
-
-        {tab==="messaging" && (
-          <div style={{ padding:"12px" }}>
-            <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:3 }}>Messagerie & Notifications</div>
-              <div style={{ fontSize:9,color:"rgba(255,255,255,.3)" }}>Envoyez des messages aux bénéficiaires et coordinateurs</div>
-            </div>
-            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(26,171,170,.18)",borderRadius:16,padding:"15px",marginBottom:12 }}>
-              <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.7)",marginBottom:11 }}>✉️ Nouveau Message</div>
-              <div style={{ marginBottom:10 }}>
-                <div style={{ fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:6 }}>Destinataires</div>
-                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8 }}>
-                  {[{label:"Plateforme",opts:["Toutes"].concat(topRegions.map(function(r){return r[0];}))},{label:"Programme",opts:["Tous","Leadership","Compétences","Entrepreneuriat"]},{label:"Statut",opts:["Tous","Actif","Complété","Référé","Abandonné"]},{label:"Genre",opts:["Tous","Femmes","Hommes"]}].map(function(sel,si){
-                    return (
-                      <div key={si}>
-                        <div style={{ fontSize:8,color:"rgba(255,255,255,.3)",marginBottom:3 }}>{sel.label}</div>
-                        <select style={{ width:"100%",padding:"7px 8px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:8,color:"rgba(255,255,255,.7)",fontSize:9,outline:"none" }}>
-                          {sel.opts.map(function(o,oi){return <option key={oi} value={o}>{o}</option>;})}
-                        </select>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:2 }}>
-                  {["Tous ("+total+")", "Femmes ("+femaleCount+")", "Score <45%"].map(function(t,i){
-                    return <span key={i} style={{ fontSize:9,padding:"4px 10px",borderRadius:99,background:"rgba(26,171,170,.12)",color:"#1aabaa",border:"1px solid rgba(26,171,170,.25)",cursor:"pointer",fontWeight:600 }}>{t}</span>;
-                  })}
-                </div>
-              </div>
-              <div style={{ marginBottom:9 }}>
-                <div style={{ fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:5 }}>Objet</div>
-                <input placeholder="Objet du message..." style={{ width:"100%",padding:"9px 12px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:"#fff",fontSize:10,outline:"none",boxSizing:"border-box" }}/>
-              </div>
-              <div style={{ marginBottom:11 }}>
-                <div style={{ fontSize:9,color:"rgba(255,255,255,.4)",marginBottom:5 }}>Message</div>
-                <textarea placeholder="Rédigez votre message..." rows={4} style={{ width:"100%",padding:"9px 12px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:9,color:"#fff",fontSize:10,outline:"none",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box" }}/>
-              </div>
-              <div style={{ display:"flex",gap:8 }}>
-                <button style={{ flex:1,padding:"11px",background:"linear-gradient(135deg,#1aabaa,#0f7e7d)",color:"#fff",border:"none",borderRadius:10,fontSize:11,fontWeight:800,cursor:"pointer" }}>📤 Envoyer</button>
-                <button style={{ padding:"11px 14px",background:"rgba(255,255,255,.05)",color:"rgba(255,255,255,.4)",border:"1px solid rgba(255,255,255,.08)",borderRadius:10,fontSize:11,cursor:"pointer" }}>⏰ Planifier</button>
-              </div>
-            </div>
-            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,padding:"14px" }}>
-              <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:11 }}>📋 Modèles de Messages</div>
-              {[
-                { icon:"🎉", label:"Invitation événement", color:"#1aabaa" },
-                { icon:"📅", label:"Rappel de session", color:"#8b5cf6" },
-                { icon:"✅", label:"Félicitations complétude", color:"#22c55e" },
-                { icon:"📊", label:"Demande de données", color:"#f97316" },
-                { icon:"🔄", label:"Notification de référence", color:"#d4a328" },
-                { icon:"💬", label:"Suivi individuel", color:"#06b6d4" },
-              ].map(function(t,i){
-                return (
-                  <div key={i} style={{ display:"flex",alignItems:"center",gap:10,padding:"9px",background:"rgba(255,255,255,.03)",borderRadius:9,marginBottom:6,cursor:"pointer",border:"1px solid rgba(255,255,255,.04)" }}>
-                    <span style={{ fontSize:16 }}>{t.icon}</span>
-                    <span style={{ flex:1,fontSize:10,color:"rgba(255,255,255,.65)",fontWeight:600 }}>{t.label}</span>
-                    <span style={{ fontSize:9,color:t.color }}>Utiliser →</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:14,padding:"13px",marginTop:10 }}>
-              <div style={{ fontSize:10,fontWeight:800,color:"rgba(255,255,255,.65)",marginBottom:10 }}>📤 Suivi des Envois</div>
-              {[{label:"Envoyés",val:total,col:"#1aabaa"},{label:"Reçus",val:Math.round(total*.85),col:"#8b5cf6"},{label:"Lus",val:Math.round(total*.62),col:"#22c55e"}].map(function(st,si){
-                var pct = total ? Math.round(st.val/total*100) : 0;
-                return (
-                  <div key={si} style={{ marginBottom:9 }}>
-                    <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
-                      <span style={{ fontSize:9,color:"rgba(255,255,255,.5)" }}>{st.label}</span>
-                      <span style={{ fontSize:9,fontWeight:700,color:st.col }}>{st.val} ({pct}%)</span>
-                    </div>
-                    <div style={{ height:5,background:"rgba(255,255,255,.06)",borderRadius:99,overflow:"hidden" }}>
-                      <div style={{ height:"100%",width:pct+"%",background:st.col,borderRadius:99 }}/>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
+      {/* FILTER BAR */}
+      <div style={{background:AD_P.deep,borderBottom:"1px solid "+AD_P.border,padding:'9px 20px',display:'flex',alignItems:'center',gap:16,flexShrink:0}}>
+        <span style={{fontSize:11,fontWeight:700,color:AD_P.muted3,letterSpacing:'1.5px'}}>PÉRIODE</span>
+        <div style={{display:'flex',background:AD_P.card,border:"1px solid "+AD_P.border,borderRadius:8,overflow:'hidden'}}>
+          {[['7','7 jours'],['30','30 jours'],['90','90 jours'],['all','Tout']].map(function(item){
+            return <button key={item[0]} onClick={function(){setPeriod(item[0]);}} style={{padding:'5px 14px',fontSize:13,fontWeight:600,cursor:'pointer',border:'none',outline:'none',background:period===item[0]?AD_P.teal:'transparent',color:period===item[0]?'#fff':AD_P.muted,transition:'background .15s'}}>{item[1]}</button>;
+          })}
+        </div>
+        <span style={{marginInlineStart:'auto',fontSize:13,color:AD_P.muted}}>
+          <span style={{color:AD_P.bright,fontWeight:700}}>{filtered.length}</span> candidats sur la période
+        </span>
       </div>
 
-      {/* ── Bottom Navigation Bar ── */}
-      <div style={{ display:"flex",background:"rgba(6,13,24,.97)",borderTop:"1px solid rgba(26,171,170,.1)",flexShrink:0 }}>
-        {[
-          { id:"overview", icon:"🏠", label:"Home" },
-          { id:"platforms", icon:"🏢", label:"Sites" },
-          { id:"candidates", icon:"👥", label:"People", count:src.length },
-          { id:"programs", icon:"📋", label:"Programs" },
-          { id:"messaging", icon:"✉", label:"Messages" },
-          { id:"reports", icon:"📊", label:"Reports" },
-        ].map(function(t){
-          var active=tab===t.id;
+      {/* KPI BAR */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',borderBottom:"1px solid "+AD_P.border,flexShrink:0}}>
+        {kpis.map(function(k,i){
           return (
-            <button key={t.id} onClick={function(){setTab(t.id);}}
-              style={{ flex:1,padding:"10px 4px 9px",border:"none",background:"transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",position:"relative" }}>
-              <div style={{ width:active?44:30,height:active?29:22,borderRadius:active?12:8,background:active?"linear-gradient(135deg,#1aabaa,#0f7e7d)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .22s cubic-bezier(.22,1,.36,1)",boxShadow:active?"0 4px 14px rgba(26,171,170,.4)":"none",position:"relative" }}>
-                <span style={{ fontSize:active?15:13,transition:"font-size .22s" }}>{t.icon}</span>
-                {t.count!==undefined&&t.count>0&&!active&&(
-                  <div style={{ position:"absolute",top:-3,right:-3,minWidth:14,height:14,borderRadius:7,background:"#1aabaa",fontSize:7,fontWeight:800,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px" }}>{t.count>99?"99+":t.count}</div>
-                )}
-              </div>
-              <span style={{ fontSize:9,fontWeight:active?700:400,color:active?"#1aabaa":"rgba(255,255,255,.28)",transition:"color .2s" }}>{t.label}</span>
-            </button>
+            <div key={k.label} style={{padding:'14px 18px',borderInlineEnd:i<5?"1px solid "+AD_P.border:'none',background:AD_P.card}}>
+              <div style={{fontSize:10,fontWeight:700,color:AD_P.muted3,letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:5}}>{k.label}</div>
+              <div style={{fontSize:26,fontWeight:800,color:k.c,lineHeight:1}}>{k.v}</div>
+              <div style={{fontSize:11,color:AD_P.muted3,marginTop:4}}>{k.sub}</div>
+            </div>
           );
         })}
+      </div>
+
+      {/* TAB BAR */}
+      <div style={{background:AD_P.card,borderBottom:"1px solid "+AD_P.border,paddingInline:20,display:'flex',gap:2,flexShrink:0,overflowX:'auto'}}>
+        {TABS.map(function(t){
+          return <button key={t.id} onClick={function(){setTab(t.id);}} style={{padding:'12px 16px',fontSize:13,fontWeight:600,cursor:'pointer',border:'none',outline:'none',background:'transparent',color:tab===t.id?AD_P.teal:AD_P.muted,borderBottom:tab===t.id?"2px solid "+AD_P.teal:'2px solid transparent',transition:'color .15s',display:'flex',alignItems:'center',gap:6,whiteSpace:'nowrap'}}>
+            <span style={{fontSize:14}}>{t.icon}</span>{t.label}
+          </button>;
+        })}
+      </div>
+
+      {/* CONTENT */}
+      <div style={{flex:1,overflowY:'auto',padding:'20px 24px'}}>
+        {tab==='overview'  && renderOverview()}
+        {tab==='demo'      && renderDemographe()}
+        {tab==='tests'     && renderTests()}
+        {tab==='indh'      && renderIndh()}
+        {tab==='advisors'  && renderConseillers()}
+        {tab==='data'      && renderDonnees()}
       </div>
 
       {detailCand && <CandDetail c={detailCand} onClose={function(){setDetailCand(null);}}/>}
