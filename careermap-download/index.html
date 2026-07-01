@@ -4812,6 +4812,68 @@ function LandingPage({ onStart, lang, setLang }) {
     </div>
   );
 }
+function ReturningScreen({ lang, setLang, user, code, onLogout, onRetakeTests, onViewReport }) {
+  var ar = lang === "ar";
+  var fr = lang === "fr";
+  var [copied, setCopied] = useState(false);
+  function doCopy() {
+    try { navigator.clipboard.writeText(code); } catch(e) {}
+    setCopied(true); setTimeout(function() { setCopied(false); }, 3000);
+  }
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
+      <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+          justifyContent:"center", padding:"20px 18px" }}>
+        <div className="fadeUp" style={{ width:"100%", maxWidth:420, textAlign:"center" }}>
+          <div style={{ width:72, height:72, borderRadius:"50%", background:"rgba(26,171,170,.15)",
+              border:"2px solid #1aabaa", display:"flex", alignItems:"center",
+              justifyContent:"center", fontSize:34, margin:"0 auto 16px" }}>👋</div>
+          <h2 className="sy" style={{ fontSize:20, fontWeight:800, color:C.wh, marginBottom:8 }}>
+            {ar ? "مرحباً مجدداً" : fr ? "Bon retour !" : "Welcome back!"}
+          </h2>
+          <p style={{ fontSize:12, color:C.muB, lineHeight:1.7, marginBottom:24 }}>
+            {ar ? "لقد أكملت اختباراتك سابقاً. إليك كودك:"
+                : fr ? "Vous avez déjà complété votre bilan. Voici votre code :"
+                : "You've already completed your assessment. Here is your code:"}
+          </p>
+          <div style={{ background:"linear-gradient(135deg,"+C.cardB+","+C.sur+")",
+              borderRadius:18, padding:"22px 20px", border:"2px solid "+C.gold+"44",
+              marginBottom:14, boxShadow:"0 0 36px "+C.goldG }}>
+            <p style={{ fontSize:10, fontWeight:700, color:C.mu, letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>
+              {ar ? "كود النتائج" : fr ? "Code de Résultats" : "Result Code"}
+            </p>
+            <div className="sy" style={{ fontSize:28, fontWeight:800, color:C.goldL, letterSpacing:4, marginBottom:6, fontFamily:"monospace" }}>{code}</div>
+            <p style={{ fontSize:9, color:C.mu }}>{user && user.name}</p>
+          </div>
+          <button onClick={doCopy}
+            style={{ width:"100%", padding:14,
+              background: copied ? "linear-gradient(135deg,"+C.gr+","+C.gr+"cc)" : "linear-gradient(135deg,"+C.gold+","+C.goldL+")",
+              color:C.bg, border:"none", borderRadius:12, fontFamily:"inherit",
+              fontSize:14, fontWeight:800, boxShadow:"0 6px 22px "+(copied?C.grG:C.goldG),
+              marginBottom:16, cursor:"pointer", transition:"all .3s" }}>
+            {copied ? (ar?"تم النسخ ✓":fr?"Copié ✓":"Copied ✓") : (ar?"نسخ الكود":fr?"Copier le code":"Copy Code")}
+          </button>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <button onClick={onRetakeTests}
+              style={{ padding:"14px 10px", background:"rgba(26,171,170,.12)",
+                color:"#1aabaa", border:"1px solid rgba(26,171,170,.3)", borderRadius:12,
+                fontFamily:"inherit", fontSize:12, fontWeight:800, cursor:"pointer" }}>
+              {ar ? "إعادة الاختبارات" : fr ? "♻ Refaire les tests" : "♻ Retake Tests"}
+            </button>
+            <button onClick={onViewReport}
+              style={{ padding:"14px 10px", background:"rgba(212,163,40,.12)",
+                color:C.goldL, border:"1px solid rgba(212,163,40,.3)", borderRadius:12,
+                fontFamily:"inherit", fontSize:12, fontWeight:800, cursor:"pointer" }}>
+              {ar ? "🧭 التوجيه" : fr ? "🧭 Mon orientation" : "🧭 My Orientation"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   injectCSS();
   var [lang, setLang] = useState("fr");
@@ -4860,9 +4922,20 @@ function App() {
   function onLogin(u) {
     setReportHTML(null);
     setUser(u);
-    if (u.role === "admin")   setScreen("admin");
+    if (u.role === "admin")        setScreen("admin");
     else if (u.role === "advisor") setScreen("advisor");
-    else setScreen("profile");
+    else {
+      var existing = cands.find(function(c) { return c.id === u.id; });
+      if (existing && existing.code) {
+        setProfile(existing.profile || null);
+        setScores(existing.scores || { h:{}, b:{}, s:{}, eq:{}, entre:{}, resi:{} });
+        setResultCode(existing.code);
+        setUser(function(prev) { return Object.assign({}, prev, { name: existing.name || u.id }); });
+        setScreen("returning");
+      } else {
+        setScreen("profile");
+      }
+    }
   }
 
   function onLogout() {
@@ -4960,6 +5033,21 @@ function App() {
   var viewer = reportHTML ? <ReportViewer profile={reportHTML.profile} scores={reportHTML.scores} role={reportHTML.role} onClose={function(){ setReportHTML(null); }}/> : null;
   if (screen === "landing") return wrap(<LandingPage lang={lang} setLang={setLangDir} onStart={function(){ setScreen("login"); }}/>);
   if (screen === "login")   return wrap(<Login lang={lang} setLang={setLangDir} onLogin={onLogin} advisors={advisors}/>);
+  if (screen === "returning") return wrap(
+    <ReturningScreen lang={lang} setLang={setLangDir} user={user} code={resultCode} onLogout={onLogout}
+      onRetakeTests={function() {
+        setProfile(null);
+        setScores({ h:{}, b:{}, s:{}, eq:{}, entre:{}, resi:{} });
+        setResultCode("");
+        setScreen("profile");
+      }}
+      onViewReport={function() { setScreen("report-returning"); }}
+    />
+  );
+  if (screen === "report-returning") return wrap(
+    <Report lang={lang} setLang={setLangDir} user={user} profile={profile} scores={scores}
+      onLogout={function(){ setScreen("returning"); }} initRole="candidate" onShowReport={showReport}/>
+  );
   if (screen === "profile") return wrap(<ProfileForm lang={lang} setLang={setLangDir} user={user} onNext={onProfile} onLogout={onLogout}/>);
   if (screen === "welcome") return wrap(<Welcome lang={lang} setLang={setLangDir} user={user} onStart={function(){ setScreen("assess"); }} onLogout={onLogout}/>);
   if (screen === "assess")  return wrap(<Assessment lang={lang} setLang={setLangDir} user={user} onFinish={onFinish}/>);
