@@ -1,4 +1,4 @@
-const CACHE = 'careermap-v106';
+const CACHE = 'careermap-v107';
 const PRECACHE = ['/lib/react.js', '/lib/react-dom.js', '/lib/babel.js', '/lib/html2pdf.bundle.min.js'];
 
 self.addEventListener('message', e => {
@@ -18,6 +18,12 @@ self.addEventListener('activate', e => {
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
+      .then(function(all) {
+        all.forEach(function(client) {
+          client.navigate(client.url);
+        });
+      })
   );
 });
 
