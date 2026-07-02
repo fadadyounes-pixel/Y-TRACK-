@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CareerMap Admin · Tableau de bord</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Archivo+Narrow:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Archivo',Arial,sans-serif;background:#06111f;color:#c8daf0;font-size:14px;line-height:1.5}
+#root{height:100%;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#0a1828}
+::-webkit-scrollbar-thumb{background:#14304a;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#1a3a55}
+*{scrollbar-width:thin;scrollbar-color:#14304a #0a1828}
+select,input,button{font-family:inherit}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="lib/react.js"></script>
+<script src="lib/react-dom.js"></script>
+<script src="lib/babel.js"></script>
+<script type="text/babel">
+const {useState,useMemo,useCallback,useRef,useEffect}=React;
+
+// ── PALETTE ──────────────────────────────────────────────────────────────────
+const P={
+  bg:'#06111f',card:'#0d1f33',deep:'#0a1828',
+  border:'#14304a',border2:'#1a3a55',
+  teal:'#1aabaa',green:'#1db87a',purple:'#9050d0',
+  gold:'#d4a328',orange:'#e09030',red:'#dc4c3c',
+  bright:'#eaf3ff',body:'#c8daf0',
+  muted:'#8faac0',muted2:'#6f8aa3',muted3:'#5b7186'
+};
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const REGIONS=[
+  'Casablanca-Settat','Rabat-Salé-Kénitra','Marrakech-Safi','Fès-Meknès',
+  'Tanger-Tétouan-Al Hoceïma','Souss-Massa','Oriental','Béni Mellal-Khénifra',
+  'Drâa-Tafilalet','Guelmim-Oued Noun','Laâyoune-Sakia El Hamra','Dakhla-Oued Ed-Dahab'
+];
+const EDU=['Sans instruction','Primaire','Collège','Lycée','Baccalauréat','OFPPT','BTS','Licence','Master','Doctorat'];
+const RIASEC=['R','I','A','S','E','C'];
+const RIASEC_FULL=['Réaliste','Investigateur','Artistique','Social','Entrepreneur','Conventionnel'];
+const ADVISORS=[
+  {code:'@BenaliADV',    region:'Casablanca-Settat',         active:true},
+  {code:'@ElAmraniADV',  region:'Rabat-Salé-Kénitra',        active:true},
+  {code:'@ZahraoiADV',   region:'Marrakech-Safi',            active:true},
+  {code:'@CherkaoiADV',  region:'Fès-Meknès',                active:true},
+  {code:'@MansouriADV',  region:'Tanger-Tétouan-Al Hoceïma', active:true},
+  {code:'@ElIdrissiADV', region:'Souss-Massa',               active:true},
+  {code:'@BouazzaADV',   region:'Oriental',                  active:false},
+  {code:'@HaddouADV',    region:'Béni Mellal-Khénifra',      active:false},
+];
+const REF=new Date('2026-06-28');
+const CASA_PREFS=[
+  'El Fida-Mers Sultan','Aïn Sebaâ','Anfa','Ben M\'Sick',
+  'Hay Hassani','Moulay Rachid','Sidi Bernoussi','Aïn Chock'
+];
+const CASA_PREF_W=[16,14,12,11,14,11,12,10];
+
+// ── SEEDED PRNG ───────────────────────────────────────────────────────────────
+function mkRng(seed){
+  let s=(seed^0xdeadbeef)>>>0;
+  return()=>{
+    s=Math.imul(s^(s>>>16),0x45d9f3b)>>>0;
+    s=Math.imul(s^(s>>>16),0x45d9f3b)>>>0;
+    s=(s^(s>>>16))>>>0;
+    return s/0x100000000;
+  };
+}
+
+// ── DATA GENERATION ───────────────────────────────────────────────────────────
+function generate(n){
+  const r=mkRng(42);
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  const gauss=(mu,sigma)=>{
+    const u=r()||1e-10,v=r();
+    return mu+sigma*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  };
+  const rw=[22,18,14,12,10,7,5,4,3,2,2,1];
+  const rc=rw.reduce((a,w,i)=>{a.push((a[i-1]||0)+w);return a;},[]);
+  const pickR=()=>{const v=r()*rc[rc.length-1];return REGIONS[rc.findIndex(c=>c>=v)];};
+  const cpw=CASA_PREF_W.reduce((a,w,i)=>{a.push((a[i-1]||0)+w);return a;},[]);
+  const pickPref=()=>{const v=r()*cpw[cpw.length-1];return CASA_PREFS[cpw.findIndex(c=>c>=v)];};
+  const fnames=['Amina','Fatima','Sara','Layla','Hind','Nadia','Rim','Aya','Meryem','Zineb'];
+  const mnames=['Mohamed','Youssef','Ahmed','Omar','Karim','Mehdi','Rachid','Hassan','Amine','Bilal'];
+  const lnames=['El Amrani','Benali','Zahraoui','Cherkaoi','Mansouri','El Idrissi','Bouazza','Haddou','Moussaoui','Berrada','Tahiri','Laghrari'];
+  const active=ADVISORS.filter(a=>a.active);
+
+  return Array.from({length:n},(_,i)=>{
+    const female=r()<0.52;
+    const fn=(female?fnames:mnames)[Math.floor(r()*10)];
+    const ln=lnames[Math.floor(r()*lnames.length)];
+    const age=Math.round(clamp(gauss(24,6),16,45));
+    const region=pickR();
+    const prefecture=region==='Casablanca-Settat'?pickPref():null;
+    const edu=Math.floor(clamp(gauss(4.5,2.5),0,9));
+    const lv=r();
+    const lang=lv<0.55?'fr':lv<0.85?'ar':'en';
+    const days=Math.floor(r()*90);
+    const d=new Date(REF);d.setDate(d.getDate()-days);
+    const date=d.toISOString().slice(0,10);
+
+    const started=r()<0.94;
+    let scores={},completed=false,indhRoute=null,flags=[],advisorCode=null,reportDownloaded=false,domRiasec=null;
+
+    if(started){
+      const riasec={};
+      RIASEC.forEach(t=>{riasec[t]=Math.round(clamp(gauss(50,15),5,100));});
+      const eq={
+        autoConscience:Math.round(clamp(gauss(50,15),5,100)),
+        empathie:Math.round(clamp(gauss(50,15),5,100)),
+        usageEmotions:Math.round(clamp(gauss(50,15),5,100)),
+        regulation:Math.round(clamp(gauss(50,15),5,100)),
+      };
+      const eqTotal=Math.round((eq.autoConscience+eq.empathie+eq.usageEmotions+eq.regulation)/4);
+      const entremap=Math.round(clamp(gauss(45,20),0,100));
+      const skillup=Math.round(clamp(gauss(55,20),0,100));
+      const ocean={O:Math.round(clamp(gauss(50,15),5,100)),C:Math.round(clamp(gauss(50,15),5,100)),E:Math.round(clamp(gauss(50,15),5,100)),A:Math.round(clamp(gauss(50,15),5,100)),N:Math.round(clamp(gauss(50,15),5,100))};
+      scores={riasec,eq,eqTotal,entremap,skillup,ocean};
+      domRiasec=RIASEC.reduce((b,t)=>riasec[t]>(riasec[b]||0)?t:b,'R');
+
+      completed=r()<0.88;
+      if(completed){
+        const resimap=Math.round(clamp(gauss(36,10),0,60));
+        scores.resimap=resimap;
+        const pJob=clamp(gauss(0.4,0.2),0,1);
+        const pProj=clamp(gauss(0.3,0.2),0,1);
+        const pCoop=clamp(gauss(0.3,0.2),0,1);
+        indhRoute=pJob>=pProj&&pJob>=pCoop?'01':pProj>=pCoop?'02':'03';
+        if(resimap>=43&&entremap>=60)flags.push('ROBUST_ENTREPRENEUR');
+        if(pJob>=0.55)flags.push('IDEAL_INSERTION');
+        if(resimap<30&&eqTotal<35){flags.push('TRIPLE_RISK');}
+        else if(resimap<30)flags.push('DROPOUT_RISK');
+        if(r()<0.82)advisorCode=active[Math.floor(r()*active.length)].code;
+        if(r()<0.72)reportDownloaded=true;
+      }
+    }
+    return{code:`CM${String(i+1).padStart(4,'0')}`,name:`${fn} ${ln}`,age,gender:female?'F':'M',region,prefecture,edu,lang,date,started,completed,scores,indhRoute,flags,advisorCode,reportDownloaded,domRiasec};
+  });
+}
+
+// ── SVG CHARTS ────────────────────────────────────────────────────────────────
+function Donut({segs,size=160,thick=26,label,sub}){
+  const total=segs.reduce((s,d)=>s+d.v,0)||1;
+  const cx=size/2,cy=size/2,r=(size-thick)/2-2;
+  const C=2*Math.PI*r;
+  let cum=0;
+  const arcs=segs.map(s=>{const dash=(s.v/total)*C;const o=-cum;cum+=dash;return{...s,dash,o};});
+  return(
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={P.deep} strokeWidth={thick}/>
+      {arcs.map((a,i)=>(
+        <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={a.c} strokeWidth={thick-2}
+          strokeDasharray={`${a.dash} ${C-a.dash}`} strokeDashoffset={a.o}
+          transform={`rotate(-90 ${cx} ${cy})`}/>
+      ))}
+      {label!=null&&<>
+        <text x={cx} y={cy+2} textAnchor="middle" dominantBaseline="middle" fill={P.bright} fontSize="21" fontWeight="800" fontFamily="Archivo">{label}</text>
+        {sub&&<text x={cx} y={cy+18} textAnchor="middle" fill={P.muted} fontSize="10" fontFamily="Archivo">{sub}</text>}
+      </>}
+    </svg>
+  );
+}
+
+function HBar({rows,barColor}){
+  const max=Math.max(...rows.map(d=>d.v),1);
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:9}}>
+      {rows.map((d,i)=>(
+        <div key={i} style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:108,fontSize:11.5,color:P.muted,textAlign:'right',flexShrink:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.label}</div>
+          <div style={{flex:1,height:20,background:'rgba(20,48,74,.35)',borderRadius:4,overflow:'hidden'}}>
+            <div style={{width:`${(d.v/max)*100}%`,height:'100%',background:d.c||barColor||P.teal,borderRadius:4,transition:'width .3s'}}/>
+          </div>
+          <div style={{width:34,fontSize:12,fontWeight:700,color:P.bright,flexShrink:0,textAlign:'right'}}>{d.v}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Spark({data,color=P.teal,h=80}){
+  if(!data||data.length<2)return null;
+  const W=400,H=h,pad={l:6,r:6,t:10,b:6};
+  const max=Math.max(...data,1),min=0,range=max-min||1;
+  const w=W-pad.l-pad.r,hh=H-pad.t-pad.b;
+  const xs=data.map((_,i)=>pad.l+(i/(data.length-1))*w);
+  const ys=data.map(v=>pad.t+hh-((v-min)/range)*hh);
+  const line=xs.map((x,i)=>`${i===0?'M':'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+  const area=line+` L${xs[xs.length-1]},${pad.t+hh} L${xs[0]},${pad.t+hh} Z`;
+  const gid=`sg${color.replace('#','')}`;
+  return(
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{display:'block'}}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.32"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gid})`}/>
+      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+      {xs.map((x,i)=><circle key={i} cx={x} cy={ys[i]} r="3" fill={color} stroke={P.card} strokeWidth="1.5"/>)}
+    </svg>
+  );
+}
+
+function Radar({data,size=190}){
+  const n=data.length,cx=size/2,cy=size/2,maxR=size/2-22;
+  const ang=i=>-Math.PI/2+i*(2*Math.PI/n);
+  const pt=(i,r)=>[cx+r*Math.cos(ang(i)),cy+r*Math.sin(ang(i))];
+  const rings=[0.25,0.5,0.75,1];
+  const pts=data.map((v,i)=>pt(i,(v/100)*maxR));
+  return(
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {rings.map((f,ri)=>(
+        <polygon key={ri} points={RIASEC.map((_,i)=>pt(i,maxR*f).join(',')).join(' ')} fill="none" stroke={P.border} strokeWidth="1"/>
+      ))}
+      {RIASEC.map((_,i)=>{const[x2,y2]=pt(i,maxR);return<line key={i} x1={cx} y1={cy} x2={x2} y2={y2} stroke={P.border} strokeWidth="1"/>;})}
+      <polygon points={pts.map(p=>p.join(',')).join(' ')} fill={`${P.teal}2a`} stroke={P.teal} strokeWidth="2"/>
+      {pts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r="3.5" fill={P.teal} stroke={P.card} strokeWidth="1.5"/>)}
+      {RIASEC.map((t,i)=>{const[x,y]=pt(i,maxR+15);return<text key={i} x={x} y={y+4} textAnchor="middle" fill={P.muted} fontSize="10" fontFamily="Archivo">{t}</text>;})}
+    </svg>
+  );
+}
+
+// ── PRIMITIVES ────────────────────────────────────────────────────────────────
+const Card=({children,style})=>(
+  <div style={{background:P.card,border:`1px solid ${P.border}`,borderRadius:14,padding:'18px 20px',...style}}>{children}</div>
+);
+const Label=({children,mb=12})=>(
+  <div style={{fontSize:11,letterSpacing:'1.5px',fontWeight:700,color:P.muted3,textTransform:'uppercase',marginBottom:mb}}>{children}</div>
+);
+const Pill=({text,color})=>(
+  <span style={{display:'inline-block',padding:'3px 10px',borderRadius:999,background:`${color}22`,color,fontSize:12,fontWeight:600}}>{text}</span>
+);
+
+function DonutLegend({items,total}){
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {items.map(([label,count,color])=>(
+        <div key={label} style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:10,height:10,borderRadius:'50%',background:color,flexShrink:0}}/>
+          <div>
+            <div style={{fontSize:12,color:P.muted}}>{label}</div>
+            <span style={{fontSize:14,fontWeight:700,color:P.bright}}>{count}</span>
+            <span style={{fontSize:11,color:P.muted3,marginInlineStart:6}}>{Math.round(count/(total||1)*100)}%</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── LOGO ──────────────────────────────────────────────────────────────────────
+function AdminLogo(){
+  return(
+    <div style={{display:'flex',alignItems:'center',gap:12}}>
+      <svg width="42" height="42" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="20" stroke={P.teal} strokeWidth="2.5"/>
+        <polygon points="24,10 30,24 24,38 18,24" fill={P.gold}/>
+        <circle cx="24" cy="24" r="4" fill={P.bg} stroke={P.teal} strokeWidth="1.5"/>
+      </svg>
+      <div>
+        <div style={{fontSize:17,fontWeight:800,color:P.bright,lineHeight:1.1}}>
+          Career<span style={{color:P.teal}}>Map</span>
+          <span style={{fontSize:11,fontWeight:600,color:P.muted,marginInlineStart:8,verticalAlign:'middle'}}>Admin</span>
+        </div>
+        <div style={{fontSize:10,color:P.muted3,letterSpacing:'0.5px',marginTop:2}}>Tableau de bord · Analytics</div>
+      </div>
+    </div>
+  );
+}
+
+// ── VUE D'ENSEMBLE ────────────────────────────────────────────────────────────
+function Overview({all,filtered}){
+  const weeks=Array.from({length:13},(_,i)=>{
+    const end=new Date(REF);end.setDate(end.getDate()-(12-i)*7);
+    const start=new Date(end);start.setDate(start.getDate()-6);
+    return{start,end,count:0};
+  });
+  filtered.forEach(c=>{
+    const d=new Date(c.date);
+    for(const w of weeks)if(d>=w.start&&d<=w.end){w.count++;break;}
+  });
+  const weekData=weeks.map(w=>w.count);
+  const weekLbls=weeks.filter((_,i)=>i%3===0).map(w=>`${w.end.getDate()}/${w.end.getMonth()+1}`);
+
+  const total=filtered.length;
+  const funnel=[
+    {label:'Inscrits',v:total,c:P.teal},
+    {label:'Tests commencés',v:filtered.filter(c=>c.started).length,c:P.green},
+    {label:'Bilans complets',v:filtered.filter(c=>c.completed).length,c:P.gold},
+    {label:'Rapports téléchargés',v:filtered.filter(c=>c.reportDownloaded).length,c:P.purple},
+  ];
+
+  const maleC=filtered.filter(c=>c.gender==='M').length;
+  const femC=filtered.filter(c=>c.gender==='F').length;
+  const i01=filtered.filter(c=>c.indhRoute==='01').length;
+  const i02=filtered.filter(c=>c.indhRoute==='02').length;
+  const i03=filtered.filter(c=>c.indhRoute==='03').length;
+  const routed=i01+i02+i03;
+
+  return(
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      <Card>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <Label mb={0}>Inscriptions par semaine</Label>
+          <span style={{background:`${P.teal}22`,color:P.teal,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:999}}>{total} total</span>
+        </div>
+        <div style={{height:80,marginBottom:6}}><Spark data={weekData} color={P.teal} h={80}/></div>
+        <div style={{display:'flex',justifyContent:'space-between'}}>
+          {weekLbls.map((l,i)=><span key={i} style={{fontSize:10,color:P.muted3}}>{l}</span>)}
+        </div>
+      </Card>
+
+      <Card>
+        <Label>Entonnoir de complétion</Label>
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {funnel.map((f,i)=>(
+            <div key={i}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                <span style={{fontSize:12,color:P.muted}}>{f.label}</span>
+                <span style={{fontSize:12,fontWeight:700,color:P.bright}}>
+                  {f.v} <span style={{fontWeight:400,color:P.muted3}}>· {Math.round(f.v/(total||1)*100)}%</span>
+                </span>
+              </div>
+              <div style={{height:9,background:'rgba(20,48,74,.35)',borderRadius:5,overflow:'hidden'}}>
+                <div style={{width:`${(f.v/(total||1))*100}%`,height:'100%',background:f.c,borderRadius:5}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
+        <Label>Genre</Label>
+        <div style={{display:'flex',alignItems:'center',gap:22}}>
+          <Donut segs={[{v:maleC,c:P.teal},{v:femC,c:P.purple}]} size={140} thick={24} label={total} sub="total"/>
+          <DonutLegend items={[['Masculin',maleC,P.teal],['Féminin',femC,P.purple]]} total={total}/>
+        </div>
+      </Card>
+
+      <Card>
+        <Label>Répartition INDH</Label>
+        <div style={{display:'flex',alignItems:'center',gap:22}}>
+          <Donut segs={[{v:i01,c:P.teal},{v:i02,c:P.orange},{v:i03,c:P.green}]} size={140} thick={24} label={routed} sub="routés"/>
+          <DonutLegend items={[['01 Insertion',i01,P.teal],['02 Auto-Emploi',i02,P.orange],['03 Coopérative',i03,P.green]]} total={routed}/>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── DÉMOGRAPHIE ───────────────────────────────────────────────────────────────
+function Demographe({filtered}){
+  const ageRows=[
+    {label:'< 18',v:filtered.filter(c=>c.age<18).length,c:P.teal},
+    {label:'18–22',v:filtered.filter(c=>c.age>=18&&c.age<=22).length,c:P.teal},
+    {label:'23–27',v:filtered.filter(c=>c.age>=23&&c.age<=27).length,c:P.teal},
+    {label:'28–35',v:filtered.filter(c=>c.age>=28&&c.age<=35).length,c:P.teal},
+    {label:'35+',v:filtered.filter(c=>c.age>35).length,c:P.teal},
+  ];
+  const eduRows=EDU.map((l,i)=>({label:l,v:filtered.filter(c=>c.edu===i).length,c:P.purple}));
+  const rc={};
+  filtered.forEach(c=>{rc[c.region]=(rc[c.region]||0)+1;});
+  const regionRows=Object.entries(rc).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,v])=>({label:l,v,c:P.gold}));
+  const pc={};
+  filtered.filter(c=>c.prefecture).forEach(c=>{pc[c.prefecture]=(pc[c.prefecture]||0)+1;});
+  const prefRows=CASA_PREFS.map(p=>({label:p,v:pc[p]||0,c:P.orange}));
+  const casaTotal=filtered.filter(c=>c.region==='Casablanca-Settat').length;
+  const fr=filtered.filter(c=>c.lang==='fr').length;
+  const ar=filtered.filter(c=>c.lang==='ar').length;
+  const en=filtered.filter(c=>c.lang==='en').length;
+  const total=filtered.length;
+  return(
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      <Card><Label>Répartition par âge</Label><HBar rows={ageRows}/></Card>
+      <Card>
+        <Label>Langue d'interface</Label>
+        <div style={{display:'flex',alignItems:'center',gap:20,justifyContent:'center',paddingTop:4}}>
+          <Donut segs={[{v:fr,c:P.teal},{v:ar,c:P.gold},{v:en,c:P.green}]} size={148} thick={26} label={total} sub="total"/>
+          <DonutLegend items={[['Français',fr,P.teal],['Arabe',ar,P.gold],['Anglais',en,P.green]]} total={total}/>
+        </div>
+      </Card>
+      <Card style={{gridColumn:'1/-1'}}><Label>Niveau d'éducation</Label><HBar rows={eduRows}/></Card>
+      <Card style={{gridColumn:'1/-1'}}><Label>Top régions</Label><HBar rows={regionRows}/></Card>
+      <Card style={{gridColumn:'1/-1'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <Label mb={0}>Casablanca-Settat · Répartition par préfecture</Label>
+          <span style={{background:`${P.orange}22`,color:P.orange,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:999}}>{casaTotal} candidats</span>
+        </div>
+        <HBar rows={prefRows}/>
+      </Card>
+    </div>
+  );
+}
+
+// ── TESTS & SCORES ────────────────────────────────────────────────────────────
+function Tests({filtered}){
+  const started=filtered.filter(c=>c.started);
+  const completed=filtered.filter(c=>c.completed);
+  const entStarted=Math.round(started.length*0.95);
+
+  const compRows=[
+    {label:'Holland RIASEC',v:started.length,c:P.teal},
+    {label:'Big Five OCEAN',v:started.length,c:P.teal},
+    {label:'Skill Up',v:started.length,c:P.teal},
+    {label:'EQ-Map',v:started.length,c:P.teal},
+    {label:'EntreMap',v:entStarted,c:P.teal},
+    {label:'ResiMap',v:completed.length,c:P.green},
+  ];
+
+  const domCount={};RIASEC.forEach(t=>{domCount[t]=0;});
+  started.forEach(c=>{if(c.domRiasec)domCount[c.domRiasec]++;});
+  const riasecRows=RIASEC.map((t,i)=>({label:`${t} · ${RIASEC_FULL[i]}`,v:domCount[t],c:P.teal}));
+
+  const radarData=RIASEC.map(t=>{
+    const vs=started.filter(c=>c.scores.riasec).map(c=>c.scores.riasec[t]);
+    return vs.length?Math.round(vs.reduce((a,b)=>a+b,0)/vs.length):50;
+  });
+
+  const eqLabels=['Auto-conscience','Empathie','Usage émotions','Régulation'];
+  const eqKeys=['autoConscience','empathie','usageEmotions','regulation'];
+  const eqRows=eqLabels.map((l,i)=>{
+    const vs=started.filter(c=>c.scores.eq).map(c=>c.scores.eq[eqKeys[i]]);
+    return{label:l,v:vs.length?Math.round(vs.reduce((a,b)=>a+b,0)/vs.length):50,c:P.orange};
+  });
+
+  const rF=completed.filter(c=>c.scores.resimap<30).length;
+  const rM=completed.filter(c=>c.scores.resimap>=30&&c.scores.resimap<=42).length;
+  const rH=completed.filter(c=>c.scores.resimap>=43).length;
+  const eF=started.filter(c=>c.scores.entremap<34).length;
+  const eM=started.filter(c=>c.scores.entremap>=34&&c.scores.entremap<67).length;
+  const eS=started.filter(c=>c.scores.entremap>=67).length;
+
+  return(
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      <Card><Label>Complétion par test</Label><HBar rows={compRows}/></Card>
+      <Card><Label>Type dominant RIASEC</Label><HBar rows={riasecRows}/></Card>
+      <Card>
+        <Label>Profil RIASEC moyen</Label>
+        <div style={{display:'flex',justifyContent:'center',marginBottom:10}}><Radar data={radarData} size={190}/></div>
+        <div style={{display:'flex',justifyContent:'center',gap:16,flexWrap:'wrap'}}>
+          {RIASEC.map((t,i)=>(
+            <div key={t} style={{textAlign:'center'}}>
+              <div style={{fontSize:11,fontWeight:700,color:P.teal}}>{t}</div>
+              <div style={{fontSize:13,fontWeight:800,color:P.bright}}>{radarData[i]}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card><Label>EQ-Map · Moyennes</Label><HBar rows={eqRows}/></Card>
+      <Card>
+        <Label>ResiMap · Distribution</Label>
+        <div style={{display:'flex',alignItems:'center',gap:20,justifyContent:'center'}}>
+          <Donut segs={[{v:rF,c:P.red},{v:rM,c:P.orange},{v:rH,c:P.green}]} size={140} thick={24} label={completed.length} sub="complets"/>
+          <DonutLegend items={[['Faible (<30)',rF,P.red],['Modéré (30–42)',rM,P.orange],['Haute (43+)',rH,P.green]]} total={completed.length}/>
+        </div>
+      </Card>
+      <Card>
+        <Label>EntreMap · Intention entrepreneuriale</Label>
+        <div style={{display:'flex',alignItems:'center',gap:20,justifyContent:'center'}}>
+          <Donut segs={[{v:eF,c:P.red},{v:eM,c:P.orange},{v:eS,c:P.green}]} size={140} thick={24} label={started.length} sub="évalués"/>
+          <DonutLegend items={[['Faible',eF,P.red],['Modérée',eM,P.orange],['Forte',eS,P.green]]} total={started.length}/>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── INDH ──────────────────────────────────────────────────────────────────────
+function Indh({filtered}){
+  const routed=filtered.filter(c=>c.indhRoute);
+  const i01=routed.filter(c=>c.indhRoute==='01').length;
+  const i02=routed.filter(c=>c.indhRoute==='02').length;
+  const i03=routed.filter(c=>c.indhRoute==='03').length;
+  const triple=filtered.filter(c=>c.flags.includes('TRIPLE_RISK')).length;
+  const dropout=filtered.filter(c=>c.flags.includes('DROPOUT_RISK')).length;
+  const pos=filtered.filter(c=>c.flags.includes('ROBUST_ENTREPRENEUR')||c.flags.includes('IDEAL_INSERTION')).length;
+
+  const byReg={};
+  routed.forEach(c=>{
+    if(!byReg[c.region])byReg[c.region]={total:0,'01':0,'02':0,'03':0};
+    byReg[c.region].total++;byReg[c.region][c.indhRoute]++;
+  });
+  const topReg=Object.entries(byReg).sort((a,b)=>b[1].total-a[1].total).slice(0,6);
+
+  const flagCard=(color,title,count,sub)=>(
+    <div style={{background:`${color}18`,border:`1px solid ${color}44`,borderRadius:10,padding:'14px 16px'}}>
+      <div style={{fontSize:11,fontWeight:700,color,letterSpacing:'1px',textTransform:'uppercase',marginBottom:4}}>{title}</div>
+      <div style={{fontSize:24,fontWeight:800,color:P.bright}}>{count}</div>
+      <div style={{fontSize:12,color:`${color}cc`}}>{sub}</div>
+    </div>
+  );
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <Card>
+          <Label>Répartition programmes INDH</Label>
+          <div style={{display:'flex',alignItems:'center',gap:28,justifyContent:'center',padding:'6px 0'}}>
+            <Donut segs={[{v:i01,c:P.teal},{v:i02,c:P.orange},{v:i03,c:P.green}]} size={175} thick={32} label={routed.length} sub="routés"/>
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              {[['01 Insertion professionnelle',i01,P.teal],['02 Auto-Emploi',i02,P.orange],['03 Coopérative',i03,P.green]].map(([l,v,c])=>(
+                <div key={l} style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{width:12,height:12,borderRadius:'50%',background:c,flexShrink:0}}/>
+                  <div>
+                    <div style={{fontSize:12,color:P.muted}}>{l}</div>
+                    <span style={{fontSize:18,fontWeight:800,color:P.bright}}>{v}</span>
+                    <span style={{fontSize:12,color:P.muted3,marginInlineStart:8}}>{Math.round(v/(routed.length||1)*100)}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <Label>Alertes cliniques</Label>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {flagCard(P.red,'Triple risque',triple,'Intervention urgente')}
+            {flagCard(P.orange,'Risque d\'abandon',dropout,'Suivi renforcé')}
+            {flagCard(P.green,'Profils positifs',pos,'Robuste / Idéal — prioritaires')}
+          </div>
+        </Card>
+      </div>
+      <Card>
+        <Label>Répartition INDH par région</Label>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr>{['Région','Total','01 Insertion','02 Auto-Emploi','03 Coopérative'].map(h=>(
+              <th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:P.muted3,letterSpacing:'0.8px',borderBottom:`1px solid ${P.border}`}}>{h}</th>
+            ))}</tr>
+          </thead>
+          <tbody>
+            {topReg.map(([reg,d],i)=>(
+              <tr key={reg} style={{background:i%2===0?'transparent':P.deep}}>
+                <td style={{padding:'10px 12px',fontSize:13,color:P.body}}>{reg}</td>
+                <td style={{padding:'10px 12px',fontSize:13,fontWeight:700,color:P.bright}}>{d.total}</td>
+                <td style={{padding:'10px 12px',fontSize:13,color:P.teal}}>{d['01']||0}</td>
+                <td style={{padding:'10px 12px',fontSize:13,color:P.orange}}>{d['02']||0}</td>
+                <td style={{padding:'10px 12px',fontSize:13,color:P.green}}>{d['03']||0}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
+// ── CONSEILLERS ───────────────────────────────────────────────────────────────
+function Conseillers({candidates}){
+  const stats=ADVISORS.map(a=>{
+    const asgn=candidates.filter(c=>c.advisorCode===a.code);
+    return{...a,assigned:asgn.length,reports:asgn.filter(c=>c.reportDownloaded).length};
+  });
+  const totalAdv=ADVISORS.length;
+  const activeAdv=ADVISORS.filter(a=>a.active).length;
+  const inactiveAdv=ADVISORS.filter(a=>!a.active).length;
+  const assigned=candidates.filter(c=>c.advisorCode).length;
+  const avg=activeAdv?Math.round(assigned/activeAdv):0;
+  const noActivity=stats.filter(a=>a.assigned===0);
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+        {[
+          {label:'Total conseillers',v:totalAdv,c:P.teal},
+          {label:'Conseillers actifs',v:activeAdv,c:P.gold},
+          {label:'Conseillers inactifs',v:inactiveAdv,c:P.red},
+          {label:'Candidats / conseiller',v:avg,c:P.purple},
+        ].map(k=>(
+          <div key={k.label} style={{background:P.card,border:`1px solid ${P.border}`,borderTop:`3px solid ${k.c}`,borderRadius:14,padding:'16px 18px'}}>
+            <div style={{fontSize:11,color:P.muted3,fontWeight:700,letterSpacing:'1px',textTransform:'uppercase',marginBottom:8}}>{k.label}</div>
+            <div style={{fontSize:27,fontWeight:800,color:P.bright}}>{k.v}</div>
+          </div>
+        ))}
+      </div>
+      {noActivity.length>0&&(
+        <div style={{background:`${P.red}15`,border:`1px solid ${P.red}44`,borderRadius:10,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
+          <span style={{color:P.red,fontSize:18,lineHeight:1}}>⚠</span>
+          <div>
+            <span style={{color:P.red,fontWeight:700,fontSize:13}}>Conseillers sans activité : </span>
+            <span style={{color:`${P.red}cc`,fontSize:13}}>{noActivity.map(a=>a.code).join(', ')}</span>
+          </div>
+        </div>
+      )}
+      <Card>
+        <Label>Détail par conseiller</Label>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr>{['Conseiller','Région','Candidats inscrits','Rapports ouverts','Statut'].map(h=>(
+              <th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:P.muted3,letterSpacing:'0.8px',borderBottom:`1px solid ${P.border}`}}>{h}</th>
+            ))}</tr>
+          </thead>
+          <tbody>
+            {stats.sort((a,b)=>b.assigned-a.assigned).map((a,i)=>(
+              <tr key={a.code} style={{background:i%2===0?'transparent':P.deep}}>
+                <td style={{padding:'10px 12px',fontSize:13,fontWeight:600,color:P.bright}}>{a.code}</td>
+                <td style={{padding:'10px 12px',fontSize:13,color:P.body}}>{a.region}</td>
+                <td style={{padding:'10px 12px',fontSize:13,fontWeight:700,color:P.bright}}>{a.assigned}</td>
+                <td style={{padding:'10px 12px',fontSize:13,color:P.body}}>{a.reports}</td>
+                <td style={{padding:'10px 12px'}}><Pill text={a.active?'Actif':'Inactif'} color={a.active?P.gold:P.red}/></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
+// ── DONNÉES ───────────────────────────────────────────────────────────────────
+function Donnees({candidates}){
+  const [search,setSearch]=useState('');
+  const [fReg,setFReg]=useState('');
+  const [fGen,setFGen]=useState('');
+  const [fIndh,setFIndh]=useState('');
+  const [fAlert,setFAlert]=useState('');
+  const [sk,setSk]=useState('date');
+  const [sd,setSd]=useState(-1);
+
+  const alertOf=c=>{
+    if(c.flags.includes('TRIPLE_RISK'))return'rouge';
+    if(c.flags.includes('DROPOUT_RISK'))return'orange';
+    if(c.flags.includes('ROBUST_ENTREPRENEUR')||c.flags.includes('IDEAL_INSERTION'))return'vert';
+    return'';
+  };
+  const alertColor={rouge:P.red,orange:P.orange,vert:P.green,'':P.muted3};
+
+  const rows=useMemo(()=>{
+    let r=candidates.filter(c=>{
+      if(search&&!c.code.toLowerCase().includes(search.toLowerCase())&&!c.name.toLowerCase().includes(search.toLowerCase()))return false;
+      if(fReg&&c.region!==fReg)return false;
+      if(fGen&&c.gender!==fGen)return false;
+      if(fIndh&&c.indhRoute!==fIndh)return false;
+      if(fAlert&&alertOf(c)!==fAlert)return false;
+      return true;
+    });
+    r=[...r].sort((a,b)=>{
+      let av,bv;
+      if(sk==='age'){av=a.age;bv=b.age;}
+      else if(sk==='eq'){av=a.scores.eqTotal||0;bv=b.scores.eqTotal||0;}
+      else if(sk==='resi'){av=a.scores.resimap??-1;bv=b.scores.resimap??-1;}
+      else{av=a[sk]||'';bv=b[sk]||'';}
+      return av<bv?sd:av>bv?-sd:0;
+    });
+    return r.slice(0,100);
+  },[candidates,search,fReg,fGen,fIndh,fAlert,sk,sd]);
+
+  const sort=k=>{if(sk===k)setSd(d=>-d);else{setSk(k);setSd(-1);}};
+
+  const exportCSV=()=>{
+    const BOM='﻿';
+    const hdrs=['Code','Nom','Âge','Genre','Région','Préfecture','Niveau','Date','RIASEC','EQ','Resi','INDH','Alerte','Conseiller'];
+    const body=candidates.map(c=>[c.code,c.name,c.age,c.gender==='F'?'Féminin':'Masculin',c.region,c.prefecture||'',EDU[c.edu],c.date,c.domRiasec||'',c.scores.eqTotal||'',c.scores.resimap??'',c.indhRoute||'',alertOf(c),c.advisorCode||'']);
+    const csv=BOM+[hdrs,...body].map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='careermap_candidats.csv';a.click();
+  };
+
+  const Arr=({col})=>sk!==col?<span style={{color:P.muted3,marginInlineStart:3}}>⇅</span>:<span style={{color:P.teal,marginInlineStart:3}}>{sd>0?'▲':'▼'}</span>;
+  const iSt={background:P.deep,border:`1px solid ${P.border}`,color:P.body,borderRadius:8,padding:'6px 10px',fontSize:13,outline:'none'};
+  const th=(k,label,sortable)=>(
+    <th key={k} onClick={()=>sortable&&sort(k)} style={{padding:'9px 11px',textAlign:'left',fontSize:11,fontWeight:700,color:sk===k?P.teal:P.muted3,letterSpacing:'0.8px',borderBottom:`1px solid ${P.border}`,cursor:sortable?'pointer':'default',whiteSpace:'nowrap',userSelect:'none',position:'sticky',top:0,background:P.card,zIndex:2}}>
+      {label}{sortable&&<Arr col={k}/>}
+    </th>
+  );
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <Card style={{padding:'12px 16px'}}>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher (code / nom)…" style={{...iSt,flex:'1 1 160px'}}/>
+          <select value={fReg} onChange={e=>setFReg(e.target.value)} style={iSt}>
+            <option value="">Toutes les régions</option>
+            {REGIONS.map(r=><option key={r} value={r}>{r}</option>)}
+          </select>
+          <select value={fGen} onChange={e=>setFGen(e.target.value)} style={iSt}>
+            <option value="">Genre</option><option value="M">Masculin</option><option value="F">Féminin</option>
+          </select>
+          <select value={fIndh} onChange={e=>setFIndh(e.target.value)} style={iSt}>
+            <option value="">INDH</option><option value="01">01 Insertion</option><option value="02">02 Auto-Emploi</option><option value="03">03 Coopérative</option>
+          </select>
+          <select value={fAlert} onChange={e=>setFAlert(e.target.value)} style={iSt}>
+            <option value="">Toutes alertes</option><option value="rouge">Rouge</option><option value="orange">Orange</option><option value="vert">Vert</option>
+          </select>
+          <span style={{color:P.muted,fontSize:12,marginInlineStart:'auto',whiteSpace:'nowrap'}}>{rows.length} résultats</span>
+          <button onClick={exportCSV} style={{background:`${P.green}22`,border:`1px solid ${P.green}55`,color:P.green,borderRadius:8,padding:'6px 14px',fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>Exporter CSV</button>
+        </div>
+      </Card>
+      <Card style={{padding:0,overflow:'hidden'}}>
+        <div style={{overflowX:'auto',maxHeight:460,overflowY:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',minWidth:860}}>
+            <thead>
+              <tr>
+                {th('code','Code',false)}{th('name','Nom',false)}{th('age','Âge ⇅',true)}
+                {th('gender','Genre',false)}{th('region','Région',false)}{th('prefecture','Préfecture',false)}{th('edu','Niveau',false)}
+                {th('date','Date ⇅',true)}{th('riasec','RIASEC',false)}{th('eq','EQ ⇅',true)}
+                {th('resi','Resi ⇅',true)}{th('indh','INDH',false)}{th('alert','Alerte',false)}{th('adv','Conseiller',false)}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((c,i)=>{
+                const al=alertOf(c);
+                return(
+                  <tr key={c.code} style={{background:i%2===0?'transparent':P.deep}}>
+                    <td style={{padding:'7px 11px',fontSize:12,fontWeight:700,color:P.teal}}>{c.code}</td>
+                    <td style={{padding:'7px 11px',fontSize:12,color:P.body,whiteSpace:'nowrap'}}>{c.name}</td>
+                    <td style={{padding:'7px 11px',fontSize:12,color:P.bright,textAlign:'center'}}>{c.age}</td>
+                    <td style={{padding:'7px 11px'}}><Pill text={c.gender} color={c.gender==='F'?P.purple:P.teal}/></td>
+                    <td style={{padding:'7px 11px',fontSize:11,color:P.muted,maxWidth:110,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.region}</td>
+                    <td style={{padding:'7px 11px',fontSize:11,color:c.prefecture?P.orange:P.muted3,whiteSpace:'nowrap'}}>{c.prefecture||'—'}</td>
+                    <td style={{padding:'7px 11px',fontSize:11,color:P.muted,whiteSpace:'nowrap'}}>{EDU[c.edu]}</td>
+                    <td style={{padding:'7px 11px',fontSize:12,color:P.body,whiteSpace:'nowrap'}}>{c.date}</td>
+                    <td style={{padding:'7px 11px',fontSize:13,fontWeight:700,color:P.teal,textAlign:'center'}}>{c.domRiasec||'—'}</td>
+                    <td style={{padding:'7px 11px',fontSize:12,textAlign:'center',color:P.orange}}>{c.scores.eqTotal||'—'}</td>
+                    <td style={{padding:'7px 11px',fontSize:12,textAlign:'center',color:P.green}}>{c.scores.resimap!=null?c.scores.resimap:'—'}</td>
+                    <td style={{padding:'7px 11px',textAlign:'center'}}>
+                      {c.indhRoute?<Pill text={c.indhRoute} color={c.indhRoute==='01'?P.teal:c.indhRoute==='02'?P.orange:P.green}/>:<span style={{color:P.muted3}}>—</span>}
+                    </td>
+                    <td style={{padding:'7px 11px',textAlign:'center'}}>
+                      {al?<div style={{width:10,height:10,borderRadius:'50%',background:alertColor[al],margin:'0 auto'}}/>:<span style={{color:P.muted3}}>—</span>}
+                    </td>
+                    <td style={{padding:'7px 11px',fontSize:11,color:P.muted}}>{c.advisorCode||'—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{padding:'8px 14px',borderTop:`1px solid ${P.border}`,fontSize:11,color:P.muted3}}>
+          Affichage limité à 100 enregistrements · Utilisez Exporter CSV pour l'ensemble des données
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+function App(){
+  const [sampleSize,setSampleSize]=useState(64);
+  const [tab,setTab]=useState('overview');
+  const [period,setPeriod]=useState('all');
+
+  const all=useMemo(()=>generate(sampleSize),[sampleSize]);
+
+  const filtered=useMemo(()=>{
+    if(period==='all')return all;
+    const days={7:7,30:30,90:90}[period];
+    const cut=new Date(REF);cut.setDate(cut.getDate()-days);
+    return all.filter(c=>new Date(c.date)>=cut);
+  },[all,period]);
+
+  const kpis=[
+    {label:'INSCRITS',v:filtered.length,c:P.teal,sub:'candidats'},
+    {label:'BILANS COMPLETS',v:filtered.filter(c=>c.completed).length,c:P.green,sub:`${Math.round(filtered.filter(c=>c.completed).length/(filtered.length||1)*100)}% completion`},
+    {label:'RAPPORTS PDF',v:filtered.filter(c=>c.reportDownloaded).length,c:P.purple,sub:'TÉLÉCHARGÉS'},
+    {label:'CONSEILLERS ACTIFS',v:ADVISORS.filter(a=>a.active).length,c:P.gold,sub:`/ ${ADVISORS.length} total`},
+    {label:'ALERTES ROUGES',v:filtered.filter(c=>c.flags.includes('TRIPLE_RISK')).length,c:P.red,sub:'URGENT'},
+    {label:'RÉGIONS',v:new Set(filtered.map(c=>c.region)).size,c:P.orange,sub:'/ 12'},
+  ];
+
+  const TABS=[
+    {id:'overview',label:"Vue d'ensemble",icon:'◉'},
+    {id:'demo',label:'Démographie',icon:'◈'},
+    {id:'tests',label:'Tests & Scores',icon:'◎'},
+    {id:'indh',label:'INDH',icon:'⬡'},
+    {id:'advisors',label:'Conseillers',icon:'◈'},
+    {id:'data',label:'Données',icon:'▦'},
+  ];
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',height:'100vh',background:P.bg,overflow:'hidden'}}>
+      {/* HEADER */}
+      <div style={{background:P.card,borderBottom:`1px solid ${P.border}`,padding:'10px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:28}}>
+          <AdminLogo/>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <label style={{fontSize:11,color:P.muted3,fontWeight:700,letterSpacing:'1px'}}>ÉCHANTILLON</label>
+            <input type="range" min="12" max="120" value={sampleSize} onChange={e=>setSampleSize(+e.target.value)}
+              style={{width:80,accentColor:P.teal}}/>
+            <span style={{fontSize:12,fontWeight:700,color:P.teal,minWidth:28}}>{sampleSize}</span>
+          </div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:P.green,boxShadow:`0 0 7px ${P.green}`,animation:'pulse 2s infinite'}}/>
+            <span style={{fontSize:12,color:P.muted}}>Données en direct</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:10,background:P.deep,border:`1px solid ${P.border}`,borderRadius:999,padding:'6px 14px 6px 8px'}}>
+            <div style={{width:28,height:28,borderRadius:'50%',background:P.teal,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#fff',flexShrink:0}}>SA</div>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,color:P.bright}}>Superviseur / INDH</div>
+              <div style={{fontSize:10,color:P.muted3}}>National</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* FILTER BAR */}
+      <div style={{background:P.deep,borderBottom:`1px solid ${P.border}`,padding:'9px 24px',display:'flex',alignItems:'center',gap:16,flexShrink:0}}>
+        <span style={{fontSize:11,fontWeight:700,color:P.muted3,letterSpacing:'1.5px'}}>PÉRIODE</span>
+        <div style={{display:'flex',background:P.card,border:`1px solid ${P.border}`,borderRadius:8,overflow:'hidden'}}>
+          {[['7','7 jours'],['30','30 jours'],['90','90 jours'],['all','Tout']].map(([val,lbl])=>(
+            <button key={val} onClick={()=>setPeriod(val)} style={{padding:'5px 14px',fontSize:13,fontWeight:600,cursor:'pointer',border:'none',outline:'none',background:period===val?P.teal:'transparent',color:period===val?'#fff':P.muted,transition:'background .15s'}}>{lbl}</button>
+          ))}
+        </div>
+        <span style={{marginInlineStart:'auto',fontSize:13,color:P.muted}}>
+          <span style={{color:P.bright,fontWeight:700}}>{filtered.length}</span> candidats sur la période
+        </span>
+      </div>
+
+      {/* KPI BAR */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',borderBottom:`1px solid ${P.border}`,flexShrink:0}}>
+        {kpis.map((k,i)=>(
+          <div key={k.label} style={{padding:'14px 18px',borderInlineEnd:i<5?`1px solid ${P.border}`:'none',background:P.card}}>
+            <div style={{fontSize:10,fontWeight:700,color:P.muted3,letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:5}}>{k.label}</div>
+            <div style={{fontSize:26,fontWeight:800,color:k.c,lineHeight:1}}>{k.v}</div>
+            <div style={{fontSize:11,color:P.muted3,marginTop:4}}>{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* TAB BAR */}
+      <div style={{background:P.card,borderBottom:`1px solid ${P.border}`,paddingInline:24,display:'flex',gap:2,flexShrink:0}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'12px 16px',fontSize:13,fontWeight:600,cursor:'pointer',border:'none',outline:'none',background:'transparent',color:tab===t.id?P.teal:P.muted,borderBottom:tab===t.id?`2px solid ${P.teal}`:'2px solid transparent',transition:'color .15s,border-color .15s',display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontSize:14}}>{t.icon}</span>{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* CONTENT */}
+      <div style={{flex:1,overflowY:'auto',padding:'20px 24px'}}>
+        {tab==='overview'&&<Overview all={all} filtered={filtered}/>}
+        {tab==='demo'&&<Demographe filtered={filtered}/>}
+        {tab==='tests'&&<Tests filtered={filtered}/>}
+        {tab==='indh'&&<Indh filtered={filtered}/>}
+        {tab==='advisors'&&<Conseillers candidates={filtered}/>}
+        {tab==='data'&&<Donnees candidates={filtered}/>}
+      </div>
+
+      <style>{`
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        button:hover{opacity:.88}
+      `}</style>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

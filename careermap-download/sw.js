@@ -1,5 +1,5 @@
-const CACHE = 'careermap-v70';
-const PRECACHE = ['/lib/react.js', '/lib/react-dom.js', '/lib/babel.js'];
+const CACHE = 'careermap-v105';
+const PRECACHE = ['/lib/react.js', '/lib/react-dom.js', '/lib/babel.js', '/lib/html2pdf.bundle.min.js'];
 
 self.addEventListener('message', e => {
   if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
@@ -23,7 +23,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   // Always fetch the HTML page fresh — never serve from cache
-  if (e.request.mode === 'navigate' || e.request.url.endsWith('/') || e.request.url.endsWith('/index.html')) {
+  if (e.request.mode === 'navigate' || e.request.url.endsWith('/') || e.request.url.endsWith('/index.html') || e.request.url.endsWith('/admin.html')) {
     e.respondWith(
       fetch(e.request, { cache: 'no-store' })
         .catch(() => caches.match('/index.html'))
