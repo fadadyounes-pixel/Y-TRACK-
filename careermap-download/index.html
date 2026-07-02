@@ -4,8 +4,6 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <title>CareerMap — Orientation Professionnelle</title>
-  <!-- QR Code library -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" defer></script>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#1aabaa"/>
@@ -4878,20 +4876,7 @@ function AdminStats({ src, lang, ar }) {
 }
 
 function ShareQRModal({ onClose }) {
-  var canvasRef = React.useRef(null);
-  var url = "https://careermaponline.org/";
-
-  useEffect(function() {
-    var iv = setInterval(function() {
-      if (!canvasRef.current || !window.QRCode) return;
-      clearInterval(iv);
-      window.QRCode.toCanvas(canvasRef.current, url, {
-        width: 240, margin: 2,
-        color: { dark: '#06111f', light: '#ffffff' }
-      });
-    }, 50);
-    return function() { clearInterval(iv); };
-  }, []);
+  var qrSrc = "data:image/png;base64,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";
 
   return (
     <div onClick={onClose} style={{
@@ -4917,7 +4902,7 @@ function ShareQRModal({ onClose }) {
       </div>
 
       <div style={{ background:'#fff', borderRadius:16, padding:14, border:'3px solid #1aabaa', boxShadow:'0 0 40px #1aabaa44' }}>
-        <canvas ref={canvasRef}/>
+        <img src={qrSrc} width="240" height="240" style={{ display:"block", borderRadius:4 }} alt="QR careermaponline.org"/>
       </div>
 
       <div style={{ color:'#6b8aaa', fontSize:14, letterSpacing:1 }}>Scan to open the app</div>
