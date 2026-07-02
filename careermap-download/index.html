@@ -4879,17 +4879,18 @@ function AdminStats({ src, lang, ar }) {
 
 function ShareQRModal({ onClose }) {
   var canvasRef = React.useRef(null);
-  var url = (function() {
-    var u = window.location.href.replace(/[?#].*$/, '').replace(/index\.html$/, '');
-    return u.endsWith('/') ? u : u + '/';
-  })();
+  var url = "https://careermaponline.org/";
 
   useEffect(function() {
-    if (!canvasRef.current || !window.QRCode) return;
-    QRCode.toCanvas(canvasRef.current, url, {
-      width: 240, margin: 2,
-      color: { dark: '#06111f', light: '#ffffff' }
-    });
+    var iv = setInterval(function() {
+      if (!canvasRef.current || !window.QRCode) return;
+      clearInterval(iv);
+      window.QRCode.toCanvas(canvasRef.current, url, {
+        width: 240, margin: 2,
+        color: { dark: '#06111f', light: '#ffffff' }
+      });
+    }, 50);
+    return function() { clearInterval(iv); };
   }, []);
 
   return (
