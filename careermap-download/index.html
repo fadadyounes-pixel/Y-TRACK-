@@ -5389,125 +5389,152 @@ var FR_QUESTIONS = [
 
 function PlacementTest({ testType, questions, profile, lang, setLang, user, onLogout, onComplete }) {
   var isEn = testType === "english";
-  var [idx, setIdx]         = useState(0);
-  var [answers, setAnswers] = useState([]);
-  var [selected, setSelected] = useState(null);
-  var [timeLeft, setTimeLeft] = useState(20);
-  var answersRef = useRef([]);
-  var idxRef     = useRef(0);
-  useEffect(function(){ answersRef.current = answers; }, [answers]);
-  useEffect(function(){ idxRef.current = idx; }, [idx]);
+  var ac   = isEn ? "#1aabaa" : "#9050d0";
+  var ar   = lang === "ar", fr = lang === "fr";
 
-  var q = questions[idx];
-  var maxTime = (q.skill === "G" || q.skill === "V") ? 20 : 30;
+  var [idx, setIdx] = useState(0);
+  var [cur, setCur] = useState(null);
+  var [timer, setTimer] = useState(20);
+  var ansRef   = useRef({});
+  var timerRef = useRef(null);
+  var timedOut = useRef(false);
 
-  useEffect(function(){ setTimeLeft(maxTime); setSelected(null); }, [idx]);
+  var q    = questions[idx];
+  var maxT = (q.skill === "G" || q.skill === "V") ? 20 : 30;
+  var pct  = Math.round(idx / questions.length * 100);
+  var timerPct  = timer / maxT;
+  var timerCol  = timerPct > 0.5 ? ac : timerPct > 0.25 ? C.am : C.re;
 
-  useEffect(function(){
-    if (timeLeft <= 0) {
-      var qi = questions[idxRef.current];
-      var na = answersRef.current.concat([{ skill: qi.skill, correct: false }]);
-      setAnswers(na); answersRef.current = na;
-      if (idxRef.current + 1 >= questions.length) { onComplete(scoreLanguageTest(na, testType)); }
-      else { setIdx(idxRef.current + 1); }
-      return;
-    }
-    var t = setTimeout(function(){ setTimeLeft(function(v){ return v - 1; }); }, 1000);
-    return function(){ clearTimeout(t); };
-  }, [timeLeft]);
-
-  function handleNext() {
-    var correct = selected !== null && selected === q.correct;
-    var na = answers.concat([{ skill: q.skill, correct: correct }]);
-    setAnswers(na); answersRef.current = na;
-    if (idx + 1 >= questions.length) { onComplete(scoreLanguageTest(na, testType)); }
-    else { setIdx(idx + 1); }
-  }
-
-  var pct = timeLeft / maxTime;
-  var r = 22, circ = 2 * Math.PI * r, dash = pct * circ;
-  var skillNames = {
+  var SKILL_LABEL = {
     G: isEn ? "Grammar" : "Grammaire",
     V: isEn ? "Vocabulary" : "Vocabulaire",
     R: isEn ? "Reading" : "Compréhension",
     W: isEn ? "Writing" : "Expression"
   };
-  var ar = lang === "ar";
-  var fr = lang === "fr";
 
-  // Split passage from question if present
-  var parts = q.text.split("\n\n");
+  function pickAns(opt) {
+    if (timedOut.current) return;
+    timedOut.current = true;
+    ansRef.current[idx] = opt;
+    setCur(opt);
+    setTimeout(function() { goNext(); }, 320);
+  }
+
+  function goNext() {
+    clearInterval(timerRef.current);
+    var nxt = idx + 1;
+    if (nxt >= questions.length) {
+      var ans = [];
+      for (var i = 0; i < questions.length; i++) {
+        var ch = ansRef.current[i];
+        ans.push({ skill: questions[i].skill, correct: ch !== undefined && ch === questions[i].correct });
+      }
+      onComplete(scoreLanguageTest(ans, testType));
+      return;
+    }
+    setIdx(nxt);
+    setCur(null);
+  }
+
+  useEffect(function() {
+    timedOut.current = false;
+    setCur(null);
+    var mt = (questions[idx].skill === "G" || questions[idx].skill === "V") ? 20 : 30;
+    setTimer(mt);
+    timerRef.current = setInterval(function() {
+      setTimer(function(s) {
+        if (s <= 1) {
+          clearInterval(timerRef.current);
+          if (!timedOut.current) {
+            timedOut.current = true;
+            setTimeout(function() { goNext(); }, 0);
+          }
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return function() { clearInterval(timerRef.current); };
+  }, [idx]);
+
+  var parts   = q.text.split("\n\n");
   var passage = parts.length > 1 ? parts[0] : null;
   var qText   = parts.length > 1 ? parts[1] : parts[0];
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
-      <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
-      <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
-        {/* Progress bar */}
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-          <div style={{ flex:1, background:C.bdr, borderRadius:4, height:4 }}>
-            <div style={{ width:((idx+1)/questions.length*100)+"%", height:4, background:"#1aabaa", borderRadius:4, transition:"width .3s" }}/>
+      {/* ── header ── */}
+      <div style={{ background:C.sur, borderBottom:"1px solid "+C.bdr, padding:"9px 14px 11px", flexShrink:0 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:11, fontWeight:800, color:ac }}>{isEn?"ENGLISHMAP":"FRENCHMAP"}</span>
+            <span style={{ width:1, height:12, background:C.bdr }}/>
+            <span style={{ fontSize:10, color:C.mu }}>{idx+1}/{questions.length}</span>
+            <span style={{ fontSize:9, background:ac+"18", padding:"2px 7px", borderRadius:99, color:ac, fontWeight:700 }}>{pct}%</span>
           </div>
-          <div style={{ color:C.mu, fontSize:11, minWidth:50, textAlign:"right" }}>{idx+1} / {questions.length}</div>
-          <svg width="48" height="48">
-            <circle cx="24" cy="24" r={r} fill="none" stroke={C.bdr} strokeWidth="3.5"/>
-            <circle cx="24" cy="24" r={r} fill="none" stroke={timeLeft<=5?"#dc4c3c":"#1aabaa"} strokeWidth="3.5"
-              strokeDasharray={circ} strokeDashoffset={circ - dash} strokeLinecap="round"
-              transform="rotate(-90 24 24)"/>
-            <text x="24" y="29" textAnchor="middle" fontSize="12" fontWeight="bold"
-              fill={timeLeft<=5?"#dc4c3c":"#c8daf0"}>{timeLeft}</text>
-          </svg>
+          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <LangBtn lang={lang} set={setLang}/>
+            <svg width={44} height={44} style={{ transform:"rotate(-90deg)" }}>
+              <circle cx={22} cy={22} r={18} fill="none" stroke={C.bdr} strokeWidth={4}/>
+              <circle cx={22} cy={22} r={18} fill="none" stroke={timerCol} strokeWidth={4}
+                strokeDasharray={113.1} strokeDashoffset={113.1*(1-timer/maxT)}
+                strokeLinecap="round" style={{ transition:"stroke-dashoffset .9s linear,stroke .3s" }}/>
+            </svg>
+            <span style={{ fontSize:16, fontWeight:800, color:timerCol, minWidth:22 }}>{timer}</span>
+          </div>
         </div>
-        {/* Skill tag */}
-        <div style={{ fontSize:9, fontWeight:700, color:"#1aabaa", letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>
-          {isEn ? testType.toUpperCase() : "FRENCHMAP"} · {skillNames[q.skill]}
+        <div style={{ height:4, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
+          <div style={{ height:"100%", width:pct+"%", background:ac, borderRadius:99, transition:"width .3s" }}/>
         </div>
-        {/* Passage */}
+      </div>
+
+      {/* ── content ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", padding:"10px 14px 10px", overflow:"hidden" }}>
+        {/* skill badge */}
+        <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:8, flexShrink:0 }}>
+          <span style={{ padding:"3px 11px", borderRadius:99, background:ac+"22",
+              border:"1px solid "+ac+"55", fontSize:10, fontWeight:800, color:ac,
+              letterSpacing:.4, textTransform:"uppercase" }}>{q.skill}</span>
+          <span style={{ fontSize:10, color:C.mu }}>{SKILL_LABEL[q.skill]}</span>
+        </div>
+        {/* passage */}
         {passage && (
-          <div style={{ background:C.cardB, borderRadius:10, padding:"10px 14px", marginBottom:10,
-              border:"1px solid "+C.bdr, fontSize:12, color:C.muB, lineHeight:1.7, whiteSpace:"pre-wrap" }}>
+          <div style={{ background:C.cardB, borderRadius:10, padding:"10px 14px", marginBottom:8, flexShrink:0,
+              border:"1px solid "+C.bdr, fontSize:12, color:C.muB, lineHeight:1.7,
+              whiteSpace:"pre-wrap", overflowY:"auto", maxHeight:110 }}>
             {passage.replace(/^Read: |^Lisez : /, "")}
           </div>
         )}
-        {/* Question */}
-        <div style={{ background:C.sur, borderRadius:12, padding:"14px 16px", color:C.wh,
-            fontSize:14, lineHeight:1.6, marginBottom:14, fontWeight:600 }}>
-          {qText}
+        {/* question */}
+        <div style={{ background:C.card, borderRadius:14, padding:"12px 16px", marginBottom:10, flexShrink:0,
+            borderLeft:"4px solid "+ac, boxShadow:"0 0 20px "+ac+"22" }}>
+          <p style={{ fontSize:14, fontWeight:600, lineHeight:1.55, color:C.wh, margin:0 }}>{qText}</p>
         </div>
-        {/* Options */}
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {/* options */}
+        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:9, overflowY:"auto", paddingBottom:4 }}>
           {["A","B","C","D"].map(function(opt) {
-            var isSel = selected === opt;
+            var isSel = cur === opt;
             return (
-              <button key={opt} onClick={function(){ setSelected(opt); }}
-                style={{ background: isSel ? "rgba(26,171,170,.15)" : C.sur,
-                  border:"2px solid "+(isSel?"#1aabaa":C.bdr), borderRadius:10,
-                  padding:"12px 16px", color: isSel?"#1aabaa":C.body,
-                  fontSize:13, textAlign:"left", cursor:"pointer", fontFamily:"inherit", transition:"all .2s" }}>
-                <span style={{ fontWeight:700, marginRight:8, color:isSel?"#1aabaa":C.mu }}>{opt}.</span>
-                {q.options[opt]}
+              <button key={opt} onClick={function() { pickAns(opt); }}
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
+                  background: isSel ? ac+"28" : C.card,
+                  border:"2px solid "+(isSel?ac:C.bdr), borderRadius:12,
+                  textAlign:"left", cursor:"pointer", fontFamily:"inherit",
+                  color:C.wh, fontSize:13, fontWeight:isSel?700:500,
+                  animation: isSel ? "ansRing 1s ease-in-out infinite" : "none",
+                  width:"100%", boxSizing:"border-box", transition:"border .15s,background .15s" }}>
+                <span style={{ width:27, height:27, borderRadius:"50%", flexShrink:0,
+                  background: isSel ? ac : "transparent",
+                  border:"2px solid "+(isSel?ac:C.bdr),
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:11, fontWeight:800, color:isSel?C.bg:C.mu,
+                  transition:"all .15s" }}>{opt}</span>
+                <span style={{ flex:1 }}>{q.options[opt]}</span>
               </button>
             );
           })}
         </div>
       </div>
-      {/* Footer */}
-      {selected && (
-        <div style={{ padding:"12px 14px", borderTop:"1px solid "+C.bdr, background:C.deep,
-            display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div style={{ color:C.mu, fontSize:11 }}>
-            {ar ? "تم تسجيل الإجابة" : fr ? "Réponse enregistrée" : "Answer recorded"}
-          </div>
-          <button onClick={handleNext}
-            style={{ background:"#1aabaa", color:C.bg, border:"none", borderRadius:8,
-              padding:"10px 22px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
-            {idx + 1 >= questions.length
-              ? (ar ? "النتائج" : fr ? "Voir les résultats" : "See Results")
-              : (ar ? "التالي" : fr ? "Suivant" : "Next")}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -5656,120 +5683,152 @@ function OptionalTests({ lang, setLang, user, onLogout, cands, scores, onStartTe
 
 function OrientaMapTest({ lang, setLang, user, onLogout, profile, onComplete, onBack }) {
   var ar = lang === "ar", fr = lang === "fr";
+
   var DIM_COL = { AR:"#1aabaa", LH:"#9050d0", TA:"#e09030", EE:"#1db87a", CS:"#dc4c3c" };
   var DIM_LABEL = {
-    AR: ar ? "التحليلي" : fr ? "Analytique" : "Analytical",
-    LH: ar ? "اللغات والإنسانيات" : fr ? "Linguistique & Humanités" : "Linguistic & Humanities",
-    TA: ar ? "التقني والتطبيقي" : fr ? "Technique & Appliqué" : "Technical & Applied",
-    EE: ar ? "الاقتصادي والريادي" : fr ? "Économique & Entrepreneurial" : "Economic & Entrepreneurial",
-    CS: ar ? "المدني والاجتماعي" : fr ? "Civique & Sciences Sociales" : "Civic & Social Sciences"
+    AR: ar?"التحليلي":fr?"Analytique":"Analytical",
+    LH: ar?"اللغات والإنسانيات":fr?"Linguistique & Humanités":"Linguistic & Humanities",
+    TA: ar?"التقني والتطبيقي":fr?"Technique & Appliqué":"Technical & Applied",
+    EE: ar?"الاقتصادي والريادي":fr?"Économique & Entrepreneurial":"Economic & Entrepreneurial",
+    CS: ar?"المدني والاجتماعي":fr?"Civique & Sciences Sociales":"Civic & Social Sciences"
   };
-  var LIKERT_LABELS = ar
+  var LIKERT = ar
     ? ["دائماً","كثيراً","أحياناً","نادراً","أبداً"]
     : fr ? ["Toujours","Souvent","Parfois","Rarement","Jamais"]
     : ["Always","Often","Sometimes","Rarely","Never"];
-  var LIKERT_VALS = [5,4,3,2,1];
+  var LVALS = [5,4,3,2,1];
 
-  var [idx, setIdx]         = useState(0);
-  var [answers, setAnswers] = useState([]);
-  var [selected, setSelected] = useState(null);
-  var [timeLeft, setTimeLeft] = useState(10);
-  var answersRef = useRef([]);
-  var idxRef     = useRef(0);
-  var selectedRef = useRef(null);
+  var [idx, setIdx] = useState(0);
+  var [cur, setCur] = useState(null);
+  var [timer, setTimer] = useState(10);
+  var ansRef   = useRef({});
+  var timerRef = useRef(null);
+  var timedOut = useRef(false);
 
-  useEffect(function(){ answersRef.current = answers; }, [answers]);
-  useEffect(function(){ idxRef.current = idx; }, [idx]);
-  useEffect(function(){ selectedRef.current = selected; }, [selected]);
-  useEffect(function(){ setTimeLeft(10); setSelected(null); selectedRef.current = null; }, [idx]);
+  var q       = ORIENTAMAP_QUESTIONS[idx];
+  var ac      = DIM_COL[q.dim] || "#1aabaa";
+  var pct     = Math.round(idx / ORIENTAMAP_QUESTIONS.length * 100);
+  var timerCol = timer > 6 ? ac : timer > 3 ? C.am : C.re;
+  var qText   = ar ? q.ar : fr ? q.fr : q.en;
 
-  useEffect(function(){
-    if (timeLeft <= 0) {
-      var val = selectedRef.current !== null ? selectedRef.current : 3;
-      var na = answersRef.current.concat([val]);
-      setAnswers(na); answersRef.current = na;
-      if (idxRef.current + 1 >= ORIENTAMAP_QUESTIONS.length) { onComplete(scoreOrientaMap(na)); }
-      else { setIdx(idxRef.current + 1); }
-      return;
-    }
-    var t = setTimeout(function(){ setTimeLeft(function(v){ return v-1; }); }, 1000);
-    return function(){ clearTimeout(t); };
-  }, [timeLeft]);
-
-  function handleNext() {
-    var val = selected !== null ? selected : 3;
-    var na = answers.concat([val]);
-    setAnswers(na); answersRef.current = na;
-    if (idx + 1 >= ORIENTAMAP_QUESTIONS.length) { onComplete(scoreOrientaMap(na)); }
-    else { setIdx(idx + 1); }
+  function pickAns(val) {
+    if (timedOut.current) return;
+    timedOut.current = true;
+    ansRef.current[idx] = val;
+    setCur(val);
+    setTimeout(function() { goNext(); }, 320);
   }
 
-  var q = ORIENTAMAP_QUESTIONS[idx] || ORIENTAMAP_QUESTIONS[0];
-  var qText = ar ? q.ar : fr ? q.fr : q.en;
-  var dimColor = DIM_COL[q.dim] || "#1aabaa";
-  var r = 20, circ = 2 * Math.PI * r, dash = (timeLeft / 10) * circ;
+  function goNext() {
+    clearInterval(timerRef.current);
+    var nxt = idx + 1;
+    if (nxt >= ORIENTAMAP_QUESTIONS.length) {
+      var ans = [];
+      for (var i = 0; i < ORIENTAMAP_QUESTIONS.length; i++) {
+        ans.push(ansRef.current[i] !== undefined ? ansRef.current[i] : 3);
+      }
+      onComplete(scoreOrientaMap(ans));
+      return;
+    }
+    setIdx(nxt);
+    setCur(null);
+  }
+
+  useEffect(function() {
+    timedOut.current = false;
+    setCur(null);
+    setTimer(10);
+    timerRef.current = setInterval(function() {
+      setTimer(function(s) {
+        if (s <= 1) {
+          clearInterval(timerRef.current);
+          if (!timedOut.current) {
+            timedOut.current = true;
+            setTimeout(function() { goNext(); }, 0);
+          }
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return function() { clearInterval(timerRef.current); };
+  }, [idx]);
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
-      <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
-      <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-          <div style={{ flex:1, background:C.bdr, borderRadius:4, height:4 }}>
-            <div style={{ width:((idx+1)/ORIENTAMAP_QUESTIONS.length*100)+"%", height:4, background:dimColor, borderRadius:4, transition:"width .3s" }}/>
+      {/* ── header ── */}
+      <div style={{ background:C.sur, borderBottom:"1px solid "+C.bdr, padding:"9px 14px 11px", flexShrink:0 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:11, fontWeight:800, color:ac }}>ORIENTAMAP</span>
+            <span style={{ width:1, height:12, background:C.bdr }}/>
+            <span style={{ fontSize:10, color:C.mu }}>{idx+1}/{ORIENTAMAP_QUESTIONS.length}</span>
+            <span style={{ fontSize:9, background:ac+"18", padding:"2px 7px", borderRadius:99, color:ac, fontWeight:700 }}>{pct}%</span>
           </div>
-          <div style={{ color:C.mu, fontSize:11 }}>{idx+1}/{ORIENTAMAP_QUESTIONS.length}</div>
-          <svg width="44" height="44">
-            <circle cx="22" cy="22" r={r} fill="none" stroke={C.bdr} strokeWidth="3"/>
-            <circle cx="22" cy="22" r={r} fill="none" stroke={timeLeft<=3?"#dc4c3c":dimColor} strokeWidth="3"
-              strokeDasharray={circ} strokeDashoffset={circ-dash} strokeLinecap="round" transform="rotate(-90 22 22)"/>
-            <text x="22" y="27" textAnchor="middle" fontSize="11" fontWeight="bold" fill={timeLeft<=3?"#dc4c3c":C.body}>{timeLeft}</text>
-          </svg>
+          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <LangBtn lang={lang} set={setLang}/>
+            <svg width={44} height={44} style={{ transform:"rotate(-90deg)" }}>
+              <circle cx={22} cy={22} r={18} fill="none" stroke={C.bdr} strokeWidth={4}/>
+              <circle cx={22} cy={22} r={18} fill="none" stroke={timerCol} strokeWidth={4}
+                strokeDasharray={113.1} strokeDashoffset={113.1*(1-timer/10)}
+                strokeLinecap="round" style={{ transition:"stroke-dashoffset .9s linear,stroke .3s" }}/>
+            </svg>
+            <span style={{ fontSize:16, fontWeight:800, color:timerCol, minWidth:22 }}>{timer}</span>
+          </div>
         </div>
-        <div style={{ fontSize:9, fontWeight:700, color:dimColor, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>
-          ORIENTAMAP · {DIM_LABEL[q.dim]}
+        <div style={{ height:4, background:"rgba(255,255,255,.05)", borderRadius:99, overflow:"hidden" }}>
+          <div style={{ height:"100%", width:pct+"%", background:ac, borderRadius:99, transition:"width .3s" }}/>
         </div>
-        <div style={{ background:C.sur, borderRadius:12, padding:"14px 16px", color:C.wh,
-            fontSize:14, lineHeight:1.6, marginBottom:14, fontWeight:600,
-            textAlign:ar?"right":"left", direction:ar?"rtl":"ltr" }}>
-          {qText}
+      </div>
+
+      {/* ── content ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", padding:"10px 14px 10px", overflow:"hidden" }}>
+        {/* dimension badge */}
+        <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:8, flexShrink:0 }}>
+          <span style={{ padding:"3px 11px", borderRadius:99, background:ac+"22",
+              border:"1px solid "+ac+"55", fontSize:10, fontWeight:800, color:ac,
+              letterSpacing:.4, textTransform:"uppercase" }}>{q.dim}</span>
+          <span style={{ fontSize:10, color:C.mu }}>{DIM_LABEL[q.dim]}</span>
         </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {LIKERT_VALS.map(function(val,i){
-            var isSel = selected===val;
+        {/* question */}
+        <div style={{ background:C.card, borderRadius:14, padding:"12px 16px", marginBottom:10, flexShrink:0,
+            borderLeft:"4px solid "+ac, boxShadow:"0 0 20px "+ac+"22" }}>
+          <p style={{ fontSize:14, fontWeight:600, lineHeight:1.55, color:C.wh, margin:0,
+              direction:ar?"rtl":"ltr", textAlign:ar?"right":"left" }}>{qText}</p>
+        </div>
+        {/* likert options */}
+        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:9, overflowY:"auto", paddingBottom:4 }}>
+          {LVALS.map(function(val, i) {
+            var isSel = cur === val;
             return (
-              <button key={val} onClick={function(){ setSelected(val); }}
-                style={{ background:isSel?dimColor+"22":C.sur, border:"2px solid "+(isSel?dimColor:C.bdr),
-                  borderRadius:10, padding:"12px 16px", cursor:"pointer", fontFamily:"inherit",
-                  transition:"all .15s", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <span style={{ color:isSel?dimColor:C.mu, fontSize:11, fontWeight:800, minWidth:18 }}>{val}</span>
-                <span style={{ color:isSel?dimColor:C.body, fontSize:13, fontWeight:isSel?700:400 }}>{LIKERT_LABELS[i]}</span>
+              <button key={val} onClick={function() { pickAns(val); }}
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
+                  background: isSel ? ac+"28" : C.card,
+                  border:"2px solid "+(isSel?ac:C.bdr), borderRadius:12,
+                  textAlign:"left", cursor:"pointer", fontFamily:"inherit",
+                  color:C.wh, fontSize:13, fontWeight:isSel?700:500,
+                  animation: isSel ? "ansRing 1s ease-in-out infinite" : "none",
+                  width:"100%", boxSizing:"border-box", transition:"border .15s,background .15s" }}>
+                <span style={{ width:27, height:27, borderRadius:"50%", flexShrink:0,
+                  background: isSel ? ac : "transparent",
+                  border:"2px solid "+(isSel?ac:C.bdr),
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:11, fontWeight:800, color:isSel?C.bg:C.mu,
+                  transition:"all .15s" }}>{val}</span>
+                <span style={{ flex:1 }}>{LIKERT[i]}</span>
               </button>
             );
           })}
         </div>
+        {/* back row */}
+        <div style={{ flexShrink:0, display:"flex", gap:8, marginTop:4 }}>
+          <button onClick={onBack}
+            style={{ padding:"10px 16px", background:"transparent", border:"1px solid "+C.bdr,
+              borderRadius:12, color:C.mu, fontSize:12, fontWeight:600, cursor:"pointer", opacity:0.7 }}>
+            ←
+          </button>
+        </div>
       </div>
-      {selected !== null && (
-        <div style={{ padding:"12px 14px", borderTop:"1px solid "+C.bdr, background:C.deep,
-            display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <button onClick={onBack} style={{ background:"transparent", color:C.mu, border:"none", fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>
-            {ar?"العودة":fr?"Retour":"Back"}
-          </button>
-          <button onClick={handleNext}
-            style={{ background:dimColor, color:C.bg, border:"none", borderRadius:8,
-              padding:"10px 24px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
-            {idx+1>=ORIENTAMAP_QUESTIONS.length
-              ? (ar?"النتائج":fr?"Voir les résultats":"See Results")
-              : (ar?"التالي":fr?"Suivant":"Next")}
-          </button>
-        </div>
-      )}
-      {selected === null && (
-        <div style={{ padding:"10px 14px", borderTop:"1px solid "+C.bdr, background:C.deep }}>
-          <button onClick={onBack} style={{ background:"transparent", color:C.mu, border:"none", fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>
-            {ar?"← العودة":fr?"← Retour":"← Back"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
