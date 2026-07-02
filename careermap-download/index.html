@@ -943,6 +943,80 @@ function pageFrenchMap(scores, lang) {
     "</div></div>";
 }
 
+/* ─── ORIENTAMAP ───────────────────────────────────────────────────────────────────── */
+
+var ORIENTAMAP_QUESTIONS = [
+  { fr:"Je resous facilement des problemes de mathematiques ou de logique.", en:"I easily solve math or logic problems.", ar:"أحلّ بسهولة مسائل الرياضيات أو المنطق.", dim:"AR" },
+  { fr:"J'aime analyser des donnees, des graphiques ou des statistiques.", en:"I enjoy analyzing data, charts, or statistics.", ar:"أستمتع بتحليل البيانات والرسوم البيانية والإحصاءات.", dim:"AR" },
+  { fr:"Je prefere les matieres ou il y a une seule bonne reponse (maths, physique).", en:"I prefer subjects with one correct answer (math, physics).", ar:"أفضّل المواد التي لها إجابة واحدة صحيحة كالرياضيات والفيزياء.", dim:"AR" },
+  { fr:"Je peux rester concentre longtemps sur un probleme complexe.", en:"I can stay focused for a long time on a complex problem.", ar:"أستطيع التركيز لفترة طويلة على مشكلة معقدة.", dim:"AR" },
+  { fr:"Les sciences exactes (maths, physique, chimie) sont mes matieres fortes.", en:"Exact sciences (math, physics, chemistry) are my strongest subjects.", ar:"العلوم الدقيقة (رياضيات، فيزياء، كيمياء) هي موادي الأقوى.", dim:"AR" },
+  { fr:"J'aime lire, ecrire ou debattre d'idees complexes.", en:"I enjoy reading, writing, or debating complex ideas.", ar:"أحبّ القراءة والكتابة والنقاش حول الأفكار المعقدة.", dim:"LH" },
+  { fr:"Je m'exprime facilement a l'ecrit en francais ou en arabe.", en:"I express myself easily in writing in French or Arabic.", ar:"أعبّر عن نفسي بسهولة كتابةً بالفرنسية أو العربية.", dim:"LH" },
+  { fr:"L'histoire, la philosophie ou la geographie m'interessent vraiment.", en:"History, philosophy, or geography genuinely interest me.", ar:"يستهويني الفهم العميق للتاريخ والفلسفة والجغرافيا.", dim:"LH" },
+  { fr:"Je suis capable d'analyser un texte litteraire ou un discours politique.", en:"I can analyze a literary text or a political speech.", ar:"أستطيع تحليل نصّ أدبي أو خطاب سياسي.", dim:"LH" },
+  { fr:"Apprendre de nouvelles langues etrangeres me motive.", en:"Learning new foreign languages motivates me.", ar:"تعلّم لغات أجنبية جديدة يحفّزني ويشجّعني.", dim:"LH" },
+  { fr:"Je prefere apprendre en fabriquant ou en experimentant plutot qu'en lisant.", en:"I prefer learning by building or experimenting rather than reading.", ar:"أفضّل التعلّم بالتجريب والصنع بدلاً من القراءة فقط.", dim:"TA" },
+  { fr:"Les travaux pratiques en sciences ou en technologie me plaisent beaucoup.", en:"Practical lab work in science or technology appeals to me greatly.", ar:"أستمتع كثيراً بالأعمال التطبيقية في العلوم والتكنولوجيا.", dim:"TA" },
+  { fr:"J'aime comprendre comment fonctionnent les machines, les moteurs ou les logiciels.", en:"I like understanding how machines, engines, or software work.", ar:"أحبّ فهم كيفية عمل الآلات والمحركات والبرامج.", dim:"TA" },
+  { fr:"Je voudrais exercer un metier qui produit quelque chose de concret et visible.", en:"I want a career that produces something concrete and visible.", ar:"أريد مهنة تُنتج شيئاً ملموساً وواضحاً للعيان.", dim:"TA" },
+  { fr:"Les filieres comme le genie civil, electronique ou informatique m'attirent.", en:"Fields like civil engineering, electronics, or computer science attract me.", ar:"تجذبني مجالات كالهندسة المدنية والإلكترونيك والمعلوميات.", dim:"TA" },
+  { fr:"J'aime comprendre comment fonctionne l'economie, les marches et les entreprises.", en:"I enjoy understanding how economies, markets, and businesses work.", ar:"أستمتع بفهم آليات الاقتصاد والأسواق والشركات.", dim:"EE" },
+  { fr:"J'ai deja eu des idees de projets ou de petits business que je voulais lancer.", en:"I've had ideas for projects or small businesses I wanted to start.", ar:"سبق أن راودتني أفكار لمشاريع أو أعمال صغيرة أودّ إطلاقها.", dim:"EE" },
+  { fr:"La gestion, la comptabilite ou le commerce me semblent des domaines interessants.", en:"Management, accounting, or trade seem like interesting fields to me.", ar:"تبدو لي الإدارة والمحاسبة والتجارة مجالات مثيرة للاهتمام.", dim:"EE" },
+  { fr:"Je prends facilement des decisions meme quand l'information est incomplete.", en:"I make decisions easily even when information is incomplete.", ar:"أتخذ القرارات بسهولة حتى حين تكون المعلومات غير مكتملة.", dim:"EE" },
+  { fr:"Je prefere creer ma propre voie plutot que de suivre un chemin trace d'avance.", en:"I prefer creating my own path rather than following a predefined one.", ar:"أفضّل رسم طريقي الخاص بدلاً من اتّباع مسار محدد مسبقاً.", dim:"EE" },
+  { fr:"Les questions de justice, de droit ou de politique m'interessent profondement.", en:"Issues of justice, law, or politics deeply interest me.", ar:"تستأثر باهتمامي العميق قضايا العدالة والقانون والسياسة.", dim:"CS" },
+  { fr:"Je veux contribuer a ameliorer la societe et aider les communautes vulnerables.", en:"I want to contribute to improving society and helping vulnerable communities.", ar:"أريد المساهمة في تحسين المجتمع ومساعدة الفئات الهشّة.", dim:"CS" },
+  { fr:"La sociologie, la psychologie ou les sciences de l'education me passionnent.", en:"Sociology, psychology, or education sciences fascinate me.", ar:"تُشغف بي علم الاجتماع وعلم النفس وعلوم التربية.", dim:"CS" },
+  { fr:"Je suis a l'aise pour parler en public, debattre ou representer un groupe.", en:"I'm comfortable speaking in public, debating, or representing a group.", ar:"أشعر بالارتياح عند التحدث أمام الجمهور أو التفاوض أو تمثيل مجموعة.", dim:"CS" },
+  { fr:"Je veux exercer un metier au service de l'Etat ou des institutions publiques.", en:"I want a career serving the state or public institutions.", ar:"أريد العمل في مهنة تخدم الدولة أو المؤسسات العامة.", dim:"CS" }
+];
+
+function scoreOrientaMap(answers) {
+  var AR=0,LH=0,TA=0,EE=0,CS=0;
+  for(var i=0;i<5;i++){ AR+=answers[i]||0; }
+  for(var i=5;i<10;i++){ LH+=answers[i]||0; }
+  for(var i=10;i<15;i++){ TA+=answers[i]||0; }
+  for(var i=15;i<20;i++){ EE+=answers[i]||0; }
+  for(var i=20;i<25;i++){ CS+=answers[i]||0; }
+  var dims=[{code:"AR",score:AR},{code:"LH",score:LH},{code:"TA",score:TA},{code:"EE",score:EE},{code:"CS",score:CS}];
+  dims.sort(function(a,b){return b.score-a.score;});
+  return {AR:AR,LH:LH,TA:TA,EE:EE,CS:CS,dominant:dims[0].code,secondary:dims[1].code,scores:dims};
+}
+
+function getBacBranch(dominant,secondary){
+  var key=dominant+"+"+secondary;
+  var m={"AR+TA":"Sciences Mathematiques A ou B","AR+EE":"Sciences Economiques","AR+LH":"Sciences Experimentales","AR+CS":"Sciences Mathematiques","LH+CS":"Lettres & Sciences Humaines","LH+AR":"Sciences Experimentales","LH+EE":"Sciences Economiques","LH+TA":"Lettres & Sciences Humaines","TA+AR":"Sciences & Technologies Electriques","TA+EE":"Sciences & Technologies Mecaniques","TA+LH":"Sciences Experimentales","TA+CS":"Sciences & Technologies","EE+AR":"Sciences de Gestion Comptable","EE+LH":"Sciences Economiques","EE+CS":"Sciences Economiques","EE+TA":"Sciences de Gestion Comptable","CS+LH":"Lettres & Sciences Humaines","CS+EE":"Sciences Economiques","CS+AR":"Sciences Humaines","CS+TA":"Sciences Humaines"};
+  return m[key]||"Sciences Experimentales";
+}
+
+function getInstitutions(dominant,secondary){
+  var key=dominant;
+  if((dominant==="AR"&&secondary==="EE")||(dominant==="EE"&&secondary==="AR"))key="AR+EE";
+  var m={
+    "AR":{primary:["CPGE Sciences","ENSA","ENSIAS","FST"],secondary:["EST","Licence Sciences — FST"],type:"Sciences & Ingenierie"},
+    "AR+EE":{primary:["ENCG","ISCAE","CPGE ECT"],secondary:["FSJES — Economie","Licence Gestion"],type:"Commerce & Ingenierie"},
+    "LH":{primary:["FLSH","ISIC","ENS Lettres"],secondary:["FLAC","Licence Langues"],type:"Lettres & Communication"},
+    "TA":{primary:["OFPPT ISTA — TS","EST"],secondary:["ENNA","Licence Sciences Tech"],type:"Technique & Technologie"},
+    "EE":{primary:["ENCG","HEM","ESCA"],secondary:["UIR Business","FSJES — Gestion"],type:"Commerce & Entrepreneuriat"},
+    "CS":{primary:["FSJES — Droit","ENS","ISIC"],secondary:["FLSH — Socio","Licence Sciences Humaines"],type:"Droit & Sciences Sociales"}
+  };
+  return m[key]||m["AR"];
+}
+
+function getOrientaMapFlags(omScores,oceanScores){
+  var flags=[];
+  var max=Math.max(omScores.AR,omScores.LH,omScores.TA,omScores.EE,omScores.CS);
+  var min=Math.min(omScores.AR,omScores.LH,omScores.TA,omScores.EE,omScores.CS);
+  if(max-min<=3)flags.push({code:"DIFFUSE_PROFILE",color:"#e09030",fr:"Profil polyvalent — orientation difficile. Accompagnement conseiller recommande.",en:"Versatile profile — orientation difficult. Advisor support recommended.",ar:"ملف متعدد الأوجه — التوجيه صعب. يُنصح بدعم المستشار."});
+  if(omScores.AR>=20&&oceanScores&&oceanScores.C2<12)flags.push({code:"CPGE_RISK",color:"#e09030",fr:"Profil analytique fort mais rigueur insuffisante. CPGE risquee — FST recommandee.",en:"Strong analytical profile but insufficient rigor. CPGE risky — FST recommended.",ar:"ملف تحليلي قوي لكن صرامة غير كافية. الكلية التحضيرية محفوفة بالمخاطر."});
+  if(omScores.AR>=20&&omScores.EE>=18)flags.push({code:"DOUBLE_AR_EE",color:"#1aabaa",fr:"Double profil Sciences-Gestion. Filiere ECT ou Sciences Economiques ideale.",en:"Double Science-Management profile. ECT or Economic Sciences track is ideal.",ar:"ملف مزدوج علوم-إدارة. مسار ECT أو العلوم الاقتصادية مثالي."});
+  if(omScores.TA>=20&&omScores.AR<12)flags.push({code:"TA_STRONG_AR_WEAK",color:"#1db87a",fr:"Profil technique fort. OFPPT TS ou EST recommande avant universite.",en:"Strong technical profile. OFPPT TS or EST recommended before university.",ar:"ملف تقني قوي. يُنصح بـ OFPPT TS أو EST قبل الجامعة."});
+  if(omScores.CS>=20&&omScores.EE<10)flags.push({code:"CS_STRONG_EE_WEAK",color:"#9050d0",fr:"Profil civique fort. Droit public ou sociologie recommande plutot que gestion.",en:"Strong civic profile. Public law or sociology recommended over management.",ar:"ملف مدني قوي. القانون العام أو علم الاجتماع موصى به."});
+  return flags;
+}
+
 /* ─── PDF REPORT ─────────────────────────────────────────────────────────── */
 function buildReportHTML(profile, scores, role, reportLang) {
   reportLang = reportLang || "fr";
@@ -5580,6 +5654,273 @@ function OptionalTests({ lang, setLang, user, onLogout, cands, scores, onStartTe
   );
 }
 
+function OrientaMapTest({ lang, setLang, user, onLogout, profile, onComplete, onBack }) {
+  var ar = lang === "ar", fr = lang === "fr";
+  var DIM_COL = { AR:"#1aabaa", LH:"#9050d0", TA:"#e09030", EE:"#1db87a", CS:"#dc4c3c" };
+  var DIM_LABEL = {
+    AR: ar ? "التحليلي" : fr ? "Analytique" : "Analytical",
+    LH: ar ? "اللغات والإنسانيات" : fr ? "Linguistique & Humanités" : "Linguistic & Humanities",
+    TA: ar ? "التقني والتطبيقي" : fr ? "Technique & Appliqué" : "Technical & Applied",
+    EE: ar ? "الاقتصادي والريادي" : fr ? "Économique & Entrepreneurial" : "Economic & Entrepreneurial",
+    CS: ar ? "المدني والاجتماعي" : fr ? "Civique & Sciences Sociales" : "Civic & Social Sciences"
+  };
+  var LIKERT_LABELS = ar
+    ? ["دائماً","كثيراً","أحياناً","نادراً","أبداً"]
+    : fr ? ["Toujours","Souvent","Parfois","Rarement","Jamais"]
+    : ["Always","Often","Sometimes","Rarely","Never"];
+  var LIKERT_VALS = [5,4,3,2,1];
+
+  var [idx, setIdx]         = useState(0);
+  var [answers, setAnswers] = useState([]);
+  var [selected, setSelected] = useState(null);
+  var [timeLeft, setTimeLeft] = useState(10);
+  var answersRef = useRef([]);
+  var idxRef     = useRef(0);
+  var selectedRef = useRef(null);
+
+  useEffect(function(){ answersRef.current = answers; }, [answers]);
+  useEffect(function(){ idxRef.current = idx; }, [idx]);
+  useEffect(function(){ selectedRef.current = selected; }, [selected]);
+  useEffect(function(){ setTimeLeft(10); setSelected(null); selectedRef.current = null; }, [idx]);
+
+  useEffect(function(){
+    if (timeLeft <= 0) {
+      var val = selectedRef.current !== null ? selectedRef.current : 3;
+      var na = answersRef.current.concat([val]);
+      setAnswers(na); answersRef.current = na;
+      if (idxRef.current + 1 >= ORIENTAMAP_QUESTIONS.length) { onComplete(scoreOrientaMap(na)); }
+      else { setIdx(idxRef.current + 1); }
+      return;
+    }
+    var t = setTimeout(function(){ setTimeLeft(function(v){ return v-1; }); }, 1000);
+    return function(){ clearTimeout(t); };
+  }, [timeLeft]);
+
+  function handleNext() {
+    var val = selected !== null ? selected : 3;
+    var na = answers.concat([val]);
+    setAnswers(na); answersRef.current = na;
+    if (idx + 1 >= ORIENTAMAP_QUESTIONS.length) { onComplete(scoreOrientaMap(na)); }
+    else { setIdx(idx + 1); }
+  }
+
+  var q = ORIENTAMAP_QUESTIONS[idx] || ORIENTAMAP_QUESTIONS[0];
+  var qText = ar ? q.ar : fr ? q.fr : q.en;
+  var dimColor = DIM_COL[q.dim] || "#1aabaa";
+  var r = 20, circ = 2 * Math.PI * r, dash = (timeLeft / 10) * circ;
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
+      <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
+      <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+          <div style={{ flex:1, background:C.bdr, borderRadius:4, height:4 }}>
+            <div style={{ width:((idx+1)/ORIENTAMAP_QUESTIONS.length*100)+"%", height:4, background:dimColor, borderRadius:4, transition:"width .3s" }}/>
+          </div>
+          <div style={{ color:C.mu, fontSize:11 }}>{idx+1}/{ORIENTAMAP_QUESTIONS.length}</div>
+          <svg width="44" height="44">
+            <circle cx="22" cy="22" r={r} fill="none" stroke={C.bdr} strokeWidth="3"/>
+            <circle cx="22" cy="22" r={r} fill="none" stroke={timeLeft<=3?"#dc4c3c":dimColor} strokeWidth="3"
+              strokeDasharray={circ} strokeDashoffset={circ-dash} strokeLinecap="round" transform="rotate(-90 22 22)"/>
+            <text x="22" y="27" textAnchor="middle" fontSize="11" fontWeight="bold" fill={timeLeft<=3?"#dc4c3c":C.body}>{timeLeft}</text>
+          </svg>
+        </div>
+        <div style={{ fontSize:9, fontWeight:700, color:dimColor, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>
+          ORIENTAMAP · {DIM_LABEL[q.dim]}
+        </div>
+        <div style={{ background:C.sur, borderRadius:12, padding:"14px 16px", color:C.wh,
+            fontSize:14, lineHeight:1.6, marginBottom:14, fontWeight:600,
+            textAlign:ar?"right":"left", direction:ar?"rtl":"ltr" }}>
+          {qText}
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {LIKERT_VALS.map(function(val,i){
+            var isSel = selected===val;
+            return (
+              <button key={val} onClick={function(){ setSelected(val); }}
+                style={{ background:isSel?dimColor+"22":C.sur, border:"2px solid "+(isSel?dimColor:C.bdr),
+                  borderRadius:10, padding:"12px 16px", cursor:"pointer", fontFamily:"inherit",
+                  transition:"all .15s", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ color:isSel?dimColor:C.mu, fontSize:11, fontWeight:800, minWidth:18 }}>{val}</span>
+                <span style={{ color:isSel?dimColor:C.body, fontSize:13, fontWeight:isSel?700:400 }}>{LIKERT_LABELS[i]}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {selected !== null && (
+        <div style={{ padding:"12px 14px", borderTop:"1px solid "+C.bdr, background:C.deep,
+            display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <button onClick={onBack} style={{ background:"transparent", color:C.mu, border:"none", fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>
+            {ar?"العودة":fr?"Retour":"Back"}
+          </button>
+          <button onClick={handleNext}
+            style={{ background:dimColor, color:C.bg, border:"none", borderRadius:8,
+              padding:"10px 24px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+            {idx+1>=ORIENTAMAP_QUESTIONS.length
+              ? (ar?"النتائج":fr?"Voir les résultats":"See Results")
+              : (ar?"التالي":fr?"Suivant":"Next")}
+          </button>
+        </div>
+      )}
+      {selected === null && (
+        <div style={{ padding:"10px 14px", borderTop:"1px solid "+C.bdr, background:C.deep }}>
+          <button onClick={onBack} style={{ background:"transparent", color:C.mu, border:"none", fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>
+            {ar?"← العودة":fr?"← Retour":"← Back"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrientaMapResults({ result, profile, scores, lang, setLang, user, onLogout, onBack, onRetake }) {
+  var ar = lang === "ar", fr = lang === "fr";
+  var DIM_COL = { AR:"#1aabaa", LH:"#9050d0", TA:"#e09030", EE:"#1db87a", CS:"#dc4c3c" };
+  var DIM_LABEL = {
+    AR: ar ? "التحليلي" : fr ? "Analytique" : "Analytical",
+    LH: ar ? "اللغات والإنسانيات" : fr ? "Linguistique & Humanités" : "Linguistic & Humanities",
+    TA: ar ? "التقني والتطبيقي" : fr ? "Technique & Appliqué" : "Technical & Applied",
+    EE: ar ? "الاقتصادي والريادي" : fr ? "Économique & Entrepreneurial" : "Economic & Entrepreneurial",
+    CS: ar ? "المدني والاجتماعي" : fr ? "Civique & Sciences Sociales" : "Civic & Social Sciences"
+  };
+  var dom = result.dominant || "AR";
+  var sec = result.secondary || "LH";
+  var domColor = DIM_COL[dom] || "#1aabaa";
+  var isLevel3 = profile && profile.education === 3;
+  var isLevel4 = profile && profile.education === 4;
+  var flags = getOrientaMapFlags(
+    { AR:result.AR||0, LH:result.LH||0, TA:result.TA||0, EE:result.EE||0, CS:result.CS||0 },
+    scores ? scores.b : null
+  );
+  var insts = isLevel4 ? getInstitutions(dom, sec) : null;
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
+      <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
+      <div style={{ flex:1, overflowY:"auto", padding:"16px 14px" }}>
+        <div className="fadeUp">
+          <div style={{ color:"#d4a328", fontSize:9, letterSpacing:3, fontWeight:700, marginBottom:6 }}>ORIENTAMAP</div>
+          <h2 style={{ color:C.wh, fontSize:20, fontWeight:800, marginBottom:4 }}>
+            {ar?"توجيهك الأكاديمي":fr?"Ton Orientation Académique":"Your Academic Orientation"}
+          </h2>
+          <div style={{ color:C.muB, fontSize:11, marginBottom:16 }}>
+            {ar?"البُعد الغالب · الثانوي":fr?"Profil dominant · Profil secondaire":"Dominant · Secondary profile"}
+          </div>
+
+          <div style={{ background:domColor+"1a", borderRadius:12, padding:"14px 16px", marginBottom:16,
+              border:"1px solid "+domColor+"44", display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ background:domColor, borderRadius:8, padding:"6px 14px", flexShrink:0 }}>
+              <div style={{ color:"#06111f", fontSize:16, fontWeight:900 }}>{dom}</div>
+            </div>
+            <div>
+              <div style={{ color:domColor, fontSize:14, fontWeight:800 }}>{DIM_LABEL[dom]}</div>
+              <div style={{ color:C.muB, fontSize:11 }}>
+                {ar?"الثانوي: ":fr?"Secondaire : ":"Secondary: "}{DIM_LABEL[sec]}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ background:C.sur, borderRadius:12, padding:"14px 16px", marginBottom:16 }}>
+            <div style={{ color:C.mu, fontSize:9, letterSpacing:2, fontWeight:700, marginBottom:12 }}>
+              {ar?"النقاط بالأبعاد":fr?"SCORES PAR DIMENSION":"DIMENSION SCORES"}
+            </div>
+            {["AR","LH","TA","EE","CS"].map(function(code){
+              var score=result[code]||0;
+              var pct=Math.round(score/25*100);
+              var col=DIM_COL[code];
+              var isTop=code===dom;
+              return (
+                <div key={code} style={{ marginBottom:10 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                    <span style={{ color:isTop?col:C.muB, fontSize:11, fontWeight:isTop?700:400 }}>{DIM_LABEL[code]}</span>
+                    <span style={{ color:col, fontSize:11, fontWeight:700 }}>{score}/25</span>
+                  </div>
+                  <div style={{ background:C.bdr, borderRadius:4, height:6 }}>
+                    <div style={{ width:pct+"%", height:6, background:col, borderRadius:4, transition:"width .6s" }}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {isLevel3 && (
+            <div style={{ background:C.sur, borderRadius:12, padding:"14px 16px", marginBottom:16 }}>
+              <div style={{ color:"#d4a328", fontSize:10, letterSpacing:2, fontWeight:700, marginBottom:10 }}>
+                {ar?"الشعبة الموصى بها":fr?"FILIÈRE BAC RECOMMANDÉE":"RECOMMENDED BAC BRANCH"}
+              </div>
+              <div style={{ background:domColor, borderRadius:10, padding:"14px 18px" }}>
+                <div style={{ color:"#06111f", fontSize:15, fontWeight:800 }}>{getBacBranch(dom,sec)}</div>
+                <div style={{ color:"#06111f", fontSize:10, marginTop:4, opacity:0.8 }}>
+                  {ar?"بناءً على ملفك الأكاديمي":fr?"Basé sur ton profil académique":"Based on your academic profile"}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isLevel4 && insts && (
+            <div style={{ background:C.sur, borderRadius:12, padding:"14px 16px", marginBottom:16 }}>
+              <div style={{ color:"#d4a328", fontSize:10, letterSpacing:2, fontWeight:700, marginBottom:10 }}>
+                {ar?"المؤسسات الموصى بها":fr?"ÉTABLISSEMENTS RECOMMANDÉS":"RECOMMENDED INSTITUTIONS"}
+              </div>
+              <div style={{ color:C.mu, fontSize:9, letterSpacing:2, marginBottom:6 }}>
+                {ar?"الأولوية":fr?"PRIORITAIRES":"PRIORITY"}
+              </div>
+              {insts.primary.map(function(inst,i){
+                return (
+                  <div key={i} style={{ background:C.cardB, borderLeft:"3px solid "+domColor,
+                      borderRadius:"0 8px 8px 0", padding:"10px 14px", marginBottom:6 }}>
+                    <div style={{ color:C.wh, fontSize:12, fontWeight:700 }}>{inst}</div>
+                  </div>
+                );
+              })}
+              <div style={{ color:C.mu, fontSize:9, letterSpacing:2, marginBottom:6, marginTop:10 }}>
+                {ar?"بدائل":fr?"ALTERNATIVES":"ALTERNATIVES"}
+              </div>
+              {insts.secondary.map(function(inst,i){
+                return (
+                  <div key={i} style={{ background:C.cardB, borderLeft:"3px solid "+C.bdr,
+                      borderRadius:"0 8px 8px 0", padding:"10px 14px", marginBottom:6 }}>
+                    <div style={{ color:C.muB, fontSize:12 }}>{inst}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {flags.length > 0 && (
+            <div style={{ marginBottom:16 }}>
+              {flags.map(function(flag,i){
+                return (
+                  <div key={i} style={{ background:C.sur, borderLeft:"3px solid "+flag.color,
+                      borderRadius:"0 8px 8px 0", padding:"12px 16px", marginBottom:8 }}>
+                    <div style={{ color:flag.color, fontSize:11 }}>
+                      {"⚠ " + (ar?flag.ar:fr?flag.fr:flag.en)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <button onClick={onRetake}
+            style={{ width:"100%", background:domColor+"1a", color:domColor,
+              border:"1px solid "+domColor+"44", borderRadius:10,
+              padding:13, fontSize:13, fontWeight:700, cursor:"pointer", marginBottom:10, fontFamily:"inherit" }}>
+            {ar?"إعادة الاختبار":fr?"Recommencer":"Retake"}
+          </button>
+          <button onClick={onBack}
+            style={{ width:"100%", background:"transparent", color:C.mu,
+              border:"1px solid "+C.bdr, borderRadius:10, padding:12,
+              fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+            {ar?"← العودة":fr?"← Retour":"← Back"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReturningScreen({ lang, setLang, user, code, onLogout, onRetakeTests, onViewReport, onOptionalTests }) {
   var ar = lang === "ar";
   var fr = lang === "fr";
@@ -5746,6 +6087,22 @@ function App() {
     setScreen(result.test === "english" ? "en-results" : "fr-results");
   }
 
+  function onOrientaMapComplete(result) {
+    var newScores = Object.assign({}, scores);
+    newScores.orientamap = result;
+    setScores(newScores);
+    var updated = cands.map(function(c) {
+      if (c.id !== user.id) return c;
+      var updatedCand = Object.assign({}, c, { scores: Object.assign({}, c.scores, { orientamap: result }) });
+      if (_db && c._docId) {
+        _db.collection("candidates").doc(c._docId).update({ "scores.orientamap": result }).catch(function(e){ console.error(e); });
+      }
+      return updatedCand;
+    });
+    setCands(updated);
+    setScreen("om-results");
+  }
+
   function onProfile(pf) {
     var displayName = [pf.firstName, pf.lastName].filter(Boolean).join(" ") || user.id;
     var fullProfile = Object.assign({}, pf, { name:displayName, id:user.id });
@@ -5838,13 +6195,20 @@ function App() {
         setResultCode("");
         setScreen("profile");
       }}
-      onViewReport={function() { setScreen("report-returning"); }}
+      onViewReport={function() { setScreen(scores && scores.orientamap ? "om-results" : "orientamap"); }}
       onOptionalTests={function() { setScreen("optional-tests"); }}
     />
   );
-  if (screen === "report-returning") return wrap(
-    <Report lang={lang} setLang={setLangDir} user={user} profile={profile} scores={scores}
-      onLogout={function(){ setScreen("returning"); }} initRole="candidate" onShowReport={showReport}/>
+  if (screen === "orientamap") return wrap(
+    <OrientaMapTest lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
+      profile={profile} onComplete={onOrientaMapComplete}
+      onBack={function(){ setScreen("returning"); }}/>
+  );
+  if (screen === "om-results") return wrap(
+    <OrientaMapResults result={scores.orientamap||{}} profile={profile} scores={scores}
+      lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
+      onBack={function(){ setScreen("returning"); }}
+      onRetake={function(){ setScreen("orientamap"); }}/>
   );
   if (screen === "profile") return wrap(<ProfileForm lang={lang} setLang={setLangDir} user={user} onNext={onProfile} onLogout={onLogout}/>);
   if (screen === "welcome") return wrap(<Welcome lang={lang} setLang={setLangDir} user={user} onStart={function(){ setScreen("assess"); }} onLogout={onLogout}/>);
