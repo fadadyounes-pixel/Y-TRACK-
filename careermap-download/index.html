@@ -5516,20 +5516,20 @@ function PlacementTest({ testType, questions, profile, lang, setLang, user, onLo
             var isSel = cur === opt;
             return (
               <button key={opt} onClick={function() { pickAns(opt); }}
-                style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
-                  background: isSel ? ac+"28" : C.card,
-                  border:"2px solid "+(isSel?ac:C.bdr), borderRadius:12,
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"13px 16px",
+                  background: isSel ? ac+"33" : C.cardB,
+                  border:"2px solid "+(isSel?ac:"rgba(255,255,255,.13)"), borderRadius:12,
                   textAlign:"left", cursor:"pointer", fontFamily:"inherit",
                   color:C.wh, fontSize:13, fontWeight:isSel?700:500,
                   animation: isSel ? "ansRing 1s ease-in-out infinite" : "none",
                   width:"100%", boxSizing:"border-box", transition:"border .15s,background .15s" }}>
-                <span style={{ width:27, height:27, borderRadius:"50%", flexShrink:0,
-                  background: isSel ? ac : "transparent",
-                  border:"2px solid "+(isSel?ac:C.bdr),
+                <span style={{ width:28, height:28, borderRadius:"50%", flexShrink:0,
+                  background: isSel ? ac : "rgba(255,255,255,.08)",
+                  border:"2px solid "+(isSel?ac:"rgba(255,255,255,.2)"),
                   display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:11, fontWeight:800, color:isSel?C.bg:C.mu,
+                  fontSize:11, fontWeight:800, color:isSel?C.bg:C.body,
                   transition:"all .15s" }}>{opt}</span>
-                <span style={{ flex:1 }}>{q.options[opt]}</span>
+                <span style={{ flex:1, color:isSel?C.wh:C.body }}>{q.options[opt]}</span>
               </button>
             );
           })}
@@ -5802,20 +5802,20 @@ function OrientaMapTest({ lang, setLang, user, onLogout, profile, onComplete, on
             var isSel = cur === val;
             return (
               <button key={val} onClick={function() { pickAns(val); }}
-                style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px",
-                  background: isSel ? ac+"28" : C.card,
-                  border:"2px solid "+(isSel?ac:C.bdr), borderRadius:12,
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"13px 16px",
+                  background: isSel ? ac+"33" : C.cardB,
+                  border:"2px solid "+(isSel?ac:"rgba(255,255,255,.13)"), borderRadius:12,
                   textAlign:"left", cursor:"pointer", fontFamily:"inherit",
                   color:C.wh, fontSize:13, fontWeight:isSel?700:500,
                   animation: isSel ? "ansRing 1s ease-in-out infinite" : "none",
                   width:"100%", boxSizing:"border-box", transition:"border .15s,background .15s" }}>
-                <span style={{ width:27, height:27, borderRadius:"50%", flexShrink:0,
-                  background: isSel ? ac : "transparent",
-                  border:"2px solid "+(isSel?ac:C.bdr),
+                <span style={{ width:28, height:28, borderRadius:"50%", flexShrink:0,
+                  background: isSel ? ac : "rgba(255,255,255,.08)",
+                  border:"2px solid "+(isSel?ac:"rgba(255,255,255,.2)"),
                   display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:11, fontWeight:800, color:isSel?C.bg:C.mu,
+                  fontSize:11, fontWeight:800, color:isSel?C.bg:C.body,
                   transition:"all .15s" }}>{val}</span>
-                <span style={{ flex:1 }}>{LIKERT[i]}</span>
+                <span style={{ flex:1, color:isSel?C.wh:C.body }}>{LIKERT[i]}</span>
               </button>
             );
           })}
@@ -6249,10 +6249,9 @@ function App() {
   if (screen === "returning") return wrap(
     <ReturningScreen lang={lang} setLang={setLangDir} user={user} code={resultCode} onLogout={onLogout}
       onRetakeTests={function() {
-        setProfile(null);
         setScores({ h:{}, b:{}, s:{}, eq:{}, entre:{}, resi:{} });
         setResultCode("");
-        setScreen("profile");
+        setScreen("welcome");
       }}
       onViewReport={function() { setScreen(scores && scores.orientamap ? "om-results" : "orientamap"); }}
       onOptionalTests={function() { setScreen("optional-tests"); }}
