@@ -148,13 +148,13 @@ const TX: Record<string, Record<string, string | string[]>> = {
     projType:"Type de porteur",
     create:"Créer mon compte →",
     welcome:"Bienvenue,",
-    steps:["Idée","Dialogue","Profil","Plan","Budget","Conformité","Documents","Dossier"],
+    steps:["Idée","Dialogue","Profil","Plan","Budget","Logo","Conformité","Documents","Dossier"],
     ideaT:"Décrivez votre idée de projet",
     ideaH:"Secteur, zone géographique, bénéficiaires ciblés, besoins principaux.",
     ideaP:"Ex: Je veux lancer une activité de transformation de produits du terroir dans ma région...",
     sectorLabel:"Secteurs éligibles INDH",
     next:"Continuer →", loading:"Chargement...",
-    dialogT:"Affinons votre projet", dialogS:"5 questions ciblées pour structurer votre dossier.",
+    dialogT:"Affinons votre projet", dialogS:"4 questions ciblées pour structurer votre dossier.",
     ph:"Votre réponse...", send:"Envoyer →",
     q:"Question", of:"sur",
     profileT:"Profil du projet",
@@ -205,13 +205,13 @@ const TX: Record<string, Record<string, string | string[]>> = {
     projType:"نوع الحامل",
     create:"إنشاء الحساب ←",
     welcome:"مرحباً،",
-    steps:["الفكرة","الحوار","الملف","الخطة","الميزانية","الامتثال","الوثائق","الدوسيي"],
+    steps:["الفكرة","الحوار","الملف","الخطة","الميزانية","الشعار","الامتثال","الوثائق","الدوسيي"],
     ideaT:"صف فكرة مشروعك",
     ideaH:"القطاع، المنطقة الجغرافية، المستفيدون المستهدفون، الاحتياجات الرئيسية.",
     ideaP:"مثال: أريد إطلاق نشاط لتحويل المنتجات المحلية في منطقتي...",
     sectorLabel:"القطاعات المؤهلة للمبادرة",
     next:"متابعة ←", loading:"جاري التحميل...",
-    dialogT:"لنصقل مشروعك معاً", dialogS:"5 أسئلة مستهدفة لهيكلة ملفك.",
+    dialogT:"لنصقل مشروعك معاً", dialogS:"4 أسئلة مستهدفة لهيكلة ملفك.",
     ph:"إجابتك...", send:"← إرسال",
     q:"السؤال", of:"من",
     profileT:"ملف المشروع",
@@ -262,13 +262,13 @@ const TX: Record<string, Record<string, string | string[]>> = {
     projType:"Holder type",
     create:"Create account →",
     welcome:"Welcome,",
-    steps:["Idea","Dialogue","Profile","Plan","Budget","Compliance","Documents","File"],
+    steps:["Idea","Dialogue","Profile","Plan","Budget","Logo","Compliance","Documents","File"],
     ideaT:"Describe your project idea",
     ideaH:"Sector, geographic zone, target beneficiaries, main needs.",
     ideaP:"E.g. I want to launch a local product processing activity in my region...",
     sectorLabel:"Eligible INDH sectors",
     next:"Continue →", loading:"Loading...",
-    dialogT:"Let's refine your project", dialogS:"5 targeted questions to structure your application.",
+    dialogT:"Let's refine your project", dialogS:"4 targeted questions to structure your application.",
     ph:"Your answer...", send:"Send →",
     q:"Question", of:"of",
     profileT:"Project Profile",
@@ -638,37 +638,42 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
 /* ════════════════════════════════════════════════════════
    HOLDER APP
 ════════════════════════════════════════════════════════ */
-function HolderApp({lang, setLang, user, onLogout, t, onSaveProject}: {
+function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialState}: {
   lang: string; setLang: (l: string) => void; user: any;
-  onLogout: () => void; t: any; onSaveProject: (d: any) => void;
+  onLogout: () => void; t: any; onSaveProject: (d: any) => void; initialState?: any;
 }) {
-  const [step, setStep]    = useState("idea");
-  const [idea, setIdea]    = useState("");
-  const [msgs, setMsgs]    = useState<any[]>([]);
+  const [step, setStep]    = useState(initialState?.step || "idea");
+  const [idea, setIdea]    = useState(initialState?.idea || "");
+  const [msgs, setMsgs]    = useState<any[]>(initialState?.msgs || []);
   const [inp, setInp]      = useState("");
   const [busy, setBusy]    = useState(false);
-  const [qN, setQN]        = useState(0);
-  const [proj, setProj]    = useState<any>(null);
-  const [plan, setPlan]    = useState<any>(null);
-  const [budget, setBudget]= useState<any>(null);
-  const [comp, setComp]    = useState<any>(null);
-  const [docs, setDocs]    = useState<Record<number, boolean>>({});
+  const [qN, setQN]        = useState(initialState?.qN || 0);
+  const [proj, setProj]    = useState<any>(initialState?.proj || null);
+  const [plan, setPlan]    = useState<any>(initialState?.plan || null);
+  const [budget, setBudget]= useState<any>(initialState?.budget || null);
+  const [comp, setComp]    = useState<any>(initialState?.comp || null);
+  const [docs, setDocs]    = useState<Record<number, boolean>>(initialState?.docs || {});
+  const [logo, setLogo]    = useState<any>(initialState?.logo || null);
+  const [docFiles, setDocFiles] = useState<Record<number, string>>(initialState?.docFiles || {});
+  const [logoGenerating, setLogoGenerating] = useState(false);
+  const [pendingAttach, setPendingAttach]   = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const msgEnd = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
   const LL  = lang === "ar" ? "arabe" : lang === "fr" ? "français" : "anglais";
-  const MAX_Q = 5;
+  const MAX_Q = 4;
 
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
 
   useEffect(() => {
-    if (proj) onSaveProject({id: user.id, name: user.name, profile: user.profile, proj, plan, budget, comp, step, docs});
-  }, [proj, plan, comp, step]);
+    if (proj || step !== "idea") onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, docFiles});
+  }, [proj, plan, comp, step, logo]);
 
-  const ai = async (messages: any[], system: string) => {
+  const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue") => {
     const r = await fetch("/api/ai", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({messages, system}),
+      body: JSON.stringify({messages, system, task}),
     });
     const d = await r.json();
     return d.content?.[0]?.text || "";
@@ -678,11 +683,124 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject}: {
     try { const m = txt.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; } catch { return null; }
   };
 
+  const dlText = (content: string, name: string) => {
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"})),
+      download: name,
+    });
+    a.click();
+  };
+
+  const dlPPTX = async (type: "pitch" | "jury") => {
+    try {
+      const PptxGenJS = (await import("pptxgenjs")).default;
+      const prs = new (PptxGenJS as any)();
+      prs.layout = "LAYOUT_16x9";
+      const NAVY = "0F2233"; const YELLOW = "FFB703"; const WHITE = "FFFFFF";
+      const total = budget?.items?.reduce((s: number, x: any) => s + (x.total || 0), 0) || 0;
+      const indh = budget?.indhContribution || Math.round(total * 0.85);
+      const bene = budget?.beneficiaryContribution || Math.round(total * 0.15);
+
+      if (type === "pitch") {
+        let s = prs.addSlide(); s.background = {color: NAVY};
+        s.addText(proj?.projectName || "Mon Projet", {x:0.5,y:1.8,w:9,h:1.2,fontSize:32,color:YELLOW,bold:true,align:"center"});
+        s.addText(logo?.concept?.tagline || proj?.location || "", {x:0.5,y:3.2,w:9,h:0.5,fontSize:14,color:WHITE,align:"center"});
+        s.addText("IdeaMap · INDH Phase 3", {x:0.5,y:4.5,w:9,h:0.3,fontSize:10,color:"888888",align:"center"});
+
+        s = prs.addSlide(); s.background = {color:"FAF7F0"};
+        s.addText("Problème & Solution", {x:0.5,y:0.3,w:9,h:0.6,fontSize:24,color:NAVY,bold:true});
+        if (plan?.problemStatement) s.addText(plan.problemStatement, {x:0.5,y:1.1,w:4.2,h:3.8,fontSize:11,color:"444444",wrap:true});
+        if (plan?.solution) s.addText(plan.solution, {x:5,y:1.1,w:4.2,h:3.8,fontSize:11,color:"444444",wrap:true});
+
+        s = prs.addSlide(); s.background = {color:"FAF7F0"};
+        s.addText("Modèle Économique & Impact", {x:0.5,y:0.3,w:9,h:0.6,fontSize:24,color:NAVY,bold:true});
+        if (plan?.businessModel) s.addText(plan.businessModel, {x:0.5,y:1.1,w:9,h:2,fontSize:11,color:"444444",wrap:true});
+        if (plan?.socialImpact) s.addText(plan.socialImpact, {x:0.5,y:3.3,w:9,h:1.5,fontSize:11,color:"444444",wrap:true});
+
+        s = prs.addSlide(); s.background = {color:NAVY};
+        s.addText("Budget INDH", {x:0.5,y:0.3,w:9,h:0.6,fontSize:24,color:YELLOW,bold:true});
+        s.addText(`Total : ${total.toLocaleString()} MAD\nINDH (85%) : ${indh.toLocaleString()} MAD\nApport porteur (15%) : ${bene.toLocaleString()} MAD`, {x:0.5,y:1.5,w:9,h:2.5,fontSize:18,color:WHITE,align:"center"});
+
+        s = prs.addSlide(); s.background = {color:"FAF7F0"};
+        s.addText("Étapes Suivantes", {x:0.5,y:0.3,w:9,h:0.6,fontSize:24,color:NAVY,bold:true});
+        s.addText("1. Finaliser le dossier INDH\n2. Rassembler tous les documents requis\n3. Déposer auprès du CPDH\n4. Passage devant le jury de sélection\n5. Signature de la convention INDH", {x:0.5,y:1.2,w:9,h:4,fontSize:14,color:"333333"});
+        await prs.writeFile({fileName: `PitchDeck_${proj?.projectName || "IdeaMap"}.pptx`});
+      } else {
+        let s = prs.addSlide(); s.background = {color:NAVY};
+        s.addText(proj?.projectName || "", {x:0.5,y:1.5,w:9,h:1.2,fontSize:36,color:YELLOW,bold:true,align:"center"});
+        s.addText(`Porteur : ${user.name}`, {x:0.5,y:2.9,w:9,h:0.5,fontSize:14,color:WHITE,align:"center"});
+        s.addText(`INDH Phase 3 · ${proj?.pillar || ""}`, {x:0.5,y:3.6,w:9,h:0.4,fontSize:12,color:YELLOW,align:"center"});
+
+        s = prs.addSlide(); s.background = {color:"FAF7F0"};
+        s.addText("Résumé Exécutif", {x:0.5,y:0.3,w:9,h:0.6,fontSize:28,color:NAVY,bold:true});
+        if (plan?.executiveSummary) s.addText(plan.executiveSummary, {x:0.5,y:1.1,w:9,h:4,fontSize:12,color:"333333",wrap:true});
+
+        s = prs.addSlide(); s.background = {color:"FAF7F0"};
+        s.addText("Plan d'Affaires", {x:0.5,y:0.3,w:9,h:0.6,fontSize:28,color:NAVY,bold:true});
+        const planBody = [plan?.problemStatement, plan?.solution, plan?.businessModel].filter(Boolean).join("\n\n");
+        if (planBody) s.addText(planBody, {x:0.5,y:1.1,w:9,h:4,fontSize:11,color:"333333",wrap:true});
+
+        s = prs.addSlide(); s.background = {color:NAVY};
+        s.addText("Budget Prévisionnel", {x:0.5,y:0.3,w:9,h:0.6,fontSize:28,color:YELLOW,bold:true});
+        if (budget?.items?.length) {
+          const rows = [
+            [{text:"Catégorie",options:{bold:true,color:YELLOW}},{text:"Désignation",options:{bold:true,color:YELLOW}},{text:"Total (MAD)",options:{bold:true,color:YELLOW}}],
+            ...budget.items.map((x: any) => [x.category||"", x.item||"", Number(x.total||0).toLocaleString()]),
+            [{text:"",options:{}},{text:"TOTAL",options:{bold:true,color:YELLOW}},{text:total.toLocaleString(),options:{bold:true,color:YELLOW}}],
+          ];
+          s.addTable(rows, {x:0.5,y:1.1,w:9,colW:[2.5,4.5,2],fontSize:10,color:WHITE,border:{type:"solid",color:"444444",pt:0.5}});
+        }
+
+        s = prs.addSlide(); s.background = {color:"FAF7F0"};
+        s.addText("Conformité INDH", {x:0.5,y:0.3,w:9,h:0.6,fontSize:28,color:NAVY,bold:true});
+        if (comp) {
+          const scoreColor = comp.eligible ? "22C55E" : "EF4444";
+          s.addText(`Score : ${comp.score}/100  ·  ${comp.eligible ? "ÉLIGIBLE ✓" : "NON ÉLIGIBLE ✗"}`, {x:0.5,y:1.1,w:9,h:0.6,fontSize:20,color:scoreColor,bold:true});
+          if (comp.juryScore) {
+            const juryRows = [
+              [{text:"Critère",options:{bold:true}},{text:"Poids",options:{bold:true}},{text:"Score",options:{bold:true}}],
+              ...JURY.map(j => [j.label, `/${j.w}`, String(comp.juryScore[j.key]||0)])
+            ];
+            s.addTable(juryRows, {x:0.5,y:1.9,w:9,fontSize:11,color:"333333",border:{type:"solid",color:"CCCCCC",pt:0.5}});
+          }
+        }
+
+        s = prs.addSlide(); s.background = {color:"FAF7F0"};
+        s.addText("Documents Requis", {x:0.5,y:0.3,w:9,h:0.6,fontSize:28,color:NAVY,bold:true});
+        const doneCount = Object.values(docs).filter(Boolean).length;
+        s.addText(`${doneCount}/${DOCS.length} documents préparés`, {x:0.5,y:1.1,w:9,h:0.4,fontSize:14,color:"333333"});
+        const dRows = [
+          [{text:"Document",options:{bold:true}},{text:"Statut",options:{bold:true}}],
+          ...DOCS.map(d => [d.name, docs[d.id] ? "✓ Prêt" : "⏳ En attente"])
+        ];
+        s.addTable(dRows, {x:0.5,y:1.7,w:9,fontSize:9,color:"333333",border:{type:"solid",color:"CCCCCC",pt:0.5}});
+
+        s = prs.addSlide(); s.background = {color:NAVY};
+        s.addText("Étapes de Soumission", {x:0.5,y:0.3,w:9,h:0.6,fontSize:28,color:YELLOW,bold:true});
+        s.addText("1. Déposer le dossier à la Division de l'Action Sociale (DAS)\n2. Récépissé de dépôt délivré\n3. Instruction par le CPDH local\n4. Passage devant le jury INDH\n5. Notification de décision\n6. Signature de la convention et démarrage", {x:0.5,y:1.2,w:9,h:4.5,fontSize:13,color:WHITE});
+        await prs.writeFile({fileName: `DossierJury_${proj?.projectName || "IdeaMap"}.pptx`});
+      }
+    } catch (e) { console.error("PPTX error:", e); }
+  };
+
+  const genLogo = async () => {
+    setLogoGenerating(true);
+    const r = await ai(
+      [{role:"user", content:`Projet: ${JSON.stringify({name: proj?.projectName, sector: proj?.sector, location: proj?.location})}`}],
+      `Expert logo design. JSON UNIQUEMENT sans markdown: {"initials":"2-3 lettres","color1":"#hexcode couleur principale vive","color2":"#hexcode couleur secondaire","icon":"emoji secteur","tagline":"slogan 4-5 mots max"}`,
+      "json"
+    );
+    const concept = parseJ(r);
+    if (concept) setLogo({type:"generated", concept});
+    setLogoGenerating(false);
+  };
+
   const startChat = async () => {
     if (!idea.trim()) return;
     setBusy(true); setStep("dialogue");
     const r = await ai([{role: "user", content: `Mon idée: ${idea}`}],
-      `Expert INDH Maroc Phase 3. Pose UNE question courte pour structurer le projet (max 100 000 MAD). Réponds en ${LL}. Sois chaleureux.`);
+      `Expert INDH Maroc Phase 3. Pose UNE question courte pour structurer le projet (max 100 000 MAD). Réponds en ${LL}. Sois chaleureux.`,
+      "dialogue");
     setMsgs([{role: "user", content: idea}, {role: "assistant", content: r}]);
     setQN(1); setBusy(false);
   };
@@ -695,7 +813,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject}: {
     const r = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
       `Expert INDH Maroc. Idée: "${idea}". Q ${qN}/${MAX_Q}. ${last
         ? `Dernière interaction. Retourne UNIQUEMENT JSON valide sans markdown: {"projectName":"...","sector":"...","legalStructure":"...","location":"...","beneficiaries":N,"activities":["..."],"strengths":["..."],"estimatedBudget":N,"pillar":"..."}`
-        : `Pose une question courte. Réponds en ${LL}.`}`);
+        : `Pose une question courte. Réponds en ${LL}.`}`,
+      last ? "json" : "dialogue");
     if (last) {
       setMsgs((p: any[]) => [...p, {role: "assistant", content: "✅ Analyse complète !"}]);
       const p = parseJ(r); if (p) setProj(p);
@@ -707,10 +826,12 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject}: {
   const genPlan = async () => {
     setBusy(true); setStep("plan");
     const r = await ai([{role: "user", content: `Projet: ${JSON.stringify(proj || {idea})}`}],
-      `Expert consultant INDH Maroc. Business plan en ${LL}. JSON sans markdown: {"executiveSummary":"...","problemStatement":"...","solution":"...","marketAnalysis":"...","businessModel":"...","socialImpact":"...","operationalPlan":"...","indh_alignment":"...","risks":["...","..."],"projections":{"year1":N,"year2":N,"year3":N}}`);
+      `Expert consultant INDH Maroc. Business plan en ${LL}. JSON sans markdown: {"executiveSummary":"...","problemStatement":"...","solution":"...","marketAnalysis":"...","businessModel":"...","socialImpact":"...","operationalPlan":"...","indh_alignment":"...","risks":["...","..."],"projections":{"year1":N,"year2":N,"year3":N}}`,
+      "json");
     const p = parseJ(r); if (p) setPlan(p);
     const r2 = await ai([{role: "user", content: `Projet: ${JSON.stringify(proj || {idea})}`}],
-      `Expert financier INDH. Budget max 100 000 MAD. JSON sans markdown: {"items":[{"category":"...","item":"...","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`);
+      `Expert financier INDH. Budget max 100 000 MAD. JSON sans markdown: {"items":[{"category":"...","item":"...","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`,
+      "json");
     const b = parseJ(r2); if (b) setBudget(b);
     setBusy(false);
   };
@@ -718,12 +839,13 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject}: {
   const checkComp = async () => {
     setStep("compliance"); setBusy(true);
     const r = await ai([{role: "user", content: `${JSON.stringify(proj)} ${JSON.stringify(plan)}`}],
-      `Expert conformité INDH Phase 3. JSON sans markdown: {"eligible":true,"score":N,"pillar":"...","strengths":["...","..."],"weaknesses":["..."],"recommendations":["...","...","..."],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`);
+      `Expert conformité INDH Phase 3. JSON sans markdown: {"eligible":true,"score":N,"pillar":"...","strengths":["...","..."],"weaknesses":["..."],"recommendations":["...","...","..."],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
+      "json");
     const c = parseJ(r); if (c) setComp(c);
     setBusy(false);
   };
 
-  const STEPS = ["idea", "dialogue", "profile", "plan", "budget", "compliance", "documents", "export"];
+  const STEPS = ["idea", "dialogue", "profile", "plan", "budget", "logo", "compliance", "documents", "export"];
   const si = STEPS.indexOf(step);
 
   const fs: React.CSSProperties = {
@@ -990,10 +1112,116 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject}: {
                   <div style={{fontSize: "10px", color: GR, marginTop: "2px"}}>MAD · {Math.round((bene / (total || 1)) * 100)}%</div>
                 </div>
               </div>
-              {indhBtn(t.checkBtn, checkComp)}
+              {indhBtn(`🎨 ${lang === "ar" ? "التالي: الشعار ←" : lang === "fr" ? "Suivant : Logo →" : "Next: Logo →"}`, () => setStep("logo"))}
             </Card>
           );
         })()}
+
+        {/* ── LOGO ── */}
+        {step === "logo" && (
+          <Card>
+            <div style={{display:"flex", alignItems:"center", gap:"12px", marginBottom:"20px"}}>
+              <div style={{width:"46px", height:"46px", borderRadius:"13px", background:YL,
+                display:"flex", alignItems:"center", justifyContent:"center", fontSize:"24px",
+                border:`2px solid ${Y}`, flexShrink:0}}>🎨</div>
+              <div>
+                <h2 style={{fontSize:"19px", fontWeight:"700", color:ND}}>
+                  {lang==="ar"?"شعار مشروعك":lang==="fr"?"Logo de votre projet":"Your project logo"}
+                </h2>
+                <p style={{fontSize:"12px", color:GR, marginTop:"2px"}}>
+                  {lang==="ar"?"أضف شعاراً أو أنشئه بالذكاء الاصطناعي":lang==="fr"?"Importez votre logo ou générez-en un gratuitement":"Upload your logo or generate one for free"}
+                </p>
+              </div>
+            </div>
+
+            {!logo && (
+              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginBottom:"16px"}}>
+                <label style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                  padding:"28px 16px", borderRadius:"14px", border:`2px dashed ${CD}`,
+                  cursor:"pointer", background:CR, gap:"8px"}}>
+                  <span style={{fontSize:"28px"}}>📁</span>
+                  <span style={{fontSize:"12px", fontWeight:"600", color:N}}>
+                    {lang==="ar"?"تحميل شعار":lang==="fr"?"Importer mon logo":"Upload a logo"}
+                  </span>
+                  <span style={{fontSize:"10px", color:GR}}>PNG, JPG, SVG</span>
+                  <input type="file" accept="image/*" style={{display:"none"}}
+                    onChange={e => {
+                      const f = e.target.files?.[0]; if (!f) return;
+                      const reader = new FileReader();
+                      reader.onload = ev => setLogo({type:"upload", dataUrl: ev.target?.result as string});
+                      reader.readAsDataURL(f);
+                    }}/>
+                </label>
+                <button onClick={genLogo} disabled={logoGenerating}
+                  style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                    padding:"28px 16px", borderRadius:"14px", border:`2px dashed ${Y}`,
+                    cursor:logoGenerating?"wait":"pointer", background:YL, gap:"8px",
+                    opacity:logoGenerating?0.7:1}}>
+                  <span style={{fontSize:"28px"}}>{logoGenerating?"⏳":"✨"}</span>
+                  <span style={{fontSize:"12px", fontWeight:"600", color:ND}}>
+                    {logoGenerating?(lang==="ar"?"جاري الإنشاء...":"Génération..."):(lang==="ar"?"توليد بالذكاء الاصطناعي":lang==="fr"?"Générer avec l'IA":"Generate with AI")}
+                  </span>
+                  <span style={{fontSize:"10px", color:N}}>
+                    {lang==="ar"?"مجاني تماماً":lang==="fr"?"100% gratuit":"100% free"}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {logo && (
+              <div style={{textAlign:"center", marginBottom:"20px"}}>
+                <div style={{display:"flex", justifyContent:"center", marginBottom:"12px"}}>
+                  {logo.type === "upload" ? (
+                    <img src={logo.dataUrl} alt="logo"
+                      style={{width:"120px", height:"120px", objectFit:"contain", borderRadius:"16px",
+                        border:`3px solid ${Y}`, boxShadow:`0 4px 20px rgba(255,183,3,.3)`}}/>
+                  ) : logo.concept && (
+                    <svg width="120" height="120" viewBox="0 0 120 120">
+                      <circle cx="60" cy="60" r="60" fill={logo.concept.color1 || N}/>
+                      <circle cx="60" cy="60" r="46" fill={logo.concept.color2 || Y} opacity="0.22"/>
+                      <text x="60" y="52" textAnchor="middle" fontSize="26" fontWeight="800" fill="#FFFFFF" fontFamily="'Poppins',sans-serif">{(logo.concept.initials||"?").slice(0,3)}</text>
+                      <text x="60" y="75" textAnchor="middle" fontSize="20">{logo.concept.icon||"💡"}</text>
+                      <text x="60" y="96" textAnchor="middle" fontSize="6.5" fill="rgba(255,255,255,0.8)" fontFamily="'Poppins',sans-serif">{(logo.concept.tagline||"").slice(0,24)}</text>
+                    </svg>
+                  )}
+                </div>
+                {logo.type === "generated" && logo.concept?.tagline && (
+                  <p style={{fontSize:"13px", fontStyle:"italic", color:N, marginBottom:"8px"}}>"{logo.concept.tagline}"</p>
+                )}
+                <button onClick={() => setLogo(null)}
+                  style={{padding:"5px 14px", borderRadius:"8px", border:`1px solid ${CD}`,
+                    background:"transparent", fontSize:"11px", color:GR, fontFamily:ff(lang), cursor:"pointer"}}>
+                  {lang==="ar"?"تغيير الشعار":lang==="fr"?"Changer le logo":"Change logo"}
+                </button>
+              </div>
+            )}
+
+            {(plan && budget) && (
+              <div style={{padding:"14px 16px", background:ND, borderRadius:"13px", marginBottom:"14px",
+                display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px"}}>
+                <div>
+                  <div style={{fontSize:"12px", fontWeight:"700", color:Y, marginBottom:"2px"}}>
+                    🎯 {lang==="ar"?"عرض تقديمي (5 شرائح)":lang==="fr"?"Pitch Deck — 5 diapositives":"Pitch Deck — 5 slides"}
+                  </div>
+                  <div style={{fontSize:"11px", color:"rgba(255,255,255,.45)"}}>
+                    {lang==="ar"?"اختياري — للتقديم قبل الملف الرسمي":lang==="fr"?"Optionnel · À partager avant le dossier":"Optional · Share before the formal file"}
+                  </div>
+                </div>
+                <button onClick={() => dlPPTX("pitch")}
+                  style={{padding:"9px 16px", borderRadius:"10px", border:`1.5px solid ${Y}`,
+                    background:"transparent", color:Y, fontSize:"12px", fontWeight:"700",
+                    fontFamily:ff(lang), cursor:"pointer", whiteSpace:"nowrap", flexShrink:0}}>
+                  ⬇ .pptx
+                </button>
+              </div>
+            )}
+
+            {indhBtn(
+              lang==="ar"?"← التالي: الامتثال":lang==="fr"?"Continuer → Conformité":"Continue → Compliance",
+              checkComp
+            )}
+          </Card>
+        )}
 
         {/* ── COMPLIANCE ── */}
         {step === "compliance" && (<Card>
@@ -1053,12 +1281,28 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject}: {
           const done = Object.values(docs).filter(Boolean).length;
           return (
             <Card>
+              {/* hidden file input shared by all doc rows */}
+              <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{display:"none"}}
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (!f || pendingAttach === null) return;
+                  if (f.size > 1.5 * 1024 * 1024) { alert(lang==="ar"?"الملف كبير جداً (الحد 1.5 MB)":lang==="fr"?"Fichier trop lourd (max 1.5 MB)":"File too large (max 1.5 MB)"); return; }
+                  const reader = new FileReader();
+                  reader.onload = ev => {
+                    const id = pendingAttach;
+                    setDocFiles(p => ({...p, [id]: ev.target?.result as string}));
+                    setDocs(p => ({...p, [id]: true}));
+                    setPendingAttach(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  };
+                  reader.readAsDataURL(f);
+                }}/>
               <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px"}}>
                 <div style={{width: "46px", height: "46px", borderRadius: "13px", background: YL,
                   display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px",
                   border: `2px solid ${Y}`, flexShrink: 0}}>📁</div>
                 <div><h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.docsT}</h2>
-                  <p style={{fontSize: "11px", color: GR, marginTop: "2px"}}>{lang === "ar" ? "تحقق مما جهزته" : lang === "fr" ? "Cochez les documents préparés" : "Check off prepared documents"}</p></div>
+                  <p style={{fontSize: "11px", color: GR, marginTop: "2px"}}>{lang === "ar" ? "تحقق وأرفق الملفات" : lang === "fr" ? "Cochez et joignez vos fichiers (max 1.5 MB)" : "Check off and attach files (max 1.5 MB)"}</p></div>
               </div>
               <div style={{padding: "11px 14px", background: ND, borderRadius: "11px", margin: "14px 0",
                 display: "flex", alignItems: "center", justifyContent: "space-between"}}>
@@ -1085,7 +1329,19 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject}: {
                         <span style={{fontSize: "12px", fontWeight: "600",
                           color: docs[doc.id] && type === "req" ? WH : ND}}>{doc.name}</span>
                       </div>
-                      <p style={{fontSize: "11px", color: docs[doc.id] && type === "req" ? "rgba(255,255,255,.5)" : GR}}>{doc.desc}</p>
+                      <div style={{display:"flex", alignItems:"center", gap:"6px"}}>
+                        <p style={{fontSize: "11px", color: docs[doc.id] && type === "req" ? "rgba(255,255,255,.5)" : GR, flex:1}}>{doc.desc}</p>
+                        {docFiles[doc.id] ? (
+                          <span style={{fontSize:"10px", color:GN, fontWeight:"700", flexShrink:0}}>📎 {lang==="ar"?"مرفق":lang==="fr"?"Joint":"Attached"}</span>
+                        ) : (
+                          <button onClick={e => {e.stopPropagation(); setPendingAttach(doc.id); fileInputRef.current?.click();}}
+                            style={{padding:"3px 9px", borderRadius:"6px", border:`1px dashed ${docs[doc.id]?"rgba(255,255,255,.3)":CD}`,
+                              background:"transparent", fontSize:"10px", color:docs[doc.id]&&type==="req"?"rgba(255,255,255,.6)":GR,
+                              fontFamily:ff(lang), cursor:"pointer", flexShrink:0}}>
+                            📎 {lang==="ar"?"إرفاق":lang==="fr"?"Joindre":"Attach"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1122,20 +1378,82 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject}: {
                 <AccBar/><span style={{fontSize: "15px", fontWeight: "700", color: ND}}>📦 {t.delivT}</span>
               </div>
               {[
-                {icon: "📊", l: lang === "ar" ? "خطة الأعمال" : lang === "fr" ? "Business Plan" : "Business Plan", ok: !!plan, badge: "PDF"},
-                {icon: "💰", l: lang === "ar" ? "الميزانية التفصيلية" : lang === "fr" ? "Budget Prévisionnel" : "Detailed Budget", ok: !!budget?.items, badge: "XLS"},
-                {icon: "✅", l: lang === "ar" ? "تقرير الامتثال" : lang === "fr" ? "Rapport de Conformité" : "Compliance Report", ok: !!comp, badge: "PDF"},
-                {icon: "📋", l: lang === "ar" ? "قائمة الوثائق" : lang === "fr" ? "Checklist Documents" : "Docs Checklist", ok: true, badge: "PDF"},
-                {icon: "🎯", l: lang === "ar" ? "عرض اللجنة" : lang === "fr" ? "Présentation Jury" : "Jury Presentation", ok: !!proj, badge: "PPT"},
-                {icon: "📖", l: lang === "ar" ? "دليل التقديم" : lang === "fr" ? "Guide de Soumission" : "Submission Guide", ok: true, badge: "PDF"},
+                {icon:"📊", l:lang==="ar"?"خطة الأعمال":lang==="fr"?"Business Plan":"Business Plan", ok:!!plan,
+                  onDl:() => dlText([
+                    `${proj?.projectName || "Projet"} — Business Plan`,``,
+                    `RÉSUMÉ EXÉCUTIF`,plan?.executiveSummary||"",``,
+                    `PROBLÉMATIQUE`,plan?.problemStatement||"",``,
+                    `SOLUTION`,plan?.solution||"",``,
+                    `ANALYSE DE MARCHÉ`,plan?.marketAnalysis||"",``,
+                    `MODÈLE ÉCONOMIQUE`,plan?.businessModel||"",``,
+                    `IMPACT SOCIAL`,plan?.socialImpact||"",``,
+                    `PLAN OPÉRATIONNEL`,plan?.operationalPlan||"",``,
+                    `ALIGNEMENT INDH`,plan?.indh_alignment||"",``,
+                    `RISQUES`,...(plan?.risks||[]).map((r: string)=>`• ${r}`),``,
+                    `PROJECTIONS`,`An 1: ${plan?.projections?.year1||0} MAD`,`An 2: ${plan?.projections?.year2||0} MAD`,`An 3: ${plan?.projections?.year3||0} MAD`,
+                  ].join("\n"), `BusinessPlan_${proj?.projectName||"IdeaMap"}.txt`)},
+                {icon:"💰", l:lang==="ar"?"الميزانية التفصيلية":lang==="fr"?"Budget Prévisionnel":"Detailed Budget", ok:!!budget?.items,
+                  onDl:() => {
+                    const total=(budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
+                    dlText([
+                      `${proj?.projectName||"Projet"} — Budget Prévisionnel`,``,
+                      `Catégorie\tDésignation\tQuantité\tPrix Unit.\tTotal`,
+                      ...(budget?.items||[]).map((x: any)=>`${x.category}\t${x.item}\t${x.quantity}\t${x.unitPrice}\t${x.total}`),``,
+                      `TOTAL: ${total.toLocaleString()} MAD`,
+                      `Contribution INDH (${Math.round(((budget?.indhContribution||Math.round(total*.85))/total)*100)}%): ${(budget?.indhContribution||Math.round(total*.85)).toLocaleString()} MAD`,
+                      `Apport porteur (${Math.round(((budget?.beneficiaryContribution||Math.round(total*.15))/total)*100)}%): ${(budget?.beneficiaryContribution||Math.round(total*.15)).toLocaleString()} MAD`,
+                    ].join("\n"), `Budget_${proj?.projectName||"IdeaMap"}.txt`)}},
+                {icon:"✅", l:lang==="ar"?"تقرير الامتثال":lang==="fr"?"Rapport de Conformité":"Compliance Report", ok:!!comp,
+                  onDl:() => dlText([
+                    `${proj?.projectName||"Projet"} — Conformité INDH`,``,
+                    `Score: ${comp?.score}/100`,`Éligible: ${comp?.eligible?"OUI":"NON"}`,`Pilier: ${comp?.pillar||""}`,``,
+                    `POINTS FORTS`,...(comp?.strengths||[]).map((s: string)=>`✓ ${s}`),``,
+                    `RECOMMANDATIONS`,...(comp?.recommendations||[]).map((r: string)=>`→ ${r}`),``,
+                    `GRILLE JURY`,
+                    ...JURY.map(j=>`${j.label}: ${comp?.juryScore?.[j.key]||0}/${j.w}`),
+                  ].join("\n"), `Conformite_${proj?.projectName||"IdeaMap"}.txt`)},
+                {icon:"📋", l:lang==="ar"?"قائمة الوثائق":lang==="fr"?"Checklist Documents":"Docs Checklist", ok:true,
+                  onDl:() => dlText([
+                    `${proj?.projectName||"Projet"} — Checklist Documents`,``,
+                    `OBLIGATOIRES`,
+                    ...DOCS.filter(d=>d.req).map(d=>`[${docs[d.id]?"✓":" "}] ${d.name} — ${d.desc}`),``,
+                    `OPTIONNELS`,
+                    ...DOCS.filter(d=>!d.req).map(d=>`[${docs[d.id]?"✓":" "}] ${d.name} — ${d.desc}`),
+                  ].join("\n"), `Checklist_${proj?.projectName||"IdeaMap"}.txt`)},
+                {icon:"📖", l:lang==="ar"?"دليل التقديم":lang==="fr"?"Guide de Soumission":"Submission Guide", ok:true,
+                  onDl:() => dlText([
+                    `GUIDE DE SOUMISSION INDH — ${proj?.projectName||""}`,``,
+                    `Étape 1: Finaliser et réunir tous les documents requis`,
+                    `Étape 2: Déposer le dossier complet à la Division de l'Action Sociale (DAS) de votre province`,
+                    `Étape 3: Obtenir le récépissé de dépôt (conservez-le précieusement)`,
+                    `Étape 4: Instruction du dossier par le CPDH local (4 à 8 semaines)`,
+                    `Étape 5: Présentation devant le jury de sélection INDH`,
+                    `Étape 6: Notification de la décision (financement / report / refus)`,
+                    `Étape 7: Signature de la convention INDH et démarrage du projet`,``,
+                    `CONTACTS UTILES`,
+                    `• Division de l'Action Sociale (DAS) de votre province`,
+                    `• Comité Provincial de Développement Humain (CPDH)`,
+                    `• Site officiel INDH: www.indh.ma`,
+                    `• Rokhsa.ma pour les autorisations réglementées`,
+                  ].join("\n"), `GuideSubmission_${proj?.projectName||"IdeaMap"}.txt`)},
+                {icon:"🎯", l:lang==="ar"?"عرض اللجنة (7 شرائح)":lang==="fr"?"Présentation Jury — 7 diapositives":"Jury Presentation — 7 slides", ok:!!proj,
+                  onDl:() => dlPPTX("jury"), badge:"pptx"},
               ].map((x, i) => (
-                <div key={i} style={{display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px",
-                  borderRadius: "13px", marginBottom: "7px", background: x.ok ? ND : CR, border: `1px solid ${x.ok ? Y : CD}`}}>
-                  <span style={{fontSize: "20px"}}>{x.icon}</span>
-                  <span style={{flex: 1, fontSize: "12px", color: x.ok ? WH : ND, fontWeight: "500"}}>{x.l}</span>
-                  <span style={{padding: "2px 7px", borderRadius: "5px", fontSize: "9px", fontWeight: "700",
-                    background: x.ok ? Y : CD, color: x.ok ? ND : GR}}>{x.badge}</span>
-                  <span style={{fontSize: "15px"}}>{x.ok ? "✅" : "⏳"}</span>
+                <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px",
+                  borderRadius:"13px", marginBottom:"7px", background:x.ok?ND:CR, border:`1px solid ${x.ok?Y:CD}`}}>
+                  <span style={{fontSize:"20px"}}>{x.icon}</span>
+                  <span style={{flex:1, fontSize:"12px", color:x.ok?WH:ND, fontWeight:"500"}}>{x.l}</span>
+                  {x.ok ? (
+                    <button onClick={x.onDl}
+                      style={{padding:"5px 12px", borderRadius:"8px", border:`1.5px solid ${Y}`,
+                        background:"transparent", color:Y, fontSize:"11px", fontWeight:"700",
+                        fontFamily:ff(lang), cursor:"pointer"}}>
+                      ⬇ {(x as any).badge || "txt"}
+                    </button>
+                  ) : (
+                    <span style={{padding:"2px 7px", borderRadius:"5px", fontSize:"9px", fontWeight:"700",
+                      background:CD, color:GR}}>⏳</span>
+                  )}
                 </div>
               ))}
             </Card>
@@ -1508,6 +1826,26 @@ export default function IdeaMapPage() {
   const [holders, setHolders] = useState<any[]>([]);
   const [coords, setCoords]   = useState<string[]>([]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const h = localStorage.getItem("idm_holders");
+      if (h) setHolders(JSON.parse(h));
+      const c = localStorage.getItem("idm_coords");
+      if (c) setCoords(JSON.parse(c));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { localStorage.setItem("idm_holders", JSON.stringify(holders)); } catch {}
+  }, [holders]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { localStorage.setItem("idm_coords", JSON.stringify(coords)); } catch {}
+  }, [coords]);
+
   function setLangDir(l: string) {
     setLang(l);
     if (typeof document !== "undefined")
@@ -1535,10 +1873,13 @@ export default function IdeaMapPage() {
 
   if (!user) return <Login lang={lang} setLang={setLangDir} t={t} onLogin={onLogin} holders={holders} coords={coords}/>;
 
-  if (user.role === "holder") return (
-    <HolderApp lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
-      t={t} onSaveProject={onSaveProject}/>
-  );
+  if (user.role === "holder") {
+    const saved = holders.find(h => h.id === user.id);
+    return (
+      <HolderApp lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
+        t={t} onSaveProject={onSaveProject} initialState={saved}/>
+    );
+  }
 
   if (user.role === "coord") return (
     <CoordDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
