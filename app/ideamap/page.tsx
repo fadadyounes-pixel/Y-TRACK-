@@ -15,10 +15,13 @@ function injectCSS() {
     "body{font-family:'Poppins',sans-serif;background:#0F2233;color:#1C3A5C}",
     "::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#FFB703;border-radius:4px}",
     "@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}",
+    "@keyframes im-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}",
     "@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}}",
     "@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}",
     ".fadeUp{animation:fadeUp .35s ease both}",
+    ".im-rise{animation:im-rise .45s ease both}",
     ".shake{animation:shake .35s ease}",
+    ".login-cont-btn:hover:not(:disabled){background:#141B45!important}",
     "button{cursor:pointer;font-family:inherit;border:none;transition:all .18s}",
     "button:active{transform:scale(.96)!important}",
     "input,select,textarea{font-family:inherit}",
@@ -169,6 +172,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     strengths:"Points forts",recs:"Recommandations",
     juryGrid:"Grille d'Évaluation du Jury",
     projected:"Projections Financières (MAD)",risks:"Risques identifiés",
+    signIn:"Se connecter",signInSub:"Entrez votre code d'accès pour continuer.",codePh:"Code d'accès",cont:"Continuer",
     logout:"Déconnexion",
     coordDash:"Tableau de bord Coordinateur",
     adminDash:"Tableau de bord Administrateur",
@@ -225,6 +229,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     strengths:"نقاط القوة",recs:"التوصيات",
     juryGrid:"معايير التحكيم",
     projected:"التوقعات المالية (درهم)",risks:"المخاطر",
+    signIn:"تسجيل الدخول",signInSub:"أدخل رمز الدخول للمتابعة.",codePh:"رمز الدخول",cont:"متابعة",
     logout:"خروج",
     coordDash:"لوحة تحكم المنسق",
     adminDash:"لوحة تحكم المدير",
@@ -281,6 +286,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     strengths:"Strengths",recs:"Recommendations",
     juryGrid:"Jury Evaluation Grid",
     projected:"Financial Projections (MAD)",risks:"Identified risks",
+    signIn:"Sign in",signInSub:"Enter your access code to continue.",codePh:"Access code",cont:"Continue",
     logout:"Sign out",
     coordDash:"Coordinator Dashboard",
     adminDash:"Admin Dashboard",
@@ -471,104 +477,158 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   );
 
   return (
-    <div style={{minHeight: "100vh", background: ND, display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
+    <div style={{minHeight:"100vh", background:"#0A0F2C", display:"flex", alignItems:"center",
+      justifyContent:"center", position:"relative", overflow:"hidden",
+      padding:"24px", fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
 
-      <div style={{position: "absolute", top: "22px", [dir === "rtl" ? "left" : "right"]: "22px"}}>
+      {/* ── Decorative: network nodes top-right ── */}
+      <svg width="960" height="960" viewBox="0 0 960 960" style={{position:"absolute",top:"-300px",right:"-320px",opacity:0.9,pointerEvents:"none"}}>
+        <g fill="none" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.16">
+          <line x1="480" y1="210" x2="620" y2="300"/><line x1="620" y1="300" x2="760" y2="270"/>
+          <line x1="620" y1="300" x2="650" y2="440"/><line x1="650" y1="440" x2="540" y2="520"/>
+          <line x1="650" y1="440" x2="790" y2="500"/><line x1="540" y1="520" x2="600" y2="640"/>
+        </g>
+        <circle cx="480" cy="210" r="5" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="620" cy="300" r="5" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="760" cy="270" r="5" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="650" cy="440" r="5" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="790" cy="500" r="5" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="540" cy="520" r="6" fill="#2A5CE0" opacity="0.9"/>
+        <path d="M600 600 c0 -22 18 -34 34 -34 s34 12 34 34 c0 22 -34 56 -34 56 s-34 -34 -34 -56 z" fill="#2A5CE0" opacity="0.9"/>
+      </svg>
+
+      {/* ── Decorative: concentric circles bottom-left ── */}
+      <svg width="620" height="620" viewBox="0 0 620 620" style={{position:"absolute",bottom:"-200px",left:"-200px",opacity:0.5,pointerEvents:"none"}}>
+        <g fill="none" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.12">
+          <circle cx="310" cy="310" r="240"/><circle cx="310" cy="310" r="180"/>
+        </g>
+      </svg>
+
+      {/* Language toggle */}
+      <div style={{position:"absolute", top:"22px", [dir==="rtl"?"left":"right"]:"22px", zIndex:10}}>
         <LangToggle lang={lang} setLang={setLang}/>
       </div>
 
-      <div className="fadeUp" style={{width: "100%", maxWidth: "420px"}}>
-        <div style={{textAlign: "center", marginBottom: "32px"}}>
-          <div style={{display: "flex", justifyContent: "center", marginBottom: "16px"}}><Logo size={72}/></div>
-          <div style={{fontSize: "38px", fontWeight: "800", color: WH, lineHeight: 1, letterSpacing: "-.5px"}}>IdeaMap</div>
-          <div style={{fontSize: "13px", color: Y, fontWeight: "500", marginTop: "7px", opacity: .9}}>{t.tagline}</div>
+      {/* ── Content column ── */}
+      <div className="im-rise" style={{width:"400px", maxWidth:"100%", position:"relative", zIndex:1}}>
+
+        {/* Logo */}
+        <div style={{display:"flex", justifyContent:"center", marginBottom:"8px"}}>
+          <img src="/logo-transparent.png" alt="IdeaMap"
+            style={{width:"270px", maxWidth:"100%", objectFit:"contain"}}/>
         </div>
 
-        <div style={{background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)",
-          borderRadius: "22px", padding: "28px 24px", backdropFilter: "blur(10px)",
-          maxHeight: "80vh", overflowY: "auto"}}>
+        {/* White card */}
+        <div style={{background:"#FFFFFF", borderRadius:"16px", padding:"36px 32px",
+          boxShadow:"0 24px 60px rgba(0,0,0,0.35)", marginTop:"18px",
+          maxHeight:"80vh", overflowY:"auto"}}>
 
+          {/* ── Sign-in screen ── */}
           {!mode && <>
-            <p style={{fontSize: "12px", fontWeight: "600", color: "rgba(255,255,255,.45)",
-              textTransform: "uppercase", letterSpacing: ".5px", marginBottom: "10px", textAlign: "center"}}>
-              {t.enter}
-            </p>
+            <div style={{fontSize:"22px", fontWeight:"800", color:"#10132A", marginBottom:"6px"}}>{t.signIn}</div>
+            <div style={{fontSize:"13.5px", color:"#5B6178", marginBottom:"24px"}}>{t.signInSub}</div>
             <input
               value={val}
               onChange={e => {setVal(e.target.value.toUpperCase()); setErr(false);}}
               onKeyDown={e => e.key === "Enter" && handleCheck()}
-              placeholder="AB123456 · @KHALIDCOD"
+              placeholder={t.codePh as string}
               maxLength={30}
               className={err ? "shake" : ""}
-              style={{width: "100%", padding: "14px 18px", borderRadius: "13px",
-                border: `2px solid ${err ? RE : val && detectRole(val.trim()) !== "unknown" ? GN : "rgba(255,255,255,.15)"}`,
-                background: "rgba(255,255,255,.07)", color: WH, fontSize: "17px",
-                fontFamily: ff(lang), fontWeight: "700", letterSpacing: "2px",
-                textAlign: "center", marginBottom: "8px", transition: "all .2s"}}/>
-            <p style={{fontSize: "11px", color: err ? RE : "rgba(255,255,255,.28)",
-              textAlign: "center", marginBottom: "20px", minHeight: "16px"}}>
-              {err ? t.cinError : t.enterHint}
-            </p>
-            <Btn onClick={handleCheck} disabled={!val.trim()}>{t.login}</Btn>
+              style={{width:"100%", padding:"13px 14px",
+                border:`1px solid ${err ? "#C0632F" : "#DDE0E8"}`,
+                borderRadius:"8px", fontSize:"15px", fontFamily:ff(lang), outline:"none",
+                marginBottom:"10px", letterSpacing:"0.4px",
+                background:"#F5F6F8", color:"#10132A",
+                direction:dir as "rtl"|"ltr", transition:"border-color .2s"}}/>
+            {err && <div style={{fontSize:"13px", color:"#C0632F", marginBottom:"10px"}}>{t.cinError}</div>}
+            <button
+              className="login-cont-btn"
+              onClick={handleCheck}
+              disabled={!val.trim()}
+              style={{width:"100%", padding:"14px", background:"#0A0F2C", color:"#fff",
+                border:"none", borderRadius:"8px", fontSize:"15px", fontWeight:"700",
+                fontFamily:ff(lang), cursor:!val.trim()?"not-allowed":"pointer",
+                marginTop:"8px", letterSpacing:"0.2px",
+                boxShadow:"0 8px 20px rgba(10,15,44,0.32)",
+                opacity:!val.trim()?0.45:1, transition:"background .15s, opacity .15s"}}>
+              {t.cont} →
+            </button>
           </>}
 
+          {/* ── New vs returning choice ── */}
           {mode === "choose" && <>
-            <p style={{fontSize: "14px", color: "rgba(255,255,255,.7)", textAlign: "center", marginBottom: "22px", lineHeight: "1.6"}}>
-              {lang === "ar" ? `الرقم ${val} غير مسجل بعد.` : lang === "fr" ? `Le CIN ${val} n'est pas encore enregistré.` : `CIN ${val} is not registered yet.`}
+            <div style={{fontSize:"16px", fontWeight:"700", color:"#10132A", marginBottom:"8px"}}>
+              {lang==="ar"?`الرقم ${val} غير مسجل بعد.`:lang==="fr"?`Le CIN ${val} n'est pas encore enregistré.`:`CIN ${val} is not registered yet.`}
+            </div>
+            <p style={{fontSize:"13px", color:"#5B6178", marginBottom:"22px", lineHeight:"1.6"}}>
+              {lang==="ar"?"هل تريد إنشاء حساب جديد؟":lang==="fr"?"Voulez-vous créer un nouveau compte ?":"Would you like to create a new account?"}
             </p>
-            <div style={{display: "grid", gap: "10px"}}>
-              <Btn onClick={() => setMode("new")}>{t.newAccount}</Btn>
-              <Btn outline onClick={() => {setErr(true); setMode(null);}}>{t.existingAccount}</Btn>
+            <div style={{display:"grid", gap:"10px"}}>
+              <button onClick={()=>setMode("new")}
+                style={{width:"100%",padding:"13px",background:"#0A0F2C",color:"#fff",border:"none",
+                  borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:ff(lang),
+                  cursor:"pointer",boxShadow:"0 8px 20px rgba(10,15,44,0.25)"}}>
+                {t.newAccount}
+              </button>
+              <button onClick={()=>{setErr(true);setMode(null);}}
+                style={{width:"100%",padding:"13px",background:"transparent",color:"#10132A",
+                  border:"2px solid #10132A",borderRadius:"8px",fontSize:"14px",fontWeight:"700",
+                  fontFamily:ff(lang),cursor:"pointer"}}>
+                {t.existingAccount}
+              </button>
             </div>
           </>}
 
+          {/* ── Account creation form ── */}
           {mode === "new" && <>
-            <p style={{fontSize: "15px", fontWeight: "700", color: WH, textAlign: "center", marginBottom: "18px"}}>
-              {t.createTitle}
-            </p>
-            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px"}}>
-              {inp("firstName", t.firstName)} {inp("lastName", t.lastName)}
+            <div style={{fontSize:"16px", fontWeight:"800", color:"#10132A", marginBottom:"18px"}}>{t.createTitle}</div>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
+              {inp("firstName", t.firstName as string)} {inp("lastName", t.lastName as string)}
             </div>
-            <div style={{marginBottom: "8px", position: "relative"}}>
-              {inp("email", t.email)}
+            <div style={{marginBottom:"8px", position:"relative"}}>
+              {inp("email", t.email as string)}
               {form.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) &&
-                <span style={{position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "14px"}}>✅</span>}
+                <span style={{position:"absolute",right:"12px",top:"50%",transform:"translateY(-50%)",fontSize:"14px"}}>✅</span>}
             </div>
-            <div style={{marginBottom: "8px"}}>{inp("phone", t.phone)}</div>
-            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px"}}>
-              <Sel value={form.age} onChange={v => setForm(p => ({...p, age: v}))} options={AGES} placeholder={t.age} dir={dir}/>
-              <Sel value={form.gender} onChange={v => setForm(p => ({...p, gender: v}))} options={GENDERS[lang]} placeholder={t.gender} dir={dir}/>
+            <div style={{marginBottom:"8px"}}>{inp("phone", t.phone as string)}</div>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
+              <Sel value={form.age} onChange={v=>setForm(p=>({...p,age:v}))} options={AGES} placeholder={t.age as string} dir={dir}/>
+              <Sel value={form.gender} onChange={v=>setForm(p=>({...p,gender:v}))} options={GENDERS[lang]} placeholder={t.gender as string} dir={dir}/>
             </div>
-            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px"}}>
-              <Sel value={form.marital} onChange={v => setForm(p => ({...p, marital: v}))} options={MARITAL[lang]} placeholder={t.marital} dir={dir}/>
-              <Sel value={form.edu} onChange={v => setForm(p => ({...p, edu: v}))} options={EDU[lang]} placeholder={t.edu} dir={dir}/>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
+              <Sel value={form.marital} onChange={v=>setForm(p=>({...p,marital:v}))} options={MARITAL[lang]} placeholder={t.marital as string} dir={dir}/>
+              <Sel value={form.edu} onChange={v=>setForm(p=>({...p,edu:v}))} options={EDU[lang]} placeholder={t.edu as string} dir={dir}/>
             </div>
-            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px"}}>
-              {inp("city", t.city)}
-              <Sel value={form.region} onChange={v => setForm(p => ({...p, region: v}))} options={REGIONS} placeholder={t.region} dir={dir}/>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
+              {inp("city", t.city as string)}
+              <Sel value={form.region} onChange={v=>setForm(p=>({...p,region:v}))} options={REGIONS} placeholder={t.region as string} dir={dir}/>
             </div>
-            <div style={{marginBottom: "8px"}}>
-              <Sel value={form.sector} onChange={v => setForm(p => ({...p, sector: v}))} options={SECTORS} placeholder={t.sector} dir={dir}/>
+            <div style={{marginBottom:"8px"}}>
+              <Sel value={form.sector} onChange={v=>setForm(p=>({...p,sector:v}))} options={SECTORS} placeholder={t.sector as string} dir={dir}/>
             </div>
-            <div style={{marginBottom: "16px"}}>
-              <Sel value={form.projType} onChange={v => setForm(p => ({...p, projType: v}))} options={PROJ_TYPES[lang]} placeholder={t.projType} dir={dir}/>
+            <div style={{marginBottom:"16px"}}>
+              <Sel value={form.projType} onChange={v=>setForm(p=>({...p,projType:v}))} options={PROJ_TYPES[lang]} placeholder={t.projType as string} dir={dir}/>
             </div>
-            {formErr && <p style={{fontSize: "12px", color: RE, textAlign: "center", marginBottom: "10px"}}>
-              {lang === "ar" ? "يرجى ملء جميع الحقول الإلزامية" : lang === "fr" ? "Veuillez remplir tous les champs obligatoires" : "Please fill in all required fields"}
+            {formErr && <p style={{fontSize:"12px",color:"#C0632F",textAlign:"center",marginBottom:"10px"}}>
+              {lang==="ar"?"يرجى ملء جميع الحقول الإلزامية":lang==="fr"?"Veuillez remplir tous les champs obligatoires":"Please fill in all required fields"}
             </p>}
-            <Btn onClick={handleCreate}>{t.create}</Btn>
-            <button onClick={() => setMode("choose")} style={{width: "100%", marginTop: "10px",
-              background: "transparent", color: "rgba(255,255,255,.35)", fontSize: "12px",
-              border: "none", padding: "8px", fontFamily: ff(lang)}}>
-              ← {lang === "ar" ? "رجوع" : lang === "fr" ? "Retour" : "Back"}
+            <button onClick={handleCreate}
+              style={{width:"100%",padding:"13px",background:"#0A0F2C",color:"#fff",border:"none",
+                borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:ff(lang),
+                cursor:"pointer",boxShadow:"0 8px 20px rgba(10,15,44,0.25)"}}>
+              {t.create}
+            </button>
+            <button onClick={()=>setMode("choose")}
+              style={{width:"100%",marginTop:"10px",background:"transparent",color:"#5B6178",
+                fontSize:"12px",border:"none",padding:"8px",fontFamily:ff(lang),cursor:"pointer"}}>
+              ← {lang==="ar"?"رجوع":lang==="fr"?"Retour":"Back"}
             </button>
           </>}
         </div>
 
-        <p style={{textAlign: "center", marginTop: "24px", fontSize: "11px",
-          color: "rgba(255,255,255,.18)", fontWeight: "500"}}>
-          © 2025 IdeaMap · Initiative Nationale pour le Développement Humain
+        {/* Footer */}
+        <p style={{textAlign:"center", marginTop:"22px", fontSize:"12px", color:"rgba(255,255,255,0.4)"}}>
+          © 2026 IdeaMap
         </p>
       </div>
     </div>
