@@ -1,0 +1,105 @@
+name: Setup Vercel Env
+on:
+  workflow_dispatch:
+    inputs:
+      vercel_token:
+        description: 'Vercel Token (vcp_...)'
+        required: true
+        type: string
+      upstash_url:
+        description: 'Upstash URL (https://xxx.upstash.io)'
+        required: true
+        type: string
+      upstash_token:
+        description: 'Upstash Token'
+        required: true
+        type: string
+      groq_key:
+        description: 'Groq API Key (gsk_...)'
+        required: false
+        type: string
+      gemini_key:
+        description: 'Gemini API Key (AIza...)'
+        required: false
+        type: string
+      openrouter_key:
+        description: 'OpenRouter API Key'
+        required: false
+        type: string
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set environment variables in Vercel
+        shell: bash
+        env:
+          VT: ${{ github.event.inputs.vercel_token }}
+          U_URL: ${{ github.event.inputs.upstash_url }}
+          U_TKN: ${{ github.event.inputs.upstash_token }}
+          GROQ: ${{ github.event.inputs.groq_key }}
+          GEMINI: ${{ github.event.inputs.gemini_key }}
+          OPENROUTER: ${{ github.event.inputs.openrouter_key }}
+        run: |
+          echo "::add-mask::$VT"
+          echo "::add-mask::$U_TKN"
+          echo "::add-mask::$GROQ"
+          echo "::add-mask::$GEMINI"
+          echo "::add-mask::$OPENROUTER"
+
+          python3 - <<'PYEOF'
+import os, json, urllib.request
+
+TOKEN = os.environ['VT']
+
+def vreq(method, path, data=None):
+    url = f"https://api.vercel.com{path}"
+    headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+    body = json.dumps(data).encode() if data else None
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"HTTP {e.code}: {body}")
+        return {"error": body}
+
+# Find the project
+projects = vreq("GET", "/v9/projects").get("projects", [])
+proj_id = None
+for p in projects:
+    if "y-track" in p.get("name", "").lower():
+        proj_id = p["id"]
+        break
+if not proj_id and projects:
+    proj_id = projects[0]["id"]
+    print(f"Using first project: {projects[0]['name']}")
+if not proj_id:
+    print("ERROR: No Vercel project found!")
+    exit(1)
+print(f"Project: {proj_id}")
+
+# Get existing env var IDs
+existing = {e["key"]: e["id"] for e in vreq("GET", f"/v9/projects/{proj_id}/env").get("envs", [])}
+
+def upsert(key, value):
+    if not value:
+        print(f"Skipping {key} (empty)")
+        return
+    payload = {"key": key, "value": value, "type": "encrypted",
+               "target": ["production", "preview", "development"]}
+    if key in existing:
+        r = vreq("PATCH", f"/v9/projects/{proj_id}/env/{existing[key]}", payload)
+        print(f"Updated  {key}")
+    else:
+        r = vreq("POST", f"/v10/projects/{proj_id}/env", payload)
+        print(f"Created  {key}")
+
+upsert("UPSTASH_REDIS_REST_URL",   os.environ['U_URL'])
+upsert("UPSTASH_REDIS_REST_TOKEN", os.environ['U_TKN'])
+upsert("GROQ_API_KEY",             os.environ.get('GROQ', ''))
+upsert("GEMINI_API_KEY",           os.environ.get('GEMINI', ''))
+upsert("OPENROUTER_API_KEY",       os.environ.get('OPENROUTER', ''))
+print("Done! Vercel will redeploy on next push.")
+PYEOF
