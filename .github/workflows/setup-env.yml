@@ -1,31 +1,6 @@
 name: Setup Vercel Env
 on:
   workflow_dispatch:
-    inputs:
-      vercel_token:
-        description: 'Vercel Token (vcp_...)'
-        required: true
-        type: string
-      upstash_url:
-        description: 'Upstash URL (https://xxx.upstash.io)'
-        required: true
-        type: string
-      upstash_token:
-        description: 'Upstash Token'
-        required: true
-        type: string
-      groq_key:
-        description: 'Groq API Key (gsk_...)'
-        required: false
-        type: string
-      gemini_key:
-        description: 'Gemini API Key (AIza...)'
-        required: false
-        type: string
-      openrouter_key:
-        description: 'OpenRouter API Key'
-        required: false
-        type: string
 
 jobs:
   setup:
@@ -34,23 +9,19 @@ jobs:
       - name: Set environment variables in Vercel
         shell: bash
         env:
-          VT: ${{ github.event.inputs.vercel_token }}
-          U_URL: ${{ github.event.inputs.upstash_url }}
-          U_TKN: ${{ github.event.inputs.upstash_token }}
-          GROQ: ${{ github.event.inputs.groq_key }}
-          GEMINI: ${{ github.event.inputs.gemini_key }}
-          OPENROUTER: ${{ github.event.inputs.openrouter_key }}
+          VT: ${{ secrets.VERCEL_TOKEN }}
+          U_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          U_TKN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          GROQ: ${{ secrets.GROQ_API_KEY }}
+          GEMINI: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          echo "::add-mask::$VT"
-          echo "::add-mask::$U_TKN"
-          echo "::add-mask::$GROQ"
-          echo "::add-mask::$GEMINI"
-          echo "::add-mask::$OPENROUTER"
-
           python3 - <<'PYEOF'
 import os, json, urllib.request
 
-TOKEN = os.environ['VT']
+TOKEN = os.environ.get('VT', '')
+if not TOKEN:
+    print('ERROR: VERCEL_TOKEN secret is missing')
+    exit(1)
 
 def vreq(method, path, data=None):
     url = f"https://api.vercel.com{path}"
@@ -61,45 +32,36 @@ def vreq(method, path, data=None):
         with urllib.request.urlopen(req) as r:
             return json.loads(r.read())
     except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        print(f"HTTP {e.code}: {body}")
-        return {"error": body}
+        print(f"HTTP {e.code}: {e.read().decode()}")
+        return {}
 
-# Find the project
 projects = vreq("GET", "/v9/projects").get("projects", [])
-proj_id = None
-for p in projects:
-    if "y-track" in p.get("name", "").lower():
-        proj_id = p["id"]
-        break
+proj_id = next((p["id"] for p in projects if "y-track" in p.get("name","").lower()), None)
 if not proj_id and projects:
     proj_id = projects[0]["id"]
-    print(f"Using first project: {projects[0]['name']}")
 if not proj_id:
-    print("ERROR: No Vercel project found!")
+    print("ERROR: No Vercel project found")
     exit(1)
 print(f"Project: {proj_id}")
 
-# Get existing env var IDs
 existing = {e["key"]: e["id"] for e in vreq("GET", f"/v9/projects/{proj_id}/env").get("envs", [])}
 
 def upsert(key, value):
     if not value:
-        print(f"Skipping {key} (empty)")
+        print(f"Skip {key} (not provided)")
         return
     payload = {"key": key, "value": value, "type": "encrypted",
                "target": ["production", "preview", "development"]}
     if key in existing:
-        r = vreq("PATCH", f"/v9/projects/{proj_id}/env/{existing[key]}", payload)
+        vreq("PATCH", f"/v9/projects/{proj_id}/env/{existing[key]}", payload)
         print(f"Updated  {key}")
     else:
-        r = vreq("POST", f"/v10/projects/{proj_id}/env", payload)
+        vreq("POST", f"/v10/projects/{proj_id}/env", payload)
         print(f"Created  {key}")
 
-upsert("UPSTASH_REDIS_REST_URL",   os.environ['U_URL'])
-upsert("UPSTASH_REDIS_REST_TOKEN", os.environ['U_TKN'])
-upsert("GROQ_API_KEY",             os.environ.get('GROQ', ''))
-upsert("GEMINI_API_KEY",           os.environ.get('GEMINI', ''))
-upsert("OPENROUTER_API_KEY",       os.environ.get('OPENROUTER', ''))
-print("Done! Vercel will redeploy on next push.")
+upsert("UPSTASH_REDIS_REST_URL",   os.environ.get('U_URL',''))
+upsert("UPSTASH_REDIS_REST_TOKEN", os.environ.get('U_TKN',''))
+upsert("GROQ_API_KEY",             os.environ.get('GROQ',''))
+upsert("GEMINI_API_KEY",           os.environ.get('GEMINI',''))
+print("Done!")
 PYEOF
