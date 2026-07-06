@@ -2139,28 +2139,21 @@ function ReportViewer({ profile, scores, role, onClose }) {
       '</div><div style="color:#6b8aaa;font-size:13px;margin-top:4px;" id="spdfprog"></div>';
     document.body.appendChild(loadDiv);
 
-    /* Strip every CSS gradient before passing to html2canvas — it cannot render
-       linear-gradient or radial-gradient; replace with the first hex stop or transparent */
-    var renderHtml = html.replace(/background\s*:\s*[^;'"]*gradient[^;'"]*/gi, function(m) {
-      var c = m.match(/#[0-9a-fA-F]{6}/g);
-      return 'background:' + (c ? c[0] : 'transparent');
-    });
-
-    var sm = renderHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    var sm = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
     var styles = sm ? sm[1].replace('*{', '#cmrpt *{').replace('body{', '#cmrpt{') : '';
     var styleEl = document.createElement('style');
     styleEl.id = 'cmrpt-s';
     styleEl.textContent = styles;
     document.head.appendChild(styleEl);
 
-    var b1 = renderHtml.indexOf('<body');
-    var b2 = b1 >= 0 ? renderHtml.indexOf('>', b1) + 1 : 0;
-    var b3 = renderHtml.lastIndexOf('</body>');
-    var bodyContent = (b1 >= 0 && b3 > b2) ? renderHtml.substring(b2, b3) : '';
+    var b1 = html.indexOf('<body');
+    var b2 = b1 >= 0 ? html.indexOf('>', b1) + 1 : 0;
+    var b3 = html.lastIndexOf('</body>');
+    var bodyContent = (b1 >= 0 && b3 > b2) ? html.substring(b2, b3) : '';
 
     var container = document.createElement('div');
     container.id = 'cmrpt';
-    container.style.cssText = 'position:fixed;top:0;left:0;width:794px;overflow:visible;z-index:1;';
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;overflow:visible;z-index:1;';
     container.innerHTML = bodyContent;
     document.body.appendChild(container);
 
@@ -2176,7 +2169,7 @@ function ReportViewer({ profile, scores, role, onClose }) {
     var opt = {
       margin: 0, filename: pdfFn,
       image: {type: 'jpeg', quality: 0.95},
-      html2canvas: {scale: 2, useCORS: true, allowTaint: false, logging: false, backgroundColor: '#ffffff'},
+      html2canvas: {scale: 2, useCORS: true, allowTaint: false, logging: false, backgroundColor: '#ffffff', foreignObjectRendering: true},
       jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'}
     };
 
