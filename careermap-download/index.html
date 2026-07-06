@@ -2083,6 +2083,36 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '.avoid{break-inside:avoid;page-break-inside:avoid}' +
     '</style>' +
     '</head><body>' + body +
+    '<div id="pdfload" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:99999;background:#06111f;display:flex;align-items:center;justify-content:center;flex-direction:column;">' +
+    '<div style="color:#1aabaa;font-size:48px;margin-bottom:16px;">&#8987;</div>' +
+    '<div style="color:#f0f4f8;font-size:20px;font-weight:700;margin-bottom:10px;">' + (isAr ? 'جاري إنشاء PDF...' : isEn ? 'Generating PDF...' : 'Génération du PDF...') + '</div>' +
+    '<div id="pdfprog" style="color:#6b8aaa;font-size:14px;">1 / ...</div>' +
+    '</div>' +
+    '<script src="lib/html2pdf.bundle.min.js"><\/script>' +
+    '<script>(function(){' +
+    'document.fonts.ready.then(function(){setTimeout(function(){' +
+    'var pgs=document.querySelectorAll(".pdf-page");' +
+    'var n=pgs.length;' +
+    'if(!n){document.getElementById("pdfload").textContent="No pages found.";return;}' +
+    'var fn="' + pdfName + '";' +
+    'var opt={margin:0,filename:fn,image:{type:"jpeg",quality:0.98},' +
+    'html2canvas:{scale:2,useCORS:true,allowTaint:false,logging:false,backgroundColor:"#ffffff"},' +
+    'jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}};' +
+    'html2pdf().set(opt).from(pgs[0]).toPdf().get("pdf").then(function(pdf){' +
+    'var i=1;' +
+    'function np(){' +
+    'if(i>=n){pdf.save(fn);setTimeout(function(){window.close();},600);return;}' +
+    'var pr=document.getElementById("pdfprog");if(pr)pr.textContent=(i+1)+"/"+n;' +
+    'html2pdf().set(opt).from(pgs[i]).toCanvas().get("canvas").then(function(c){' +
+    'pdf.addPage();pdf.addImage(c.toDataURL("image/jpeg",0.98),"JPEG",0,0,210,297);i++;np();' +
+    '}).catch(function(){i++;np();});' +
+    '}np();' +
+    '}).catch(function(){' +
+    'var d=document.getElementById("pdfload");' +
+    'if(d)d.textContent="PDF generation failed. Please try again.";' +
+    '});' +
+    '},1000);});' +
+    '})();<\/script>' +
     '</body></html>';
 }
 
@@ -2128,88 +2158,15 @@ function ReportViewer({ profile, scores, role, onClose }) {
   }, [profile, scores, role, lang]);
 
   function savePDF() {
-    /* Render in the current document — avoids about:blank CORS/font issues */
-    var loadDiv = document.createElement('div');
-    loadDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;background:rgba(6,17,31,.97);display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:Arial,sans-serif;';
-    loadDiv.innerHTML =
-      '<div style="color:#1aabaa;font-size:48px;margin-bottom:16px;">&#8987;</div>' +
-      '<div style="color:#f0f4f8;font-size:20px;font-weight:700;margin-bottom:10px;">' +
-        (lang === 'ar' ? 'جاري إنشاء PDF...' : lang === 'en' ? 'Generating PDF...' : 'Génération du PDF...') +
-      '</div>' +
-      '<div id="spdf-prog" style="color:#6b8aaa;font-size:14px;"></div>';
-    document.body.appendChild(loadDiv);
-
-    /* Extract <style> block from report HTML */
-    var styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-    var styles = styleMatch ? styleMatch[1] : '';
-
-    /* Extract body content */
-    var bodyStart = html.indexOf('<body');
-    var bodyTagEnd = bodyStart >= 0 ? html.indexOf('>', bodyStart) + 1 : 0;
-    var bodyEnd = html.lastIndexOf('</body>');
-    var bodyContent = (bodyStart >= 0 && bodyEnd > bodyStart) ? html.substring(bodyTagEnd, bodyEnd) : '';
-
-    /* Inject report styles into current document head */
-    var styleEl = document.createElement('style');
-    styleEl.id = 'spdf-styles';
-    styleEl.textContent = styles;
-    document.head.appendChild(styleEl);
-
-    /* Create off-screen container */
-    var container = document.createElement('div');
-    container.style.cssText = 'position:fixed;top:0;left:-9999px;width:794px;overflow:visible;z-index:-1;background:#fff;';
-    container.innerHTML = bodyContent;
-    document.body.appendChild(container);
-
-    function cleanup() {
-      if (container.parentNode) container.parentNode.removeChild(container);
-      if (loadDiv.parentNode) loadDiv.parentNode.removeChild(loadDiv);
-      var se = document.getElementById('spdf-styles');
-      if (se && se.parentNode) se.parentNode.removeChild(se);
-    }
-
-    var pdfFileName = 'CareerMap_' + (profile.name || profile.id || 'Report').replace(/[^a-zA-Z0-9]/g, '_') + '_' + lang + '.pdf';
-    var opt = {
-      margin: 0,
-      filename: pdfFileName,
-      image: { type: 'jpeg', quality: 0.92 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: false, logging: false, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    document.fonts.ready.then(function() {
-      setTimeout(function() {
-        var pgs = container.querySelectorAll('.pdf-page');
-        var n = pgs.length;
-        if (!n) { cleanup(); alert('No pages found in report.'); return; }
-
-        var pr = document.getElementById('spdf-prog');
-        if (pr) pr.textContent = '1 / ' + n;
-
-        /* Render first page, obtain jsPDF instance, then add remaining pages one-by-one */
-        html2pdf().set(opt).from(pgs[0]).toPdf().get('pdf').then(function(pdf) {
-          var i = 1;
-          function nextPage() {
-            if (i >= n) {
-              pdf.save(pdfFileName);
-              cleanup();
-              return;
-            }
-            if (pr) pr.textContent = (i + 1) + ' / ' + n;
-            html2pdf().set(opt).from(pgs[i]).toCanvas().get('canvas').then(function(c) {
-              pdf.addPage();
-              pdf.addImage(c, 'JPEG', 0, 0, 210, 297);
-              i++;
-              nextPage();
-            }).catch(function() { i++; nextPage(); });
-          }
-          nextPage();
-        }).catch(function() {
-          cleanup();
-          alert('PDF generation failed. Please try again.');
-        });
-      }, 500);
-    });
+    /* Open report in a Blob URL window — same origin as the app so html2canvas
+       can load fonts via CORS (about:blank causes null-origin failures) */
+    var base = (window.location.href || '').replace(/\/[^\/]*(\?.*)?$/, '/');
+    var modHtml = html.replace('<meta charset="UTF-8">', '<meta charset="UTF-8"><base href="' + base + '">');
+    var blob = new Blob([modHtml], {type: 'text/html;charset=utf-8'});
+    var blobUrl = URL.createObjectURL(blob);
+    var w = window.open(blobUrl, '_blank');
+    if (!w) { URL.revokeObjectURL(blobUrl); alert('Please allow pop-ups for this site to download the PDF.'); return; }
+    setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 120000);
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
