@@ -459,43 +459,51 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
 }) {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
-  const [mode, setMode]       = useState<null | "choose" | "new" | "returning">(null);
+  const [mode, setMode]       = useState<null | "new">(null);
   const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", city: "", region: "", prefecture: "", sector: "", projType: "", photo: ""});
   const [formErr, setFormErr] = useState<string[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prefRef   = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
 
   /* ── Live role detection ── */
   const liveRole = val.trim() ? detectRole(val.trim()) : null;
-  const roleColors: Record<string, string> = { holder: "#1aabaa", coord: "#9B59B6", admin: "#1db87a", unknown: RE };
-  const roleIcons:  Record<string, string> = { holder: "🎓", coord: "👔", admin: "⚙️", unknown: "❌" };
+  const roleColors: Record<string, string> = { holder:"#1aabaa", coord:"#9B59B6", admin:"#1db87a", unknown:RE };
+  const roleIcons:  Record<string, string> = { holder:"🎓", coord:"👔", admin:"⚙️", unknown:"❌" };
   const roleLabels: Record<string, Record<string, string>> = {
-    holder: {fr:"Porteur de projet",ar:"حامل المشروع",en:"Project holder"},
-    coord:  {fr:"Coordinateur",ar:"المنسق",en:"Coordinator"},
-    admin:  {fr:"Administrateur",ar:"المدير",en:"Administrator"},
+    holder:{fr:"Porteur de projet",ar:"حامل المشروع",en:"Project holder"},
+    coord:{fr:"Coordinateur",ar:"المنسق",en:"Coordinator"},
+    admin:{fr:"Administrateur",ar:"المدير",en:"Administrator"},
     unknown:{fr:"Code non reconnu",ar:"رمز غير معروف",en:"Unrecognized code"},
   };
-  const detectedBorderColor = liveRole && liveRole !== "unknown" ? roleColors[liveRole] : liveRole === "unknown" ? RE : "#DDE0E8";
+  const inputBorder = liveRole ? (liveRole !== "unknown" ? roleColors[liveRole] : RE) : "rgba(255,255,255,.12)";
 
   const handleCheck = () => {
-    const role = detectRole(val.trim().toUpperCase().replace(/^@/, "@"));
     const cleanVal = val.trim();
+    if (cleanVal.toLowerCase() === ADMIN_CODE.toLowerCase()) { onLogin({id:ADMIN_CODE, name:"Admin", role:"admin"}); return; }
     const normalised = cleanVal.toUpperCase();
-    if (cleanVal === ADMIN_CODE) { onLogin({id: cleanVal, name: "Admin", role: "admin"}); return; }
+    const role = detectRole(normalised);
     if (role === "coord") {
-      const exists = coords.includes(normalised);
-      if (!exists) { setErr(true); return; }
-      onLogin({id: normalised, name: normalised.replace("@", "").replace(/COD$/i, ""), role: "coord"}); return;
+      if (!coords.includes(normalised)) { setErr(true); return; }
+      onLogin({id:normalised, name:normalised.replace("@","").replace(/COD$/i,""), role:"coord"}); return;
     }
     if (role === "holder") {
-      const existing = holders.find((h: any) => h.id === normalised);
-      if (existing) { onLogin({id: normalised, name: existing.profile.firstName, role: "holder", profile: existing.profile}); return; }
-      setMode("choose"); return;
+      const existing = holders.find((h:any) => h.id === normalised);
+      if (existing) { onLogin({id:normalised, name:existing.profile.firstName, role:"holder", profile:existing.profile}); return; }
+      setMode("new"); return;
     }
     setErr(true);
   };
 
-  /* ── Form validation helpers ── */
-  const REQUIRED_FIELDS: Array<{key: keyof typeof form; label: Record<string, string>}> = [
+  const showPrefecture = form.region === "Casablanca-Settat";
+
+  useEffect(() => {
+    if (showPrefecture && prefRef.current) {
+      setTimeout(() => prefRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
+    }
+  }, [showPrefecture]);
+
+  const REQUIRED_FIELDS: Array<{key: keyof typeof form; label: Record<string,string>}> = [
     {key:"firstName",  label:{fr:"Prénom",ar:"الاسم الشخصي",en:"First name"}},
     {key:"lastName",   label:{fr:"Nom de famille",ar:"الاسم العائلي",en:"Last name"}},
     {key:"email",      label:{fr:"E-mail",ar:"البريد الإلكتروني",en:"Email"}},
@@ -507,21 +515,13 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     {key:"sector",     label:{fr:"Secteur",ar:"القطاع",en:"Sector"}},
     {key:"projType",   label:{fr:"Type de porteur",ar:"نوع الحامل",en:"Holder type"}},
   ];
-  const showPrefecture = form.region === "Casablanca-Settat";
   const allRequired = showPrefecture
     ? [...REQUIRED_FIELDS, {key:"prefecture" as keyof typeof form, label:{fr:"Préfecture",ar:"العمالة",en:"Prefecture"}}]
     : REQUIRED_FIELDS;
   const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "prefecture").length + (showPrefecture ? 1 : 0);
-  const filledCount  = Object.entries(form).filter(([k, v]) => k !== "photo" && (k !== "prefecture" || showPrefecture) && !!v).length;
+  const filledCount  = Object.entries(form).filter(([k,v]) => k !== "photo" && (k !== "prefecture" || showPrefecture) && !!v).length;
   const fillPct      = Math.round((filledCount / TOTAL_FIELDS) * 100);
-
-  const isEmailValid = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-
-  const fieldBorder = (field: keyof typeof form) => {
-    if (!form[field]) return formErr.length > 0 && allRequired.some(r => r.key === field) ? RE : "#DDE0E8";
-    if (field === "email") return isEmailValid(form.email) ? "#1db87a" : RE;
-    return "#1db87a";
-  };
+  const isEmailValid = (v:string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
   const handleCreate = () => {
     const missing = allRequired.filter(r => !form[r.key]).map(r => r.label[lang] || r.label.fr);
@@ -531,204 +531,129 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
       setFormErr(errs); return;
     }
     const id = val.trim().toUpperCase();
-    onLogin({id, name: form.firstName, role: "holder", profile: {...form, id}, isNew: true});
+    onLogin({id, name:form.firstName, role:"holder", profile:{...form, id}, isNew:true});
   };
 
-  const inp = (field: keyof typeof form, placeholder: string) => (
+  /* ── Dark field helpers (CareerMap style) ── */
+  const lStyle: React.CSSProperties = {display:"block", fontSize:"9px", fontWeight:700,
+    color:"rgba(255,255,255,.4)", marginBottom:"5px", letterSpacing:".8px", textTransform:"uppercase"};
+
+  const dBorder = (field: keyof typeof form) => {
+    if (!form[field]) return formErr.length > 0 && allRequired.some(r => r.key === field) ? RE : "rgba(28,58,92,.8)";
+    if (field === "email") return isEmailValid(form.email) ? "#1db87a" : RE;
+    return Y;
+  };
+  const dInp = (field: keyof typeof form, placeholder: string) => (
     <input value={form[field]}
-      onChange={e => {setForm(p => ({...p, [field]: e.target.value})); setFormErr([]);}}
+      onChange={e => {setForm(p => ({...p,[field]:e.target.value})); setFormErr([]);}}
       placeholder={placeholder}
-      style={{width: "100%", padding: "11px 14px", borderRadius: "11px",
-        border: `2px solid ${fieldBorder(field)}`,
-        background: form[field] ? (field === "email" && !isEmailValid(form.email) ? "#FFF5F5" : "#F0FFF4") : WH,
-        fontSize: "13px", fontFamily: ff(lang),
-        color: ND, direction: dir as "rtl" | "ltr", transition: "all .2s"}}/>
+      style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
+        border:`1.5px solid ${dBorder(field)}`,
+        background:"rgba(255,255,255,.04)", fontSize:"13px",
+        fontFamily:ff(lang), color:WH,
+        direction:dir as "rtl"|"ltr", transition:"border-color .2s"}}/>
+  );
+  const dSel = (field: keyof typeof form, options: string[], placeholder: string) => (
+    <select value={form[field]}
+      onChange={e => {setForm(p => ({...p,[field]:e.target.value})); setFormErr([]);}}
+      style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
+        border:`1.5px solid ${form[field] ? Y : "rgba(28,58,92,.8)"}`,
+        background:"rgba(255,255,255,.04)", fontSize:"13px",
+        fontFamily:ff(lang), color:form[field] ? WH : "rgba(255,255,255,.3)",
+        direction:dir as "rtl"|"ltr", appearance:"none", cursor:"pointer", transition:"all .2s"}}>
+      <option value="" style={{background:"#0f2233"}}>{placeholder}</option>
+      {options.map(o => <option key={o} value={o} style={{background:"#0f2233"}}>{o}</option>)}
+    </select>
   );
 
-  return (
-    <div style={{minHeight:"100vh", background:"#0A0F2C", display:"flex", alignItems:"center",
-      justifyContent:"center", position:"relative", overflow:"hidden",
-      padding:"24px", fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
-
-      {/* ── Decorative: network nodes top-right ── */}
-      <svg width="960" height="960" viewBox="0 0 960 960" style={{position:"absolute",top:"-300px",right:"-320px",opacity:0.9,pointerEvents:"none"}}>
-        <g fill="none" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.16">
-          <line x1="480" y1="210" x2="620" y2="300"/><line x1="620" y1="300" x2="760" y2="270"/>
-          <line x1="620" y1="300" x2="650" y2="440"/><line x1="650" y1="440" x2="540" y2="520"/>
-          <line x1="650" y1="440" x2="790" y2="500"/><line x1="540" y1="520" x2="600" y2="640"/>
-        </g>
-        <circle cx="480" cy="210" r="5" fill="#FFFFFF" opacity="0.35"/>
-        <circle cx="620" cy="300" r="5" fill="#FFFFFF" opacity="0.35"/>
-        <circle cx="760" cy="270" r="5" fill="#FFFFFF" opacity="0.35"/>
-        <circle cx="650" cy="440" r="5" fill="#FFFFFF" opacity="0.35"/>
-        <circle cx="790" cy="500" r="5" fill="#FFFFFF" opacity="0.35"/>
-        <circle cx="540" cy="520" r="6" fill="#2A5CE0" opacity="0.9"/>
-        <path d="M600 600 c0 -22 18 -34 34 -34 s34 12 34 34 c0 22 -34 56 -34 56 s-34 -34 -34 -56 z" fill="#2A5CE0" opacity="0.9"/>
-      </svg>
-
-      {/* ── Decorative: concentric circles bottom-left ── */}
-      <svg width="620" height="620" viewBox="0 0 620 620" style={{position:"absolute",bottom:"-200px",left:"-200px",opacity:0.5,pointerEvents:"none"}}>
-        <g fill="none" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.12">
-          <circle cx="310" cy="310" r="240"/><circle cx="310" cy="310" r="180"/>
-        </g>
-      </svg>
-
-      {/* Language toggle */}
-      <div style={{position:"absolute", top:"22px", [dir==="rtl"?"left":"right"]:"22px", zIndex:10}}>
-        <LangToggle lang={lang} setLang={setLang}/>
-      </div>
-
-      {/* ── Content column ── */}
-      <div className="im-rise" style={{width:"400px", maxWidth:"100%", position:"relative", zIndex:1}}>
-
-        {/* Logo */}
-        <div style={{display:"flex", justifyContent:"center", marginBottom:"8px"}}>
-          <img src="/logo-transparent.png" alt="IdeaMap"
-            style={{width:"270px", maxWidth:"100%", objectFit:"contain"}}/>
+  /* ── Account creation — full-page dark (CareerMap style) ── */
+  if (mode === "new") {
+    return (
+      <div style={{minHeight:"100vh", background:"#0A0F2C", fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
+        <div style={{background:"rgba(255,255,255,.04)", borderBottom:"1px solid rgba(255,255,255,.08)",
+          padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between",
+          position:"sticky", top:0, zIndex:10, boxShadow:"0 2px 20px rgba(0,0,0,.3)"}}>
+          <div style={{display:"flex", alignItems:"center", gap:"8px"}}>
+            <Logo size={26}/><span style={{fontSize:"14px", fontWeight:"800", color:WH}}>IdeaMap</span>
+          </div>
+          <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
+            <span style={{fontSize:"10px", color:"rgba(255,255,255,.3)", fontFamily:"monospace", letterSpacing:"1px"}}>{val.trim().toUpperCase()}</span>
+            <LangToggle lang={lang} setLang={setLang}/>
+          </div>
         </div>
+        <div ref={scrollRef} style={{maxWidth:480, margin:"0 auto", padding:"24px 20px 80px"}}>
+          <h2 style={{fontSize:"18px", fontWeight:"800", color:WH, marginBottom:"6px"}}>{t.createTitle}</h2>
+          <div style={{display:"flex", justifyContent:"space-between", marginBottom:"4px"}}>
+            <span style={{fontSize:"9px", color:"rgba(255,255,255,.3)", fontWeight:"600", textTransform:"uppercase", letterSpacing:".5px"}}>
+              {lang==="ar"?"تعبئة الحقول":lang==="fr"?"Champs remplis":"Fields filled"}
+            </span>
+            <span style={{fontSize:"9px", fontWeight:"800", color:Y}}>{fillPct}%</span>
+          </div>
+          <div style={{height:"3px", background:"rgba(255,255,255,.07)", borderRadius:"2px", overflow:"hidden", marginBottom:"20px"}}>
+            <div style={{height:"100%", borderRadius:"2px", background:`linear-gradient(90deg,${Y},${YD})`,
+              width:`${fillPct}%`, transition:"width .4s ease"}}/>
+          </div>
 
-        {/* White card */}
-        <div style={{background:"#FFFFFF", borderRadius:"16px", padding:"36px 32px",
-          boxShadow:"0 24px 60px rgba(0,0,0,0.35)", marginTop:"18px",
-          maxHeight:"80vh", overflowY:"auto"}}>
-
-          {/* ── Sign-in screen ── */}
-          {!mode && <>
-            <div style={{fontSize:"22px", fontWeight:"800", color:"#10132A", marginBottom:"6px"}}>{t.signIn}</div>
-            <div style={{fontSize:"13.5px", color:"#5B6178", marginBottom:"24px"}}>{t.signInSub}</div>
-            <input
-              value={val}
-              onChange={e => {setVal(e.target.value.toUpperCase()); setErr(false);}}
-              onKeyDown={e => e.key === "Enter" && handleCheck()}
-              placeholder={t.codePh as string}
-              maxLength={30}
-              className={err ? "shake" : ""}
-              style={{width:"100%", padding:"13px 14px",
-                border:`2px solid ${err ? "#C0632F" : detectedBorderColor}`,
-                borderRadius:"8px", fontSize:"15px", fontFamily:ff(lang), outline:"none",
-                marginBottom:"6px", letterSpacing:"0.4px",
-                background:"#F5F6F8", color:"#10132A",
-                direction:dir as "rtl"|"ltr", transition:"border-color .2s"}}/>
-            {/* Live role badge */}
-            {liveRole && !err && (
-              <div style={{display:"flex", alignItems:"center", gap:"6px", marginBottom:"10px",
-                padding:"6px 10px", borderRadius:"7px",
-                background: roleColors[liveRole] + "15",
-                border: `1px solid ${roleColors[liveRole]}33`}}>
-                <span style={{fontSize:"14px"}}>{roleIcons[liveRole]}</span>
-                <span style={{fontSize:"12px", fontWeight:"700", color: roleColors[liveRole]}}>
-                  {roleLabels[liveRole]?.[lang] || roleLabels[liveRole].fr}
-                </span>
-              </div>
-            )}
-            {err && <div style={{fontSize:"13px", color:"#C0632F", marginBottom:"10px"}}>{t.cinError}</div>}
-            <button
-              className="login-cont-btn"
-              onClick={handleCheck}
-              disabled={!val.trim()}
-              style={{width:"100%", padding:"14px",
-                background: liveRole && liveRole !== "unknown" ? roleColors[liveRole] : "#0A0F2C",
-                color:"#fff",
-                border:"none", borderRadius:"8px", fontSize:"15px", fontWeight:"700",
-                fontFamily:ff(lang), cursor:!val.trim()?"not-allowed":"pointer",
-                marginTop:"8px", letterSpacing:"0.2px",
-                boxShadow:"0 8px 20px rgba(10,15,44,0.32)",
-                opacity:!val.trim()?0.45:1, transition:"background .15s, opacity .15s"}}>
-              {t.cont} →
-            </button>
-          </>}
-
-          {/* ── New vs returning choice ── */}
-          {mode === "choose" && <>
-            <div style={{fontSize:"16px", fontWeight:"700", color:"#10132A", marginBottom:"8px"}}>
-              {lang==="ar"?`الرقم ${val} غير مسجل بعد.`:lang==="fr"?`Le CIN ${val} n'est pas encore enregistré.`:`CIN ${val} is not registered yet.`}
+          <div style={{display:"flex", flexDirection:"column", gap:"10px"}}>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
+              <div><label style={lStyle}>{t.firstName}</label>{dInp("firstName", t.firstName as string)}</div>
+              <div><label style={lStyle}>{t.lastName}</label>{dInp("lastName", t.lastName as string)}</div>
             </div>
-            <p style={{fontSize:"13px", color:"#5B6178", marginBottom:"22px", lineHeight:"1.6"}}>
-              {lang==="ar"?"هل تريد إنشاء حساب جديد؟":lang==="fr"?"Voulez-vous créer un nouveau compte ?":"Would you like to create a new account?"}
-            </p>
-            <div style={{display:"grid", gap:"10px"}}>
-              <button onClick={()=>setMode("new")}
-                style={{width:"100%",padding:"13px",background:"#0A0F2C",color:"#fff",border:"none",
-                  borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:ff(lang),
-                  cursor:"pointer",boxShadow:"0 8px 20px rgba(10,15,44,0.25)"}}>
-                {t.newAccount}
-              </button>
-              <button onClick={()=>{setErr(true);setMode(null);}}
-                style={{width:"100%",padding:"13px",background:"transparent",color:"#10132A",
-                  border:"2px solid #10132A",borderRadius:"8px",fontSize:"14px",fontWeight:"700",
-                  fontFamily:ff(lang),cursor:"pointer"}}>
-                {t.existingAccount}
-              </button>
-            </div>
-          </>}
-
-          {/* ── Account creation form ── */}
-          {mode === "new" && <>
-            <div style={{fontSize:"16px", fontWeight:"800", color:"#10132A", marginBottom:"12px"}}>{t.createTitle}</div>
-
-            {/* Progress bar */}
-            <div style={{marginBottom:"14px"}}>
-              <div style={{display:"flex", justifyContent:"space-between", marginBottom:"4px"}}>
-                <span style={{fontSize:"10px", color:"#5B6178", fontWeight:"600"}}>
-                  {lang==="ar"?"تعبئة الحقول":lang==="fr"?"Champs remplis":"Fields filled"}
-                </span>
-                <span style={{fontSize:"10px", fontWeight:"800", color:"#10132A"}}>{fillPct}%</span>
-              </div>
-              <div style={{height:"4px", background:"#E8EAF0", borderRadius:"2px", overflow:"hidden"}}>
-                <div style={{height:"100%", borderRadius:"2px",
-                  background:`linear-gradient(90deg,#1aabaa,#1db87a)`,
-                  width:`${fillPct}%`, transition:"width .4s ease"}}/>
-              </div>
-            </div>
-
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
-              {inp("firstName", t.firstName as string)} {inp("lastName", t.lastName as string)}
-            </div>
-            <div style={{marginBottom:"8px", position:"relative"}}>
-              {inp("email", t.email as string)}
+            <div style={{position:"relative"}}>
+              <label style={lStyle}>{t.email}</label>
+              {dInp("email", t.email as string)}
               {form.email && isEmailValid(form.email) &&
-                <span style={{position:"absolute",right:"12px",top:"50%",transform:"translateY(-50%)",fontSize:"14px"}}>✅</span>}
+                <span style={{position:"absolute", right:"12px", top:"calc(50% + 8px)", transform:"translateY(-50%)", fontSize:"13px"}}>✅</span>}
             </div>
-            <div style={{marginBottom:"8px"}}>{inp("phone", t.phone as string)}</div>
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
-              <Sel value={form.age} onChange={v=>setForm(p=>({...p,age:v}))} options={AGES} placeholder={t.age as string} dir={dir}/>
-              <Sel value={form.gender} onChange={v=>setForm(p=>({...p,gender:v}))} options={GENDERS[lang]} placeholder={t.gender as string} dir={dir}/>
+            <div><label style={lStyle}>{t.phone}</label>{dInp("phone", t.phone as string)}</div>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
+              <div><label style={lStyle}>{t.age}</label>{dSel("age", AGES, t.age as string)}</div>
+              <div><label style={lStyle}>{t.gender}</label>{dSel("gender", GENDERS[lang], t.gender as string)}</div>
             </div>
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
-              <Sel value={form.marital} onChange={v=>setForm(p=>({...p,marital:v}))} options={MARITAL[lang]} placeholder={t.marital as string} dir={dir}/>
-              <Sel value={form.edu} onChange={v=>setForm(p=>({...p,edu:v}))} options={EDU[lang]} placeholder={t.edu as string} dir={dir}/>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
+              <div><label style={lStyle}>{t.marital}</label>{dSel("marital", MARITAL[lang], t.marital as string)}</div>
+              <div><label style={lStyle}>{t.edu}</label>{dSel("edu", EDU[lang], t.edu as string)}</div>
             </div>
-            <div style={{marginBottom:"8px"}}>
-              <Sel value={form.occupation} onChange={v=>setForm(p=>({...p,occupation:v}))} options={OCCUPATION[lang]} placeholder={t.occupation as string} dir={dir}/>
-            </div>
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
-              {inp("city", t.city as string)}
-              <Sel value={form.region} onChange={v=>setForm(p=>({...p,region:v, prefecture:""}))} options={REGIONS} placeholder={t.region as string} dir={dir}/>
+            <div><label style={lStyle}>{t.occupation}</label>{dSel("occupation", OCCUPATION[lang], t.occupation as string)}</div>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
+              <div><label style={lStyle}>{t.city}</label>{dInp("city", t.city as string)}</div>
+              <div>
+                <label style={lStyle}>{t.region}</label>
+                <select value={form.region}
+                  onChange={e => {setForm(p=>({...p, region:e.target.value, prefecture:""})); setFormErr([]);}}
+                  style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
+                    border:`1.5px solid ${form.region ? Y : "rgba(28,58,92,.8)"}`,
+                    background:"rgba(255,255,255,.04)", fontSize:"13px",
+                    fontFamily:ff(lang), color:form.region ? WH : "rgba(255,255,255,.3)",
+                    direction:dir as "rtl"|"ltr", appearance:"none", cursor:"pointer", transition:"all .2s"}}>
+                  <option value="" style={{background:"#0f2233"}}>{t.region}</option>
+                  {REGIONS.map(o => <option key={o} value={o} style={{background:"#0f2233"}}>{o}</option>)}
+                </select>
+              </div>
             </div>
             {showPrefecture && (
-              <div style={{marginBottom:"8px", animation:"fadeUp .3s ease both"}}>
-                <Sel value={form.prefecture} onChange={v=>setForm(p=>({...p,prefecture:v}))} options={PREFECTURES_CS} placeholder={t.prefecture as string} dir={dir}/>
+              <div ref={prefRef} style={{animation:"fadeUp .3s ease both"}}>
+                <label style={lStyle}>{t.prefecture}</label>
+                {dSel("prefecture", PREFECTURES_CS, t.prefecture as string)}
               </div>
             )}
-            <div style={{marginBottom:"8px"}}>
-              <Sel value={form.sector} onChange={v=>setForm(p=>({...p,sector:v}))} options={SECTORS} placeholder={t.sector as string} dir={dir}/>
-            </div>
-            <div style={{marginBottom:"8px"}}>
-              <Sel value={form.projType} onChange={v=>setForm(p=>({...p,projType:v}))} options={PROJ_TYPES[lang]} placeholder={t.projType as string} dir={dir}/>
-            </div>
-            {/* Photo — optional */}
-            <div style={{marginBottom:"16px"}}>
+            <div><label style={lStyle}>{t.sector}</label>{dSel("sector", SECTORS, t.sector as string)}</div>
+            <div><label style={lStyle}>{t.projType}</label>{dSel("projType", PROJ_TYPES[lang], t.projType as string)}</div>
+            <div>
+              <label style={{...lStyle, marginBottom:"7px"}}>
+                {t.photo as string} ({lang==="ar"?"اختياري":lang==="fr"?"optionnel":"optional"})
+              </label>
               <label style={{display:"flex", alignItems:"center", gap:"10px", padding:"11px 14px",
-                borderRadius:"11px", border:`2px dashed ${form.photo ? "#1db87a" : "#DDE0E8"}`,
-                background: form.photo ? "#F0FFF4" : WH, cursor:"pointer"}}>
+                borderRadius:"10px", border:`1.5px dashed ${form.photo ? Y : "rgba(28,58,92,.8)"}`,
+                background:"rgba(255,255,255,.04)", cursor:"pointer"}}>
                 {form.photo
                   ? <img src={form.photo} alt="photo" style={{width:"36px",height:"36px",borderRadius:"50%",objectFit:"cover"}}/>
                   : <span style={{fontSize:"22px"}}>📷</span>}
                 <div>
-                  <div style={{fontSize:"12px", fontWeight:"600", color: form.photo ? "#1db87a" : N}}>
+                  <div style={{fontSize:"12px", fontWeight:"600", color:form.photo ? Y : "rgba(255,255,255,.4)"}}>
                     {form.photo ? (lang==="ar"?"تم الرفع ✓":lang==="fr"?"Photo ajoutée ✓":"Photo added ✓") : (t.photo as string)}
                   </div>
-                  <div style={{fontSize:"10px", color:GR}}>JPG, PNG — max 2 MB</div>
+                  <div style={{fontSize:"10px", color:"rgba(255,255,255,.25)"}}>JPG, PNG — max 2 MB</div>
                 </div>
                 <input type="file" accept="image/*" style={{display:"none"}}
                   onChange={e => {
@@ -736,47 +661,125 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
                     if (!f) return;
                     if (f.size > 2*1024*1024) return;
                     const reader = new FileReader();
-                    reader.onload = ev => setForm(p => ({...p, photo: ev.target?.result as string}));
+                    reader.onload = ev => setForm(p => ({...p, photo:ev.target?.result as string}));
                     reader.readAsDataURL(f);
                   }}/>
               </label>
             </div>
+          </div>
 
-            {/* Error banner listing missing fields */}
-            {formErr.length > 0 && (
-              <div style={{padding:"10px 12px", background:"#FFF0EE", border:"1px solid #FCA5A5",
-                borderRadius:"8px", marginBottom:"10px"}}>
-                <div style={{fontSize:"11px", fontWeight:"700", color:"#C0632F", marginBottom:"4px"}}>
-                  {lang==="ar"?"الحقول المطلوبة:":lang==="fr"?"Champs manquants :":"Missing fields:"}
-                </div>
-                {formErr.map((e, i) => (
-                  <div key={i} style={{fontSize:"11px", color:"#C0632F"}}>• {e}</div>
-                ))}
+          {formErr.length > 0 && (
+            <div style={{padding:"10px 12px", background:`${RE}12`, border:`1px solid ${RE}44`,
+              borderRadius:"10px", marginTop:"16px"}}>
+              <div style={{fontSize:"11px", fontWeight:"700", color:RE, marginBottom:"4px"}}>
+                {lang==="ar"?"الحقول المطلوبة:":lang==="fr"?"Champs manquants :":"Missing fields:"}
               </div>
-            )}
+              {formErr.map((e,i) => <div key={i} style={{fontSize:"11px", color:RE}}>• {e}</div>)}
+            </div>
+          )}
 
+          <div style={{marginTop:"20px", display:"flex", flexDirection:"column", gap:"10px"}}>
             <button onClick={handleCreate}
-              style={{width:"100%",padding:"13px",
-                background: fillPct >= 60 ? "#0A0F2C" : "#888",
-                color:"#fff",border:"none",
-                borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:ff(lang),
-                cursor:"pointer",boxShadow:"0 8px 20px rgba(10,15,44,0.25)",
-                transition:"background .2s"}}>
+              style={{width:"100%", padding:"14px",
+                background: fillPct >= 60 ? `linear-gradient(135deg,${Y},${YD})` : "rgba(255,255,255,.08)",
+                color: fillPct >= 60 ? ND : "rgba(255,255,255,.3)",
+                border: fillPct >= 60 ? "none" : "1px solid rgba(255,255,255,.1)",
+                borderRadius:"12px", fontSize:"14px", fontWeight:"800",
+                fontFamily:ff(lang), cursor:"pointer", transition:"all .2s"}}>
               {t.create}
             </button>
-            <button onClick={()=>setMode("choose")}
-              style={{width:"100%",marginTop:"10px",background:"transparent",color:"#5B6178",
-                fontSize:"12px",border:"none",padding:"8px",fontFamily:ff(lang),cursor:"pointer"}}>
+            <button onClick={() => setMode(null)}
+              style={{width:"100%", background:"transparent", color:"rgba(255,255,255,.35)",
+                fontSize:"12px", border:"none", padding:"8px", fontFamily:ff(lang), cursor:"pointer"}}>
               ← {lang==="ar"?"رجوع":lang==="fr"?"Retour":"Back"}
             </button>
-          </>}
+          </div>
         </div>
-
-        {/* Footer */}
-        <p style={{textAlign:"center", marginTop:"22px", fontSize:"12px", color:"rgba(255,255,255,0.4)"}}>
-          © 2026 IdeaMap
-        </p>
       </div>
+    );
+  }
+
+  /* ── Main login card (CareerMap dark style) ── */
+  return (
+    <div style={{minHeight:"100vh", background:"#0A0F2C", display:"flex", alignItems:"center",
+      justifyContent:"center", padding:20, position:"relative", overflow:"hidden",
+      fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
+
+      {/* Glow orbs */}
+      <div style={{position:"absolute", left:-80, bottom:-80, width:300, height:300,
+        borderRadius:"50%", background:"rgba(255,183,3,.12)", filter:"blur(70px)", pointerEvents:"none"}}/>
+      <div style={{position:"absolute", right:-60, top:-60, width:260, height:260,
+        borderRadius:"50%", background:"rgba(28,58,92,.5)", filter:"blur(70px)", pointerEvents:"none"}}/>
+
+      {/* Lang toggle */}
+      <div style={{position:"absolute", top:14, right:dir==="rtl"?undefined:14, left:dir==="rtl"?14:undefined, zIndex:10}}>
+        <LangToggle lang={lang} setLang={setLang}/>
+      </div>
+
+      <div className="fadeUp" style={{background:"rgba(15,34,51,.95)", borderRadius:22,
+        padding:"34px 24px", width:"100%", maxWidth:400,
+        border:"1px solid rgba(28,58,92,.8)", boxShadow:"0 0 60px rgba(0,0,0,.5)",
+        position:"relative", zIndex:5}}>
+
+        <div style={{textAlign:"center", marginBottom:10}}>
+          <img src="/logo-transparent.png" alt="IdeaMap" style={{width:"200px", maxWidth:"100%", objectFit:"contain"}}/>
+        </div>
+        <p style={{textAlign:"center", color:"rgba(255,255,255,.35)", fontSize:11, marginBottom:28, fontFamily:ff(lang)}}>
+          {t.tagline as string}
+        </p>
+
+        <label style={{display:"block", fontSize:9, fontWeight:700,
+          color:"rgba(255,255,255,.4)", marginBottom:6, letterSpacing:.9,
+          textTransform:"uppercase", fontFamily:ff(lang)}}>
+          {t.enter as string}
+        </label>
+
+        <input
+          value={val}
+          onChange={e => {const v=e.target.value; setVal(v.startsWith("@")?v:v.toUpperCase()); setErr(false);}}
+          onKeyDown={e => e.key === "Enter" && handleCheck()}
+          placeholder=""
+          maxLength={30}
+          autoFocus
+          className={err ? "shake" : ""}
+          style={{width:"100%", padding:"13px 14px",
+            background:"rgba(255,255,255,.04)",
+            border:`2px solid ${inputBorder}`,
+            borderRadius:11, fontSize:14, fontFamily:"monospace",
+            color:WH, marginBottom:liveRole ? "8px" : "12px",
+            transition:"border-color .2s", letterSpacing:1,
+            direction:dir as "rtl"|"ltr"}}/>
+
+        {liveRole && !err && (
+          <div style={{display:"flex", alignItems:"center", gap:"6px", marginBottom:"10px",
+            padding:"5px 10px", borderRadius:"7px",
+            background:roleColors[liveRole] + "18",
+            border:`1px solid ${roleColors[liveRole]}30`}}>
+            <span style={{fontSize:"13px"}}>{roleIcons[liveRole]}</span>
+            <span style={{fontSize:"11px", fontWeight:"700", color:roleColors[liveRole]}}>
+              {roleLabels[liveRole]?.[lang] || roleLabels[liveRole].fr}
+            </span>
+          </div>
+        )}
+
+        {err && <p style={{color:RE, fontSize:11, marginBottom:10, fontFamily:ff(lang)}}>{t.cinError as string}</p>}
+
+        <button onClick={handleCheck} disabled={!val.trim()}
+          style={{width:"100%", padding:15,
+            background: liveRole && liveRole!=="unknown"
+              ? `linear-gradient(135deg,${roleColors[liveRole]},${roleColors[liveRole]}cc)`
+              : `linear-gradient(135deg,${Y},${YD})`,
+            color:ND, border:"none", borderRadius:12,
+            fontFamily:ff(lang), fontSize:15, fontWeight:800,
+            opacity:!val.trim() ? 0.5 : 1, transition:"all .18s"}}>
+          {t.cont as string} {dir==="rtl" ? "←" : "→"}
+        </button>
+      </div>
+
+      <p style={{position:"absolute", bottom:16, left:0, right:0, textAlign:"center",
+        fontSize:12, color:"rgba(255,255,255,.2)"}}>
+        © 2026 IdeaMap
+      </p>
     </div>
   );
 }
