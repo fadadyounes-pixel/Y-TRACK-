@@ -408,8 +408,8 @@ const Sel = ({value, onChange, options, placeholder, dir}: {
 );
 
 /* ── HEADER ─────────────────────────────────────────── */
-const Header = ({lang, setLang, user, onLogout, t}: {
-  lang: string; setLang: (l: string) => void;
+const Header = ({lang, user, onLogout, t}: {
+  lang: string;
   user: any; onLogout: () => void; t: any;
 }) => (
   <div style={{background: ND, height: "58px", display: "flex", alignItems: "center",
@@ -420,7 +420,6 @@ const Header = ({lang, setLang, user, onLogout, t}: {
       <span style={{fontSize: "17px", fontWeight: "800", color: WH, lineHeight: 1}}>IdeaMap</span>
     </div>
     <div style={{display: "flex", alignItems: "center", gap: "14px"}}>
-      <LangToggle lang={lang} setLang={setLang}/>
       {user && <>
         <div style={{display: "flex", alignItems: "center", gap: "8px",
           padding: "4px 12px", background: NB, borderRadius: "10px",
@@ -814,6 +813,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [logoGenerating, setLogoGenerating] = useState(false);
   const [pendingAttach, setPendingAttach]   = useState<number | null>(null);
   const [suggestions, setSuggestions]       = useState<string[]>([]);
+  const [dlLang, setDlLang]                 = useState(lang);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const msgEnd = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
@@ -858,7 +858,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     a.click();
   };
 
-  const dlPPTX = async (type: "pitch" | "jury") => {
+  const dlPPTX = async (type: "pitch" | "jury", exportLang: string = dlLang) => {
     try {
       const PptxGenJS = (await import("pptxgenjs")).default;
       const prs = new (PptxGenJS as any)();
@@ -868,45 +868,49 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
       const indh = budget?.indhContribution || Math.round(total * 0.85);
       const bene = budget?.beneficiaryContribution || Math.round(total * 0.15);
 
-      const isAr = lang === "ar";
+      const isAr = exportLang === "ar";
+      const isEn = exportLang === "en";
       const T = {
-        problem: isAr?"الإشكالية والحل":lang==="en"?"Problem & Solution":"Problème & Solution",
-        model: isAr?"النموذج الاقتصادي والأثر":lang==="en"?"Business Model & Impact":"Modèle Économique & Impact",
-        budget: isAr?"ميزانية المبادرة الوطنية":lang==="en"?"INDH Budget":"Budget INDH",
-        steps: isAr?"الخطوات التالية":lang==="en"?"Next Steps":"Étapes Suivantes",
-        summary: isAr?"الملخص التنفيذي":lang==="en"?"Executive Summary":"Résumé Exécutif",
-        plan: isAr?"خطة الأعمال":lang==="en"?"Business Plan":"Plan d'Affaires",
-        budgetPrev: isAr?"الميزانية التفصيلية":lang==="en"?"Detailed Budget":"Budget Prévisionnel",
-        compliance: isAr?"الامتثال للمبادرة":lang==="en"?"INDH Compliance":"Conformité INDH",
-        docs: isAr?"الوثائق المطلوبة":lang==="en"?"Required Documents":"Documents Requis",
-        submission: isAr?"مراحل تقديم الملف":lang==="en"?"Submission Steps":"Étapes de Soumission",
-        holder: isAr?"الحامل":"Porteur",
-        eligible: isAr?"مؤهل للتمويل ✓":lang==="en"?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
-        notElig: isAr?"يحتاج تعديلات ✗":lang==="en"?"NOT ELIGIBLE ✗":"NON ÉLIGIBLE ✗",
-        totalLabel: isAr?"المجموع":lang==="en"?"Total":"Total",
+        problem: isAr?"الإشكالية والحل":isEn?"Problem & Solution":"Problème & Solution",
+        model: isAr?"النموذج الاقتصادي والأثر":isEn?"Business Model & Impact":"Modèle Économique & Impact",
+        budget: isAr?"ميزانية المبادرة الوطنية":isEn?"INDH Budget":"Budget INDH",
+        steps: isAr?"الخطوات التالية":isEn?"Next Steps":"Étapes Suivantes",
+        summary: isAr?"الملخص التنفيذي":isEn?"Executive Summary":"Résumé Exécutif",
+        plan: isAr?"خطة الأعمال":isEn?"Business Plan":"Plan d'Affaires",
+        impact: isAr?"الأثر الاجتماعي والمحاذاة":isEn?"Social Impact & INDH Alignment":"Impact Social & Alignement INDH",
+        budgetPrev: isAr?"الميزانية التفصيلية":isEn?"Detailed Budget":"Budget Prévisionnel",
+        compliance: isAr?"الامتثال للمبادرة":isEn?"INDH Compliance":"Conformité INDH",
+        docs: isAr?"الوثائق المطلوبة":isEn?"Required Documents":"Documents Requis",
+        submission: isAr?"مراحل تقديم الملف":isEn?"Submission Steps":"Étapes de Soumission",
+        holder: isAr?"الحامل":isEn?"Holder":"Porteur",
+        eligible: isAr?"مؤهل للتمويل ✓":isEn?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
+        notElig: isAr?"يحتاج تعديلات ✗":isEn?"NOT ELIGIBLE ✗":"NON ÉLIGIBLE ✗",
+        totalLabel: isAr?"المجموع":"Total",
         indhLabel: isAr?"المبادرة (85%)":"INDH (85%)",
-        holdLabel: isAr?"مساهمة الحامل (15%)":lang==="en"?"Holder (15%)":"Apport porteur (15%)",
+        holdLabel: isAr?"مساهمة الحامل (15%)":isEn?"Holder (15%)":"Apport porteur (15%)",
         stepsText: isAr
           ? "1. إعداد الملف الكامل للمبادرة الوطنية\n2. جمع الوثائق المطلوبة\n3. إيداع الملف لدى مديرية العمل الاجتماعي\n4. الاستماع أمام لجنة التحكيم\n5. التوقيع على اتفاقية المبادرة الوطنية"
-          : lang==="en"
+          : isEn
             ? "1. Finalize the INDH application file\n2. Gather all required documents\n3. Submit to the Division of Social Action (DAS)\n4. Present to INDH selection jury\n5. Sign the INDH convention"
             : "1. Finaliser le dossier INDH\n2. Rassembler tous les documents requis\n3. Déposer auprès du CPDH\n4. Passage devant le jury de sélection\n5. Signature de la convention INDH",
         submissionText: isAr
           ? "1. إيداع الملف لدى مديرية العمل الاجتماعي (DAS)\n2. الحصول على وصل الإيداع\n3. دراسة الملف من طرف اللجنة الإقليمية (CPDH)\n4. المثول أمام لجنة تحكيم المبادرة الوطنية\n5. إشعار بالقرار\n6. التوقيع على الاتفاقية وانطلاق المشروع"
-          : lang==="en"
+          : isEn
             ? "1. Submit file to Division of Social Action (DAS)\n2. Receive deposit receipt\n3. Review by local CPDH committee\n4. Present before INDH jury\n5. Decision notification\n6. Sign convention and start project"
             : "1. Déposer le dossier à la Division de l'Action Sociale (DAS)\n2. Récépissé de dépôt délivré\n3. Instruction par le CPDH local\n4. Passage devant le jury INDH\n5. Notification de décision\n6. Signature de la convention et démarrage",
-        catLabel: isAr?"الفئة":"Catégorie",
-        itemLabel: isAr?"البند":"Désignation",
-        totalCol: isAr?"المجموع (درهم)":"Total (MAD)",
-        criteriaLabel: isAr?"المعيار":"Critère",
-        weightLabel: isAr?"الوزن":"Poids",
-        scoreLabel: isAr?"النقطة":"Score",
-        docLabel: isAr?"الوثيقة":"Document",
-        statusLabel: isAr?"الحالة":"Statut",
-        ready: isAr?"✓ جاهز":"✓ Prêt",
-        pending: isAr?"⏳ قيد الإعداد":"⏳ En attente",
-        docsCount: isAr?`${Object.values(docs).filter(Boolean).length}/${DOCS.length} وثيقة جاهزة`:`${Object.values(docs).filter(Boolean).length}/${DOCS.length} documents préparés`,
+        catLabel: isAr?"الفئة":isEn?"Category":"Catégorie",
+        itemLabel: isAr?"البند":isEn?"Item":"Désignation",
+        totalCol: isAr?"المجموع (درهم)":isEn?"Total (MAD)":"Total (MAD)",
+        criteriaLabel: isAr?"المعيار":isEn?"Criteria":"Critère",
+        weightLabel: isAr?"الوزن":isEn?"Weight":"Poids",
+        scoreLabel: isAr?"النقطة":isEn?"Score":"Score",
+        docLabel: isAr?"الوثيقة":isEn?"Document":"Document",
+        statusLabel: isAr?"الحالة":isEn?"Status":"Statut",
+        ready: isAr?"✓ جاهز":isEn?"✓ Ready":"✓ Prêt",
+        pending: isAr?"⏳ قيد الإعداد":isEn?"⏳ Pending":"⏳ En attente",
+        docsCount: isAr
+          ? `${Object.values(docs).filter(Boolean).length}/${DOCS.length} وثيقة جاهزة`
+          : `${Object.values(docs).filter(Boolean).length}/${DOCS.length} ${isEn?"documents ready":"documents préparés"}`,
       };
       const align = isAr ? "right" : "center";
 
@@ -960,7 +964,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
 
         s = prs.addSlide(); s.background = {color:"FAF7F0"};
         s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-        s.addText(isAr?"الأثر الاجتماعي والمحاذاة مع المبادرة":lang==="en"?"Social Impact & INDH Alignment":"Impact Social & Alignement INDH", {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:24,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+        s.addText(T.impact, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:24,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
         if (plan?.socialImpact) s.addText(plan.socialImpact, {x:0.4,y:1.1,w:9.1,h:2,fontSize:12,color:"222222",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
         if (plan?.indh_alignment) s.addText(plan.indh_alignment, {x:0.4,y:3.3,w:9.1,h:1.8,fontSize:11,color:"1C3A5C",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
 
@@ -1157,7 +1161,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
   return (
     <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
-      <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
+      <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
       <ProgRow lang={lang} t={t} si={si} steps={t.steps as string[]}/>
       <div className="fadeUp" style={{maxWidth: "700px", margin: "0 auto", padding: "24px 18px 60px"}}>
 
@@ -1563,7 +1567,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     {lang==="ar"?"اختياري — للتقديم قبل الملف الرسمي":lang==="fr"?"Optionnel · À partager avant le dossier":"Optional · Share before the formal file"}
                   </div>
                 </div>
-                <button onClick={() => dlPPTX("pitch")}
+                <button onClick={() => dlPPTX("pitch", dlLang)}
                   style={{padding:"9px 16px", borderRadius:"10px", border:`1.5px solid ${Y}`,
                     background:"transparent", color:Y, fontSize:"12px", fontWeight:"700",
                     fontFamily:ff(lang), cursor:"pointer", whiteSpace:"nowrap", flexShrink:0}}>
@@ -1733,85 +1737,148 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "14px"}}>
                 <AccBar/><span style={{fontSize: "15px", fontWeight: "700", color: ND}}>📦 {t.delivT}</span>
               </div>
-              {[
-                {icon:"📊", l:lang==="ar"?"خطة الأعمال":lang==="fr"?"Business Plan":"Business Plan", ok:!!plan,
-                  onDl:() => dlText([
-                    `${proj?.projectName || "Projet"} — Business Plan`,``,
-                    `RÉSUMÉ EXÉCUTIF`,plan?.executiveSummary||"",``,
-                    `PROBLÉMATIQUE`,plan?.problemStatement||"",``,
-                    `SOLUTION`,plan?.solution||"",``,
-                    `ANALYSE DE MARCHÉ`,plan?.marketAnalysis||"",``,
-                    `MODÈLE ÉCONOMIQUE`,plan?.businessModel||"",``,
-                    `IMPACT SOCIAL`,plan?.socialImpact||"",``,
-                    `PLAN OPÉRATIONNEL`,plan?.operationalPlan||"",``,
-                    `ALIGNEMENT INDH`,plan?.indh_alignment||"",``,
-                    `RISQUES`,...(plan?.risks||[]).map((r: string)=>`• ${r}`),``,
-                    `PROJECTIONS`,`An 1: ${plan?.projections?.year1||0} MAD`,`An 2: ${plan?.projections?.year2||0} MAD`,`An 3: ${plan?.projections?.year3||0} MAD`,
-                  ].join("\n"), `BusinessPlan_${proj?.projectName||"IdeaMap"}.txt`)},
-                {icon:"💰", l:lang==="ar"?"الميزانية التفصيلية":lang==="fr"?"Budget Prévisionnel":"Detailed Budget", ok:!!budget?.items,
-                  onDl:() => {
-                    const total=(budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
-                    dlText([
-                      `${proj?.projectName||"Projet"} — Budget Prévisionnel`,``,
-                      `Catégorie\tDésignation\tQuantité\tPrix Unit.\tTotal`,
-                      ...(budget?.items||[]).map((x: any)=>`${x.category}\t${x.item}\t${x.quantity}\t${x.unitPrice}\t${x.total}`),``,
-                      `TOTAL: ${total.toLocaleString()} MAD`,
-                      `Contribution INDH (${Math.round(((budget?.indhContribution||Math.round(total*.85))/total)*100)}%): ${(budget?.indhContribution||Math.round(total*.85)).toLocaleString()} MAD`,
-                      `Apport porteur (${Math.round(((budget?.beneficiaryContribution||Math.round(total*.15))/total)*100)}%): ${(budget?.beneficiaryContribution||Math.round(total*.15)).toLocaleString()} MAD`,
-                    ].join("\n"), `Budget_${proj?.projectName||"IdeaMap"}.txt`)}},
-                {icon:"✅", l:lang==="ar"?"تقرير الامتثال":lang==="fr"?"Rapport de Conformité":"Compliance Report", ok:!!comp,
-                  onDl:() => dlText([
-                    `${proj?.projectName||"Projet"} — Conformité INDH`,``,
-                    `Score: ${comp?.score}/100`,`Éligible: ${comp?.eligible?"OUI":"NON"}`,`Pilier: ${comp?.pillar||""}`,``,
-                    `POINTS FORTS`,...(comp?.strengths||[]).map((s: string)=>`✓ ${s}`),``,
-                    `RECOMMANDATIONS`,...(comp?.recommendations||[]).map((r: string)=>`→ ${r}`),``,
-                    `GRILLE JURY`,
-                    ...JURY.map(j=>`${j.label}: ${comp?.juryScore?.[j.key]||0}/${j.w}`),
-                  ].join("\n"), `Conformite_${proj?.projectName||"IdeaMap"}.txt`)},
-                {icon:"📋", l:lang==="ar"?"قائمة الوثائق":lang==="fr"?"Checklist Documents":"Docs Checklist", ok:true,
-                  onDl:() => dlText([
-                    `${proj?.projectName||"Projet"} — Checklist Documents`,``,
-                    `OBLIGATOIRES`,
-                    ...DOCS.filter(d=>d.req).map(d=>`[${docs[d.id]?"✓":" "}] ${d.name} — ${d.desc}`),``,
-                    `OPTIONNELS`,
-                    ...DOCS.filter(d=>!d.req).map(d=>`[${docs[d.id]?"✓":" "}] ${d.name} — ${d.desc}`),
-                  ].join("\n"), `Checklist_${proj?.projectName||"IdeaMap"}.txt`)},
-                {icon:"📖", l:lang==="ar"?"دليل التقديم":lang==="fr"?"Guide de Soumission":"Submission Guide", ok:true,
-                  onDl:() => dlText([
-                    `GUIDE DE SOUMISSION INDH — ${proj?.projectName||""}`,``,
-                    `Étape 1: Finaliser et réunir tous les documents requis`,
-                    `Étape 2: Déposer le dossier complet à la Division de l'Action Sociale (DAS) de votre province`,
-                    `Étape 3: Obtenir le récépissé de dépôt (conservez-le précieusement)`,
-                    `Étape 4: Instruction du dossier par le CPDH local (4 à 8 semaines)`,
-                    `Étape 5: Présentation devant le jury de sélection INDH`,
-                    `Étape 6: Notification de la décision (financement / report / refus)`,
-                    `Étape 7: Signature de la convention INDH et démarrage du projet`,``,
-                    `CONTACTS UTILES`,
-                    `• Division de l'Action Sociale (DAS) de votre province`,
-                    `• Comité Provincial de Développement Humain (CPDH)`,
-                    `• Site officiel INDH: www.indh.ma`,
-                    `• Rokhsa.ma pour les autorisations réglementées`,
-                  ].join("\n"), `GuideSubmission_${proj?.projectName||"IdeaMap"}.txt`)},
-                {icon:"🎯", l:lang==="ar"?"عرض اللجنة (7 شرائح)":lang==="fr"?"Présentation Jury — 7 diapositives":"Jury Presentation — 7 slides", ok:!!proj,
-                  onDl:() => dlPPTX("jury"), badge:"pptx"},
-              ].map((x, i) => (
-                <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px",
-                  borderRadius:"13px", marginBottom:"7px", background:x.ok?ND:CR, border:`1px solid ${x.ok?Y:CD}`}}>
-                  <span style={{fontSize:"20px"}}>{x.icon}</span>
-                  <span style={{flex:1, fontSize:"12px", color:x.ok?WH:ND, fontWeight:"500"}}>{x.l}</span>
-                  {x.ok ? (
-                    <button onClick={x.onDl}
-                      style={{padding:"5px 12px", borderRadius:"8px", border:`1.5px solid ${Y}`,
-                        background:"transparent", color:Y, fontSize:"11px", fontWeight:"700",
-                        fontFamily:ff(lang), cursor:"pointer"}}>
-                      ⬇ {(x as any).badge || "txt"}
+
+              {/* ── Download language picker ── */}
+              <div style={{padding:"12px 14px", background:YL, borderRadius:"12px",
+                border:`1.5px solid ${Y}`, marginBottom:"14px",
+                display:"flex", alignItems:"center", gap:"10px", flexWrap:"wrap"}}>
+                <span style={{fontSize:"11px", fontWeight:"700", color:ND, flexShrink:0}}>
+                  🌐 {lang==="ar"?"لغة التنزيل:":lang==="fr"?"Langue des téléchargements :":"Download language:"}
+                </span>
+                <div style={{display:"flex", gap:"6px"}}>
+                  {[{k:"fr",fl:"🇫🇷",lb:"Français"},{k:"ar",fl:"🇲🇦",lb:"العربية"},{k:"en",fl:"🇬🇧",lb:"English"}].map(({k,fl,lb}) => (
+                    <button key={k} onClick={() => setDlLang(k)}
+                      style={{padding:"6px 14px", borderRadius:"9px",
+                        border:`2px solid ${dlLang===k?YD:CD}`,
+                        background:dlLang===k?Y:WH, color:dlLang===k?ND:GR,
+                        fontSize:"12px", fontWeight:"700", cursor:"pointer",
+                        fontFamily:k==="ar"?"'Tajawal',sans-serif":"'Poppins',sans-serif",
+                        transition:"all .15s"}}>
+                      {fl} {lb}
                     </button>
-                  ) : (
-                    <span style={{padding:"2px 7px", borderRadius:"5px", fontSize:"9px", fontWeight:"700",
-                      background:CD, color:GR}}>⏳</span>
-                  )}
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {(() => {
+                const eAr = dlLang === "ar"; const eEn = dlLang === "en";
+                const TXT = {
+                  bp: eAr?"خطة الأعمال":eEn?"Business Plan":"Business Plan",
+                  bud: eAr?"الميزانية التفصيلية":eEn?"Detailed Budget":"Budget Prévisionnel",
+                  comp: eAr?"تقرير الامتثال":eEn?"Compliance Report":"Rapport de Conformité",
+                  chk: eAr?"قائمة الوثائق":eEn?"Docs Checklist":"Checklist Documents",
+                  guide: eAr?"دليل التقديم":eEn?"Submission Guide":"Guide de Soumission",
+                  jury: eAr?"عرض أمام اللجنة (7 شرائح)":eEn?"Jury Presentation — 7 slides":"Présentation Jury — 7 diapositives",
+                  execSum: eAr?"الملخص التنفيذي":eEn?"EXECUTIVE SUMMARY":"RÉSUMÉ EXÉCUTIF",
+                  problem: eAr?"إشكالية المشروع":eEn?"PROBLEM STATEMENT":"PROBLÉMATIQUE",
+                  solution: eAr?"الحل المقترح":eEn?"SOLUTION":"SOLUTION",
+                  market: eAr?"تحليل السوق":eEn?"MARKET ANALYSIS":"ANALYSE DE MARCHÉ",
+                  bizModel: eAr?"نموذج الأعمال":eEn?"BUSINESS MODEL":"MODÈLE ÉCONOMIQUE",
+                  impact: eAr?"الأثر الاجتماعي":eEn?"SOCIAL IMPACT":"IMPACT SOCIAL",
+                  opPlan: eAr?"الخطة التشغيلية":eEn?"OPERATIONAL PLAN":"PLAN OPÉRATIONNEL",
+                  indhAlign: eAr?"التوافق مع المبادرة":eEn?"INDH ALIGNMENT":"ALIGNEMENT INDH",
+                  risks: eAr?"المخاطر":eEn?"RISKS":"RISQUES",
+                  proj: eAr?"التوقعات":eEn?"PROJECTIONS":"PROJECTIONS",
+                  yr: eAr?"السنة":eEn?"Year":"An",
+                  total: eAr?"المجموع الكلي":eEn?"TOTAL":"TOTAL",
+                  indhShare: eAr?"مساهمة المبادرة":eEn?"INDH Contribution":"Contribution INDH",
+                  holdShare: eAr?"مساهمة الحامل":eEn?"Holder Contribution":"Apport porteur",
+                  strengths: eAr?"نقاط القوة":eEn?"STRENGTHS":"POINTS FORTS",
+                  recs: eAr?"التوصيات":eEn?"RECOMMENDATIONS":"RECOMMANDATIONS",
+                  jury2: eAr?"تقييم اللجنة":eEn?"JURY GRID":"GRILLE JURY",
+                  reqDocs: eAr?"الوثائق الإلزامية":eEn?"REQUIRED DOCUMENTS":"DOCUMENTS OBLIGATOIRES",
+                  optDocs: eAr?"الوثائق الاختيارية":eEn?"OPTIONAL DOCUMENTS":"DOCUMENTS OPTIONNELS",
+                  guideTitle: eAr?"دليل تقديم الملف للمبادرة الوطنية":eEn?"INDH APPLICATION SUBMISSION GUIDE":"GUIDE DE SOUMISSION INDH",
+                  step1: eAr?"الخطوة 1: إعداد جميع الوثائق":eEn?"Step 1: Prepare all required documents":"Étape 1: Finaliser et réunir tous les documents requis",
+                  step2: eAr?"الخطوة 2: إيداع الملف لدى مديرية العمل الاجتماعي":eEn?"Step 2: Submit file to Division of Social Action (DAS)":"Étape 2: Déposer le dossier à la DAS de votre province",
+                  step3: eAr?"الخطوة 3: الحصول على وصل الإيداع":eEn?"Step 3: Obtain the deposit receipt":"Étape 3: Obtenir le récépissé de dépôt",
+                  step4: eAr?"الخطوة 4: دراسة الملف (4 إلى 8 أسابيع)":eEn?"Step 4: File review by CPDH (4-8 weeks)":"Étape 4: Instruction par le CPDH local (4-8 semaines)",
+                  step5: eAr?"الخطوة 5: المثول أمام لجنة التحكيم":eEn?"Step 5: Appear before INDH selection jury":"Étape 5: Présentation devant le jury de sélection INDH",
+                  step6: eAr?"الخطوة 6: الإشعار بالقرار":eEn?"Step 6: Decision notification":"Étape 6: Notification de la décision",
+                  step7: eAr?"الخطوة 7: التوقيع على الاتفاقية وانطلاق المشروع":eEn?"Step 7: Sign convention and launch project":"Étape 7: Signature de la convention INDH et démarrage",
+                  useful: eAr?"جهات الاتصال المفيدة":eEn?"USEFUL CONTACTS":"CONTACTS UTILES",
+                };
+                const total=(budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
+                const indhAmt = budget?.indhContribution||Math.round(total*.85);
+                const holdAmt = budget?.beneficiaryContribution||Math.round(total*.15);
+                const items: {icon:string;l:string;ok:boolean;onDl:()=>void;badge?:string}[] = [
+                  {icon:"📊", l:TXT.bp, ok:!!plan,
+                    onDl:() => dlText([
+                      `${proj?.projectName||"Projet"} — ${TXT.bp}`,``,
+                      TXT.execSum, plan?.executiveSummary||"",``,
+                      TXT.problem, plan?.problemStatement||"",``,
+                      TXT.solution, plan?.solution||"",``,
+                      TXT.market, plan?.marketAnalysis||"",``,
+                      TXT.bizModel, plan?.businessModel||"",``,
+                      TXT.impact, plan?.socialImpact||"",``,
+                      TXT.opPlan, plan?.operationalPlan||"",``,
+                      TXT.indhAlign, plan?.indh_alignment||"",``,
+                      TXT.risks, ...(plan?.risks||[]).map((r: string)=>`• ${r}`),``,
+                      TXT.proj,
+                      `${TXT.yr} 1: ${plan?.projections?.year1||0} MAD`,
+                      `${TXT.yr} 2: ${plan?.projections?.year2||0} MAD`,
+                      `${TXT.yr} 3: ${plan?.projections?.year3||0} MAD`,
+                    ].join("\n"), `BusinessPlan_${proj?.projectName||"IdeaMap"}.txt`)},
+                  {icon:"💰", l:TXT.bud, ok:!!budget?.items,
+                    onDl:() => dlText([
+                      `${proj?.projectName||"Projet"} — ${TXT.bud}`,``,
+                      `${TXT.reqDocs.split(" ")[0]}\t${TXT.bizModel.slice(0,6)}\t${TXT.proj.slice(0,3)}\t${TXT.indhShare.slice(0,3)}`,
+                      ...(budget?.items||[]).map((x: any)=>`${x.category}\t${x.item}\t${x.quantity}\t${x.unitPrice}\t${x.total}`),``,
+                      `${TXT.total}: ${total.toLocaleString()} MAD`,
+                      `${TXT.indhShare} (${Math.round((indhAmt/total)*100)}%): ${indhAmt.toLocaleString()} MAD`,
+                      `${TXT.holdShare} (${Math.round((holdAmt/total)*100)}%): ${holdAmt.toLocaleString()} MAD`,
+                    ].join("\n"), `Budget_${proj?.projectName||"IdeaMap"}.txt`)},
+                  {icon:"✅", l:TXT.comp, ok:!!comp,
+                    onDl:() => dlText([
+                      `${proj?.projectName||"Projet"} — ${TXT.comp}`,``,
+                      `Score: ${comp?.score}/100`,
+                      eAr?`مؤهل: ${comp?.eligible?"نعم":"لا"}`:eEn?`Eligible: ${comp?.eligible?"YES":"NO"}`:`Éligible: ${comp?.eligible?"OUI":"NON"}`,
+                      `${eAr?"المحور":eEn?"Pillar":"Pilier"}: ${comp?.pillar||""}`,``,
+                      TXT.strengths, ...(comp?.strengths||[]).map((s: string)=>`✓ ${s}`),``,
+                      TXT.recs, ...(comp?.recommendations||[]).map((r: string)=>`→ ${r}`),``,
+                      TXT.jury2, ...JURY.map(j=>`${j.label}: ${comp?.juryScore?.[j.key]||0}/${j.w}`),
+                    ].join("\n"), `Conformite_${proj?.projectName||"IdeaMap"}.txt`)},
+                  {icon:"📋", l:TXT.chk, ok:true,
+                    onDl:() => dlText([
+                      `${proj?.projectName||"Projet"} — ${TXT.chk}`,``,
+                      TXT.reqDocs,
+                      ...DOCS.filter(d=>d.req).map(d=>`[${docs[d.id]?"✓":" "}] ${d.name} — ${d.desc}`),``,
+                      TXT.optDocs,
+                      ...DOCS.filter(d=>!d.req).map(d=>`[${docs[d.id]?"✓":" "}] ${d.name} — ${d.desc}`),
+                    ].join("\n"), `Checklist_${proj?.projectName||"IdeaMap"}.txt`)},
+                  {icon:"📖", l:TXT.guide, ok:true,
+                    onDl:() => dlText([
+                      `${TXT.guideTitle} — ${proj?.projectName||""}`,``,
+                      TXT.step1, TXT.step2, TXT.step3, TXT.step4, TXT.step5, TXT.step6, TXT.step7,``,
+                      TXT.useful,
+                      eAr?"• مديرية العمل الاجتماعي (DAS) لإقليمك":"• Division de l'Action Sociale (DAS) de votre province",
+                      eAr?"• اللجنة الإقليمية للتنمية البشرية (CPDH)":"• Comité Provincial de Développement Humain (CPDH)",
+                      `• www.indh.ma`,
+                      `• www.rokhsa.ma`,
+                    ].join("\n"), `GuideSubmission_${proj?.projectName||"IdeaMap"}.txt`)},
+                  {icon:"🎯", l:TXT.jury, ok:!!proj, onDl:() => dlPPTX("jury", dlLang), badge:"pptx"},
+                ];
+                return items.map((x, i) => (
+                  <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px",
+                    borderRadius:"13px", marginBottom:"7px", background:x.ok?ND:CR, border:`1px solid ${x.ok?Y:CD}`}}>
+                    <span style={{fontSize:"20px"}}>{x.icon}</span>
+                    <span style={{flex:1, fontSize:"12px", color:x.ok?WH:ND, fontWeight:"500",
+                      fontFamily:dlLang==="ar"?"'Tajawal',sans-serif":undefined,
+                      direction:dlLang==="ar"?"rtl":"ltr"}}>{x.l}</span>
+                    {x.ok ? (
+                      <button onClick={x.onDl}
+                        style={{padding:"5px 12px", borderRadius:"8px", border:`1.5px solid ${Y}`,
+                          background:"transparent", color:Y, fontSize:"11px", fontWeight:"700",
+                          fontFamily:ff(lang), cursor:"pointer"}}>
+                        ⬇ {x.badge || "txt"}
+                      </button>
+                    ) : (
+                      <span style={{padding:"2px 7px", borderRadius:"5px", fontSize:"9px", fontWeight:"700",
+                        background:CD, color:GR}}>⏳</span>
+                    )}
+                  </div>
+                ));
+              })()}
             </Card>
           </>);
         })()}
@@ -1847,7 +1914,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
     const h = detail;
     return (
       <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
-        <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
+        <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
         <div style={{maxWidth: "700px", margin: "0 auto", padding: "24px 18px 60px"}}>
           <button onClick={() => setDetail(null)} style={{marginBottom: "16px", padding: "8px 16px",
             borderRadius: "10px", border: `1px solid ${N}`, background: "transparent",
@@ -1929,7 +1996,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
 
   return (
     <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
-      <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
+      <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
       <div style={{maxWidth: "720px", margin: "0 auto", padding: "24px 18px 60px"}}>
         <Card style={{background: ND}}>
           <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px"}}>
@@ -2069,7 +2136,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
     const h = detailH;
     return (
       <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
-        <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
+        <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
         <div style={{maxWidth: "720px", margin: "0 auto", padding: "24px 18px 60px"}}>
           <button onClick={() => setDetailH(null)} style={{marginBottom: "16px", padding: "8px 16px",
             borderRadius: "10px", border: `1px solid ${N}`, background: "transparent",
@@ -2209,7 +2276,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
 
   return (
     <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
-      <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
+      <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
       <div style={{background: ND, padding: "0 22px", borderBottom: "1px solid rgba(255,255,255,.08)"}}>
         <div style={{maxWidth: "720px", margin: "0 auto", display: "flex", gap: "4px", padding: "8px 0"}}>
           <TabBtn id="stats" label={`📊 ${t.stats}`}/>
