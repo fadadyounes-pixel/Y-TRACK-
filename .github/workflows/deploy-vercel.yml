@@ -5,6 +5,10 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      vercel_token:
+        description: 'Vercel Token'
+        required: false
 
 jobs:
   deploy:
@@ -27,9 +31,6 @@ jobs:
 
       - name: Deploy to Vercel
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
         run: |
           vercel --token "$VERCEL_TOKEN" --prod --yes
