@@ -353,6 +353,13 @@ const PBar = ({pct, h = 6, color = Y}: { pct: number; h?: number; color?: string
 
 const AccBar = () => <div style={{width: "4px", height: "20px", background: Y, borderRadius: "2px", flexShrink: 0}}/>;
 
+const AdvisorAvatar = ({ size = 28 }: { size?: number }) => (
+  <div style={{width: size, height: size, borderRadius: "50%", flexShrink: 0,
+    background: `linear-gradient(135deg,${Y},${YD})`,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: Math.round(size * 0.48), boxShadow: `0 2px 8px rgba(255,183,3,.35)`}}>🎓</div>
+);
+
 const Dots = () => (
   <div style={{display: "flex", gap: "5px", padding: "6px 0"}}>
     {[0, 1, 2].map(i => <div key={i} style={{width: "8px", height: "8px", borderRadius: "50%",
@@ -944,11 +951,22 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     setLogoGenerating(false);
   };
 
+  const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC:
+- Plafond subvention: 100 000 MAD. INDH finance 85%, porteur apporte 15%.
+- 4 axes prioritaires: Développement rural · Réduction pauvreté territoriale · Dignité humaine · Programmes horizontaux.
+- Secteurs éligibles: Agriculture/Élevage, Artisanat, Commerce/Services, Agro-alimentaire, Tourisme rural, Numérique/TIC, Textile/Couture, BTP, Éducation/Formation, Pêche.
+- Critères jury (100 pts): Impact social 25pts · Viabilité économique 20pts · Pertinence territoriale 20pts · Capacité gestion 15pts · Durabilité 10pts · Innovation 10pts.
+- Porteurs prioritaires: femmes, jeunes 18-35 ans, zones rurales défavorisées.
+- Structure juridique: association loi 1958, coopérative, GIE ou groupe informel en cours de formalisation.`;
+
   const startChat = async () => {
     if (!idea.trim()) return;
     setBusy(true); setStep("dialogue");
     const r = await ai([{role: "user", content: `Mon idée: ${idea}`}],
-      `Expert INDH Maroc Phase 3. Pose UNE question courte pour structurer le projet (max 100 000 MAD). Réponds en ${LL}. Sois chaleureux.`,
+      `Tu es le Conseiller — expert bienveillant de l'INDH Phase 3 Maroc.
+${INDH_CTX}
+Le porteur vient de partager son idée. Pose UNE seule question courte et ciblée pour mieux comprendre un aspect clé parmi: profil des bénéficiaires (combien? femmes/jeunes?), zone géographique précise, structure juridique envisagée, ou expérience du porteur dans ce secteur.
+Sois chaleureux et encourageant. Réponds en ${LL}. MAX 3 phrases.`,
       "dialogue");
     setMsgs([{role: "user", content: idea}, {role: "assistant", content: r}]);
     setQN(1); setBusy(false);
@@ -960,12 +978,16 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     setMsgs(all); setInp(""); setBusy(true);
     const last = qN >= MAX_Q;
     const r = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
-      `Expert INDH Maroc. Idée: "${idea}". Q ${qN}/${MAX_Q}. ${last
-        ? `Dernière interaction. Retourne UNIQUEMENT JSON valide sans markdown: {"projectName":"...","sector":"...","legalStructure":"...","location":"...","beneficiaries":N,"activities":["..."],"strengths":["..."],"estimatedBudget":N,"pillar":"..."}`
-        : `Pose une question courte. Réponds en ${LL}.`}`,
+      `Tu es le Conseiller INDH Phase 3 Maroc.
+${INDH_CTX}
+Idée originale du porteur: "${idea}". Question ${qN}/${MAX_Q}.
+${last
+  ? `Analyse complète de la conversation. Retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
+{"projectName":"nom accrocheur du projet","sector":"secteur INDH exact","legalStructure":"structure juridique","location":"ville/région Maroc","beneficiaries":N,"activities":["activité1","activité2","activité3"],"strengths":["force1","force2"],"estimatedBudget":N,"pillar":"axe INDH le plus pertinent"}`
+  : `Pose UNE question précise et courte qui maximise le score jury (impact social, viabilité, pertinence territoriale, capacité gestion, durabilité, innovation). Réponds en ${LL}. MAX 2 phrases.`}`,
       last ? "json" : "dialogue");
     if (last) {
-      setMsgs((p: any[]) => [...p, {role: "assistant", content: "✅ Analyse complète !"}]);
+      setMsgs((p: any[]) => [...p, {role: "assistant", content: lang === "ar" ? "✅ تحليل مكتمل!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
       const p = parseJ(r); if (p) setProj(p);
       setTimeout(() => setStep("profile"), 1000);
     } else { setMsgs((p: any[]) => [...p, {role: "assistant", content: r}]); setQN((p: number) => p + 1); }
@@ -974,21 +996,40 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
 
   const genPlan = async () => {
     setBusy(true); setStep("plan");
-    const r = await ai([{role: "user", content: `Projet: ${JSON.stringify(proj || {idea})}`}],
-      `Expert consultant INDH Maroc. Business plan en ${LL}. JSON sans markdown: {"executiveSummary":"...","problemStatement":"...","solution":"...","marketAnalysis":"...","businessModel":"...","socialImpact":"...","operationalPlan":"...","indh_alignment":"...","risks":["...","..."],"projections":{"year1":N,"year2":N,"year3":N}}`,
-      "json");
+    const projCtx = JSON.stringify(proj || {idea});
+    const [r, r2] = await Promise.all([
+      ai([{role: "user", content: `Projet INDH: ${projCtx}`}],
+        `Tu es le Conseiller — expert en développement de projets INDH Phase 3 Maroc.
+${INDH_CTX}
+Génère un business plan complet, réaliste et convaincant pour le jury INDH. Réponds en ${LL}.
+Retourne UNIQUEMENT ce JSON valide sans markdown:
+{"executiveSummary":"résumé 3-4 phrases percutantes pour jury","problemStatement":"problème local réel et chiffré","solution":"solution concrète et innovante","marketAnalysis":"analyse marché local avec potentiel clients et concurrents","businessModel":"modèle économique viable avec sources de revenus","socialImpact":"bénéficiaires précis (nombre, profil, changement concret dans leur vie)","operationalPlan":"étapes de mise en oeuvre sur 12 mois","indh_alignment":"alignement avec les axes et critères INDH Phase 3","risks":["risque1 avec mitigation","risque2 avec mitigation","risque3 avec mitigation"],"projections":{"year1":N,"year2":N,"year3":N}}`,
+        "json"),
+      ai([{role: "user", content: `Projet INDH: ${projCtx}`}],
+        `Tu es le Conseiller financier INDH Phase 3 Maroc.
+${INDH_CTX}
+Génère un budget prévisionnel réaliste, détaillé et justifié. Total NE DOIT PAS dépasser 100 000 MAD.
+Inclus: équipements, matières premières, formation, local/aménagement, frais administratifs, fonds de roulement.
+Retourne UNIQUEMENT ce JSON valide sans markdown:
+{"items":[{"category":"Équipements","item":"désignation précise","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`,
+        "json"),
+    ]);
     const p = parseJ(r); if (p) setPlan(p);
-    const r2 = await ai([{role: "user", content: `Projet: ${JSON.stringify(proj || {idea})}`}],
-      `Expert financier INDH. Budget max 100 000 MAD. JSON sans markdown: {"items":[{"category":"...","item":"...","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`,
-      "json");
     const b = parseJ(r2); if (b) setBudget(b);
     setBusy(false);
   };
 
   const checkComp = async () => {
     setStep("compliance"); setBusy(true);
-    const r = await ai([{role: "user", content: `${JSON.stringify(proj)} ${JSON.stringify(plan)}`}],
-      `Expert conformité INDH Phase 3. JSON sans markdown: {"eligible":true,"score":N,"pillar":"...","strengths":["...","..."],"weaknesses":["..."],"recommendations":["...","...","..."],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
+    const r = await ai(
+      [{role: "user", content: `Projet: ${JSON.stringify(proj)}\nPlan: ${JSON.stringify(plan)}`}],
+      `Tu es le Conseiller en conformité INDH Phase 3 Maroc.
+${INDH_CTX}
+Évalue rigoureusement ce projet selon les critères officiels du jury INDH.
+Score juryScore: impact (max 25), viability (max 20), relevance (max 20), management (max 15), sustainability (max 10), innovation (max 10). Total = score global /100.
+Éligible si score >= 60 ET projet dans secteur INDH ET budget <= 100 000 MAD.
+Retourne UNIQUEMENT ce JSON valide sans markdown:
+{"eligible":true/false,"score":N,"pillar":"axe INDH exact","strengths":["force1 spécifique","force2 spécifique","force3 spécifique"],"weaknesses":["faiblesse1"],"recommendations":["action concrète 1","action concrète 2","action concrète 3"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
       "json");
     const c = parseJ(r); if (c) setComp(c);
     setBusy(false);
@@ -1061,9 +1102,12 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         {step === "dialogue" && (
           <Card>
             <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px"}}>
-              <div style={{width: "40px", height: "40px", borderRadius: "11px", background: ND,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0}}><Logo size={24}/></div>
+              <AdvisorAvatar size={40}/>
               <div>
+                <div style={{fontSize: "10px", color: Y, fontWeight: "700", textTransform: "uppercase",
+                  letterSpacing: ".6px", marginBottom: "2px"}}>
+                  {lang === "ar" ? "مستشار المبادرة الوطنية" : lang === "fr" ? "Conseiller INDH" : "INDH Advisor"}
+                </div>
                 <h2 style={{fontSize: "17px", fontWeight: "700", color: ND}}>{t.dialogT}</h2>
                 <p style={{fontSize: "11px", color: GR, marginTop: "2px"}}>{t.dialogS}</p>
               </div>
@@ -1081,8 +1125,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
                 <div key={i} style={{display: "flex",
                   justifyContent: m.role === "user" ? (dir === "rtl" ? "flex-start" : "flex-end") : (dir === "rtl" ? "flex-end" : "flex-start"),
                   marginBottom: "10px", gap: "7px", alignItems: "flex-end"}}>
-                  {m.role === "assistant" && <div style={{width: "28px", height: "28px", borderRadius: "50%",
-                    background: ND, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0}}><Logo size={17}/></div>}
+                  {m.role === "assistant" && <AdvisorAvatar size={28}/>}
                   <div style={{maxWidth: "80%", padding: "11px 15px",
                     borderRadius: m.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
                     background: m.role === "user" ? `linear-gradient(135deg,${N},${ND})` : WH,
@@ -1096,8 +1139,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
                 </div>
               ))}
               {busy && <div style={{display: "flex", gap: "7px", alignItems: "center"}}>
-                <div style={{width: "28px", height: "28px", borderRadius: "50%", background: ND,
-                  display: "flex", alignItems: "center", justifyContent: "center"}}><Logo size={17}/></div>
+                <AdvisorAvatar size={28}/>
                 <Dots/>
               </div>}
               <div ref={msgEnd}/>

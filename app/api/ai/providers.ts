@@ -56,18 +56,39 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
   return d.choices?.[0]?.message?.content ?? "";
 }
 
-export async function rafiq({ task, messages, system, max_tokens = 1200 }: RafiqOpts): Promise<string> {
-  const order = task === "json"
-    ? [gemini, openrouter, groq]
-    : [groq, gemini, openrouter];
-  let last: Error | null = null;
-  for (const fn of order) {
-    try {
-      const text = await fn(messages, system, max_tokens);
-      if (text) return text;
-    } catch (e) {
-      last = e instanceof Error ? e : new Error(String(e));
-    }
+async function together(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = process.env.TOGETHER_API_KEY;
+  if (!key) throw new Error("no TOGETHER_API_KEY");
+  const model = process.env.TOGETHER_MODEL || "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free";
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const res = await fetch("https://api.together.xyz/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+  });
+  if (!res.ok) throw new Error(`Together ${res.status}: ${await res.text()}`);
+  const d = await res.json();
+  return d.choices?.[0]?.message?.content ?? "";
+}
+
+async function tryOnce(fn: typeof groq, msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string | null> {
+  try {
+    const text = await fn(msgs, sys, maxTok);
+    return text || null;
+  } catch {
+    return null;
   }
-  throw last ?? new Error("All AI providers failed");
+}
+
+export async function rafiq({ task, messages, system, max_tokens = 1200 }: RafiqOpts): Promise<string> {
+  // Order: best provider first per task type
+  const order = task === "json"
+    ? [gemini, groq, together, openrouter]
+    : [groq, together, gemini, openrouter];
+
+  for (const fn of order) {
+    const text = await tryOnce(fn, messages, system, max_tokens);
+    if (text) return text;
+  }
+  throw new Error("Advisor unavailable — please try again in a moment.");
 }
