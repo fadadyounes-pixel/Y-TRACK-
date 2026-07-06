@@ -823,8 +823,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
 
   useEffect(() => {
-    if (proj || step !== "idea") onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, docFiles});
-  }, [proj, plan, comp, step, logo]);
+    if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, docFiles});
+  }, [proj, plan, comp, step, logo, docs, msgs, budget]);
 
   const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue") => {
     const r = await fetch("/api/ai", {
