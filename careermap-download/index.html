@@ -2136,75 +2136,72 @@ function ReportViewer({ profile, scores, role, onClose }) {
     loadDiv.innerHTML = '<div style="color:#1aabaa;font-size:44px;margin-bottom:16px;">&#8987;</div>' +
       '<div style="color:#f0f4f8;font-size:19px;font-weight:700;margin-bottom:6px;">' +
       (lang === 'ar' ? 'جاري إنشاء PDF...' : lang === 'en' ? 'Generating PDF...' : 'Génération du PDF...') +
-      '</div>' +
-      '<div style="color:#6b8aaa;font-size:13px;margin-top:4px;" id="spdfprog"></div>';
+      '</div><div style="color:#6b8aaa;font-size:13px;margin-top:4px;" id="spdfprog"></div>';
     document.body.appendChild(loadDiv);
+
+    /* Strip every CSS gradient before passing to html2canvas — it cannot render
+       linear-gradient or radial-gradient; replace with the first hex stop or transparent */
+    var renderHtml = html.replace(/background\s*:\s*[^;'"]*gradient[^;'"]*/gi, function(m) {
+      var c = m.match(/#[0-9a-fA-F]{6}/g);
+      return 'background:' + (c ? c[0] : 'transparent');
+    });
+
+    var sm = renderHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    var styles = sm ? sm[1].replace('*{', '#cmrpt *{').replace('body{', '#cmrpt{') : '';
+    var styleEl = document.createElement('style');
+    styleEl.id = 'cmrpt-s';
+    styleEl.textContent = styles;
+    document.head.appendChild(styleEl);
+
+    var b1 = renderHtml.indexOf('<body');
+    var b2 = b1 >= 0 ? renderHtml.indexOf('>', b1) + 1 : 0;
+    var b3 = renderHtml.lastIndexOf('</body>');
+    var bodyContent = (b1 >= 0 && b3 > b2) ? renderHtml.substring(b2, b3) : '';
+
+    var container = document.createElement('div');
+    container.id = 'cmrpt';
+    container.style.cssText = 'position:fixed;top:0;left:0;width:794px;overflow:visible;z-index:1;';
+    container.innerHTML = bodyContent;
+    document.body.appendChild(container);
 
     function cleanup() {
       var el = document.getElementById('pdf-loading');
       if (el && el.parentNode) el.parentNode.removeChild(el);
+      if (container.parentNode) container.parentNode.removeChild(container);
+      var se = document.getElementById('cmrpt-s');
+      if (se && se.parentNode) se.parentNode.removeChild(se);
     }
 
     var pdfFn = 'CareerMap_' + (profile.name || profile.id || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_') + '_' + lang + '.pdf';
-    var iframe = iframeRef.current;
-    if (!iframe || !iframe.contentDocument) { cleanup(); return; }
-    var iframeDoc = iframe.contentDocument;
-    var iframeWin = iframe.contentWindow;
+    var opt = {
+      margin: 0, filename: pdfFn,
+      image: {type: 'jpeg', quality: 0.95},
+      html2canvas: {scale: 2, useCORS: true, allowTaint: false, logging: false, backgroundColor: '#ffffff'},
+      jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'}
+    };
 
-    function runPDF() {
-      var pgs = iframeDoc.querySelectorAll('.pdf-page');
-      var n = pgs.length;
-      if (!n) { cleanup(); return; }
-      var pr = document.getElementById('spdfprog');
-      if (pr) pr.textContent = '1 / ' + n;
-
-      var opt = {
-        margin: 0, filename: pdfFn,
-        image: {type: 'jpeg', quality: 0.95},
-        html2canvas: {
-          scale: 2, useCORS: true, allowTaint: false, logging: false,
-          backgroundColor: null,
-          onclone: function(cloneDoc) {
-            /* Replace CSS gradients with flat colours — html2canvas cannot
-               render linear/radial-gradient reliably. Use first hex stop. */
-            var els = cloneDoc.querySelectorAll('[style]');
-            for (var j = 0; j < els.length; j++) {
-              var st = els[j].getAttribute('style');
-              if (!st || st.indexOf('gradient') < 0) continue;
-              els[j].setAttribute('style', st.replace(/background\s*:\s*[^;]*gradient[^;]*/gi, function(m) {
-                var c = m.match(/#[0-9a-fA-F]{6}/g);
-                return 'background:' + (c ? c[0] : 'transparent');
-              }));
-            }
+    document.fonts.ready.then(function() {
+      setTimeout(function() {
+        var pgs = container.querySelectorAll('.pdf-page');
+        var n = pgs.length;
+        var pr = document.getElementById('spdfprog');
+        if (!n) { cleanup(); return; }
+        if (pr) pr.textContent = '1 / ' + n;
+        html2pdf().set(opt).from(pgs[0]).toPdf().get('pdf').then(function(pdf) {
+          var i = 1;
+          function nx() {
+            if (i >= n) { pdf.save(pdfFn); cleanup(); return; }
+            if (pr) pr.textContent = (i + 1) + ' / ' + n;
+            html2pdf().set(opt).from(pgs[i]).toCanvas().get('canvas').then(function(c) {
+              pdf.addPage();
+              pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+              i++; nx();
+            }).catch(function() { i++; nx(); });
           }
-        },
-        jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'}
-      };
-
-      iframeWin.html2pdf().set(opt).from(pgs[0]).toPdf().get('pdf').then(function(pdf) {
-        var i = 1;
-        function nx() {
-          if (i >= n) { pdf.save(pdfFn); cleanup(); return; }
-          if (pr) pr.textContent = (i + 1) + ' / ' + n;
-          iframeWin.html2pdf().set(opt).from(pgs[i]).toCanvas().get('canvas').then(function(c) {
-            pdf.addPage();
-            pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
-            i++; nx();
-          }).catch(function() { i++; nx(); });
-        }
-        nx();
-      }).catch(function() { cleanup(); });
-    }
-
-    if (iframeWin.html2pdf) {
-      runPDF();
-    } else {
-      var s = iframeDoc.createElement('script');
-      s.src = 'https://careermaponline.org/lib/html2pdf.bundle.min.js';
-      s.onload = runPDF;
-      s.onerror = cleanup;
-      iframeDoc.head.appendChild(s);
-    }
+          nx();
+        }).catch(function() { cleanup(); });
+      }, 800);
+    });
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
