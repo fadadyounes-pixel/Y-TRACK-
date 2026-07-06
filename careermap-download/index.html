@@ -2150,6 +2150,9 @@ function ReportViewer({ profile, scores, role, onClose }) {
     var b2 = b1 >= 0 ? html.indexOf('>', b1) + 1 : 0;
     var b3 = html.lastIndexOf('</body>');
     var bodyContent = (b1 >= 0 && b3 > b2) ? html.substring(b2, b3) : '';
+    /* Remove <img> tags — external src inside a foreignObject SVG causes Chrome
+       to silently block the entire canvas render, producing blank pages */
+    bodyContent = bodyContent.replace(/<img\b[^>]*>/gi, '');
 
     var container = document.createElement('div');
     container.id = 'cmrpt';
@@ -2169,7 +2172,7 @@ function ReportViewer({ profile, scores, role, onClose }) {
     var opt = {
       margin: 0, filename: pdfFn,
       image: {type: 'jpeg', quality: 0.95},
-      html2canvas: {scale: 2, useCORS: true, allowTaint: false, logging: false, backgroundColor: '#ffffff', foreignObjectRendering: true},
+      html2canvas: {scale: 2, useCORS: false, allowTaint: true, logging: false, backgroundColor: '#ffffff', foreignObjectRendering: true},
       jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'}
     };
 
