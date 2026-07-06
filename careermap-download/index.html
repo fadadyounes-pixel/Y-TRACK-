@@ -2085,7 +2085,6 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}' +
     '</style>' +
     '</head><body>' + body +
-    '<script>document.fonts.ready.then(function(){setTimeout(function(){window.print();window.addEventListener("afterprint",function(){window.close();});},800);});<\/script>' +
     '</body></html>';
 }
 
@@ -2131,15 +2130,22 @@ function ReportViewer({ profile, scores, role, onClose }) {
   }, [profile, scores, role, lang]);
 
   function savePDF() {
-    var blob = new Blob([html], {type: 'text/html;charset=utf-8'});
-    var url = URL.createObjectURL(blob);
-    var w = window.open(url, '_blank');
+    var w = window.open('', '_blank');
     if (!w) {
-      URL.revokeObjectURL(url);
-      alert(lang === 'ar' ? 'يرجى السماح بالنوافذ المنبثقة لتحميل PDF' : lang === 'en' ? 'Please allow pop-ups to download the PDF.' : 'Veuillez autoriser les fenêtres pop-up pour télécharger le PDF.');
+      alert(lang === 'ar' ? 'يرجى السماح بالنوافذ المنبثقة' : lang === 'en' ? 'Please allow pop-ups for PDF download.' : 'Veuillez autoriser les fenêtres pop-up.');
       return;
     }
-    setTimeout(function() { URL.revokeObjectURL(url); }, 120000);
+    var bannerMsg = lang === 'ar' ? '↓ اختر "حفظ كـ PDF" ثم اضغط حفظ' :
+                    lang === 'en' ? '↓ Select "Save as PDF" → click Save' :
+                    '↓ Sélectionner "Enregistrer au format PDF" → cliquer Enregistrer';
+    var banner = '<div id="savebanner" style="position:fixed;top:0;left:0;right:0;background:#1a73e8;color:#fff;padding:14px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;text-align:center;z-index:9999999;letter-spacing:0.5px;">' + bannerMsg + '</div>' +
+                 '<style>@media print{#savebanner{display:none!important}}</style>';
+    var printHtml = html.replace('</body>', banner + '</body>');
+    w.document.open();
+    w.document.write(printHtml);
+    w.document.close();
+    w.onafterprint = function() { w.close(); };
+    setTimeout(function() { w.focus(); w.print(); }, 1500);
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
