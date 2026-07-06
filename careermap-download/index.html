@@ -2085,16 +2085,23 @@ function buildReportHTML(profile, scores, role, reportLang) {
     'body{background:#fff!important;padding:0}' +
     '.pdf-page{margin:0!important;box-shadow:none!important;break-after:page;page-break-after:always}' +
     '.pdf-page:last-child{page-break-after:auto;break-after:auto}' +
+    '.np{display:none!important}' +
     '}' +
     '</style>' +
     '</head><body>' + body +
-    '<script src="/lib/html2pdf.bundle.min.js"><\/script>' +
-    '<script>window.addEventListener("load",function(){' +
-      'if(window.top!==window.self)return;' +
-      'if(typeof html2pdf==="undefined"){setTimeout(window.print,800);return;}' +
-      'var opt={margin:0,filename:"' + pdfName + '",image:{type:"jpeg",quality:0.98},html2canvas:{scale:2,useCORS:true,logging:false},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},pagebreak:{mode:["css","legacy"],before:".pdf-page"}};' +
-      'html2pdf().set(opt).from(document.body).save();' +
-    '});<\/script>' +
+    '<div class="np" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;background:rgba(6,17,31,.93);display:flex;align-items:center;justify-content:center;">' +
+    '<div style="background:#0f2540;border:2px solid #1aabaa;border-radius:18px;padding:36px 32px;max-width:440px;width:90%;text-align:center;color:#f0f4f8;box-shadow:0 8px 40px rgba(0,0,0,.7);">' +
+    '<div style="font-size:48px;margin-bottom:8px;">&#11015;</div>' +
+    '<h2 style="font-size:19px;font-weight:900;margin-bottom:8px;">' + (isAr ? 'تنزيل التقرير PDF' : isEn ? 'Download Report as PDF' : 'Télécharger le Rapport en PDF') + '</h2>' +
+    '<div dir="ltr" style="background:#0d1f33;border-radius:10px;padding:14px 18px;margin:16px 0;text-align:left;font-size:12px;color:#8fadc8;line-height:2.2;">' +
+    '<b style="color:#1aabaa">1.</b> ' + (isAr ? 'اضغط الزر أدناه' : isEn ? 'Click the button below' : 'Cliquez le bouton ci-dessous') + '<br>' +
+    '<b style="color:#1aabaa">2.</b> ' + (isAr ? 'في نافذة الطباعة، اختر' : isEn ? 'In the print dialog, select' : 'Dans la boîte de dialogue, sélectionnez') + ' <b style="color:#f0f4f8">Save as PDF</b><br>' +
+    '<b style="color:#1aabaa">3.</b> ' + (isAr ? 'اضغط حفظ / Save' : isEn ? 'Click Save' : 'Cliquez Enregistrer / Save') +
+    '</div>' +
+    '<button onclick="this.parentElement.parentElement.style.display=\'none\';window.print();" style="display:block;width:100%;padding:14px;background:#1aabaa;color:#06111f;border:none;border-radius:10px;font-size:16px;font-weight:900;cursor:pointer;">' +
+    (isAr ? '&#8592; حفظ كـ PDF' : isEn ? 'Print / Save as PDF &#8594;' : 'Imprimer / Enregistrer en PDF &#8594;') +
+    '</button>' +
+    '</div></div>' +
     '</body></html>';
 }
 
