@@ -439,8 +439,20 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   const [err, setErr]         = useState(false);
   const [mode, setMode]       = useState<null | "choose" | "new" | "returning">(null);
   const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", city: "", region: "", sector: "", projType: ""});
-  const [formErr, setFormErr] = useState(false);
+  const [formErr, setFormErr] = useState<string[]>([]);
   const dir = lang === "ar" ? "rtl" : "ltr";
+
+  /* ── Live role detection ── */
+  const liveRole = val.trim() ? detectRole(val.trim()) : null;
+  const roleColors: Record<string, string> = { holder: "#1aabaa", coord: "#9B59B6", admin: "#1db87a", unknown: RE };
+  const roleIcons:  Record<string, string> = { holder: "🎓", coord: "👔", admin: "⚙️", unknown: "❌" };
+  const roleLabels: Record<string, Record<string, string>> = {
+    holder: {fr:"Porteur de projet",ar:"حامل المشروع",en:"Project holder"},
+    coord:  {fr:"Coordinateur",ar:"المنسق",en:"Coordinator"},
+    admin:  {fr:"Administrateur",ar:"المدير",en:"Administrator"},
+    unknown:{fr:"Code non reconnu",ar:"رمز غير معروف",en:"Unrecognized code"},
+  };
+  const detectedBorderColor = liveRole && liveRole !== "unknown" ? roleColors[liveRole] : liveRole === "unknown" ? RE : "#DDE0E8";
 
   const handleCheck = () => {
     const role = detectRole(val.trim().toUpperCase().replace(/^@/, "@"));
@@ -460,19 +472,46 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     setErr(true);
   };
 
+  /* ── Form validation helpers ── */
+  const REQUIRED_FIELDS: Array<{key: keyof typeof form; label: Record<string, string>}> = [
+    {key:"firstName", label:{fr:"Prénom",ar:"الاسم الشخصي",en:"First name"}},
+    {key:"lastName",  label:{fr:"Nom de famille",ar:"الاسم العائلي",en:"Last name"}},
+    {key:"email",     label:{fr:"E-mail",ar:"البريد الإلكتروني",en:"Email"}},
+    {key:"region",    label:{fr:"Région",ar:"الجهة",en:"Region"}},
+    {key:"sector",    label:{fr:"Secteur",ar:"القطاع",en:"Sector"}},
+    {key:"projType",  label:{fr:"Type de porteur",ar:"نوع الحامل",en:"Holder type"}},
+  ];
+  const TOTAL_FIELDS = Object.keys(form).length;
+  const filledCount  = Object.values(form).filter(v => !!v).length;
+  const fillPct      = Math.round((filledCount / TOTAL_FIELDS) * 100);
+
+  const isEmailValid = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+  const fieldBorder = (field: keyof typeof form) => {
+    if (!form[field]) return formErr.length > 0 && REQUIRED_FIELDS.some(r => r.key === field) ? RE : "#DDE0E8";
+    if (field === "email") return isEmailValid(form.email) ? "#1db87a" : RE;
+    return "#1db87a";
+  };
+
   const handleCreate = () => {
-    if (!form.firstName || !form.lastName || !form.email || !form.region || !form.sector || !form.projType) {
-      setFormErr(true); return;
+    const missing = REQUIRED_FIELDS.filter(r => !form[r.key]).map(r => r.label[lang] || r.label.fr);
+    if (missing.length > 0 || (form.email && !isEmailValid(form.email))) {
+      const errs = [...missing];
+      if (form.email && !isEmailValid(form.email)) errs.push(lang==="ar"?"البريد الإلكتروني غير صالح":lang==="fr"?"Format e-mail invalide":"Invalid email format");
+      setFormErr(errs); return;
     }
     const id = val.trim().toUpperCase();
     onLogin({id, name: form.firstName, role: "holder", profile: {...form, id}, isNew: true});
   };
 
   const inp = (field: keyof typeof form, placeholder: string) => (
-    <input value={form[field]} onChange={e => {setForm(p => ({...p, [field]: e.target.value})); setFormErr(false);}}
-      placeholder={placeholder} style={{width: "100%", padding: "11px 14px", borderRadius: "11px",
-        border: `2px solid ${form[field] ? Y : formErr && !form[field] ? RE : CD}`,
-        background: form[field] ? YL : WH, fontSize: "13px", fontFamily: ff(lang),
+    <input value={form[field]}
+      onChange={e => {setForm(p => ({...p, [field]: e.target.value})); setFormErr([]);}}
+      placeholder={placeholder}
+      style={{width: "100%", padding: "11px 14px", borderRadius: "11px",
+        border: `2px solid ${fieldBorder(field)}`,
+        background: form[field] ? (field === "email" && !isEmailValid(form.email) ? "#FFF5F5" : "#F0FFF4") : WH,
+        fontSize: "13px", fontFamily: ff(lang),
         color: ND, direction: dir as "rtl" | "ltr", transition: "all .2s"}}/>
   );
 
@@ -535,17 +574,31 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
               maxLength={30}
               className={err ? "shake" : ""}
               style={{width:"100%", padding:"13px 14px",
-                border:`1px solid ${err ? "#C0632F" : "#DDE0E8"}`,
+                border:`2px solid ${err ? "#C0632F" : detectedBorderColor}`,
                 borderRadius:"8px", fontSize:"15px", fontFamily:ff(lang), outline:"none",
-                marginBottom:"10px", letterSpacing:"0.4px",
+                marginBottom:"6px", letterSpacing:"0.4px",
                 background:"#F5F6F8", color:"#10132A",
                 direction:dir as "rtl"|"ltr", transition:"border-color .2s"}}/>
+            {/* Live role badge */}
+            {liveRole && !err && (
+              <div style={{display:"flex", alignItems:"center", gap:"6px", marginBottom:"10px",
+                padding:"6px 10px", borderRadius:"7px",
+                background: roleColors[liveRole] + "15",
+                border: `1px solid ${roleColors[liveRole]}33`}}>
+                <span style={{fontSize:"14px"}}>{roleIcons[liveRole]}</span>
+                <span style={{fontSize:"12px", fontWeight:"700", color: roleColors[liveRole]}}>
+                  {roleLabels[liveRole]?.[lang] || roleLabels[liveRole].fr}
+                </span>
+              </div>
+            )}
             {err && <div style={{fontSize:"13px", color:"#C0632F", marginBottom:"10px"}}>{t.cinError}</div>}
             <button
               className="login-cont-btn"
               onClick={handleCheck}
               disabled={!val.trim()}
-              style={{width:"100%", padding:"14px", background:"#0A0F2C", color:"#fff",
+              style={{width:"100%", padding:"14px",
+                background: liveRole && liveRole !== "unknown" ? roleColors[liveRole] : "#0A0F2C",
+                color:"#fff",
                 border:"none", borderRadius:"8px", fontSize:"15px", fontWeight:"700",
                 fontFamily:ff(lang), cursor:!val.trim()?"not-allowed":"pointer",
                 marginTop:"8px", letterSpacing:"0.2px",
@@ -581,13 +634,29 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
 
           {/* ── Account creation form ── */}
           {mode === "new" && <>
-            <div style={{fontSize:"16px", fontWeight:"800", color:"#10132A", marginBottom:"18px"}}>{t.createTitle}</div>
+            <div style={{fontSize:"16px", fontWeight:"800", color:"#10132A", marginBottom:"12px"}}>{t.createTitle}</div>
+
+            {/* Progress bar */}
+            <div style={{marginBottom:"14px"}}>
+              <div style={{display:"flex", justifyContent:"space-between", marginBottom:"4px"}}>
+                <span style={{fontSize:"10px", color:"#5B6178", fontWeight:"600"}}>
+                  {lang==="ar"?"تعبئة الحقول":lang==="fr"?"Champs remplis":"Fields filled"}
+                </span>
+                <span style={{fontSize:"10px", fontWeight:"800", color:"#10132A"}}>{fillPct}%</span>
+              </div>
+              <div style={{height:"4px", background:"#E8EAF0", borderRadius:"2px", overflow:"hidden"}}>
+                <div style={{height:"100%", borderRadius:"2px",
+                  background:`linear-gradient(90deg,#1aabaa,#1db87a)`,
+                  width:`${fillPct}%`, transition:"width .4s ease"}}/>
+              </div>
+            </div>
+
             <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
               {inp("firstName", t.firstName as string)} {inp("lastName", t.lastName as string)}
             </div>
             <div style={{marginBottom:"8px", position:"relative"}}>
               {inp("email", t.email as string)}
-              {form.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) &&
+              {form.email && isEmailValid(form.email) &&
                 <span style={{position:"absolute",right:"12px",top:"50%",transform:"translateY(-50%)",fontSize:"14px"}}>✅</span>}
             </div>
             <div style={{marginBottom:"8px"}}>{inp("phone", t.phone as string)}</div>
@@ -609,13 +678,27 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
             <div style={{marginBottom:"16px"}}>
               <Sel value={form.projType} onChange={v=>setForm(p=>({...p,projType:v}))} options={PROJ_TYPES[lang]} placeholder={t.projType as string} dir={dir}/>
             </div>
-            {formErr && <p style={{fontSize:"12px",color:"#C0632F",textAlign:"center",marginBottom:"10px"}}>
-              {lang==="ar"?"يرجى ملء جميع الحقول الإلزامية":lang==="fr"?"Veuillez remplir tous les champs obligatoires":"Please fill in all required fields"}
-            </p>}
+
+            {/* Error banner listing missing fields */}
+            {formErr.length > 0 && (
+              <div style={{padding:"10px 12px", background:"#FFF0EE", border:"1px solid #FCA5A5",
+                borderRadius:"8px", marginBottom:"10px"}}>
+                <div style={{fontSize:"11px", fontWeight:"700", color:"#C0632F", marginBottom:"4px"}}>
+                  {lang==="ar"?"الحقول المطلوبة:":lang==="fr"?"Champs manquants :":"Missing fields:"}
+                </div>
+                {formErr.map((e, i) => (
+                  <div key={i} style={{fontSize:"11px", color:"#C0632F"}}>• {e}</div>
+                ))}
+              </div>
+            )}
+
             <button onClick={handleCreate}
-              style={{width:"100%",padding:"13px",background:"#0A0F2C",color:"#fff",border:"none",
+              style={{width:"100%",padding:"13px",
+                background: fillPct >= 60 ? "#0A0F2C" : "#888",
+                color:"#fff",border:"none",
                 borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:ff(lang),
-                cursor:"pointer",boxShadow:"0 8px 20px rgba(10,15,44,0.25)"}}>
+                cursor:"pointer",boxShadow:"0 8px 20px rgba(10,15,44,0.25)",
+                transition:"background .2s"}}>
               {t.create}
             </button>
             <button onClick={()=>setMode("choose")}
@@ -1643,14 +1726,24 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   onAddCoord: (c: string) => void; onDelCoord: (i: number) => void;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
-  const [tab, setTab]         = useState("stats");
+  const [tab, setTab]           = useState("stats");
   const [newCoord, setNewCoord] = useState("");
-  const [search, setSearch]   = useState("");
+  const [search, setSearch]     = useState("");
+  const [filterRegion, setFilterRegion] = useState("");
+  const [filterSector, setFilterSector] = useState("");
+  const [filterStep, setFilterStep]     = useState("");
+  const [detailH, setDetailH]   = useState<any>(null);
 
-  const filtered = holders.filter(h =>
-    (h.name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (h.id || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const STEPS_LIST = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
+
+  const filtered = holders.filter(h => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || (h.name||"").toLowerCase().includes(q) || (h.id||"").toLowerCase().includes(q) || (h.proj?.projectName||"").toLowerCase().includes(q);
+    const matchRegion = !filterRegion || h.profile?.region === filterRegion;
+    const matchSector = !filterSector || (h.proj?.sector || h.profile?.sector) === filterSector;
+    const matchStep   = !filterStep   || (h.step || "idea") === filterStep;
+    return matchSearch && matchRegion && matchSector && matchStep;
+  });
 
   const byRegion = holders.reduce((a: Record<string, number>, h: any) => {
     const r = h.profile?.region || "N/A"; a[r] = (a[r] || 0) + 1; return a;
@@ -1658,6 +1751,24 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   const bySector = holders.reduce((a: Record<string, number>, h: any) => {
     const s = h.proj?.sector || h.profile?.sector || "N/A"; a[s] = (a[s] || 0) + 1; return a;
   }, {});
+
+  const exportCSV = () => {
+    const cols = ["ID","Nom","Prénom","Email","Téléphone","Age","Genre","Région","Secteur","Type","Projet","Structure","Bénéficiaires","Budget","Axe INDH","Score","Éligible","Étape"];
+    const rows = holders.map(h => [
+      h.id, h.profile?.lastName||"", h.name||"", h.profile?.email||"", h.profile?.phone||"",
+      h.profile?.age||"", h.profile?.gender||"", h.profile?.region||"",
+      h.proj?.sector||h.profile?.sector||"", h.profile?.projType||"",
+      h.proj?.projectName||"", h.proj?.legalStructure||"", h.proj?.beneficiaries||"",
+      h.proj?.estimatedBudget||"", h.proj?.pillar||"",
+      h.comp?.score||"", h.comp?.eligible?"OUI":"NON", h.step||"idea",
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`));
+    const csv = [cols.join(";"), ...rows.map(r => r.join(";"))].join("\n");
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"})),
+      download: "IdeaMap_Porteurs.csv",
+    });
+    a.click();
+  };
 
   const TabBtn = ({id, label}: {id: string; label: string}) => (
     <button onClick={() => setTab(id)} style={{padding: "8px 18px", borderRadius: "10px", border: "none",
@@ -1679,6 +1790,149 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
       </div>
     </div>
   );
+
+  /* ── Detail modal ── */
+  if (detailH) {
+    const h = detailH;
+    return (
+      <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
+        <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
+        <div style={{maxWidth: "720px", margin: "0 auto", padding: "24px 18px 60px"}}>
+          <button onClick={() => setDetailH(null)} style={{marginBottom: "16px", padding: "8px 16px",
+            borderRadius: "10px", border: `1px solid ${N}`, background: "transparent",
+            color: N, fontSize: "12px", fontWeight: "600", fontFamily: ff(lang)}}>
+            ← {lang === "ar" ? "رجوع" : lang === "fr" ? "Retour" : "Back"}
+          </button>
+          <Card>
+            <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px"}}>
+              <div style={{width: "44px", height: "44px", borderRadius: "50%", background: Y,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "18px", fontWeight: "800", color: ND}}>{(h.name||"?")[0]}</div>
+              <div style={{flex: 1}}>
+                <div style={{fontSize: "16px", fontWeight: "700", color: ND}}>{h.name} {h.profile?.lastName||""}</div>
+                <div style={{fontSize: "12px", color: GR}}>{h.id} · {h.profile?.region} · {h.profile?.projType}</div>
+              </div>
+              <div style={{display:"flex", gap:"6px", flexShrink:0}}>
+                <Badge role="holder"/>
+                {h.comp && <span style={{padding:"3px 8px", borderRadius:"7px", fontSize:"10px", fontWeight:"700",
+                  background: h.comp.eligible ? GN+"22" : RE+"22", color: h.comp.eligible ? GN : RE}}>
+                  {h.comp.score}/100
+                </span>}
+              </div>
+            </div>
+            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px"}}>
+              {[
+                {l:"Age", v:h.profile?.age, i:"📅"}, {l:"Genre", v:h.profile?.gender, i:"👤"},
+                {l:"Région", v:h.profile?.region, i:"📍"}, {l:"Secteur", v:h.profile?.sector, i:"🏭"},
+                {l:"Email", v:h.profile?.email, i:"📧"}, {l:"Téléphone", v:h.profile?.phone, i:"📞"},
+                {l:"Formation", v:h.profile?.edu, i:"🎓"}, {l:"Type porteur", v:h.profile?.projType, i:"⚖️"},
+              ].filter(x => x.v).map((x, i) => (
+                <div key={i} style={{display:"flex", gap:"8px", alignItems:"center",
+                  padding:"10px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
+                  <span>{x.i}</span>
+                  <div><div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>{x.l}</div>
+                    <div style={{fontSize:"12px", color:ND, fontWeight:"600"}}>{x.v}</div></div>
+                </div>
+              ))}
+            </div>
+          </Card>
+          {h.proj && <Card>
+            <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+              <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>📋 {lang==="ar"?"ملف المشروع":lang==="fr"?"Profil du Projet":"Project Profile"}</span>
+            </div>
+            {[
+              {l:"Projet", v:h.proj.projectName, i:"🏢"}, {l:"Secteur", v:h.proj.sector, i:"🏭"},
+              {l:"Structure", v:h.proj.legalStructure, i:"⚖️"}, {l:"Zone", v:h.proj.location, i:"📍"},
+              {l:"Bénéficiaires", v:h.proj.beneficiaries, i:"👥"}, {l:"Axe INDH", v:h.proj.pillar, i:"🏛️"},
+              {l:"Budget estimé", v:h.proj.estimatedBudget ? `${Number(h.proj.estimatedBudget).toLocaleString()} MAD` : null, i:"💰"},
+            ].filter(x => x.v).map((x, i) => (
+              <div key={i} style={{display:"flex", gap:"10px", alignItems:"center",
+                padding:"10px 12px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`, marginBottom:"7px"}}>
+                <span style={{fontSize:"18px"}}>{x.i}</span>
+                <div><div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>{x.l}</div>
+                  <div style={{fontSize:"13px", color:ND, fontWeight:"600"}}>{x.v}</div></div>
+              </div>
+            ))}
+          </Card>}
+          {h.plan && <Card>
+            <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"12px"}}>
+              <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>📊 {lang==="ar"?"خطة الأعمال":lang==="fr"?"Plan d'Affaires":"Business Plan"}</span>
+            </div>
+            {h.plan.executiveSummary && <div style={{padding:"12px 14px", background:CR, borderRadius:"12px",
+              borderLeft:`4px solid ${Y}`, marginBottom:"8px", fontSize:"13px", color:ND, lineHeight:"1.7"}}>
+              {h.plan.executiveSummary.slice(0, 300)}{h.plan.executiveSummary.length > 300 ? "…" : ""}
+            </div>}
+            {h.plan.projections && <div style={{display:"flex", gap:"8px"}}>
+              {Object.entries(h.plan.projections).map(([y, v]) => (
+                <div key={y} style={{flex:1, textAlign:"center", padding:"10px", background:YL,
+                  borderRadius:"10px", border:`1px solid ${Y}55`}}>
+                  <div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>An {y.replace("year","")}</div>
+                  <div style={{fontSize:"18px", fontWeight:"800", color:N}}>{Number(v).toLocaleString()}</div>
+                  <div style={{fontSize:"9px", color:GR}}>MAD</div>
+                </div>
+              ))}
+            </div>}
+          </Card>}
+          {h.comp && <Card>
+            <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+              <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>✅ {t.compT}</span>
+            </div>
+            <div style={{display:"flex", alignItems:"center", gap:"16px", marginBottom:"14px"}}>
+              <div style={{width:"72px", height:"72px", borderRadius:"50%",
+                background: h.comp.eligible ? ND : "#FFF0F0",
+                border:`3px solid ${h.comp.eligible ? Y : RE}`,
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
+                <span style={{fontSize:"22px", fontWeight:"800", color: h.comp.eligible ? Y : RE}}>{h.comp.score}</span>
+              </div>
+              <div>
+                <div style={{fontSize:"14px", fontWeight:"700", color: h.comp.eligible ? GN : RE, marginBottom:"4px"}}>
+                  {h.comp.eligible ? t.eligible : t.notElig}
+                </div>
+                {h.comp.pillar && <div style={{fontSize:"12px", color:GR}}>📌 {h.comp.pillar}</div>}
+              </div>
+            </div>
+            {h.comp.juryScore && JURY.map(({key, label, w}) => {
+              const sc = h.comp.juryScore[key]||0; const p = (sc/w)*100;
+              const col = p >= 70 ? Y : p >= 50 ? "#F59E0B" : RE;
+              return (<div key={key} style={{marginBottom:"8px"}}>
+                <div style={{display:"flex", justifyContent:"space-between", marginBottom:"2px"}}>
+                  <span style={{fontSize:"11px", color:N}}>{label}</span>
+                  <span style={{fontSize:"11px", fontWeight:"800", color:ND}}>{sc}/{w}</span>
+                </div>
+                <div style={{height:"5px", background:CD, borderRadius:"3px", overflow:"hidden"}}>
+                  <div style={{height:"100%", borderRadius:"3px", background:col, width:`${Math.min(p,100)}%`}}/>
+                </div>
+              </div>);
+            })}
+          </Card>}
+          <div style={{padding:"14px 16px", background:ND, borderRadius:"14px", display:"flex",
+            alignItems:"center", justifyContent:"space-between", gap:"12px"}}>
+            <span style={{fontSize:"13px", color:WH, fontWeight:"600"}}>
+              📄 {lang==="ar"?"تصدير بيانات هذا الحامل":lang==="fr"?"Exporter ce porteur":"Export this holder"}
+            </span>
+            <button onClick={() => {
+              const h2 = detailH;
+              const total = (h2.budget?.items||[]).reduce((s: number, x: any) => s+(x.total||0), 0);
+              const rows = [
+                ["ID","Nom","Prénom","Email","Téléphone","Région","Secteur","Projet","Score","Éligible","Étape"],
+                [h2.id, h2.profile?.lastName||"", h2.name||"", h2.profile?.email||"",
+                 h2.profile?.phone||"", h2.profile?.region||"", h2.proj?.sector||"",
+                 h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
+              ].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(";")).join("\n");
+              const a = Object.assign(document.createElement("a"), {
+                href: URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"})),
+                download: `Porteur_${h2.id}.csv`,
+              });
+              a.click();
+            }} style={{padding:"8px 16px", borderRadius:"10px", border:`1.5px solid ${Y}`,
+              background:"transparent", color:Y, fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
+              ⬇ CSV
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
@@ -1732,17 +1986,53 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
         </>)}
 
         {tab === "projects" && (<>
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder={lang === "ar" ? "بحث..." : lang === "fr" ? "Rechercher..." : "Search..."}
-            style={{width: "100%", padding: "11px 14px", borderRadius: "12px", border: `2px solid ${CD}`,
-              fontSize: "13px", fontFamily: ff(lang), color: N, background: WH, direction: dir as "rtl" | "ltr", marginBottom: "14px"}}/>
+          {/* Search + filter row */}
+          <div style={{display:"flex", gap:"8px", marginBottom:"10px", flexWrap:"wrap"}}>
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder={lang === "ar" ? "بحث..." : lang === "fr" ? "Rechercher..." : "Search..."}
+              style={{flex:"1 1 160px", minWidth:"120px", padding:"10px 13px", borderRadius:"10px", border:`2px solid ${CD}`,
+                fontSize:"12px", fontFamily:ff(lang), color:N, background:WH, direction:dir as "rtl"|"ltr"}}/>
+            <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)}
+              style={{flex:"1 1 130px", minWidth:"110px", padding:"10px 10px", borderRadius:"10px",
+                border:`2px solid ${filterRegion ? Y : CD}`, background:filterRegion ? YL : WH,
+                fontSize:"11px", fontFamily:ff(lang), color:filterRegion ? ND : GR, appearance:"none"}}>
+              <option value="">{lang==="ar"?"كل الجهات":lang==="fr"?"Toutes régions":"All regions"}</option>
+              {REGIONS.map(r => <option key={r} value={r}>{r.slice(0,18)}</option>)}
+            </select>
+            <select value={filterSector} onChange={e => setFilterSector(e.target.value)}
+              style={{flex:"1 1 120px", minWidth:"100px", padding:"10px 10px", borderRadius:"10px",
+                border:`2px solid ${filterSector ? Y : CD}`, background:filterSector ? YL : WH,
+                fontSize:"11px", fontFamily:ff(lang), color:filterSector ? ND : GR, appearance:"none"}}>
+              <option value="">{lang==="ar"?"كل القطاعات":lang==="fr"?"Tous secteurs":"All sectors"}</option>
+              {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={filterStep} onChange={e => setFilterStep(e.target.value)}
+              style={{flex:"1 1 100px", minWidth:"90px", padding:"10px 10px", borderRadius:"10px",
+                border:`2px solid ${filterStep ? Y : CD}`, background:filterStep ? YL : WH,
+                fontSize:"11px", fontFamily:ff(lang), color:filterStep ? ND : GR, appearance:"none"}}>
+              <option value="">{lang==="ar"?"كل المراحل":lang==="fr"?"Toutes étapes":"All steps"}</option>
+              {STEPS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          {/* CSV export + count row */}
+          <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px"}}>
+            <span style={{fontSize:"11px", color:GR, fontWeight:"600"}}>
+              {filtered.length} {lang==="ar"?"نتيجة":lang==="fr"?"résultat(s)":"result(s)"}
+            </span>
+            <button onClick={exportCSV}
+              style={{padding:"7px 14px", borderRadius:"9px", border:`1.5px solid ${N}`,
+                background:"transparent", color:N, fontSize:"11px", fontWeight:"700",
+                fontFamily:ff(lang), cursor:"pointer"}}>
+              📥 CSV
+            </button>
+          </div>
           {filtered.length === 0 ? <p style={{textAlign: "center", color: GR, padding: "32px"}}>{t.noProjects}</p> :
             filtered.map((h: any, i: number) => (
-              <Card key={i}>
+              <Card key={i} style={{cursor:"pointer"}} onClick={() => setDetailH(h)}>
                 <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
                   <div style={{width: "36px", height: "36px", borderRadius: "50%", background: Y,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "14px", fontWeight: "800", color: ND, flexShrink: 0}}>{h.name[0]}</div>
+                    fontSize: "14px", fontWeight: "800", color: ND, flexShrink: 0}}>{(h.name||"?")[0]}</div>
                   <div style={{flex: 1}}>
                     <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "2px"}}>
                       <span style={{fontSize: "13px", fontWeight: "700", color: ND}}>{h.name}</span>
@@ -1752,7 +2042,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                     </div>
                     <div style={{fontSize: "11px", color: GR}}>{h.proj?.projectName || "—"} · {h.profile?.region}</div>
                     <div style={{marginTop: "5px"}}>
-                      <PBar pct={["idea","dialogue","profile","plan","budget","compliance","documents","export"].indexOf(h.step || "idea") / 7 * 100} h={4}/>
+                      <PBar pct={STEPS_LIST.indexOf(h.step || "idea") / (STEPS_LIST.length - 1) * 100} h={4}/>
                     </div>
                   </div>
                   <span style={{fontSize: "10px", fontWeight: "700", color: Y, background: Y + "22",
