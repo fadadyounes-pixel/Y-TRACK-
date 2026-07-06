@@ -73,8 +73,14 @@ const REGIONS = [
   "Guelmim-Oued Noun","Laâyoune-Sakia El Hamra","Dakhla-Oued Ed-Dahab",
 ];
 const SECTORS = [
-  "Agriculture/Élevage","Artisanat","Commerce/Services","Agro-alimentaire",
-  "Tourisme rural","Numérique/TIC","Textile/Couture","BTP","Éducation/Formation","Pêche",
+  "Agriculture/Élevage","Artisanat traditionnel","Commerce/Épicerie",
+  "Agro-alimentaire","Restauration/Café","Coiffure/Beauté",
+  "Couture/Vêtement traditionnel","Impression/Reprographie",
+  "Design graphique/Communication","Numérique/TIC",
+  "Tourisme rural/Guide","BTP/Maçonnerie",
+  "Éducation/Formation","Pêche/Aquaculture",
+  "Transport/Logistique","Santé/Pharmacie",
+  "Réparation/Maintenance","Événementiel/Traiteur",
 ];
 const PROJ_TYPES: Record<string, string[]> = {
   fr:["Individuel","Groupe informel","Association","Coopérative","GIE"],
@@ -1273,27 +1279,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               );
             })()}
             <textarea value={idea} onChange={e => setIdea(e.target.value)} placeholder={t.ideaP as string}
-              style={{...fs, resize: "vertical", minHeight: idea.trim() ? "100px" : "70px", lineHeight: "1.7"}}/>
-            <p style={{fontSize: "11px", color: GR, fontWeight: "700", textTransform: "uppercase",
-              letterSpacing: ".6px", margin: "14px 0 8px"}}>{t.sectorLabel}</p>
-            <div style={{marginBottom: "20px"}}>
-              {SECTORS.map(s => {
-                const inIdea = idea.toLowerCase().includes(s.toLowerCase().split("/")[0].toLowerCase());
-                return (
-                  <button key={s} onClick={() => {
-                    const prefix = lang==="ar"?"أريد مشروعاً في قطاع ":lang==="fr"?"Je veux un projet dans le secteur ":"I want a project in the sector ";
-                    if (!idea.trim()) setIdea(prefix + s);
-                    else if (!idea.includes(s)) setIdea((p: string) => p + (p.endsWith(" ")?"":". ") + (lang==="ar"?"قطاع: ":lang==="fr"?"Secteur: ":"Sector: ") + s);
-                  }} style={{display: "inline-block", padding: "6px 13px",
-                    borderRadius: "20px", fontSize: "11px", fontWeight: "700",
-                    background: inIdea ? Y : YL, color: ND,
-                    margin: "3px", border: `2px solid ${inIdea ? YD : Y+"55"}`,
-                    cursor: "pointer", fontFamily: ff(lang), transition: "all .15s"}}>
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
+              style={{...fs, resize: "vertical", minHeight: idea.trim() ? "110px" : "90px", lineHeight: "1.7", marginBottom: "20px"}}/>
             {indhBtn(busy ? t.loading : t.next, startChat, {opacity: (!idea.trim() || busy) ? .5 : 1})}
           </Card>
         )}
