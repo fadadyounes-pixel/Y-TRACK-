@@ -16,6 +16,7 @@
   <script src="lib/react.js"></script>
   <script src="lib/react-dom.js"></script>
   <script src="lib/babel.js"></script>
+  <script src="lib/html2pdf.bundle.min.js"></script>
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -1347,14 +1348,28 @@ function buildReportHTML(profile, scores, role, reportLang) {
     A2: { high: "Agréabilité élevée (" + (b.A2||0) + "%) — forte empathie et orientation coopérative. Idéal pour les rôles de soin, d'enseignement ou de gestion d'équipe. Surveiller le risque de difficulté à s'affirmer.", mid: "Agréabilité modérée (" + (b.A2||0) + "%) — bon équilibre coopération/assertivité.", low: "Agréabilité faible (" + (b.A2||0) + "%) — personnalité directe, compétitive. Bien adapté aux rôles de négociation et de leadership. Développer l'écoute active." },
     N: { high: "Stabilité émotionnelle faible (" + (b.N||0) + "%) — sensibilité émotionnelle élevée, risque de stress sous pression. Recommander des techniques de gestion du stress (mindfulness, supervision régulière). Éviter les environnements à haute intensité émotionnelle sans soutien.", mid: "Stabilité émotionnelle modérée (" + (b.N||0) + "%) — régulation émotionnelle globalement satisfaisante avec quelques zones de vigilance sous forte pression.", low: "Stabilité émotionnelle élevée (" + (b.N||0) + "%) — résilience émotionnelle forte. Performant sous pression. Atout majeur pour des rôles à haute responsabilité." }
   };
+  var b5CandAr = {
+    O: { high: "درجتك المرتفعة في الانفتاح (" + (b.O||0) + "%) تكشف عن فضول فكري متطور وشغف بالأفكار الجديدة والتجارب الثقافية المتنوعة. هذا الانفتاح محرك قوي للابتكار والتكيف في البيئات المتغيرة.", mid: "درجتك المعتدلة في الانفتاح (" + (b.O||0) + "%) تعكس توازناً بين التقليد والابتكار. تقدّر الأفكار الجديدة مع تثمين التجربة المكتسبة، مما يمنحك مرونة قيّمة.", low: "درجتك في الانفتاح (" + (b.O||0) + "%) تشير إلى تفضيل الأساليب المنظمة والمناهج المجربة. تتميز في البيئات التي تُقدّر الانتظام والموثوقية." },
+    C2: { high: "درجتك المرتفعة في الضمير (" + (b.C2||0) + "%) تدل على شخصية منظمة وموثوقة وموجهة نحو التميز. تخطط بعناية وتحترم التزاماتك وتحافظ على معايير عالية — ميزة كبرى في أي بيئة مهنية متطلبة.", mid: "درجتك المعتدلة في الضمير (" + (b.C2||0) + "%) تدل على توازن جيد بين التخطيط والمرونة. منظم عند الحاجة وقابل للتكيف عندما تستدعي الأوضاع ذلك.", low: "درجتك في الضمير (" + (b.C2||0) + "%) تشير إلى مقاربة مرنة وعفوية. العمل على أدوات التخطيط وإدارة الوقت سيضاعف أداءك المهني." },
+    E2: { high: "درجتك المرتفعة في الانبساط (" + (b.E2||0) + "%) تكشف عن شخصية نشيطة وتواصلية مرتاحة في التفاعلات الاجتماعية. تستمد طاقتك من التبادلات مع الآخرين ولديك إمكانيات قوية للتشبيك والقيادة.", mid: "درجتك المعتدلة في الانبساط (" + (b.E2||0) + "%) تشير إلى ملف انبساطي معتدل: تستمتع بالتفاعلات الاجتماعية دون الاعتماد عليها. تُكيّف انخراطك الاجتماعي وفق الحاجة.", low: "درجتك في الانبساط (" + (b.E2||0) + "%) تشير إلى شخصية متأملة تُفضل العمق على الكمية في تبادلاتها. قدرتك على التحليل والتركيز ميزة قيّمة." },
+    A2: { high: "درجتك المرتفعة في الوفاق (" + (b.A2||0) + "%) تعكس شخصية متعاطفة وتعاونية موجهة نحو الانسجام. تبني بسهولة علاقات ثقة وتعزز الديناميكية التعاونية داخل الفرق.", mid: "درجتك المعتدلة في الوفاق (" + (b.A2||0) + "%) تدل على توازن بين التعاون والحزم. تتعاون مع الدفاع بوضوح عن مواقفك.", low: "درجتك في الوفاق (" + (b.A2||0) + "%) تكشف عن شخصية مستقلة ومباشرة. قدرتك على الدفاع عن مواقفك بحزم ميزة في سياقات القيادة والتفاوض." },
+    N: { high: "درجتك في الاستقرار العاطفي (" + (b.N||0) + "%) تشير إلى حساسية عاطفية يمكن توظيفها كثروة إبداعية ووجدانية. تطوير استراتيجيات إدارة التوتر سيساعدك على تحويل هذه الحساسية إلى قوة.", mid: "درجتك المعتدلة في الاستقرار العاطفي (" + (b.N||0) + "%) تعكس تنظيماً عاطفياً جيداً عموماً مع قدرة على الحفاظ على الأداء تحت الضغط.", low: "درجتك المرتفعة في الاستقرار العاطفي (" + (b.N||0) + "%) تكشف عن شخصية صلبة أمام الضغوط والمصاعب. هذه المرونة العاطفية ميزة نادرة وثمينة في البيئات عالية الكثافة." }
+  };
+  var b5AdvAr = {
+    O: { high: "انفتاح مرتفع (" + (b.O||0) + "%) — فضول فكري قوي وشغف بالجديد. خطر ضعف التركيز على الأولويات المباشرة. التوجيه نحو أدوار تُقدّر الابتكار.", mid: "انفتاح معتدل (" + (b.O||0) + "%) — توازن جيد بين التقليد والابتكار. ملف قابل للتكيف.", low: "انفتاح منخفض (" + (b.O||0) + "%) — تفضيل واضح للبنية والروتين. تجنب الأدوار التي تتطلب تكيفاً سريعاً مع التغيير." },
+    C2: { high: "ضمير مرتفع (" + (b.C2||0) + "%) — تنظيم وموثوقية وصرامة عالية. إمكانية قوية للأدوار التي تتطلب الدقة والتخطيط.", mid: "ضمير معتدل (" + (b.C2||0) + "%) — ملف متوازن بين التخطيط والمرونة.", low: "ضمير منخفض (" + (b.C2||0) + "%) — الحاجة إلى دعم هيكلي وأدوات إدارة الوقت. خطر المماطلة يستوجب المراقبة." },
+    E2: { high: "انبساط مرتفع (" + (b.E2||0) + "%) — إمكانية قيادية وتشبيكية قوية. مناسب جيداً لأدوار التسويق وإدارة الفريق والاستشارة.", mid: "انبساط معتدل (" + (b.E2||0) + "%) — ملف انبساطي معتدل يتكيف مع مجموعة واسعة من السياقات المهنية.", low: "انبساط منخفض (" + (b.E2||0) + "%) — ملف انطوائي مع قدرة تركيز قوية. تفضيل البيئات التي تتيح العمل المعمّق." },
+    A2: { high: "وفاق مرتفع (" + (b.A2||0) + "%) — تعاطف قوي وتوجه تعاوني. مثالي لأدوار الرعاية والتعليم وإدارة الفريق. مراقبة صعوبة الحزم.", mid: "وفاق معتدل (" + (b.A2||0) + "%) — توازن جيد بين التعاون والحزم.", low: "وفاق منخفض (" + (b.A2||0) + "%) — شخصية مستقلة وتنافسية. مناسب لأدوار التفاوض والقيادة. تطوير الإنصات الفعّال." },
+    N: { high: "استقرار عاطفي منخفض (" + (b.N||0) + "%) — حساسية عاطفية مرتفعة، خطر التوتر تحت الضغط. التوصية بتقنيات إدارة التوتر. تجنب البيئات عالية الكثافة العاطفية بدون دعم.", mid: "استقرار عاطفي معتدل (" + (b.N||0) + "%) — تنظيم عاطفي مقبول عموماً مع بعض مناطق الانتباه تحت الضغط الشديد.", low: "استقرار عاطفي مرتفع (" + (b.N||0) + "%) — مرونة عاطفية قوية. أداء جيد تحت الضغط. ميزة كبرى للأدوار عالية المسؤولية." }
+  };
   var b5Sentences = [];
   ["O","C2","E2","A2","N"].forEach(function(t) {
     var v = b[t]||0;
     var lv = b5Lv(v);
     if (isAdv) {
-      b5Sentences.push((b5AdvFr[t]||{})[lv] || "");
+      b5Sentences.push(isAr ? ((b5AdvAr[t]||{})[lv] || "") : ((b5AdvFr[t]||{})[lv] || ""));
     } else {
-      b5Sentences.push((b5CandFr[t]||{})[lv] || "");
+      b5Sentences.push(isAr ? ((b5CandAr[t]||{})[lv] || "") : ((b5CandFr[t]||{})[lv] || ""));
     }
   });
   var b5Narr = b5Sentences.join(" ");
@@ -1375,7 +1390,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   var ldNarr = isEn ?
     "Your <strong>" + (ld.style||"-") + "</strong> leadership style (score: " + (ld.score||0) + ") represents your natural approach to influencing and guiding others. " + (ld.desc||"") + (ld.str && ld.str.length ? " Your core leadership strengths — " + ld.str.slice(0,3).join(", ") + " — are valuable assets in team environments. " : " ") + (ld.dev && ld.dev.length ? "Focus your development on: " + ld.dev.slice(0,2).join(", ") + " to further strengthen your leadership effectiveness." : "") :
     isAr ?
-    "يمثل أسلوب قيادتك <strong>" + (ld.style||"-") + "</strong> (الدرجة: " + (ld.score||0) + ") نهجك الطبيعي في التأثير وتوجيه الآخرين. " + (ld.desc||"") :
+    "يمثل أسلوب قيادتك <strong>" + (ld.style||"-") + "</strong> (الدرجة: " + (ld.score||0) + ") نهجك الطبيعي في التأثير وتوجيه الآخرين. " + (ld.desc||"") + (ld.str && ld.str.length ? " نقاط قوتك القيادية الأساسية — " + ld.str.slice(0,3).join("، ") + " — أصول قيّمة في البيئات الجماعية. " : " ") + (ld.dev && ld.dev.length ? "ركّز تطويرك على: " + ld.dev.slice(0,2).join("، ") + " لتعزيز فاعلية قيادتك." : "") :
     "Votre style de leadership <strong>" + (ld.style||"-") + "</strong> (score : " + (ld.score||0) + ") représente votre approche naturelle pour influencer et guider les autres. " + (ld.desc||"") + (ld.str && ld.str.length ? " Vos forces clés de leadership — " + ld.str.slice(0,3).join(", ") + " — constituent des atouts précieux dans les environnements collaboratifs. " : " ") + (ld.dev && ld.dev.length ? "Concentrez votre développement sur : " + ld.dev.slice(0,2).join(", ") + " pour renforcer encore votre efficacité de leadership." : "");
   // ── Academic narrative ────────────────────────────────────────────────────
   var acNarr = isEn ?
@@ -2117,22 +2132,39 @@ function ReportViewer({ profile, scores, role, onClose }) {
   }, [profile, scores, role, lang]);
 
   function savePDF() {
-    var base = (window.location.href||'').replace(/\/[^\/]*(\?.*)?$/, '/');
-    var modHtml = html.replace('<meta charset="UTF-8">', '<meta charset="UTF-8"><base href="' + base + '">');
-    var w = window.open('', '_blank', 'width=960,height=720');
-    if (!w) {
-      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url; a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+    var fname = 'CareerMap_' + ((profile && (profile.firstName || profile.name || profile.id)) || 'Report').replace(/[^a-zA-Z0-9_-]/g,'_') + '_' + lang + '.pdf';
+    if (typeof html2pdf === 'undefined') {
+      var w = window.open('', '_blank', 'width=960,height=720');
+      if (w) { w.document.write(html); w.document.close(); }
       return;
     }
-    w.document.write(modHtml);
-    w.document.close();
+    var styleMatches = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || [];
+    var cssText = styleMatches.map(function(s) { return s.replace(/<\/?style[^>]*>/gi, ''); }).join('\n');
+    var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    var bodyHtml = bodyMatch ? bodyMatch[1] : '';
+    bodyHtml = bodyHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
+    var container = document.createElement('div');
+    container.style.cssText = 'position:absolute;left:-99999px;top:0;width:794px;background:#fff;';
+    var styleEl = document.createElement('style');
+    styleEl.textContent = cssText;
+    container.appendChild(styleEl);
+    var inner = document.createElement('div');
+    inner.innerHTML = bodyHtml;
+    container.appendChild(inner);
+    document.body.appendChild(container);
+    var opt = {
+      margin: 0,
+      filename: fname,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'], before: '.pdf-page' }
+    };
+    html2pdf().set(opt).from(container).save().then(function() {
+      document.body.removeChild(container);
+    }).catch(function() {
+      try { document.body.removeChild(container); } catch(e2) {}
+    });
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
