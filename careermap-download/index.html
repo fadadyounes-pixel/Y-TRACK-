@@ -2086,32 +2086,25 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '<div id="pdfload" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:99999;background:#06111f;display:flex;align-items:center;justify-content:center;flex-direction:column;">' +
     '<div style="color:#1aabaa;font-size:48px;margin-bottom:16px;">&#8987;</div>' +
     '<div style="color:#f0f4f8;font-size:20px;font-weight:700;margin-bottom:10px;">' + (isAr ? 'جاري إنشاء PDF...' : isEn ? 'Generating PDF...' : 'Génération du PDF...') + '</div>' +
-    '<div id="pdfprog" style="color:#6b8aaa;font-size:14px;">1 / ...</div>' +
+    '<div id="pdfprog" style="color:#6b8aaa;font-size:14px;"></div>' +
     '</div>' +
     '<script src="lib/html2pdf.bundle.min.js"><\/script>' +
     '<script>(function(){' +
-    'document.fonts.ready.then(function(){setTimeout(function(){' +
-    'var pgs=document.querySelectorAll(".pdf-page");' +
-    'var n=pgs.length;' +
-    'if(!n){document.getElementById("pdfload").textContent="No pages found.";return;}' +
-    'var fn="' + pdfName + '";' +
-    'var opt={margin:0,filename:fn,image:{type:"jpeg",quality:0.98},' +
-    'html2canvas:{scale:2,useCORS:true,allowTaint:false,logging:false,backgroundColor:"#ffffff"},' +
-    'jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}};' +
-    'html2pdf().set(opt).from(pgs[0]).toPdf().get("pdf").then(function(pdf){' +
-    'var i=1;' +
-    'function np(){' +
-    'if(i>=n){pdf.save(fn);setTimeout(function(){window.close();},600);return;}' +
-    'var pr=document.getElementById("pdfprog");if(pr)pr.textContent=(i+1)+"/"+n;' +
-    'html2pdf().set(opt).from(pgs[i]).toCanvas().get("canvas").then(function(c){' +
-    'pdf.addPage();pdf.addImage(c.toDataURL("image/jpeg",0.98),"JPEG",0,0,210,297);i++;np();' +
-    '}).catch(function(){i++;np();});' +
-    '}np();' +
-    '}).catch(function(){' +
-    'var d=document.getElementById("pdfload");' +
-    'if(d)d.textContent="PDF generation failed. Please try again.";' +
-    '});' +
-    '},1000);});' +
+    'function go(){' +
+    /* Remove the overlay so it is never part of the rendered canvas */
+    'var d=document.getElementById("pdfload");if(d&&d.parentNode)d.parentNode.removeChild(d);' +
+    'html2pdf().set({margin:0,filename:"' + pdfName + '",' +
+    'image:{type:"jpeg",quality:0.98},' +
+    'html2canvas:{scale:1.5,useCORS:true,allowTaint:false,logging:false,backgroundColor:"#ffffff",imageTimeout:0},' +
+    'jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},' +
+    'pagebreak:{mode:["css","legacy"],before:".pdf-page"}' +
+    '}).from(document.body).save()' +
+    '.then(function(){setTimeout(function(){window.close();},500);})' +
+    '.catch(function(){alert("PDF generation failed. Please try again.");});' +
+    '}' +
+    'function ready(){document.fonts.ready.then(function(){setTimeout(go,800);});}' +
+    'if(document.readyState==="complete"){ready();}' +
+    'else{window.addEventListener("load",ready);}' +
     '})();<\/script>' +
     '</body></html>';
 }
