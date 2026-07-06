@@ -18,9 +18,13 @@ function injectCSS() {
     "@keyframes im-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}",
     "@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}}",
     "@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}",
+    "@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}",
+    "@keyframes toastIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}",
     ".fadeUp{animation:fadeUp .35s ease both}",
     ".im-rise{animation:im-rise .45s ease both}",
     ".shake{animation:shake .35s ease}",
+    ".busy-pulse{animation:pulse 1.4s ease infinite}",
+    "@media(max-width:520px){.budget-tbl{display:none!important}.budget-cards{display:flex!important}}",
     ".login-cont-btn:hover:not(:disabled){background:#141B45!important}",
     "button{cursor:pointer;font-family:inherit;border:none;transition:all .18s}",
     "button:active{transform:scale(.96)!important}",
@@ -366,6 +370,38 @@ const Dots = () => (
       background: Y, animation: `bounce 1s ease ${i * .2}s infinite`}}/>)}
   </div>
 );
+
+const Toast = ({msg, type, onClose}: {msg: string; type: "error"|"success"; onClose: () => void}) => (
+  <div style={{position:"fixed", bottom:22, left:"50%", transform:"translateX(-50%)", zIndex:9999,
+    padding:"13px 18px", borderRadius:"14px", maxWidth:"360px", width:"calc(100% - 40px)",
+    background: type === "error" ? RE : GN, color:WH, fontSize:"13px", fontWeight:"600",
+    boxShadow:"0 8px 32px rgba(0,0,0,.3)", display:"flex", alignItems:"center", gap:"10px",
+    animation:"toastIn .3s ease"}}>
+    <span style={{fontSize:"18px"}}>{type === "error" ? "⚠️" : "✅"}</span>
+    <span style={{flex:1, lineHeight:1.4}}>{msg}</span>
+    <button onClick={onClose} style={{background:"rgba(255,255,255,.2)", border:"none", color:WH,
+      fontSize:"14px", cursor:"pointer", padding:"2px 7px", borderRadius:"6px", flexShrink:0}}>×</button>
+  </div>
+);
+
+const AnimatedScore = ({score, eligible}: {score: number; eligible: boolean}) => {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    let cur = 0;
+    const step = Math.max(1, Math.ceil(score / 45));
+    const id = setInterval(() => {
+      cur += step;
+      if (cur >= score) { setDisplay(score); clearInterval(id); }
+      else setDisplay(cur);
+    }, 22);
+    return () => clearInterval(id);
+  }, [score]);
+  return (
+    <div style={{fontSize:"48px", fontWeight:"800", color: eligible ? WH : RE, lineHeight:1}}>
+      {display}<span style={{fontSize:"20px", fontWeight:"400"}}>/100</span>
+    </div>
+  );
+};
 
 const Badge = ({role}: { role: string }) => {
   const map: Record<string, {c: string; l: string}> = {
@@ -814,6 +850,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [pendingAttach, setPendingAttach]   = useState<number | null>(null);
   const [suggestions, setSuggestions]       = useState<string[]>([]);
   const [dlLang, setDlLang]                 = useState(lang);
+  const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const msgEnd = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
@@ -826,14 +863,28 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, docFiles});
   }, [proj, plan, comp, step, logo, docs, msgs, budget]);
 
+  const showToast = (msg: string, type: "error"|"success" = "error") => {
+    setToast({msg, type});
+    setTimeout(() => setToast(null), 4500);
+  };
+
   const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue") => {
-    const r = await fetch("/api/ai", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({messages, system, task}),
-    });
-    const d = await r.json();
-    return d.content?.[0]?.text || "";
+    try {
+      const r = await fetch("/api/ai", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({messages, system, task}),
+      });
+      const d = await r.json();
+      if (d.error) {
+        showToast(lang==="ar"?"المستشار غير متاح — حاول مرة أخرى":lang==="fr"?"Conseiller indisponible — réessayez":"Advisor unavailable — please retry");
+        return "";
+      }
+      return d.content?.[0]?.text || "";
+    } catch {
+      showToast(lang==="ar"?"تعذّر الاتصال — تحقق من اتصالك":lang==="fr"?"Connexion impossible — vérifiez votre réseau":"Connection failed — check your network");
+      return "";
+    }
   };
 
   const parseJ = (txt: string) => {
@@ -1161,6 +1212,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
   return (
     <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)}/>}
       <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
       <ProgRow lang={lang} t={t} si={si} steps={t.steps as string[]}/>
       <div className="fadeUp" style={{maxWidth: "700px", margin: "0 auto", padding: "24px 18px 60px"}}>
@@ -1313,10 +1365,12 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </div>
             )}
             <div style={{display: "flex", gap: "8px"}}>
-              <input value={inp} onChange={e => setInp(e.target.value)}
+              <input value={inp} onChange={e => !busy && setInp(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && sendMsg()} disabled={busy}
-                placeholder={busy ? (lang==="ar"?"انتظر...":lang==="fr"?"En attente...":"Waiting...") : t.ph as string}
-                style={{...fs, flex: 1, opacity: busy ? 0.6 : 1}}/>
+                placeholder={busy ? (lang==="ar"?"المستشار يفكر...":lang==="fr"?"Le conseiller réfléchit...":"Advisor is thinking...") : t.ph as string}
+                className={busy ? "busy-pulse" : ""}
+                style={{...fs, flex: 1, opacity: busy ? 0.7 : 1,
+                  borderColor: busy ? Y : undefined, background: busy ? YL : CR}}/>
               <button onClick={() => sendMsg()} disabled={busy || !inp.trim()}
                 style={{padding: "13px 18px", borderRadius: "12px", border: "none", cursor: "pointer",
                   background: `linear-gradient(135deg,${Y},${YD})`, color: ND,
@@ -1437,28 +1491,50 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 </div>
                 <PBar pct={pct} h={7} color={pct > 100 ? RE : `linear-gradient(90deg,${Y},${YD})`}/>
               </div>
-              {budget?.items?.length > 0 ? (<div style={{overflowX: "auto", marginBottom: "16px"}}>
-                <table style={{width: "100%", borderCollapse: "collapse", fontSize: "12px"}}>
-                  <thead><tr style={{background: ND, color: WH}}>
-                    {["Catégorie", "Désignation", "Qté", "PU (MAD)", "Total"].map((h, i) => (
-                      <th key={i} style={{padding: "9px 8px", textAlign: i < 2 ? (dir === "rtl" ? "right" : "left") : "center",
-                        fontSize: "10px", fontWeight: "700", letterSpacing: ".4px"}}>{h}</th>
+              {budget?.items?.length > 0 ? (<div style={{marginBottom: "16px"}}>
+                {/* Desktop table */}
+                <div className="budget-tbl" style={{overflowX: "auto"}}>
+                  <table style={{width: "100%", borderCollapse: "collapse", fontSize: "12px"}}>
+                    <thead><tr style={{background: ND, color: WH}}>
+                      {["Catégorie", "Désignation", "Qté", "PU (MAD)", "Total"].map((h, i) => (
+                        <th key={i} style={{padding: "9px 8px", textAlign: i < 2 ? (dir === "rtl" ? "right" : "left") : "center",
+                          fontSize: "10px", fontWeight: "700", letterSpacing: ".4px"}}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>{budget.items.map((x: any, i: number) => (
+                      <tr key={i} style={{background: i % 2 === 0 ? WH : CR}}>
+                        <td style={{padding: "9px 8px", color: N, fontWeight: "600"}}>{x.category}</td>
+                        <td style={{padding: "9px 8px", color: ND}}>{x.item}</td>
+                        <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{x.quantity}</td>
+                        <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{Number(x.unitPrice || 0).toLocaleString()}</td>
+                        <td style={{padding: "9px 8px", textAlign: "center", fontWeight: "800", color: ND}}>{Number(x.total || 0).toLocaleString()}</td>
+                      </tr>
                     ))}
-                  </tr></thead>
-                  <tbody>{budget.items.map((x: any, i: number) => (
-                    <tr key={i} style={{background: i % 2 === 0 ? WH : CR}}>
-                      <td style={{padding: "9px 8px", color: N, fontWeight: "600"}}>{x.category}</td>
-                      <td style={{padding: "9px 8px", color: ND}}>{x.item}</td>
-                      <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{x.quantity}</td>
-                      <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{Number(x.unitPrice || 0).toLocaleString()}</td>
-                      <td style={{padding: "9px 8px", textAlign: "center", fontWeight: "800", color: ND}}>{Number(x.total || 0).toLocaleString()}</td>
-                    </tr>
+                    <tr style={{background: ND, color: WH}}>
+                      <td colSpan={4} style={{padding: "10px 8px", fontWeight: "700"}}>{t.total}</td>
+                      <td style={{padding: "10px 8px", textAlign: "center", fontWeight: "800", color: Y}}>{total.toLocaleString()}</td>
+                    </tr></tbody>
+                  </table>
+                </div>
+                {/* Mobile cards */}
+                <div className="budget-cards" style={{display: "none", flexDirection: "column", gap: "8px"}}>
+                  {budget.items.map((x: any, i: number) => (
+                    <div key={i} style={{padding: "12px 14px", background: i % 2 === 0 ? WH : CR,
+                      borderRadius: "11px", border: `1px solid ${CD}`}}>
+                      <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "5px"}}>
+                        <span style={{fontSize: "10px", fontWeight: "700", color: Y, textTransform: "uppercase", letterSpacing: ".3px"}}>{x.category}</span>
+                        <span style={{fontSize: "14px", fontWeight: "800", color: ND}}>{Number(x.total || 0).toLocaleString()} <span style={{fontSize: "10px", fontWeight: "500"}}>MAD</span></span>
+                      </div>
+                      <div style={{fontSize: "13px", color: ND, marginBottom: "4px"}}>{x.item}</div>
+                      <div style={{fontSize: "11px", color: GR}}>{x.quantity} × {Number(x.unitPrice || 0).toLocaleString()} MAD</div>
+                    </div>
                   ))}
-                  <tr style={{background: ND, color: WH}}>
-                    <td colSpan={4} style={{padding: "10px 8px", fontWeight: "700"}}>{t.total}</td>
-                    <td style={{padding: "10px 8px", textAlign: "center", fontWeight: "800", color: Y}}>{total.toLocaleString()}</td>
-                  </tr></tbody>
-                </table>
+                  <div style={{padding: "12px 14px", background: ND, borderRadius: "11px",
+                    display: "flex", justifyContent: "space-between"}}>
+                    <span style={{fontSize: "13px", fontWeight: "700", color: WH}}>{t.total}</span>
+                    <span style={{fontSize: "15px", fontWeight: "800", color: Y}}>{total.toLocaleString()} MAD</span>
+                  </div>
+                </div>
               </div>) : <div style={{textAlign: "center", padding: "28px", color: GR}}><Dots/></div>}
               <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px"}}>
                 <div style={{padding: "16px", background: ND, borderRadius: "13px", textAlign: "center"}}>
@@ -1602,9 +1678,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               background: comp.eligible ? ND : "#FFF0F0", border: `2px solid ${comp.eligible ? Y : RE}`}}>
               <div style={{fontSize: "44px", marginBottom: "7px"}}>{comp.eligible ? "✅" : "⚠️"}</div>
               <div style={{fontSize: "16px", fontWeight: "700", color: comp.eligible ? Y : RE, marginBottom: "5px"}}>{comp.eligible ? t.eligible : t.notElig}</div>
-              <div style={{fontSize: "48px", fontWeight: "800", color: comp.eligible ? WH : RE, lineHeight: 1}}>
-                {comp.score}<span style={{fontSize: "20px", fontWeight: "400"}}>/100</span>
-              </div>
+              <AnimatedScore score={comp.score} eligible={comp.eligible}/>
             </div>
             {comp.juryScore && <div style={{marginBottom: "16px"}}>
               <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "10px"}}>
@@ -2024,7 +2098,13 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
           placeholder={lang === "ar" ? "بحث..." : lang === "fr" ? "Rechercher un porteur..." : "Search holder..."}
           style={{width: "100%", padding: "11px 14px", borderRadius: "12px", border: `2px solid ${CD}`,
             fontSize: "13px", fontFamily: ff(lang), color: N, background: WH, direction: dir as "rtl" | "ltr", marginBottom: "14px"}}/>
-        {filtered.length === 0 ? <p style={{textAlign: "center", color: GR, padding: "32px"}}>{t.noProjects}</p> :
+        {filtered.length === 0 ? (
+          <div style={{textAlign:"center", padding:"48px 20px"}}>
+            <div style={{fontSize:"56px", marginBottom:"12px"}}>📭</div>
+            <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>{t.noProjects}</div>
+            <div style={{fontSize:"13px", color:GR}}>{lang==="ar"?"لم يتم تسجيل أي مشروع بعد":lang==="fr"?"Aucun porteur n'a encore créé de compte":"No holders have created an account yet"}</div>
+          </div>
+        ) :
           filtered.map((h: any, i: number) => (
             <Card key={i} style={{cursor: "pointer"}} onClick={() => setDetail(h)}>
               <div style={{display: "flex", alignItems: "center", gap: "12px"}}>
@@ -2366,7 +2446,13 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
               📥 CSV
             </button>
           </div>
-          {filtered.length === 0 ? <p style={{textAlign: "center", color: GR, padding: "32px"}}>{t.noProjects}</p> :
+          {filtered.length === 0 ? (
+            <div style={{textAlign:"center", padding:"48px 20px"}}>
+              <div style={{fontSize:"56px", marginBottom:"12px"}}>📭</div>
+              <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>{t.noProjects}</div>
+              <div style={{fontSize:"13px", color:GR}}>{lang==="ar"?"لا توجد مشاريع تطابق معايير البحث":lang==="fr"?"Aucun projet ne correspond à vos filtres":"No projects match your search filters"}</div>
+            </div>
+          ) :
             filtered.map((h: any, i: number) => (
               <Card key={i} style={{cursor:"pointer"}} onClick={() => setDetailH(h)}>
                 <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
