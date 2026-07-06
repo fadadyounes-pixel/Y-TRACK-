@@ -2130,22 +2130,75 @@ function ReportViewer({ profile, scores, role, onClose }) {
   }, [profile, scores, role, lang]);
 
   function savePDF() {
-    var w = window.open('', '_blank');
+    /* Show loading overlay in main window */
+    var loadDiv = document.createElement('div');
+    loadDiv.id = 'pdf-loading';
+    loadDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999999;background:#06111f;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:Arial,sans-serif;';
+    loadDiv.innerHTML = '<div style="color:#1aabaa;font-size:44px;margin-bottom:16px;">&#8987;</div>' +
+      '<div style="color:#f0f4f8;font-size:19px;font-weight:700;margin-bottom:6px;">' +
+      (lang === 'ar' ? 'جاري إنشاء PDF...' : lang === 'en' ? 'Generating PDF...' : 'Génération du PDF...') +
+      '</div>' +
+      '<div style="color:#6b8aaa;font-size:13px;margin-top:4px;">' +
+      (lang === 'ar' ? 'سيتم التنزيل تلقائياً' : lang === 'en' ? 'Will download automatically' : 'Téléchargement automatique') +
+      '</div>';
+    document.body.appendChild(loadDiv);
+
+    function cleanup() {
+      var el = document.getElementById('pdf-loading');
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    }
+
+    var pdfFn = 'CareerMap_' + (profile.name || profile.id || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_') + '_' + lang + '.pdf';
+    var safeFn = pdfFn.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+    /* Script injected into the popup — runs html2pdf inside the popup's own
+       document so html2canvas has clean layout, correct origin, and loaded fonts */
+    var popupScript =
+      '<script src="https://careermaponline.org/lib/html2pdf.bundle.min.js"><\/script>' +
+      '<script>window.addEventListener("load",function(){' +
+      'document.fonts.ready.then(function(){setTimeout(function(){' +
+      'var pgs=document.querySelectorAll(".pdf-page");' +
+      'var n=pgs.length;' +
+      'if(!n){if(window.opener)window.opener.postMessage("pdf_done","*");window.close();return;}' +
+      'var fn="' + safeFn + '";' +
+      'var opt={margin:0,filename:fn,' +
+      'image:{type:"jpeg",quality:0.95},' +
+      'html2canvas:{scale:2,useCORS:true,allowTaint:false,logging:false,backgroundColor:null},' +
+      'jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}};' +
+      'html2pdf().set(opt).from(pgs[0]).toPdf().get("pdf").then(function(pdf){' +
+      'var i=1;' +
+      'function nx(){' +
+      'if(i>=n){pdf.save(fn);if(window.opener)window.opener.postMessage("pdf_done","*");setTimeout(function(){window.close();},3000);return;}' +
+      'html2pdf().set(opt).from(pgs[i]).toCanvas().get("canvas").then(function(c){' +
+      'pdf.addPage();pdf.addImage(c.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297);' +
+      'i++;nx();' +
+      '}).catch(function(){i++;nx();});' +
+      '}nx();' +
+      '}).catch(function(){if(window.opener)window.opener.postMessage("pdf_done","*");window.close();});' +
+      '},1000);});});<\/script>';
+
+    var blobHtml = html.replace('</head>', popupScript + '</head>');
+    var blob = new Blob([blobHtml], {type: 'text/html;charset=utf-8'});
+    var blobUrl = URL.createObjectURL(blob);
+
+    var w = window.open(blobUrl, '_blank');
     if (!w) {
-      alert(lang === 'ar' ? 'يرجى السماح بالنوافذ المنبثقة' : lang === 'en' ? 'Please allow pop-ups for PDF download.' : 'Veuillez autoriser les fenêtres pop-up.');
+      URL.revokeObjectURL(blobUrl);
+      cleanup();
+      alert(lang === 'ar' ? 'يرجى السماح بالنوافذ المنبثقة' : lang === 'en' ? 'Please allow pop-ups.' : 'Veuillez autoriser les fenêtres pop-up.');
       return;
     }
-    var bannerMsg = lang === 'ar' ? '↓ اختر "حفظ كـ PDF" ثم اضغط حفظ' :
-                    lang === 'en' ? '↓ Select "Save as PDF" → click Save' :
-                    '↓ Sélectionner "Enregistrer au format PDF" → cliquer Enregistrer';
-    var banner = '<div id="savebanner" style="position:fixed;top:0;left:0;right:0;background:#1a73e8;color:#fff;padding:14px;font-family:Arial,sans-serif;font-size:16px;font-weight:700;text-align:center;z-index:9999999;letter-spacing:0.5px;">' + bannerMsg + '</div>' +
-                 '<style>@media print{#savebanner{display:none!important}}</style>';
-    var printHtml = html.replace('</body>', banner + '</body>');
-    w.document.open();
-    w.document.write(printHtml);
-    w.document.close();
-    w.onafterprint = function() { w.close(); };
-    setTimeout(function() { w.focus(); w.print(); }, 1500);
+
+    function onMsg(e) {
+      if (e.data === 'pdf_done') {
+        cleanup();
+        URL.revokeObjectURL(blobUrl);
+        window.removeEventListener('message', onMsg);
+      }
+    }
+    window.addEventListener('message', onMsg);
+    /* Fallback cleanup after 5 min */
+    setTimeout(function() { cleanup(); URL.revokeObjectURL(blobUrl); window.removeEventListener('message', onMsg); }, 300000);
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
