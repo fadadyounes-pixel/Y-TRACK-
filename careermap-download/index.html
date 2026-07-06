@@ -2081,27 +2081,27 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '.pdf-page{page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid}' +
     '.pdf-page:last-child{page-break-after:auto;break-after:auto}' +
     '.avoid{break-inside:avoid;page-break-inside:avoid}' +
-    '@media print{' +
-    'body{background:#fff!important;padding:0}' +
-    '.pdf-page{margin:0!important;box-shadow:none!important;break-after:page;page-break-after:always}' +
-    '.pdf-page:last-child{page-break-after:auto;break-after:auto}' +
-    '.np{display:none!important}' +
-    '}' +
     '</style>' +
     '</head><body>' + body +
-    '<div class="np" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;background:rgba(6,17,31,.93);display:flex;align-items:center;justify-content:center;">' +
-    '<div style="background:#0f2540;border:2px solid #1aabaa;border-radius:18px;padding:36px 32px;max-width:440px;width:90%;text-align:center;color:#f0f4f8;box-shadow:0 8px 40px rgba(0,0,0,.7);">' +
-    '<div style="font-size:48px;margin-bottom:8px;">&#11015;</div>' +
-    '<h2 style="font-size:19px;font-weight:900;margin-bottom:8px;">' + (isAr ? 'تنزيل التقرير PDF' : isEn ? 'Download Report as PDF' : 'Télécharger le Rapport en PDF') + '</h2>' +
-    '<div dir="ltr" style="background:#0d1f33;border-radius:10px;padding:14px 18px;margin:16px 0;text-align:left;font-size:12px;color:#8fadc8;line-height:2.2;">' +
-    '<b style="color:#1aabaa">1.</b> ' + (isAr ? 'اضغط الزر أدناه' : isEn ? 'Click the button below' : 'Cliquez le bouton ci-dessous') + '<br>' +
-    '<b style="color:#1aabaa">2.</b> ' + (isAr ? 'في نافذة الطباعة، اختر' : isEn ? 'In the print dialog, select' : 'Dans la boîte de dialogue, sélectionnez') + ' <b style="color:#f0f4f8">Save as PDF</b><br>' +
-    '<b style="color:#1aabaa">3.</b> ' + (isAr ? 'اضغط حفظ / Save' : isEn ? 'Click Save' : 'Cliquez Enregistrer / Save') +
+    '<div id="pdfload" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:99999;background:rgba(6,17,31,.96);display:flex;align-items:center;justify-content:center;flex-direction:column;">' +
+    '<div style="color:#1aabaa;font-size:48px;margin-bottom:16px;">&#8987;</div>' +
+    '<div style="color:#f0f4f8;font-size:20px;font-weight:700;margin-bottom:8px;">' + (isAr ? 'جاري إنشاء PDF...' : isEn ? 'Generating PDF...' : 'Génération du PDF...') + '</div>' +
+    '<div style="color:#6b8aaa;font-size:14px;">' + (isAr ? 'يرجى الانتظار' : isEn ? 'Please wait' : 'Veuillez patienter') + '</div>' +
     '</div>' +
-    '<button onclick="this.parentElement.parentElement.style.display=\'none\';window.print();" style="display:block;width:100%;padding:14px;background:#1aabaa;color:#06111f;border:none;border-radius:10px;font-size:16px;font-weight:900;cursor:pointer;">' +
-    (isAr ? '&#8592; حفظ كـ PDF' : isEn ? 'Print / Save as PDF &#8594;' : 'Imprimer / Enregistrer en PDF &#8594;') +
-    '</button>' +
-    '</div></div>' +
+    '<script src="lib/html2pdf.bundle.min.js"><\/script>' +
+    '<script>' +
+    'document.fonts.ready.then(function(){' +
+    'html2pdf().set({margin:0,filename:"' + pdfName + '",' +
+    'image:{type:"jpeg",quality:0.95},' +
+    'html2canvas:{scale:1,useCORS:true,allowTaint:false,logging:false,backgroundColor:"#ffffff",' +
+    'ignoreElements:function(n){return n.id==="pdfload";}},' +
+    'jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},' +
+    'pagebreak:{mode:["css","legacy"],before:".pdf-page"}' +
+    '}).from(document.body).save()' +
+    '.then(function(){var d=document.getElementById("pdfload");if(d)d.style.display="none";setTimeout(function(){window.close();},800);})' +
+    '.catch(function(){var d=document.getElementById("pdfload");if(d)d.textContent="PDF generation failed. Please try again.";});' +
+    '});' +
+    '<\/script>' +
     '</body></html>';
 }
 
