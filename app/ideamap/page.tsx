@@ -92,12 +92,25 @@ const MARITAL: Record<string, string[]> = {
   en:["Single","Married","Divorced","Widowed"],
 };
 const EDU: Record<string, string[]> = {
-  fr:["Sans diplôme","Primaire","Collège","Lycée","Baccalauréat","Technicien/Diplôme","Licence (Bac+3)","Master (Bac+5)","Doctorat"],
-  ar:["بدون شهادة","ابتدائي","إعدادي","ثانوي","باكالوريا","دبلوم مهني","إجازة","ماستر","دكتوراه"],
-  en:["No diploma","Primary","Lower secondary","Upper secondary","Baccalaureate","Diploma/Technician","Bachelor","Master","PhD"],
+  fr:["Collège","Bac","Bac+2","Bac+3","Bac+5","Doctorat"],
+  ar:["إعدادي","باكالوريا","بكالوريا+2","إجازة","ماستر","دكتوراه"],
+  en:["Lower secondary","Bac","Bac+2","Bachelor (Bac+3)","Master (Bac+5)","PhD"],
 };
-const AGES = ["18–24","25–29","30–35","36–40","41–50","51+"];
-const GENDERS: Record<string, string[]> = { fr:["Homme","Femme"], ar:["ذكر","أنثى"], en:["Male","Female"] };
+const OCCUPATION: Record<string, string[]> = {
+  fr:["Étudiant(e)","Demandeur d'emploi","Salarié(e)","Travailleur indépendant","Retraité(e)","Sans activité"],
+  ar:["طالب/ة","باحث عن عمل","موظف/ة","عامل مستقل","متقاعد/ة","بدون نشاط"],
+  en:["Student","Job seeker","Employed","Self-employed","Retired","Inactive"],
+};
+const AGES = ["15–17","18–20","21–24","25–30","31–40","40+"];
+const GENDERS: Record<string, string[]> = {
+  fr:["Homme","Femme","Autre"],
+  ar:["ذكر","أنثى","آخر"],
+  en:["Male","Female","Other"],
+};
+const PREFECTURES_CS = [
+  "Casablanca","Mohammedia","El Jadida","Settat","Berrechid",
+  "Médiouna","Nouaceur","Benslimane","Khouribga","Sidi Bennour",
+];
 
 const DOCS = [
   {id:1,name:"Carte d'Identité Nationale (CIN)",desc:"Copies légalisées de tous les membres",req:true,icon:"🪪"},
@@ -142,10 +155,13 @@ const TX: Record<string, Record<string, string | string[]>> = {
     gender:"Genre",
     marital:"Situation familiale",
     edu:"Niveau d'études",
+    occupation:"Situation professionnelle",
     city:"Ville",
     region:"Région",
+    prefecture:"Préfecture",
     sector:"Secteur d'activité envisagé",
     projType:"Type de porteur",
+    photo:"Photo (optionnelle)",
     create:"Créer mon compte →",
     welcome:"Bienvenue,",
     steps:["Idée","Dialogue","Profil","Plan","Budget","Logo","Conformité","Documents","Dossier"],
@@ -199,10 +215,13 @@ const TX: Record<string, Record<string, string | string[]>> = {
     gender:"الجنس",
     marital:"الوضع العائلي",
     edu:"المستوى الدراسي",
+    occupation:"الوضع المهني",
     city:"المدينة",
     region:"الجهة",
+    prefecture:"العمالة / الإقليم",
     sector:"قطاع النشاط المنشود",
     projType:"نوع الحامل",
+    photo:"الصورة (اختياري)",
     create:"إنشاء الحساب ←",
     welcome:"مرحباً،",
     steps:["الفكرة","الحوار","الملف","الخطة","الميزانية","الشعار","الامتثال","الوثائق","الدوسيي"],
@@ -256,10 +275,13 @@ const TX: Record<string, Record<string, string | string[]>> = {
     gender:"Gender",
     marital:"Marital status",
     edu:"Education level",
+    occupation:"Occupation status",
     city:"City",
     region:"Region",
+    prefecture:"Prefecture",
     sector:"Target sector",
     projType:"Holder type",
+    photo:"Photo (optional)",
     create:"Create account →",
     welcome:"Welcome,",
     steps:["Idea","Dialogue","Profile","Plan","Budget","Logo","Compliance","Documents","File"],
@@ -438,7 +460,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
   const [mode, setMode]       = useState<null | "choose" | "new" | "returning">(null);
-  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", city: "", region: "", sector: "", projType: ""});
+  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", city: "", region: "", prefecture: "", sector: "", projType: "", photo: ""});
   const [formErr, setFormErr] = useState<string[]>([]);
   const dir = lang === "ar" ? "rtl" : "ltr";
 
@@ -474,27 +496,35 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
 
   /* ── Form validation helpers ── */
   const REQUIRED_FIELDS: Array<{key: keyof typeof form; label: Record<string, string>}> = [
-    {key:"firstName", label:{fr:"Prénom",ar:"الاسم الشخصي",en:"First name"}},
-    {key:"lastName",  label:{fr:"Nom de famille",ar:"الاسم العائلي",en:"Last name"}},
-    {key:"email",     label:{fr:"E-mail",ar:"البريد الإلكتروني",en:"Email"}},
-    {key:"region",    label:{fr:"Région",ar:"الجهة",en:"Region"}},
-    {key:"sector",    label:{fr:"Secteur",ar:"القطاع",en:"Sector"}},
-    {key:"projType",  label:{fr:"Type de porteur",ar:"نوع الحامل",en:"Holder type"}},
+    {key:"firstName",  label:{fr:"Prénom",ar:"الاسم الشخصي",en:"First name"}},
+    {key:"lastName",   label:{fr:"Nom de famille",ar:"الاسم العائلي",en:"Last name"}},
+    {key:"email",      label:{fr:"E-mail",ar:"البريد الإلكتروني",en:"Email"}},
+    {key:"age",        label:{fr:"Tranche d'âge",ar:"الفئة العمرية",en:"Age range"}},
+    {key:"gender",     label:{fr:"Genre",ar:"الجنس",en:"Gender"}},
+    {key:"edu",        label:{fr:"Niveau d'études",ar:"المستوى الدراسي",en:"Education"}},
+    {key:"occupation", label:{fr:"Situation professionnelle",ar:"الوضع المهني",en:"Occupation"}},
+    {key:"region",     label:{fr:"Région",ar:"الجهة",en:"Region"}},
+    {key:"sector",     label:{fr:"Secteur",ar:"القطاع",en:"Sector"}},
+    {key:"projType",   label:{fr:"Type de porteur",ar:"نوع الحامل",en:"Holder type"}},
   ];
-  const TOTAL_FIELDS = Object.keys(form).length;
-  const filledCount  = Object.values(form).filter(v => !!v).length;
+  const showPrefecture = form.region === "Casablanca-Settat";
+  const allRequired = showPrefecture
+    ? [...REQUIRED_FIELDS, {key:"prefecture" as keyof typeof form, label:{fr:"Préfecture",ar:"العمالة",en:"Prefecture"}}]
+    : REQUIRED_FIELDS;
+  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "prefecture").length + (showPrefecture ? 1 : 0);
+  const filledCount  = Object.entries(form).filter(([k, v]) => k !== "photo" && (k !== "prefecture" || showPrefecture) && !!v).length;
   const fillPct      = Math.round((filledCount / TOTAL_FIELDS) * 100);
 
   const isEmailValid = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
   const fieldBorder = (field: keyof typeof form) => {
-    if (!form[field]) return formErr.length > 0 && REQUIRED_FIELDS.some(r => r.key === field) ? RE : "#DDE0E8";
+    if (!form[field]) return formErr.length > 0 && allRequired.some(r => r.key === field) ? RE : "#DDE0E8";
     if (field === "email") return isEmailValid(form.email) ? "#1db87a" : RE;
     return "#1db87a";
   };
 
   const handleCreate = () => {
-    const missing = REQUIRED_FIELDS.filter(r => !form[r.key]).map(r => r.label[lang] || r.label.fr);
+    const missing = allRequired.filter(r => !form[r.key]).map(r => r.label[lang] || r.label.fr);
     if (missing.length > 0 || (form.email && !isEmailValid(form.email))) {
       const errs = [...missing];
       if (form.email && !isEmailValid(form.email)) errs.push(lang==="ar"?"البريد الإلكتروني غير صالح":lang==="fr"?"Format e-mail invalide":"Invalid email format");
@@ -668,15 +698,48 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
               <Sel value={form.marital} onChange={v=>setForm(p=>({...p,marital:v}))} options={MARITAL[lang]} placeholder={t.marital as string} dir={dir}/>
               <Sel value={form.edu} onChange={v=>setForm(p=>({...p,edu:v}))} options={EDU[lang]} placeholder={t.edu as string} dir={dir}/>
             </div>
+            <div style={{marginBottom:"8px"}}>
+              <Sel value={form.occupation} onChange={v=>setForm(p=>({...p,occupation:v}))} options={OCCUPATION[lang]} placeholder={t.occupation as string} dir={dir}/>
+            </div>
             <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px"}}>
               {inp("city", t.city as string)}
-              <Sel value={form.region} onChange={v=>setForm(p=>({...p,region:v}))} options={REGIONS} placeholder={t.region as string} dir={dir}/>
+              <Sel value={form.region} onChange={v=>setForm(p=>({...p,region:v, prefecture:""}))} options={REGIONS} placeholder={t.region as string} dir={dir}/>
             </div>
+            {showPrefecture && (
+              <div style={{marginBottom:"8px", animation:"fadeUp .3s ease both"}}>
+                <Sel value={form.prefecture} onChange={v=>setForm(p=>({...p,prefecture:v}))} options={PREFECTURES_CS} placeholder={t.prefecture as string} dir={dir}/>
+              </div>
+            )}
             <div style={{marginBottom:"8px"}}>
               <Sel value={form.sector} onChange={v=>setForm(p=>({...p,sector:v}))} options={SECTORS} placeholder={t.sector as string} dir={dir}/>
             </div>
-            <div style={{marginBottom:"16px"}}>
+            <div style={{marginBottom:"8px"}}>
               <Sel value={form.projType} onChange={v=>setForm(p=>({...p,projType:v}))} options={PROJ_TYPES[lang]} placeholder={t.projType as string} dir={dir}/>
+            </div>
+            {/* Photo — optional */}
+            <div style={{marginBottom:"16px"}}>
+              <label style={{display:"flex", alignItems:"center", gap:"10px", padding:"11px 14px",
+                borderRadius:"11px", border:`2px dashed ${form.photo ? "#1db87a" : "#DDE0E8"}`,
+                background: form.photo ? "#F0FFF4" : WH, cursor:"pointer"}}>
+                {form.photo
+                  ? <img src={form.photo} alt="photo" style={{width:"36px",height:"36px",borderRadius:"50%",objectFit:"cover"}}/>
+                  : <span style={{fontSize:"22px"}}>📷</span>}
+                <div>
+                  <div style={{fontSize:"12px", fontWeight:"600", color: form.photo ? "#1db87a" : N}}>
+                    {form.photo ? (lang==="ar"?"تم الرفع ✓":lang==="fr"?"Photo ajoutée ✓":"Photo added ✓") : (t.photo as string)}
+                  </div>
+                  <div style={{fontSize:"10px", color:GR}}>JPG, PNG — max 2 MB</div>
+                </div>
+                <input type="file" accept="image/*" style={{display:"none"}}
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    if (f.size > 2*1024*1024) return;
+                    const reader = new FileReader();
+                    reader.onload = ev => setForm(p => ({...p, photo: ev.target?.result as string}));
+                    reader.readAsDataURL(f);
+                  }}/>
+              </label>
             </div>
 
             {/* Error banner listing missing fields */}
