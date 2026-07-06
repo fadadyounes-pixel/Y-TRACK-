@@ -13,7 +13,7 @@ function injectCSS() {
     "*{box-sizing:border-box;margin:0;padding:0}",
     "html,body,#root{height:100%;width:100%}",
     "body{font-family:'Poppins',sans-serif;background:#0F2233;color:#1C3A5C}",
-    "::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#FFB703;border-radius:4px}",
+    "::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#2563EB;border-radius:4px}",
     "@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}",
     "@keyframes im-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}",
     "@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}}",
@@ -35,29 +35,20 @@ function injectCSS() {
 }
 
 /* ── BRAND ──────────────────────────────────────────── */
-const Y  = "#FFB703";
-const YD = "#E5A200";
-const YL = "#FFF3CD";
-const N  = "#1C3A5C";
-const ND = "#0F2233";
+const Y  = "#2563EB";   // Primary blue — buttons, accents, progress
+const YD = "#1E40AF";   // Blue dark    — gradient end
+const YL = "#EFF6FF";   // Blue light   — backgrounds, selected states
+const N  = "#1C3A5C";   // Navy         — body text
+const ND = "#0F2233";   // Navy dark    — header, dark cards
 const NB = "rgba(255,255,255,.07)";
-const CR = "#FAF7F0";
-const CD = "#EDE8DF";
+const CR = "#F8FAFF";   // Cool white   — page background
+const CD = "#DDE4F0";   // Cool border  — dividers, table stripes
 const WH = "#FFFFFF";
 const GR = "#6B7280";
 const GN = "#22C55E";
 const RE = "#EF4444";
 
-/* ── LOGO SVG ────────────────────────────────────────── */
-const Logo = ({ size = 44 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 120 120" fill="none">
-    <path d="M60 10C35 10 18 28 18 52C18 68 27 80 40 87L40 95C40 98 43 100 46 100L74 100C77 100 80 98 80 95L80 87C93 80 102 68 102 52C102 28 85 10 60 10Z" fill={Y}/>
-    <rect x="42" y="100" width="36" height="8" rx="4" fill={ND}/>
-    <rect x="45" y="107" width="30" height="7" rx="3.5" fill={ND}/>
-    <path d="M60 30C49 30 40 39 40 50C40 64 60 80 60 80C60 80 80 64 80 50C80 39 71 30 60 30Z" fill={WH}/>
-    <circle cx="60" cy="50" r="9" fill={Y}/>
-  </svg>
-);
+/* Logo appears only on the login page via /logo-transparent.png */
 
 /* ── AUTH ────────────────────────────────────────────── */
 const ADMIN_CODE = "@adminINDH";
@@ -451,9 +442,10 @@ const Header = ({lang, user, onLogout, t}: {
   <div style={{background: ND, height: "58px", display: "flex", alignItems: "center",
     justifyContent: "space-between", padding: "0 22px",
     boxShadow: "0 2px 16px rgba(15,34,51,.3)", position: "sticky", top: 0, zIndex: 200}}>
-    <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
-      <Logo size={30}/>
-      <span style={{fontSize: "17px", fontWeight: "800", color: WH, lineHeight: 1}}>IdeaMap</span>
+    <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
+      <div style={{width: "32px", height: "32px", borderRadius: "8px", background: Y,
+        display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", fontWeight: "900", color: WH}}>I</div>
+      <span style={{fontSize: "17px", fontWeight: "800", color: WH, lineHeight: 1, letterSpacing: "-.3px"}}>IdeaMap</span>
     </div>
     <div style={{display: "flex", alignItems: "center", gap: "14px"}}>
       {user && <>
@@ -616,7 +608,9 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
           padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between",
           position:"sticky", top:0, zIndex:10, boxShadow:"0 2px 20px rgba(0,0,0,.3)"}}>
           <div style={{display:"flex", alignItems:"center", gap:"8px"}}>
-            <Logo size={26}/><span style={{fontSize:"14px", fontWeight:"800", color:WH}}>IdeaMap</span>
+            <div style={{width:"28px", height:"28px", borderRadius:"7px", background:Y,
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", fontWeight:"900", color:WH}}>I</div>
+            <span style={{fontSize:"14px", fontWeight:"800", color:WH}}>IdeaMap</span>
           </div>
           <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
             <span style={{fontSize:"10px", color:"rgba(255,255,255,.3)", fontFamily:"monospace", letterSpacing:"1px"}}>{val.trim().toUpperCase()}</span>
@@ -749,9 +743,9 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
 
       {/* Glow orbs */}
       <div style={{position:"absolute", left:-80, bottom:-80, width:300, height:300,
-        borderRadius:"50%", background:"rgba(255,183,3,.12)", filter:"blur(70px)", pointerEvents:"none"}}/>
+        borderRadius:"50%", background:"rgba(37,99,235,.18)", filter:"blur(70px)", pointerEvents:"none"}}/>
       <div style={{position:"absolute", right:-60, top:-60, width:260, height:260,
-        borderRadius:"50%", background:"rgba(28,58,92,.5)", filter:"blur(70px)", pointerEvents:"none"}}/>
+        borderRadius:"50%", background:"rgba(30,64,175,.4)", filter:"blur(70px)", pointerEvents:"none"}}/>
 
       {/* Lang toggle */}
       <div style={{position:"absolute", top:14, right:dir==="rtl"?undefined:14, left:dir==="rtl"?14:undefined, zIndex:10}}>
@@ -1422,7 +1416,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         {/* ── PLAN ── */}
         {step === "plan" && (<>
           {busy && <Card style={{textAlign: "center", padding: "48px 24px"}}>
-            <Logo size={56}/><br/><br/>
+            <div style={{fontSize:"52px", marginBottom:"16px"}}>📊</div>
             <h3 style={{color: ND, fontWeight: "700", marginBottom: "8px"}}>{t.genBP}</h3>
             <p style={{color: GR, fontSize: "13px", marginBottom: "18px"}}>{lang === "ar" ? "إعداد خطة الأعمال والميزانية..." : lang === "fr" ? "Préparation du business plan et budget..." : "Preparing business plan and budget..."}</p>
             <div style={{display: "flex", justifyContent: "center"}}><Dots/></div>
@@ -1430,8 +1424,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           {plan && !busy && (<>
             <Card>
               <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px"}}>
-                <div style={{width: "46px", height: "46px", borderRadius: "13px", background: ND,
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0}}><Logo size={28}/></div>
+                <div style={{width: "46px", height: "46px", borderRadius: "13px", background: Y,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "24px"}}>📋</div>
                 <div><h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.planT}</h2>
                   <p style={{fontSize: "12px", color: GR, marginTop: "2px"}}>{proj?.projectName}</p></div>
               </div>
@@ -1667,7 +1661,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               border: `2px solid ${Y}`, flexShrink: 0}}>✅</div>
             <h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.compT}</h2>
           </div>
-          {busy && <div style={{textAlign: "center", padding: "48px"}}><Logo size={44}/>
+          {busy && <div style={{textAlign: "center", padding: "48px"}}>
+            <div style={{fontSize:"52px", marginBottom:"16px"}}>✅</div>
             <p style={{color: GR, marginTop: "14px"}}>
               {lang === "ar" ? "جاري التحليل..." : lang === "fr" ? "Analyse en cours..." : "Analyzing..."}
             </p>
@@ -1798,11 +1793,11 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           return (<>
             <div style={{background: ND, borderRadius: "18px", padding: "32px 24px",
               textAlign: "center", marginBottom: "14px"}}>
-              <div style={{display: "flex", justifyContent: "center", marginBottom: "14px"}}><Logo size={64}/></div>
+              <div style={{fontSize: "64px", marginBottom: "10px"}}>🎉</div>
               <h2 style={{fontSize: "22px", fontWeight: "800", color: WH, marginBottom: "5px"}}>{t.exportT}</h2>
               <p style={{color: "rgba(255,255,255,.5)", fontSize: "13px", marginBottom: "14px"}}>{proj?.projectName}</p>
               <div style={{display: "inline-block", padding: "18px 36px",
-                background: "rgba(255,183,3,.15)", borderRadius: "16px", border: `2px solid ${Y}`}}>
+                background: "rgba(37,99,235,.2)", borderRadius: "16px", border: `2px solid ${Y}`}}>
                 <div style={{fontSize: "48px", fontWeight: "800", color: Y, lineHeight: 1}}>{readiness}%</div>
                 <div style={{fontSize: "11px", color: "rgba(255,255,255,.5)", marginTop: "5px"}}>{t.readiness}</div>
               </div>
@@ -2075,7 +2070,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
         <Card style={{background: ND}}>
           <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px"}}>
             <div style={{width: "40px", height: "40px", borderRadius: "11px", background: Y,
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0}}><Logo size={24}/></div>
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "20px"}}>📊</div>
             <div>
               <div style={{fontSize: "18px", fontWeight: "800", color: WH}}>{t.coordDash}</div>
               <div style={{fontSize: "12px", color: "rgba(255,255,255,.5)"}}>{user.id}</div>
