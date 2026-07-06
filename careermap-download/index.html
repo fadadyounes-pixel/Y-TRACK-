@@ -2083,29 +2083,6 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '.avoid{break-inside:avoid;page-break-inside:avoid}' +
     '</style>' +
     '</head><body>' + body +
-    '<div id="pdfload" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:99999;background:#06111f;display:flex;align-items:center;justify-content:center;flex-direction:column;">' +
-    '<div style="color:#1aabaa;font-size:48px;margin-bottom:16px;">&#8987;</div>' +
-    '<div style="color:#f0f4f8;font-size:20px;font-weight:700;margin-bottom:10px;">' + (isAr ? 'جاري إنشاء PDF...' : isEn ? 'Generating PDF...' : 'Génération du PDF...') + '</div>' +
-    '<div id="pdfprog" style="color:#6b8aaa;font-size:14px;"></div>' +
-    '</div>' +
-    '<script src="lib/html2pdf.bundle.min.js"><\/script>' +
-    '<script>(function(){' +
-    'function go(){' +
-    /* Remove the overlay so it is never part of the rendered canvas */
-    'var d=document.getElementById("pdfload");if(d&&d.parentNode)d.parentNode.removeChild(d);' +
-    'html2pdf().set({margin:0,filename:"' + pdfName + '",' +
-    'image:{type:"jpeg",quality:0.98},' +
-    'html2canvas:{scale:1.5,useCORS:true,allowTaint:false,logging:false,backgroundColor:"#ffffff",imageTimeout:0},' +
-    'jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},' +
-    'pagebreak:{mode:["css","legacy"],before:".pdf-page"}' +
-    '}).from(document.body).save()' +
-    '.then(function(){setTimeout(function(){window.close();},500);})' +
-    '.catch(function(){alert("PDF generation failed. Please try again.");});' +
-    '}' +
-    'function ready(){document.fonts.ready.then(function(){setTimeout(go,800);});}' +
-    'if(document.readyState==="complete"){ready();}' +
-    'else{window.addEventListener("load",ready);}' +
-    '})();<\/script>' +
     '</body></html>';
 }
 
@@ -2151,15 +2128,84 @@ function ReportViewer({ profile, scores, role, onClose }) {
   }, [profile, scores, role, lang]);
 
   function savePDF() {
-    /* Open report in a Blob URL window — same origin as the app so html2canvas
-       can load fonts via CORS (about:blank causes null-origin failures) */
-    var base = (window.location.href || '').replace(/\/[^\/]*(\?.*)?$/, '/');
-    var modHtml = html.replace('<meta charset="UTF-8">', '<meta charset="UTF-8"><base href="' + base + '">');
-    var blob = new Blob([modHtml], {type: 'text/html;charset=utf-8'});
-    var blobUrl = URL.createObjectURL(blob);
-    var w = window.open(blobUrl, '_blank');
-    if (!w) { URL.revokeObjectURL(blobUrl); alert('Please allow pop-ups for this site to download the PDF.'); return; }
-    setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 120000);
+    /* Render entirely in the current window — no popup.
+       Container placed at viewport position (top:0,left:0) so html2canvas
+       computes layouts correctly; the fully-opaque overlay covers it. */
+    var loadDiv = document.createElement('div');
+    loadDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;background:#06111f;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:Arial,sans-serif;';
+    loadDiv.innerHTML =
+      '<div style="color:#1aabaa;font-size:40px;margin-bottom:14px;">&#8987;</div>' +
+      '<div style="color:#f0f4f8;font-size:18px;font-weight:700;margin-bottom:8px;">' +
+      (lang === 'ar' ? 'جاري إنشاء PDF...' : lang === 'en' ? 'Generating PDF...' : 'Génération du PDF...') +
+      '</div><div id="spdfp" style="color:#6b8aaa;font-size:13px;margin-top:4px;"></div>';
+    document.body.appendChild(loadDiv);
+
+    /* Ensure Archivo + Cairo fonts are loaded in this document */
+    if (!document.querySelector('link[href*="Archivo"]')) {
+      var fl = document.createElement('link');
+      fl.rel = 'stylesheet';
+      fl.href = 'https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap';
+      document.head.appendChild(fl);
+    }
+
+    /* Extract and scope report CSS so it only applies inside #cmrpt */
+    var sm = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    var styles = sm ? sm[1].replace('*{', '#cmrpt *{').replace('body{', '#cmrpt{') : '';
+    var styleEl = document.createElement('style');
+    styleEl.id = 'cmrpt-s';
+    styleEl.textContent = styles;
+    document.head.appendChild(styleEl);
+
+    /* Extract body content */
+    var b1 = html.indexOf('<body'), b2 = b1 >= 0 ? html.indexOf('>', b1) + 1 : 0, b3 = html.lastIndexOf('</body>');
+    var bodyContent = (b1 >= 0 && b3 > b2) ? html.substring(b2, b3) : '';
+
+    /* Place container at top-left of viewport (NOT off-screen) so html2canvas
+       computes correct element dimensions; fully-opaque loadDiv hides it */
+    var container = document.createElement('div');
+    container.id = 'cmrpt';
+    container.style.cssText = 'position:fixed;top:0;left:0;width:794px;overflow:visible;z-index:1;background:#fff;font-family:Archivo,Arial,sans-serif;';
+    container.innerHTML = bodyContent;
+    document.body.appendChild(container);
+
+    function cleanup() {
+      if (container.parentNode) container.parentNode.removeChild(container);
+      if (loadDiv.parentNode) loadDiv.parentNode.removeChild(loadDiv);
+      var se = document.getElementById('cmrpt-s');
+      if (se && se.parentNode) se.parentNode.removeChild(se);
+    }
+
+    var pdfFn = 'CareerMap_' + (profile.name || profile.id || 'Report').replace(/[^a-zA-Z0-9]/g, '_') + '_' + lang + '.pdf';
+    var opt = {
+      margin: 0, filename: pdfFn,
+      image: { type: 'jpeg', quality: 0.97 },
+      html2canvas: { scale: 2, useCORS: true, allowTaint: false, logging: false, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    document.fonts.ready.then(function() {
+      setTimeout(function() {
+        var pgs = container.querySelectorAll('.pdf-page');
+        var n = pgs.length;
+        var pr = document.getElementById('spdfp');
+        if (!n) { cleanup(); return; }
+        if (pr) pr.textContent = '1 / ' + n;
+
+        html2pdf().set(opt).from(pgs[0]).toPdf().get('pdf').then(function(pdf) {
+          var i = 1;
+          function nx() {
+            if (i >= n) { pdf.save(pdfFn); cleanup(); return; }
+            if (pr) pr.textContent = (i + 1) + ' / ' + n;
+            html2pdf().set(opt).from(pgs[i]).toCanvas().get('canvas').then(function(c) {
+              pdf.addPage();
+              pdf.addImage(c.toDataURL('image/jpeg', 0.97), 'JPEG', 0, 0, 210, 297);
+              i++; nx();
+            }).catch(function() { i++; nx(); });
+          }
+          nx();
+        }).catch(function() { cleanup(); });
+      }, 600);
+    });
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
