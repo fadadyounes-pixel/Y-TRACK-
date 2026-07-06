@@ -2087,7 +2087,15 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '.pdf-page:last-child{page-break-after:auto;break-after:auto}' +
     '}' +
     '</style>' +
-    '</head><body>' + body + '<script>window.addEventListener("load",function(){if(window.top===window.self){setTimeout(window.print,800);}});<\/script></body></html>';
+    '</head><body>' + body +
+    '<script src="/lib/html2pdf.bundle.min.js"><\/script>' +
+    '<script>window.addEventListener("load",function(){' +
+      'if(window.top!==window.self)return;' +
+      'if(typeof html2pdf==="undefined"){setTimeout(window.print,800);return;}' +
+      'var opt={margin:0,filename:"' + pdfName + '",image:{type:"jpeg",quality:0.98},html2canvas:{scale:2,useCORS:true,logging:false},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},pagebreak:{mode:["css","legacy"],before:".pdf-page"}};' +
+      'html2pdf().set(opt).from(document.body).save();' +
+    '});<\/script>' +
+    '</body></html>';
 }
 
 function openPDF(profile, scores, role) {
@@ -2132,39 +2140,12 @@ function ReportViewer({ profile, scores, role, onClose }) {
   }, [profile, scores, role, lang]);
 
   function savePDF() {
-    var fname = 'CareerMap_' + ((profile && (profile.firstName || profile.name || profile.id)) || 'Report').replace(/[^a-zA-Z0-9_-]/g,'_') + '_' + lang + '.pdf';
-    if (typeof html2pdf === 'undefined') {
-      var w = window.open('', '_blank', 'width=960,height=720');
-      if (w) { w.document.write(html); w.document.close(); }
-      return;
-    }
-    var styleMatches = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || [];
-    var cssText = styleMatches.map(function(s) { return s.replace(/<\/?style[^>]*>/gi, ''); }).join('\n');
-    var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-    var bodyHtml = bodyMatch ? bodyMatch[1] : '';
-    bodyHtml = bodyHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
-    var container = document.createElement('div');
-    container.style.cssText = 'position:absolute;left:-99999px;top:0;width:794px;background:#fff;';
-    var styleEl = document.createElement('style');
-    styleEl.textContent = cssText;
-    container.appendChild(styleEl);
-    var inner = document.createElement('div');
-    inner.innerHTML = bodyHtml;
-    container.appendChild(inner);
-    document.body.appendChild(container);
-    var opt = {
-      margin: 0,
-      filename: fname,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], before: '.pdf-page' }
-    };
-    html2pdf().set(opt).from(container).save().then(function() {
-      document.body.removeChild(container);
-    }).catch(function() {
-      try { document.body.removeChild(container); } catch(e2) {}
-    });
+    var base = (window.location.href || '').replace(/\/[^\/]*(\?.*)?$/, '/');
+    var modHtml = html.replace('<meta charset="UTF-8">', '<meta charset="UTF-8"><base href="' + base + '">');
+    var w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) { alert("Please allow pop-ups for this site to download the PDF."); return; }
+    w.document.write(modHtml);
+    w.document.close();
   }
 
   var langLabels = { fr:"FR", en:"EN", ar:"ع" };
