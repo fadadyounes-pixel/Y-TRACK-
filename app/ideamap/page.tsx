@@ -868,23 +868,33 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     setTimeout(() => setToast(null), 4500);
   };
 
-  const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue") => {
-    try {
-      const r = await fetch("/api/ai", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({messages, system, task}),
-      });
-      const d = await r.json();
-      if (d.error) {
-        showToast(lang==="ar"?"المستشار غير متاح — حاول مرة أخرى":lang==="fr"?"Conseiller indisponible — réessayez":"Advisor unavailable — please retry");
+  // Auto-retries up to 3× with exponential back-off before surfacing any error.
+  // The server-side cascade (providers.ts) already tries 4 Groq models + Together
+  // + Gemini + OpenRouter × 2 sweeps, so the client retry is a last safety net.
+  const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue"): Promise<string> => {
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 900 * attempt));
+        const r = await fetch("/api/ai", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({messages, system, task}),
+        });
+        const d = await r.json();
+        if (d.error) {
+          if (attempt < MAX_RETRIES - 1) continue;
+          showToast(lang==="ar"?"المستشار مشغول — جاري إعادة المحاولة...":lang==="fr"?"Conseiller surchargé — nouvelle tentative...":"Advisor busy — retrying automatically...", "error");
+          return "";
+        }
+        return d.content?.[0]?.text || "";
+      } catch {
+        if (attempt < MAX_RETRIES - 1) continue;
+        showToast(lang==="ar"?"تعذّر الاتصال — تحقق من اتصالك":lang==="fr"?"Connexion impossible — vérifiez votre réseau":"Connection failed — check your network");
         return "";
       }
-      return d.content?.[0]?.text || "";
-    } catch {
-      showToast(lang==="ar"?"تعذّر الاتصال — تحقق من اتصالك":lang==="fr"?"Connexion impossible — vérifiez votre réseau":"Connection failed — check your network");
-      return "";
     }
+    return "";
   };
 
   const parseJ = (txt: string) => {
