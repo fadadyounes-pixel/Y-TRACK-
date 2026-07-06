@@ -2181,26 +2181,38 @@ export default function IdeaMapPage() {
   const [user, setUser]       = useState<any>(null);
   const [holders, setHolders] = useState<any[]>([]);
   const [coords, setCoords]   = useState<string[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
+  /* ── Fetch live data from Google Sheets on mount ──────
+     Falls back to localStorage if Sheets isn't configured */
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Load localStorage cache immediately so UI isn't empty
     try {
       const h = localStorage.getItem("idm_holders");
       if (h) setHolders(JSON.parse(h));
       const c = localStorage.getItem("idm_coords");
       if (c) setCoords(JSON.parse(c));
     } catch {}
+
+    // Then refresh from Sheets (live source of truth)
+    setSyncing(true);
+    fetch("/api/sheets")
+      .then(r => r.json())
+      .then(data => {
+        if (data.holders?.length > 0 || data.coords?.length > 0) {
+          setHolders(data.holders || []);
+          setCoords(data.coords || []);
+          // Update localStorage cache
+          try {
+            localStorage.setItem("idm_holders", JSON.stringify(data.holders || []));
+            localStorage.setItem("idm_coords", JSON.stringify(data.coords || []));
+          } catch {}
+        }
+      })
+      .catch(() => {/* Sheets not configured — localStorage cache stays */})
+      .finally(() => setSyncing(false));
   }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try { localStorage.setItem("idm_holders", JSON.stringify(holders)); } catch {}
-  }, [holders]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try { localStorage.setItem("idm_coords", JSON.stringify(coords)); } catch {}
-  }, [coords]);
 
   function setLangDir(l: string) {
     setLang(l);
@@ -2210,9 +2222,38 @@ export default function IdeaMapPage() {
 
   const t = TX[lang];
 
+  /* ── Persist a holder to Sheets + localStorage cache ── */
+  async function persistHolder(holder: any) {
+    try { localStorage.setItem("idm_holders", JSON.stringify(
+      holders.map(h => h.id === holder.id ? holder : h)
+        .concat(holders.find(h => h.id === holder.id) ? [] : [holder])
+    )); } catch {}
+    try {
+      await fetch("/api/sheets", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({type: "save_holder", holder}),
+      });
+    } catch {}
+  }
+
+  /* ── Persist the full coordinator list to Sheets ──── */
+  async function persistCoords(list: string[]) {
+    try { localStorage.setItem("idm_coords", JSON.stringify(list)); } catch {}
+    try {
+      await fetch("/api/sheets", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({type: "save_coords", coords: list}),
+      });
+    } catch {}
+  }
+
   function onLogin(u: any) {
     if (u.isNew) {
-      setHolders(p => [...p, {id: u.id, name: u.name, profile: u.profile, step: "idea"}]);
+      const newHolder = {id: u.id, name: u.name, profile: u.profile, step: "idea"};
+      setHolders(p => [...p, newHolder]);
+      persistHolder(newHolder);
     }
     setUser(u);
   }
@@ -2222,32 +2263,60 @@ export default function IdeaMapPage() {
   function onSaveProject(data: any) {
     setHolders(p => {
       const idx = p.findIndex(h => h.id === data.id);
-      if (idx >= 0) { const updated = [...p]; updated[idx] = {...updated[idx], ...data}; return updated; }
-      return [...p, data];
+      const updated = idx >= 0
+        ? p.map((h, i) => i === idx ? {...h, ...data} : h)
+        : [...p, data];
+      return updated;
     });
+    persistHolder(data);
   }
 
-  if (!user) return <Login lang={lang} setLang={setLangDir} t={t} onLogin={onLogin} holders={holders} coords={coords}/>;
+  function onAddCoord(c: string) {
+    const next = [...coords, c];
+    setCoords(next);
+    persistCoords(next);
+  }
+
+  function onDelCoord(i: number) {
+    const next = coords.filter((_, x) => x !== i);
+    setCoords(next);
+    persistCoords(next);
+  }
+
+  /* ── Sync indicator (tiny dot in corner when writing) ── */
+  const SyncDot = () => syncing ? (
+    <div style={{position:"fixed", bottom:14, right:14, zIndex:999,
+      width:10, height:10, borderRadius:"50%", background:GN,
+      boxShadow:`0 0 8px ${GN}`, animation:"bounce 1s infinite"}}/>
+  ) : null;
+
+  if (!user) return <>
+    <SyncDot/>
+    <Login lang={lang} setLang={setLangDir} t={t} onLogin={onLogin} holders={holders} coords={coords}/>
+  </>;
 
   if (user.role === "holder") {
     const saved = holders.find(h => h.id === user.id);
-    return (
+    return <>
+      <SyncDot/>
       <HolderApp lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
         t={t} onSaveProject={onSaveProject} initialState={saved}/>
-    );
+    </>;
   }
 
-  if (user.role === "coord") return (
+  if (user.role === "coord") return <>
+    <SyncDot/>
     <CoordDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
       t={t} holders={holders}/>
-  );
+  </>;
 
-  if (user.role === "admin") return (
+  if (user.role === "admin") return <>
+    <SyncDot/>
     <AdminDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
       t={t} holders={holders} coords={coords}
-      onAddCoord={c => setCoords(p => [...p, c])}
-      onDelCoord={i => setCoords(p => p.filter((_, x) => x !== i))}/>
-  );
+      onAddCoord={onAddCoord}
+      onDelCoord={onDelCoord}/>
+  </>;
 
   return null;
 }
