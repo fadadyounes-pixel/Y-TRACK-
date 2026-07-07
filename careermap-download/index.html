@@ -2201,6 +2201,12 @@ function ReportViewer({ profile, scores, role, onClose }) {
       if (!n) { cleanup(); return; }
       if (pr) pr.textContent = '1 / ' + n;
       html2pdf().set(opt).from(pgs[0]).toPdf().get('pdf').then(function(pdf) {
+        /* html2pdf context2d always inserts a blank page before the actual content.
+           Delete it so the cover lands on page 1. */
+        if (pdf.internal.getNumberOfPages() > 1) {
+          pdf.deletePage(1);
+        }
+        pdf.setPage(pdf.internal.getNumberOfPages());
         var i = 1;
         function nx() {
           if (i >= n) { pdf.save(pdfFn); cleanup(); return; }
