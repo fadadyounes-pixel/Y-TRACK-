@@ -2149,7 +2149,7 @@ function ReportViewer({ profile, scores, role, onClose }) {
     if (cmapSt) cmapSt.textContent = origCmapText.replace(/@import\s+url\([^)]*\)[^;]*;?\s*/gi, '');
 
     var sm = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-    var styles = sm ? sm[1].replace('*{', '#cmrpt *{').replace('body{', '#cmrpt{') : '';
+    var styles = sm ? sm[1].replace('*{', '.cmrpt *{').replace('body{', '.cmrpt{') : '';
     var styleEl = document.createElement('style');
     styleEl.id = 'cmrpt-s';
     styleEl.textContent = styles;
@@ -2162,7 +2162,7 @@ function ReportViewer({ profile, scores, role, onClose }) {
     bodyContent = bodyContent.replace(/<img\b[^>]*>/gi, '');
 
     var container = document.createElement('div');
-    container.id = 'cmrpt';
+    container.className = 'cmrpt';
     container.style.cssText = 'position:fixed;top:0;left:0;width:794px;overflow:visible;z-index:0;';
     container.innerHTML = bodyContent;
     document.body.appendChild(container);
@@ -2196,13 +2196,32 @@ function ReportViewer({ profile, scores, role, onClose }) {
 
     function doRender() {
       var pgs = container.querySelectorAll('.pdf-page');
-      var n = pgs.length;
+      var pgHtmls = [];
+      for (var k = 0; k < pgs.length; k++) {
+        pgHtmls.push(pgs[k].outerHTML);
+      }
+      var n = pgHtmls.length;
+      /* Remove the big container now — each page renders in its own isolated
+         wrapper at fixed top:0 so html2canvas (Canvas2D mode) always sees the
+         element at viewport y=0.  Without isolation, pages 2+ sit at y > 900
+         (outside the viewport) and html2canvas returns a blank canvas. */
+      if (container.parentNode) container.parentNode.removeChild(container);
       var pr = document.getElementById('spdfprog');
       if (!n) { cleanup(); return; }
       if (pr) pr.textContent = '1 / ' + n;
-      html2pdf().set(opt).from(pgs[0]).toPdf().get('pdf').then(function(pdf) {
-        /* html2pdf context2d always inserts a blank page before the actual content.
-           Delete it so the cover lands on page 1. */
+      function makeIso(pgHtml) {
+        var d = document.createElement('div');
+        d.className = 'cmrpt';
+        d.style.cssText = 'position:fixed;top:0;left:0;width:794px;overflow:visible;z-index:0;';
+        d.innerHTML = pgHtml;
+        document.body.appendChild(d);
+        return {wrap: d, el: d.querySelector('.pdf-page') || d};
+      }
+      var r0 = makeIso(pgHtmls[0]);
+      html2pdf().set(opt).from(r0.el).toPdf().get('pdf').then(function(pdf) {
+        if (r0.wrap.parentNode) r0.wrap.parentNode.removeChild(r0.wrap);
+        /* html2pdf context2d always inserts a blank page before the actual
+           content.  Delete it so the cover lands on page 1. */
         if (pdf.internal.getNumberOfPages() > 1) {
           pdf.deletePage(1);
         }
@@ -2211,20 +2230,20 @@ function ReportViewer({ profile, scores, role, onClose }) {
         function nx() {
           if (i >= n) { pdf.save(pdfFn); cleanup(); return; }
           if (pr) pr.textContent = (i + 1) + ' / ' + n;
-          /* Slide the fixed container so pgs[i] lands at viewport y=0 before
-             html2canvas captures it. Without this, pages 2+ sit outside the
-             viewport (y > 900) and html2canvas returns a blank canvas. */
-          var pgTop = Math.round(pgs[i].getBoundingClientRect().top);
-          container.style.top = '-' + pgTop + 'px';
-          html2pdf().set(opt).from(pgs[i]).toCanvas().get('canvas').then(function(c) {
-            container.style.top = '0px';
+          var ri = makeIso(pgHtmls[i]);
+          html2pdf().set(opt).from(ri.el).toCanvas().get('canvas').then(function(c) {
+            if (ri.wrap.parentNode) ri.wrap.parentNode.removeChild(ri.wrap);
             pdf.addPage();
             pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
             i++; nx();
-          }).catch(function() { container.style.top = '0px'; i++; nx(); });
+          }).catch(function() {
+            if (ri.wrap.parentNode) ri.wrap.parentNode.removeChild(ri.wrap);
+            i++; nx();
+          });
         }
         nx();
       }).catch(function(err) {
+        if (r0.wrap.parentNode) r0.wrap.parentNode.removeChild(r0.wrap);
         var pr2 = document.getElementById('spdfprog');
         if (pr2) pr2.textContent = 'Erreur — ' + (err && err.message ? err.message : String(err));
         setTimeout(cleanup, 3000);
