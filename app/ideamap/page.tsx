@@ -1029,6 +1029,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [logoGenerating, setLogoGenerating] = useState(false);
   const [pendingAttach, setPendingAttach]   = useState<number | null>(null);
   const [suggestions, setSuggestions]       = useState<string[]>([]);
+  const [brief, setBrief]                   = useState(initialState?.brief || "");
+  const [currentQ, setCurrentQ]             = useState(initialState?.currentQ || "");
   const [dlLang, setDlLang]                 = useState(lang);
   const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1081,14 +1083,16 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     try { const m = txt.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; } catch { return null; }
   };
 
-  const parseQS = (raw: string): { question: string; suggs: string[] } => {
-    const qMatch = raw.match(/QUESTION\s*:\s*([\s\S]*?)(?=SUGGESTIONS\s*:|$)/i);
+  const parseQS = (raw: string): { brief: string; question: string; suggs: string[] } => {
+    const bMatch = raw.match(/BRIEF\s*:\s*([\s\S]*?)(?=QUESTION\s*:|SUGGESTIONS\s*:|$)/i);
+    const qMatch = raw.match(/QUESTION\s*:\s*([\s\S]*?)(?=SUGGESTIONS\s*:|BRIEF\s*:|$)/i);
     const sMatch = raw.match(/SUGGESTIONS\s*:\s*([\s\S]*)/i);
-    const question = qMatch ? qMatch[1].trim() : raw.trim();
+    const brief = bMatch ? bMatch[1].trim() : "";
+    const question = qMatch ? qMatch[1].trim() : (brief ? "" : raw.replace(/SUGGESTIONS\s*:[\s\S]*/i, "").trim());
     const suggs = sMatch
-      ? sMatch[1].split(/\|/).map((s: string) => s.trim()).filter((s: string) => s.length > 1 && s.length < 100)
+      ? sMatch[1].split(/\|/).map((s: string) => s.trim()).filter((s: string) => s.length > 1 && s.length < 120)
       : [];
-    return { question, suggs };
+    return { brief, question, suggs };
   };
 
   const dlText = (content: string, name: string) => {
@@ -1386,21 +1390,24 @@ RÈGLE ABSOLUE: entrepreneuriat individuel uniquement. Ne jamais suggérer coop�
 
   const startChat = async () => {
     if (!idea.trim()) return;
-    setBusy(true); setSuggestions([]); setStep("dialogue");
+    setBusy(true); setSuggestions([]); setBrief(""); setCurrentQ(""); setStep("dialogue");
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
     const r = await ai([{role: "user", content: lang === "ar" ? `فكرتي: ${idea}` : `Mon idée: ${idea}`}],
       `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
 ${INDH_CTX}
-Le porteur vient de partager son idée. Ton rôle: poser UNE question qui maximise le score jury INDH dès le départ.
-La question la plus impactante pour commencer: demande QUI exactement va bénéficier (femmes de la zone? jeunes sans emploi? agriculteurs locaux?) — c'est le critère "impact social" le plus lourd (25 pts jury).
-Sois très chaleureux, très simple, MAX 1 phrase. Reformule dans le dialecte simple du porteur.
-Règle sur les SUGGESTIONS: propose 3 profils de bénéficiaires RÉELS et SPÉCIFIQUES au Maroc (ex: "Femmes au foyer du quartier", "Jeunes sans diplôme 18-30 ans", "Familles agricoles de la commune"). Jamais de termes abstraits. Jamais coopérative/GIE.${arNote}
+Le porteur vient de partager son idée. Fais 2 choses:
+1. BRIEF: résume en 1-2 phrases MAX ce que tu as compris du projet (secteur + zone si mentionnée). MAX 25 mots.
+2. QUESTION: pose UNE question très courte sur QUI va bénéficier — critère "impact social" (25 pts jury). MAX 12 mots.
+3. SUGGESTIONS: 4 profils de bénéficiaires RÉELS et SPÉCIFIQUES au Maroc. Jamais coopérative/GIE.${arNote}
 
-Format OBLIGATOIRE:
-QUESTION: [question très courte et simple en ${LL}]
-SUGGESTIONS: [profil bénéficiaire 1 en ${LL}] | [profil bénéficiaire 2 en ${LL}] | [profil bénéficiaire 3 en ${LL}]`,
+Format STRICT — respecte EXACTEMENT ces 3 lignes:
+BRIEF: [1-2 phrases max en ${LL} — secteur + zone]
+QUESTION: [question directe en ${LL} — max 12 mots]
+SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}] | [profil D en ${LL}]`,
       "dialogue");
-    const { question, suggs } = parseQS(r);
+    const { brief: b, question, suggs } = parseQS(r);
+    setBrief(b);
+    setCurrentQ(question);
     setMsgs([{role: "user", content: idea}, {role: "assistant", content: question}]);
     setSuggestions(suggs);
     setQN(1); setBusy(false);
@@ -1414,31 +1421,34 @@ SUGGESTIONS: [profil bénéficiaire 1 en ${LL}] | [profil bénéficiaire 2 en ${
     const last = qN >= MAX_Q;
     const arNote = lang === "ar" ? "\nمهم: استخدم العربية الفصحى البسيطة السليمة، جمل قصيرة، لا دارجة." : "";
     const questionArc: Record<number, string> = {
-      2: `Question ${qN}: Pose une question TRÈS courte sur le PROBLÈME LOCAL CONCRET que le projet résout dans cette zone — chômage, manque de service, produit introuvable localement. Les SUGGESTIONS doivent être des réalités marocaines précises (ex: "Pas de salon de coiffure dans le douar", "40% des jeunes sans emploi ici", "Aucun atelier de formation à 30 km"). Jamais générique.`,
-      3: `Question ${qN}: Pose une question TRÈS courte sur COMMENT le porteur va gagner de l'argent — prix de vente, canal de distribution, rythme de vente. Les SUGGESTIONS doivent être des canaux réels au Maroc (ex: "Souk du jeudi + commandes WhatsApp", "Livraison dans le quartier 30 MAD/livraison", "Vente directe à l'épicerie du coin").`,
-      4: `Question ${qN}: Pose une question TRÈS courte sur L'EXPÉRIENCE ou LA COMPÉTENCE du porteur dans ce domaine — même informelle. Les SUGGESTIONS doivent valoriser les savoir-faire locaux (ex: "5 ans de couture à domicile", "Appris avec ma mère artisane", "Formation 6 mois à l'OFPPT").`,
+      2: `Q${qN} — PROBLÈME LOCAL: Pose une question TRÈS courte sur le problème concret dans cette zone (chômage, manque de service, produit introuvable). MAX 12 mots. BRIEF: rappelle ce que tu as compris des bénéficiaires. 4 SUGGESTIONS: problèmes locaux précis au Maroc (ex: "Pas de salon dans le douar", "40% jeunes sans emploi", "Aucun atelier à 30km", "Marché dominé par revendeurs").`,
+      3: `Q${qN} — REVENU: Pose une question TRÈS courte sur le canal de vente et les prix. MAX 12 mots. BRIEF: synthèse bénéficiaires + problème. 4 SUGGESTIONS: canaux concrets marocains (ex: "Souk hebdomadaire + WhatsApp", "Commandes livraison quartier", "Épiceries en dépôt-vente", "Marché clients directs").`,
+      4: `Q${qN} — EXPÉRIENCE: Pose une question TRÈS courte sur la compétence/expérience du porteur. MAX 12 mots. BRIEF: synthèse projet jusqu'ici. 4 SUGGESTIONS: savoir-faire locaux valorisants (ex: "5 ans couture à domicile", "Appris avec ma mère artisane", "Formation OFPPT 6 mois", "Aidais mon père commerçant").`,
     };
-    const arcInstruction = questionArc[qN] || `Question ${qN}: Pose une question courte sur un point qui maximise le score jury INDH: pertinence territoriale, durabilité après INDH, ou différenciation locale. Suggestions spécifiques au Maroc.`;
+    const arcInstruction = questionArc[qN] || `Q${qN}: Pose une question courte sur pertinence territoriale ou durabilité après INDH. MAX 12 mots. BRIEF: ce que tu as compris. 4 SUGGESTIONS réalistes maroc.`;
 
     const r = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
       `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain, tu connais les vrais porteurs marocains.
 ${INDH_CTX}
 Idée originale: "${idea}". ${arcInstruction}${arNote}
-Sois très simple, 1 phrase max. Suggestions: 3 réponses RÉALISTES et SPÉCIFIQUES au Maroc. Jamais coopérative/GIE/association dans les suggestions.
 ${last
   ? `Maintenant analyse TOUTE la conversation et construis le profil projet le plus PRÉCIS possible.
 Retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
 {"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`
-  : `Format OBLIGATOIRE:
-QUESTION: [question très courte et simple en ${LL}]
-SUGGESTIONS: [réponse spécifique 1 en ${LL}] | [réponse spécifique 2 en ${LL}] | [réponse spécifique 3 en ${LL}]`}`,
+  : `Format STRICT — respecte EXACTEMENT ces 3 lignes:
+BRIEF: [1-2 phrases max en ${LL} qui synthétisent ce que tu as retenu jusqu'ici — max 25 mots]
+QUESTION: [question directe en ${LL} — max 12 mots]
+SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}] | [réponse D en ${LL}]`}`,
       last ? "json" : "dialogue");
     if (last) {
+      setBrief(""); setCurrentQ(""); setSuggestions([]);
       setMsgs((p: any[]) => [...p, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
       const p = parseJ(r); if (p) setProj(p);
       setTimeout(() => setStep("profile"), 1000);
     } else {
-      const { question, suggs } = parseQS(r);
+      const { brief: b, question, suggs } = parseQS(r);
+      setBrief(b);
+      setCurrentQ(question);
       setMsgs((p: any[]) => [...p, {role: "assistant", content: question}]);
       setSuggestions(suggs);
       setQN((p: number) => p + 1);
@@ -1628,76 +1638,99 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         {/* ── DIALOGUE ── */}
         {step === "dialogue" && (
           <Card>
+            {/* Header */}
             <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px"}}>
               <AdvisorAvatar size={40}/>
-              <div>
+              <div style={{flex: 1}}>
                 <div style={{fontSize: "10px", color: Y, fontWeight: "700", textTransform: "uppercase",
                   letterSpacing: ".6px", marginBottom: "2px"}}>
                   {lang === "ar" ? "مستشار المبادرة الوطنية" : lang === "fr" ? "Conseiller INDH" : "INDH Advisor"}
                 </div>
                 <h2 style={{fontSize: "17px", fontWeight: "700", color: ND}}>{t.dialogT}</h2>
-                <p style={{fontSize: "11px", color: GR, marginTop: "2px"}}>{t.dialogS}</p>
               </div>
             </div>
-            <div style={{marginBottom: "12px"}}>
-              <div style={{display: "flex", justifyContent: "space-between", marginBottom: "4px"}}>
+
+            {/* Progress */}
+            <div style={{marginBottom: "16px"}}>
+              <div style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
                 <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>{t.q} {qN} {t.of} {MAX_Q}</span>
                 <span style={{fontSize: "11px", color: N, fontWeight: "800"}}>{Math.round((qN / MAX_Q) * 100)}%</span>
               </div>
               <PBar pct={(qN / MAX_Q) * 100}/>
             </div>
-            <div style={{height: "340px", overflowY: "auto", padding: "10px", background: CR,
-              borderRadius: "13px", marginBottom: "12px"}}>
-              {msgs.map((m: any, i: number) => (
-                <div key={i} style={{display: "flex",
-                  justifyContent: m.role === "user" ? (dir === "rtl" ? "flex-start" : "flex-end") : (dir === "rtl" ? "flex-end" : "flex-start"),
-                  marginBottom: "10px", gap: "7px", alignItems: "flex-end"}}>
-                  {m.role === "assistant" && <AdvisorAvatar size={28}/>}
-                  <div style={{maxWidth: "80%", padding: "11px 15px",
-                    borderRadius: m.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                    background: m.role === "user" ? `linear-gradient(135deg,${N},${ND})` : WH,
-                    color: m.role === "user" ? WH : ND, fontSize: "13px", lineHeight: "1.65",
-                    boxShadow: "0 2px 8px rgba(0,0,0,.06)", direction: dir as "rtl" | "ltr"}}>
-                    {m.content}
-                  </div>
-                  {m.role === "user" && <div style={{width: "28px", height: "28px", borderRadius: "50%",
-                    background: Y, display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "12px", fontWeight: "800", color: ND, flexShrink: 0}}>{user.name[0]}</div>}
-                </div>
-              ))}
-              {busy && <div style={{display: "flex", gap: "7px", alignItems: "center"}}>
-                <AdvisorAvatar size={28}/>
-                <Dots/>
-              </div>}
-              <div ref={msgEnd}/>
-            </div>
-            {/* Suggestion chips — tap to answer instantly */}
-            {suggestions.length > 0 && !busy && (
-              <div style={{display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px"}}>
-                {suggestions.map((s, i) => (
-                  <button key={i} onClick={() => sendMsg(s)}
-                    style={{padding: "9px 16px", borderRadius: "22px", border: `2px solid ${Y}`,
-                      background: YL, color: ND, fontSize: "13px", fontWeight: "700",
-                      cursor: "pointer", fontFamily: ff(lang), direction: dir as "rtl"|"ltr",
-                      boxShadow: "0 2px 8px rgba(255,183,3,.2)", transition: "all .15s"}}>
-                    {s}
-                  </button>
-                ))}
+
+            {/* Brief — what the advisor understood so far */}
+            {brief && !busy && (
+              <div className="im-rise" style={{display: "flex", alignItems: "flex-start", gap: "10px",
+                padding: "11px 14px", background: YL, borderRadius: "13px",
+                border: `1.5px solid ${Y}33`, marginBottom: "14px"}}>
+                <AdvisorAvatar size={24}/>
+                <p style={{fontSize: "12px", color: N, lineHeight: "1.6", margin: 0,
+                  fontStyle: "italic", direction: dir as "rtl"|"ltr"}}>{brief}</p>
               </div>
             )}
+
+            {/* Busy state */}
+            {busy && (
+              <div style={{display: "flex", alignItems: "center", gap: "10px",
+                padding: "14px", background: YL, borderRadius: "13px", marginBottom: "14px"}}>
+                <AdvisorAvatar size={28}/>
+                <Dots/>
+              </div>
+            )}
+
+            {/* Current question card */}
+            {currentQ && !busy && (
+              <div className="im-rise" style={{padding: "16px 18px", background: ND, borderRadius: "14px",
+                marginBottom: "14px", border: `2px solid ${Y}44`}}>
+                <p style={{fontSize: "15px", fontWeight: "700", color: WH, lineHeight: "1.55",
+                  margin: 0, direction: dir as "rtl"|"ltr"}}>{currentQ}</p>
+              </div>
+            )}
+
+            {/* Full-width answer bars */}
+            {suggestions.length > 0 && !busy && (() => {
+              const labels = ["A", "B", "C", "D"];
+              return (
+                <div style={{display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px"}}>
+                  {suggestions.map((s, i) => (
+                    <button key={i} onClick={() => sendMsg(s)}
+                      style={{width: "100%", padding: "13px 16px", borderRadius: "12px",
+                        border: `2px solid ${CD}`, background: WH, color: ND,
+                        fontSize: "13px", fontWeight: "600", textAlign: dir === "rtl" ? "right" : "left",
+                        cursor: "pointer", fontFamily: ff(lang), direction: dir as "rtl"|"ltr",
+                        display: "flex", alignItems: "center", gap: "10px",
+                        transition: "all .15s"}}>
+                      <span style={{width: "26px", height: "26px", borderRadius: "8px", flexShrink: 0,
+                        background: YL, color: N, fontSize: "11px", fontWeight: "800",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: `1.5px solid ${Y}`}}>{labels[i] || i + 1}</span>
+                      <span style={{flex: 1}}>{s}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Text input for custom answer */}
             <div style={{display: "flex", gap: "8px"}}>
               <input value={inp} onChange={e => !busy && setInp(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && sendMsg()} disabled={busy}
-                placeholder={busy ? (lang==="ar"?"المستشار يفكر...":lang==="fr"?"Le conseiller réfléchit...":"Advisor is thinking...") : t.ph as string}
+                placeholder={busy
+                  ? (lang==="ar"?"المستشار يفكر...":lang==="fr"?"Le conseiller réfléchit...":"Advisor is thinking...")
+                  : (lang==="ar"?"أو اكتب إجابتك هنا...":lang==="fr"?"Ou écrivez votre réponse...":"Or type your own answer...")}
                 className={busy ? "busy-pulse" : ""}
-                style={{...fs, flex: 1, opacity: busy ? 0.7 : 1,
-                  borderColor: busy ? Y : undefined, background: busy ? YL : CR}}/>
+                style={{...fs, flex: 1, fontSize: "13px", opacity: busy ? 0.6 : 1,
+                  borderColor: busy ? Y : CD, background: busy ? YL : CR}}/>
               <button onClick={() => sendMsg()} disabled={busy || !inp.trim()}
                 style={{padding: "13px 18px", borderRadius: "12px", border: "none", cursor: "pointer",
                   background: `linear-gradient(135deg,${Y},${YD})`, color: ND,
                   fontSize: "13px", fontWeight: "800", fontFamily: ff(lang),
-                  opacity: busy || !inp.trim() ? .5 : 1}}>{t.send}</button>
+                  opacity: busy || !inp.trim() ? .5 : 1, flexShrink: 0}}>
+                {dir === "rtl" ? "←" : "→"}
+              </button>
             </div>
+            <div ref={msgEnd}/>
           </Card>
         )}
 
