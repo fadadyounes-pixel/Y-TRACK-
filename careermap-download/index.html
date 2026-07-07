@@ -2139,20 +2139,14 @@ function ReportViewer({ profile, scores, role, onClose }) {
       '</div><div style="color:#6b8aaa;font-size:13px;margin-top:4px;" id="spdfprog"></div>';
     document.body.appendChild(loadDiv);
 
-    /* Patch the live document BEFORE html2canvas clones it.
-       html2canvas re-fetches @import URLs during document cloning — if Google Fonts
-       is unreachable this causes an 11-second hang PER PAGE. Stripping external
-       resource references from the live document prevents this entirely. */
+    /* Strip @import from the main-app stylesheet BEFORE html2canvas clones the document.
+       html2canvas re-fetches @import URLs during cloning. The main stylesheet imports
+       Syne/Epilogue (app UI fonts, not used in the report). Stripping only that import
+       prevents an 11-second hang per page while leaving the report's Archivo/Cairo
+       font references intact in the preview iframe so they render correctly in the PDF. */
     var cmapSt = document.getElementById('cmap');
     var origCmapText = cmapSt ? cmapSt.textContent : null;
     if (cmapSt) cmapSt.textContent = origCmapText.replace(/@import\s+url\([^)]*\)[^;]*;?\s*/gi, '');
-
-    /* The report preview iframe (srcDoc=html) contains a <link> to Google Fonts.
-       When html2canvas clones the document it re-processes the iframe's srcdoc,
-       triggering another font fetch. Replace with a stub before cloning. */
-    var previewIf = iframeRef ? iframeRef.current : null;
-    var origSrcdoc = previewIf ? previewIf.getAttribute('srcdoc') : null;
-    if (previewIf) previewIf.setAttribute('srcdoc', '<html><body></body></html>');
 
     var sm = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
     var styles = sm ? sm[1].replace('*{', '#cmrpt *{').replace('body{', '#cmrpt{') : '';
@@ -2180,24 +2174,17 @@ function ReportViewer({ profile, scores, role, onClose }) {
       var se = document.getElementById('cmrpt-s');
       if (se && se.parentNode) se.parentNode.removeChild(se);
       if (cmapSt && origCmapText !== null) cmapSt.textContent = origCmapText;
-      if (previewIf && origSrcdoc !== null) previewIf.setAttribute('srcdoc', origSrcdoc);
     }
 
     var pdfFn = 'CareerMap_' + (profile.name || profile.id || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_') + '_' + lang + '.pdf';
-    /* onclone: belt-and-suspenders cleanup in case the cloned document still has
-       external link/style references (e.g. from the iframe stub's own processing) */
+    /* onclone: strip the main-app @import from the cloned stylesheet too.
+       The preview iframe is left intact so Archivo/Cairo fonts load in the
+       clone via the report's own <link> tag — font files are served from the
+       Google CDN and are cached after the preview iframe first loads them. */
     function stripInClone(clonedDoc) {
       var sts = clonedDoc.querySelectorAll('style');
       for (var j = 0; j < sts.length; j++) {
         sts[j].textContent = sts[j].textContent.replace(/@import\s+url\([^)]*\)[^;]*;?\s*/gi, '');
-      }
-      var lks = clonedDoc.querySelectorAll('link[rel="stylesheet"],link[rel="preconnect"]');
-      for (var k = 0; k < lks.length; k++) {
-        if (lks[k].parentNode) lks[k].parentNode.removeChild(lks[k]);
-      }
-      var ifs = clonedDoc.querySelectorAll('iframe');
-      for (var m = 0; m < ifs.length; m++) {
-        if (ifs[m].parentNode) ifs[m].parentNode.removeChild(ifs[m]);
       }
     }
     var opt = {
