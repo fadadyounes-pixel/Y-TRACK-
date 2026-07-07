@@ -2211,11 +2211,17 @@ function ReportViewer({ profile, scores, role, onClose }) {
         function nx() {
           if (i >= n) { pdf.save(pdfFn); cleanup(); return; }
           if (pr) pr.textContent = (i + 1) + ' / ' + n;
+          /* Slide the fixed container so pgs[i] lands at viewport y=0 before
+             html2canvas captures it. Without this, pages 2+ sit outside the
+             viewport (y > 900) and html2canvas returns a blank canvas. */
+          var pgTop = Math.round(pgs[i].getBoundingClientRect().top);
+          container.style.top = '-' + pgTop + 'px';
           html2pdf().set(opt).from(pgs[i]).toCanvas().get('canvas').then(function(c) {
+            container.style.top = '0px';
             pdf.addPage();
             pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
             i++; nx();
-          }).catch(function() { i++; nx(); });
+          }).catch(function() { container.style.top = '0px'; i++; nx(); });
         }
         nx();
       }).catch(function(err) {
