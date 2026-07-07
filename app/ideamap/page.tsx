@@ -1232,16 +1232,56 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     } catch (e) { console.error("PPTX error:", e); }
   };
 
+  const [logoStyle, setLogoStyle] = useState(0); // 0=circle, 1=badge, 2=shield
+
   const genLogo = async () => {
     setLogoGenerating(true);
+    const projInfo = {
+      name: proj?.projectName,
+      sector: proj?.sector,
+      location: proj?.location,
+      beneficiaries: proj?.targetProfile || proj?.beneficiaries,
+      pillar: proj?.pillar,
+    };
     const r = await ai(
-      [{role:"user", content:`Projet: ${JSON.stringify({name: proj?.projectName, sector: proj?.sector, location: proj?.location})}`}],
-      `Tu es un designer graphique expert en branding pour micro-entrepreneurs marocains. Crée une identité visuelle simple, mémorable et adaptée au secteur. Slogan court en ${LL} qui résonne dans le contexte marocain. JSON UNIQUEMENT sans markdown: {"initials":"2-3 lettres majuscules accrocheuses","color1":"#hexcode couleur principale (chaude, authentique, locale)","color2":"#hexcode couleur secondaire harmonieuse","icon":"emoji représentant exactement le secteur d'activité","tagline":"slogan percutant 3-5 mots en ${LL} adapté Maroc"}`,
+      [{role:"user", content:`Projet INDH Maroc: ${JSON.stringify(projInfo)}`}],
+      `Tu es un directeur artistique expert en branding pour micro-entrepreneurs marocains. Tu crées des identités visuelles simples, fortes et culturellement ancrées au Maroc.
+
+Analyse le projet et crée une identité visuelle complète. Règles:
+1. INITIALES: 2-3 lettres tirées du nom du projet (initiales du nom commercial).
+2. COULEURS: couleur principale chaleureuse qui évoque le secteur et le Maroc (ex: artisanat→ocre terracotta, cuisine→orange chaud, agriculture→vert olive, coiffure→violet élégant, numérique→bleu électrique). Couleur secondaire harmonieuse.
+3. COULEUR TEXTE: contraste parfait avec la couleur principale (blanc #FFFFFF si couleur foncée, marine #0F2233 si couleur claire).
+4. ICÔNE: emoji qui représente EXACTEMENT le secteur d'activité (ex: ✂️ pour coiffure, 🍞 pour boulangerie, 🧵 pour couture, 🌿 pour agriculture, 💻 pour numérique).
+5. SLOGAN: 3-5 mots percutants en ${LL} qui résonnent au Maroc — simple, mémorable, en rapport avec le bénéfice client (ex: "La qualité à votre porte", "Savoir-faire ancestral", "Votre beauté, notre passion").
+6. STYLE DESCRIPTION: courte phrase décrivant le positionnement (ex: "Artisanat traditionnel haut de gamme", "Service de proximité moderne").
+
+JSON UNIQUEMENT sans markdown:
+{"initials":"2-3 lettres","color1":"#hexcode couleur principale","color2":"#hexcode couleur secondaire","colorText":"#FFFFFF ou #0F2233 selon contraste","icon":"emoji secteur précis","tagline":"slogan 3-5 mots en ${LL}","styleDesc":"positionnement en 4-6 mots en ${LL}","accentColor":"#hexcode couleur d'accent pour détails"}`,
       "json"
     );
     const concept = parseJ(r);
-    if (concept) setLogo({type:"generated", concept});
+    if (concept) { setLogo({type:"generated", concept}); setLogoStyle(0); }
     setLogoGenerating(false);
+  };
+
+  const dlLogo = () => {
+    if (!logo?.concept) return;
+    const c = logo.concept;
+    const svgs = [
+      // Style 0 — Circle badge
+      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><circle cx="150" cy="150" r="150" fill="${c.color1}"/><circle cx="150" cy="150" r="120" fill="${c.color2}" opacity="0.18"/><circle cx="150" cy="150" r="118" fill="none" stroke="${c.color2}" stroke-width="2.5" opacity="0.4"/><text x="150" y="135" text-anchor="middle" font-size="72" font-weight="900" fill="${c.colorText||'#FFFFFF'}" font-family="Arial Black,sans-serif">${(c.initials||'?').slice(0,3)}</text><text x="150" y="180" text-anchor="middle" font-size="48">${c.icon||'💡'}</text><text x="150" y="222" text-anchor="middle" font-size="16" fill="${c.colorText||'#FFFFFF'}" opacity="0.85" font-family="Arial,sans-serif" font-weight="700" letter-spacing="1">${(c.tagline||'').slice(0,28).toUpperCase()}</text></svg>`,
+      // Style 1 — Rounded badge
+      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect x="10" y="10" width="280" height="280" rx="40" ry="40" fill="${c.color1}"/><rect x="22" y="22" width="256" height="256" rx="32" ry="32" fill="none" stroke="${c.colorText||'#FFFFFF'}" stroke-width="2" opacity="0.3"/><text x="150" y="110" text-anchor="middle" font-size="48">${c.icon||'💡'}</text><text x="150" y="178" text-anchor="middle" font-size="68" font-weight="900" fill="${c.colorText||'#FFFFFF'}" font-family="Arial Black,sans-serif">${(c.initials||'?').slice(0,3)}</text><rect x="40" y="208" width="220" height="2" fill="${c.colorText||'#FFFFFF'}" opacity="0.3"/><text x="150" y="240" text-anchor="middle" font-size="14" fill="${c.colorText||'#FFFFFF'}" opacity="0.9" font-family="Arial,sans-serif" font-weight="600" letter-spacing="2">${(c.tagline||'').slice(0,28).toUpperCase()}</text></svg>`,
+      // Style 2 — Diamond / shield
+      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><polygon points="150,10 290,90 290,210 150,290 10,210 10,90" fill="${c.color1}"/><polygon points="150,28 272,99 272,201 150,272 28,201 28,99" fill="none" stroke="${c.colorText||'#FFFFFF'}" stroke-width="1.5" opacity="0.25"/><text x="150" y="128" text-anchor="middle" font-size="52">${c.icon||'💡'}</text><text x="150" y="192" text-anchor="middle" font-size="60" font-weight="900" fill="${c.colorText||'#FFFFFF'}" font-family="Arial Black,sans-serif">${(c.initials||'?').slice(0,3)}</text><text x="150" y="228" text-anchor="middle" font-size="12" fill="${c.colorText||'#FFFFFF'}" opacity="0.85" font-family="Arial,sans-serif" letter-spacing="2">${(c.tagline||'').slice(0,24).toUpperCase()}</text></svg>`,
+    ];
+    const svg = svgs[logoStyle];
+    const blob = new Blob([svg], {type:"image/svg+xml"});
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: `Logo_${(proj?.projectName||"IdeaMap").replace(/\s+/g,"_")}.svg`,
+    });
+    a.click();
   };
 
   const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC — DONNÉES TERRAIN RÉELLES:
@@ -1774,14 +1814,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </div>
             </div>
 
+            {/* ── Logo options: upload or AI generate ── */}
             {!logo && (
               <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginBottom:"16px"}}>
                 <label style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                  padding:"28px 16px", borderRadius:"14px", border:`2px dashed ${CD}`,
-                  cursor:"pointer", background:CR, gap:"8px"}}>
-                  <span style={{fontSize:"28px"}}>📁</span>
+                  padding:"24px 14px", borderRadius:"14px", border:`2px dashed ${CD}`,
+                  cursor:"pointer", background:CR, gap:"8px", transition:"border-color .2s"}}>
+                  <span style={{fontSize:"26px"}}>📁</span>
                   <span style={{fontSize:"12px", fontWeight:"600", color:N}}>
-                    {lang==="ar"?"تحميل شعار":lang==="fr"?"Importer mon logo":"Upload a logo"}
+                    {lang==="ar"?"رفع شعار موجود":lang==="fr"?"Importer mon logo":"Upload existing logo"}
                   </span>
                   <span style={{fontSize:"10px", color:GR}}>PNG, JPG, SVG</span>
                   <input type="file" accept="image/*" style={{display:"none"}}
@@ -1794,42 +1835,153 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 </label>
                 <button onClick={genLogo} disabled={logoGenerating}
                   style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                    padding:"28px 16px", borderRadius:"14px", border:`2px dashed ${Y}`,
+                    padding:"24px 14px", borderRadius:"14px", border:`2px dashed ${Y}`,
                     cursor:logoGenerating?"wait":"pointer", background:YL, gap:"8px",
-                    opacity:logoGenerating?0.7:1}}>
-                  <span style={{fontSize:"28px"}}>{logoGenerating?"⏳":"✨"}</span>
-                  <span style={{fontSize:"12px", fontWeight:"600", color:ND}}>
-                    {logoGenerating?(lang==="ar"?"جاري الإنشاء...":"Génération..."):(lang==="ar"?"توليد بالذكاء الاصطناعي":lang==="fr"?"Générer avec l'IA":"Generate with AI")}
+                    opacity:logoGenerating?0.7:1, transition:"all .2s"}}>
+                  <span style={{fontSize:"26px"}}>{logoGenerating?"⏳":"✨"}</span>
+                  <span style={{fontSize:"12px", fontWeight:"700", color:ND}}>
+                    {logoGenerating
+                      ? (lang==="ar"?"جاري الإنشاء...":lang==="fr"?"Création en cours...":"Creating...")
+                      : (lang==="ar"?"توليد هوية بالذكاء":lang==="fr"?"Créer avec l'IA":"Generate with AI")}
                   </span>
                   <span style={{fontSize:"10px", color:N}}>
-                    {lang==="ar"?"مجاني تماماً":lang==="fr"?"100% gratuit":"100% free"}
+                    {lang==="ar"?"3 تصاميم للاختيار":lang==="fr"?"3 styles au choix":"3 styles to pick"}
                   </span>
                 </button>
               </div>
             )}
 
-            {logo && (
-              <div style={{textAlign:"center", marginBottom:"20px"}}>
-                <div style={{display:"flex", justifyContent:"center", marginBottom:"12px"}}>
-                  {logo.type === "upload" ? (
-                    <img src={logo.dataUrl} alt="logo"
-                      style={{width:"120px", height:"120px", objectFit:"contain", borderRadius:"16px",
-                        border:`3px solid ${Y}`, boxShadow:`0 4px 20px rgba(255,183,3,.3)`}}/>
-                  ) : logo.concept && (
-                    <svg width="120" height="120" viewBox="0 0 120 120">
-                      <circle cx="60" cy="60" r="60" fill={logo.concept.color1 || N}/>
-                      <circle cx="60" cy="60" r="46" fill={logo.concept.color2 || Y} opacity="0.22"/>
-                      <text x="60" y="52" textAnchor="middle" fontSize="26" fontWeight="800" fill="#FFFFFF" fontFamily="'Poppins',sans-serif">{(logo.concept.initials||"?").slice(0,3)}</text>
-                      <text x="60" y="75" textAnchor="middle" fontSize="20">{logo.concept.icon||"💡"}</text>
-                      <text x="60" y="96" textAnchor="middle" fontSize="6.5" fill="rgba(255,255,255,0.8)" fontFamily="'Poppins',sans-serif">{(logo.concept.tagline||"").slice(0,24)}</text>
-                    </svg>
-                  )}
+            {/* ── Loading state ── */}
+            {logoGenerating && (
+              <div style={{textAlign:"center", padding:"20px 0 10px"}}>
+                <div style={{display:"flex", justifyContent:"center", marginBottom:"8px"}}><Dots/></div>
+                <p style={{fontSize:"12px", color:GR}}>
+                  {lang==="ar"?"الذكاء الاصطناعي يبتكر هويتك البصرية...":lang==="fr"?"L'IA crée votre identité visuelle...":"AI is designing your brand identity..."}
+                </p>
+              </div>
+            )}
+
+            {/* ── Generated logo: 3 style variants ── */}
+            {logo && logo.type === "generated" && logo.concept && !logoGenerating && (() => {
+              const c = logo.concept;
+              const styleNames = lang==="ar"
+                ? ["دائري","مربع","سداسي"]
+                : lang==="fr"
+                ? ["Cercle","Badge","Écu"]
+                : ["Circle","Badge","Shield"];
+
+              const renderVariant = (idx: number, size: number) => {
+                const s = size; const cx = s/2; const cy = s/2; const r = s/2;
+                if (idx === 0) return (
+                  <svg key={idx} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
+                    <circle cx={cx} cy={cy} r={r} fill={c.color1}/>
+                    <circle cx={cx} cy={cy} r={r*0.82} fill={c.color2} opacity="0.18"/>
+                    <circle cx={cx} cy={cy} r={r*0.81} fill="none" stroke={c.colorText||"#FFFFFF"} strokeWidth="1.5" opacity="0.3"/>
+                    <text x={cx} y={cy*0.88} textAnchor="middle" fontSize={s*0.26} fontWeight="900" fill={c.colorText||"#FFFFFF"} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
+                    <text x={cx} y={cy*1.28} textAnchor="middle" fontSize={s*0.19}>{c.icon||"💡"}</text>
+                    <text x={cx} y={s*0.91} textAnchor="middle" fontSize={s*0.062} fill={c.colorText||"#FFFFFF"} opacity="0.85" fontFamily="Arial,sans-serif" fontWeight="700" letterSpacing="0.8">{(c.tagline||"").slice(0,22).toUpperCase()}</text>
+                  </svg>
+                );
+                if (idx === 1) return (
+                  <svg key={idx} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
+                    <rect x="4" y="4" width={s-8} height={s-8} rx={s*0.15} ry={s*0.15} fill={c.color1}/>
+                    <rect x="11" y="11" width={s-22} height={s-22} rx={s*0.11} ry={s*0.11} fill="none" stroke={c.colorText||"#FFFFFF"} strokeWidth="1.2" opacity="0.25"/>
+                    <text x={cx} y={cy*0.72} textAnchor="middle" fontSize={s*0.2}>{c.icon||"💡"}</text>
+                    <text x={cx} y={cy*1.18} textAnchor="middle" fontSize={s*0.25} fontWeight="900" fill={c.colorText||"#FFFFFF"} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
+                    <rect x={s*0.18} y={s*0.72} width={s*0.64} height="1.5" fill={c.colorText||"#FFFFFF"} opacity="0.3"/>
+                    <text x={cx} y={s*0.85} textAnchor="middle" fontSize={s*0.056} fill={c.colorText||"#FFFFFF"} opacity="0.9" fontFamily="Arial,sans-serif" fontWeight="600" letterSpacing="1.5">{(c.tagline||"").slice(0,22).toUpperCase()}</text>
+                  </svg>
+                );
+                return (
+                  <svg key={idx} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
+                    <polygon points={`${cx},${s*0.04} ${s*0.96},${s*0.3} ${s*0.96},${s*0.7} ${cx},${s*0.96} ${s*0.04},${s*0.7} ${s*0.04},${s*0.3}`} fill={c.color1}/>
+                    <polygon points={`${cx},${s*0.1} ${s*0.9},${s*0.32} ${s*0.9},${s*0.68} ${cx},${s*0.9} ${s*0.1},${s*0.68} ${s*0.1},${s*0.32}`} fill="none" stroke={c.colorText||"#FFFFFF"} strokeWidth="1" opacity="0.22"/>
+                    <text x={cx} y={cy*0.85} textAnchor="middle" fontSize={s*0.2}>{c.icon||"💡"}</text>
+                    <text x={cx} y={cy*1.22} textAnchor="middle" fontSize={s*0.23} fontWeight="900" fill={c.colorText||"#FFFFFF"} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
+                    <text x={cx} y={s*0.86} textAnchor="middle" fontSize={s*0.053} fill={c.colorText||"#FFFFFF"} opacity="0.85" fontFamily="Arial,sans-serif" letterSpacing="1">{(c.tagline||"").slice(0,22).toUpperCase()}</text>
+                  </svg>
+                );
+              };
+
+              return (
+                <div style={{marginBottom:"18px"}}>
+                  {/* Style picker */}
+                  <p style={{fontSize:"10px", fontWeight:"700", color:GR, textTransform:"uppercase",
+                    letterSpacing:".6px", marginBottom:"10px", textAlign:"center"}}>
+                    {lang==="ar"?"اختر التصميم المفضل:":lang==="fr"?"Choisissez votre style :":"Choose your style:"}
+                  </p>
+                  <div style={{display:"flex", gap:"10px", justifyContent:"center", marginBottom:"14px"}}>
+                    {[0,1,2].map(idx => (
+                      <div key={idx} onClick={() => setLogoStyle(idx)}
+                        style={{cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center",
+                          gap:"6px", padding:"10px", borderRadius:"14px",
+                          border:`2px solid ${logoStyle===idx ? Y : CD}`,
+                          background:logoStyle===idx ? YL : WH,
+                          transition:"all .2s", opacity:1}}>
+                        {renderVariant(idx, 80)}
+                        <span style={{fontSize:"9px", fontWeight:"700", color:logoStyle===idx ? ND : GR,
+                          textTransform:"uppercase", letterSpacing:".5px"}}>{styleNames[idx]}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Selected style large preview */}
+                  <div style={{display:"flex", justifyContent:"center", marginBottom:"12px"}}>
+                    {renderVariant(logoStyle, 140)}
+                  </div>
+
+                  {/* Brand info */}
+                  <div style={{padding:"12px 14px", background:CR, borderRadius:"12px",
+                    border:`1px solid ${CD}`, marginBottom:"12px"}}>
+                    <div style={{fontSize:"10px", fontWeight:"700", color:GR, textTransform:"uppercase",
+                      letterSpacing:".5px", marginBottom:"8px"}}>
+                      {lang==="ar"?"هوية العلامة التجارية":lang==="fr"?"Identité de marque":"Brand identity"}
+                    </div>
+                    <div style={{display:"flex", alignItems:"center", gap:"8px", marginBottom:"6px"}}>
+                      <div style={{width:18, height:18, borderRadius:"50%", background:c.color1, border:`1px solid ${CD}`, flexShrink:0}}/>
+                      <div style={{width:18, height:18, borderRadius:"50%", background:c.color2, border:`1px solid ${CD}`, flexShrink:0}}/>
+                      {c.accentColor && <div style={{width:18, height:18, borderRadius:"50%", background:c.accentColor, border:`1px solid ${CD}`, flexShrink:0}}/>}
+                      <span style={{fontSize:"11px", color:N, fontWeight:"500"}}>{c.color1} · {c.color2}</span>
+                    </div>
+                    <div style={{fontSize:"13px", fontWeight:"700", color:ND, marginBottom:"2px"}}>"{c.tagline}"</div>
+                    {c.styleDesc && <div style={{fontSize:"11px", color:GR}}>{c.styleDesc}</div>}
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{display:"flex", gap:"8px"}}>
+                    <button onClick={dlLogo}
+                      style={{flex:1, padding:"11px 14px", borderRadius:"11px",
+                        border:`2px solid ${Y}`, background:YL, color:ND,
+                        fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
+                      ⬇ {lang==="ar"?"تحميل SVG":lang==="fr"?"Télécharger SVG":"Download SVG"}
+                    </button>
+                    <button onClick={genLogo} disabled={logoGenerating}
+                      style={{padding:"11px 14px", borderRadius:"11px",
+                        border:`1.5px solid ${CD}`, background:WH, color:GR,
+                        fontSize:"12px", fontWeight:"600", fontFamily:ff(lang),
+                        cursor:"pointer", whiteSpace:"nowrap"}}>
+                      🔄 {lang==="ar"?"إعادة":lang==="fr"?"Relancer":"Retry"}
+                    </button>
+                    <button onClick={() => setLogo(null)}
+                      style={{padding:"11px 12px", borderRadius:"11px",
+                        border:`1px solid ${CD}`, background:"transparent", color:GR,
+                        fontSize:"11px", fontFamily:ff(lang), cursor:"pointer"}}>
+                      ✕
+                    </button>
+                  </div>
                 </div>
-                {logo.type === "generated" && logo.concept?.tagline && (
-                  <p style={{fontSize:"13px", fontStyle:"italic", color:N, marginBottom:"8px"}}>"{logo.concept.tagline}"</p>
-                )}
+              );
+            })()}
+
+            {/* ── Uploaded logo preview ── */}
+            {logo && logo.type === "upload" && (
+              <div style={{textAlign:"center", marginBottom:"18px"}}>
+                <img src={logo.dataUrl} alt="logo"
+                  style={{width:"120px", height:"120px", objectFit:"contain", borderRadius:"16px",
+                    border:`3px solid ${Y}`, boxShadow:`0 4px 20px rgba(37,99,235,.2)`, marginBottom:"10px"}}/>
+                <br/>
                 <button onClick={() => setLogo(null)}
-                  style={{padding:"5px 14px", borderRadius:"8px", border:`1px solid ${CD}`,
+                  style={{padding:"6px 16px", borderRadius:"9px", border:`1px solid ${CD}`,
                     background:"transparent", fontSize:"11px", color:GR, fontFamily:ff(lang), cursor:"pointer"}}>
                   {lang==="ar"?"تغيير الشعار":lang==="fr"?"Changer le logo":"Change logo"}
                 </button>
