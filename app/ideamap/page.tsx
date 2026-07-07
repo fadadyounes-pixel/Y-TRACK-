@@ -1028,7 +1028,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [docFiles, setDocFiles] = useState<Record<number, string>>(initialState?.docFiles || {});
   const [logoGenerating, setLogoGenerating] = useState(false);
   const [pendingAttach, setPendingAttach]   = useState<number | null>(null);
-  const [suggestions, setSuggestions]       = useState<string[]>([]);
+  const [suggestions, setSuggestions]       = useState<string[]>(initialState?.suggestions || []);
   const [brief, setBrief]                   = useState(initialState?.brief || "");
   const [currentQ, setCurrentQ]             = useState(initialState?.currentQ || "");
   const [dlLang, setDlLang]                 = useState(lang);
@@ -1042,8 +1042,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
 
   useEffect(() => {
-    if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, docFiles});
-  }, [proj, plan, comp, step, logo, docs, msgs, budget]);
+    if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, docFiles, brief, currentQ, suggestions});
+  }, [proj, plan, comp, step, logo, docs, msgs, budget, brief, currentQ]);
 
   const showToast = (msg: string, type: "error"|"success" = "error") => {
     setToast({msg, type});
@@ -1390,7 +1390,9 @@ RÈGLE ABSOLUE: entrepreneuriat individuel uniquement. Ne jamais suggérer coop�
 
   const startChat = async () => {
     if (!idea.trim()) return;
-    setBusy(true); setSuggestions([]); setBrief(""); setCurrentQ(""); setStep("dialogue");
+    // Show idea text immediately as a placeholder brief so the card appears during loading
+    const ideaPreview = idea.trim().replace(/\n/g, " ").slice(0, 200);
+    setBusy(true); setSuggestions([]); setBrief(ideaPreview); setCurrentQ(""); setStep("dialogue");
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
     const r = await ai([{role: "user", content: lang === "ar" ? `فكرتي: ${idea}` : `Mon idée: ${idea}`}],
       `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
@@ -1406,7 +1408,7 @@ QUESTION: [question directe en ${LL} — max 12 mots]
 SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}]`,
       "dialogue");
     const { brief: b, question, suggs } = parseQS(r);
-    setBrief(b);
+    setBrief(b || ideaPreview); // keep idea preview as fallback if AI doesn't return a brief
     setCurrentQ(question);
     setMsgs([{role: "user", content: idea}, {role: "assistant", content: question}]);
     setSuggestions(suggs);
@@ -1686,8 +1688,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               <PBar pct={(qN / MAX_Q) * 100}/>
             </div>
 
-            {/* Brief — advisor's understanding of the project */}
-            {brief && !busy && (
+            {/* Brief — always visible once set (shows during loading and after AI responds) */}
+            {brief && (
               <div className="im-rise" style={{marginBottom: "14px", borderRadius: "14px",
                 border: `2px solid ${Y}`, overflow: "hidden"}}>
                 <div style={{display: "flex", alignItems: "center", gap: "10px",
@@ -1695,7 +1697,9 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   <AdvisorAvatar size={32}/>
                   <span style={{fontSize: "11px", fontWeight: "800", color: ND, textTransform: "uppercase",
                     letterSpacing: ".5px"}}>
-                    {lang === "ar" ? "إليك ما فهمته من مشروعك :" : lang === "fr" ? "Voici ce que j'ai compris de votre projet :" : "Here's what I understood about your project:"}
+                    {busy
+                      ? (lang === "ar" ? "جاري تحليل مشروعك..." : lang === "fr" ? "Analyse de votre projet en cours..." : "Analyzing your project...")
+                      : (lang === "ar" ? "إليك ما فهمته من مشروعك :" : lang === "fr" ? "Voici ce que j'ai compris de votre projet :" : "Here's what I understood about your project:")}
                   </span>
                 </div>
                 <div style={{padding: "13px 16px", background: WH}}>
