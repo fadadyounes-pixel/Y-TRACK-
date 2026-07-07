@@ -424,6 +424,162 @@ const LangToggle = ({lang, setLang}: { lang: string; setLang: (l: string) => voi
   </div>
 );
 
+/* ── HELP AGENT ─────────────────────────────────────── */
+function HelpAgent({lang, context}: {lang: string; context: string}) {
+  const [open, setOpen]   = useState(false);
+  const [msgs, setMsgs]   = useState<{role:string;content:string}[]>([]);
+  const [inp, setInp]     = useState("");
+  const [busy, setBusy]   = useState(false);
+  const [unread, setUnread] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+  const dir = lang === "ar" ? "rtl" : "ltr";
+
+  useEffect(() => { endRef.current?.scrollIntoView({behavior:"smooth"}); }, [msgs, busy]);
+
+  const greet = lang === "ar"
+    ? "مرحباً! أنا مساعدك الشخصي لمنصة IdeaMap. اسألني عن أي خطوة، وثيقة، أو شرط للمبادرة الوطنية."
+    : lang === "fr"
+    ? "Bonjour ! Je suis votre assistant IdeaMap. Posez-moi n'importe quelle question sur les étapes, documents ou critères INDH."
+    : "Hi! I'm your IdeaMap assistant. Ask me anything about the steps, documents, or INDH requirements.";
+
+  const sys = `Tu es le Superviseur IdeaMap — assistant expert INDH Phase 3 Maroc, disponible 24/7.
+CONTEXTE UTILISATEUR: ${context}
+INDH: plafond 100 000 MAD, INDH finance 85%, porteur 15%, 4 axes, jury 100pts.
+Secteurs: Agriculture, Artisanat, Restauration, Coiffure, Couture, Numérique, BTP, Pêche, Formation, Transport, Réparation, Événementiel.
+Réponds UNIQUEMENT en ${lang === "ar" ? "arabe فصحى بسيطة" : lang === "fr" ? "français simple" : "English"}.
+Sois bref (2-4 phrases), encourageant, concret. Si tu ne sais pas, dis-le honnêtement.`;
+
+  const send = async (override?: string) => {
+    const msg = override ?? inp;
+    if (!msg.trim() || busy) return;
+    const userMsg = {role:"user", content: msg};
+    const history = [...msgs, userMsg];
+    setMsgs(history);
+    if (!override) setInp("");
+    setBusy(true);
+    try {
+      const r = await fetch("/api/ai", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({messages: history, system: sys, task:"dialogue"}),
+      });
+      const d = await r.json();
+      const text = d.content?.[0]?.text || "";
+      if (text) { setMsgs(p => [...p, {role:"assistant", content:text}]); setUnread(true); }
+    } catch {}
+    setBusy(false);
+  };
+
+  const quickQs: Record<string, string[]> = {
+    fr: ["Quels documents faut-il ?","Suis-je éligible INDH ?","Comment améliorer mon score ?","Quel est le plafond INDH ?"],
+    ar: ["ما الوثائق المطلوبة؟","هل أنا مؤهل للمبادرة؟","كيف أحسّن نقاطي؟","ما هو الحد الأقصى للتمويل؟"],
+    en: ["What documents do I need?","Am I INDH eligible?","How to improve my score?","What is the INDH ceiling?"],
+  };
+
+  return (
+    <>
+      {/* Floating button */}
+      <button
+        onClick={() => { setOpen(p => !p); setUnread(false); }}
+        title={lang==="ar"?"المساعد الشخصي":lang==="fr"?"Assistant IdeaMap":"IdeaMap Assistant"}
+        style={{position:"fixed", bottom:24, right:24, zIndex:1000,
+          width:52, height:52, borderRadius:"50%",
+          background:`linear-gradient(135deg,${Y},${YD})`,
+          border:"none", cursor:"pointer",
+          boxShadow:`0 4px 24px rgba(37,99,235,.45)`,
+          fontSize:"22px", display:"flex", alignItems:"center", justifyContent:"center",
+          transition:"transform .2s, box-shadow .2s"}}>
+        {open ? "✕" : "💬"}
+        {unread && !open && (
+          <div style={{position:"absolute", top:1, right:1, width:12, height:12,
+            borderRadius:"50%", background:RE, border:`2px solid ${WH}`}}/>
+        )}
+      </button>
+
+      {/* Chat panel */}
+      {open && (
+        <div className="fadeUp" style={{position:"fixed", bottom:88, right:24, zIndex:999,
+          width:320, maxHeight:460, background:WH, borderRadius:18,
+          boxShadow:"0 8px 48px rgba(15,34,51,.2)", border:`1px solid ${CD}`,
+          display:"flex", flexDirection:"column", fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
+
+          {/* Panel header */}
+          <div style={{background:ND, borderRadius:"18px 18px 0 0", padding:"13px 16px",
+            display:"flex", alignItems:"center", gap:"10px"}}>
+            <div style={{width:34, height:34, borderRadius:"50%", flexShrink:0,
+              background:`linear-gradient(135deg,${Y},${YD})`,
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:"17px"}}>🎓</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:"13px", fontWeight:"700", color:WH}}>
+                {lang==="ar"?"المشرف الشخصي":lang==="fr"?"Superviseur IdeaMap":"IdeaMap Supervisor"}
+              </div>
+              <div style={{fontSize:"10px", color:"rgba(255,255,255,.5)"}}>
+                {lang==="ar"?"متاح دائماً":lang==="fr"?"Toujours disponible":"Always available"}
+              </div>
+            </div>
+            <div style={{width:8, height:8, borderRadius:"50%", background:GN, flexShrink:0}}/>
+          </div>
+
+          {/* Messages */}
+          <div style={{flex:1, overflowY:"auto", padding:"12px", display:"flex",
+            flexDirection:"column", gap:"9px", maxHeight:250}}>
+            <div style={{padding:"10px 13px", background:YL, borderRadius:"12px 12px 12px 4px",
+              fontSize:"12px", color:ND, lineHeight:1.65}}>{greet}</div>
+            {msgs.map((m, i) => (
+              <div key={i} style={{padding:"10px 13px", maxWidth:"88%",
+                borderRadius: m.role==="user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+                background: m.role==="user" ? `linear-gradient(135deg,${N},${ND})` : YL,
+                color: m.role==="user" ? WH : ND, fontSize:"12px", lineHeight:1.65,
+                alignSelf: m.role==="user" ? (dir==="rtl"?"flex-start":"flex-end") : (dir==="rtl"?"flex-end":"flex-start")}}>
+                {m.content}
+              </div>
+            ))}
+            {busy && <div style={{display:"flex", gap:"4px", padding:"4px 0"}}>
+              {[0,1,2].map(i => <div key={i} style={{width:7, height:7, borderRadius:"50%",
+                background:Y, animation:`bounce 1s ease ${i*.2}s infinite`}}/>)}
+            </div>}
+            <div ref={endRef}/>
+          </div>
+
+          {/* Quick questions */}
+          {msgs.length === 0 && (
+            <div style={{padding:"0 12px 10px", display:"flex", flexWrap:"wrap", gap:"6px"}}>
+              {(quickQs[lang] || quickQs.fr).map((q, i) => (
+                <button key={i} onClick={() => send(q)}
+                  style={{padding:"6px 11px", borderRadius:"16px",
+                    border:`1.5px solid ${Y}`, background:YL, color:ND,
+                    fontSize:"11px", fontWeight:"600", cursor:"pointer",
+                    fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input */}
+          <div style={{padding:"10px 12px", borderTop:`1px solid ${CD}`,
+            display:"flex", gap:"8px", alignItems:"center"}}>
+            <input value={inp} onChange={e => setInp(e.target.value)}
+              onKeyDown={e => e.key==="Enter" && send()}
+              placeholder={lang==="ar"?"اسألني...":lang==="fr"?"Votre question...":"Ask me..."}
+              disabled={busy}
+              style={{flex:1, padding:"9px 12px", borderRadius:"10px",
+                border:`1.5px solid ${CD}`, fontSize:"12px",
+                fontFamily:ff(lang), color:N, background:CR,
+                direction:dir as "rtl"|"ltr"}}/>
+            <button onClick={() => send()} disabled={busy || !inp.trim()}
+              style={{width:36, height:36, borderRadius:"10px", border:"none", flexShrink:0,
+                background:`linear-gradient(135deg,${Y},${YD})`, color:WH,
+                fontSize:"16px", cursor:"pointer", opacity: busy||!inp.trim()?0.5:1,
+                display:"flex", alignItems:"center", justifyContent:"center"}}>
+              {dir==="rtl" ? "←" : "→"}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ── SELECT ─────────────────────────────────────────── */
 const Sel = ({value, onChange, options, placeholder, dir}: {
   value: string; onChange: (v: string) => void; options: string[];
@@ -1949,6 +2105,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         })()}
 
       </div>
+      <HelpAgent lang={lang} context={`Porteur: ${user.name} | Étape: ${step} | Projet: ${proj?.projectName || "en cours"} | Secteur: ${proj?.sector || user.profile?.sector || ""} | Score conformité: ${comp?.score != null ? comp.score + "/100" : "non évalué encore"}`}/>
     </div>
   );
 }
@@ -2124,6 +2281,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
           ))
         }
       </div>
+      <HelpAgent lang={lang} context={`Coordinateur: ${user.id} | ${holders.length} porteurs suivis | ${holders.filter(h => h.comp?.eligible).length} éligibles | ${holders.filter(h => h.step === "export").length} dossiers complets`}/>
     </div>
   );
 }
@@ -2519,6 +2677,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
           </Card>
         </>)}
       </div>
+      <HelpAgent lang={lang} context={`Administrateur INDH | ${holders.length} porteurs | ${coords.length} coordinateurs | ${holders.filter(h => h.comp?.eligible).length} éligibles | Score moyen: ${holders.length ? Math.round(holders.reduce((s, h) => s + (h.comp?.score || 0), 0) / holders.length) : 0}/100`}/>
     </div>
   );
 }
