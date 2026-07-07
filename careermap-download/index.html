@@ -2139,6 +2139,21 @@ function ReportViewer({ profile, scores, role, onClose }) {
       '</div><div style="color:#6b8aaa;font-size:13px;margin-top:4px;" id="spdfprog"></div>';
     document.body.appendChild(loadDiv);
 
+    /* Patch the live document BEFORE html2canvas clones it.
+       html2canvas re-fetches @import URLs during document cloning — if Google Fonts
+       is unreachable this causes an 11-second hang PER PAGE. Stripping external
+       resource references from the live document prevents this entirely. */
+    var cmapSt = document.getElementById('cmap');
+    var origCmapText = cmapSt ? cmapSt.textContent : null;
+    if (cmapSt) cmapSt.textContent = origCmapText.replace(/@import\s+url\([^)]*\)[^;]*;?\s*/gi, '');
+
+    /* The report preview iframe (srcDoc=html) contains a <link> to Google Fonts.
+       When html2canvas clones the document it re-processes the iframe's srcdoc,
+       triggering another font fetch. Replace with a stub before cloning. */
+    var previewIf = iframeRef ? iframeRef.current : null;
+    var origSrcdoc = previewIf ? previewIf.getAttribute('srcdoc') : null;
+    if (previewIf) previewIf.setAttribute('srcdoc', '<html><body></body></html>');
+
     var sm = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
     var styles = sm ? sm[1].replace('*{', '#cmrpt *{').replace('body{', '#cmrpt{') : '';
     var styleEl = document.createElement('style');
@@ -2150,8 +2165,6 @@ function ReportViewer({ profile, scores, role, onClose }) {
     var b2 = b1 >= 0 ? html.indexOf('>', b1) + 1 : 0;
     var b3 = html.lastIndexOf('</body>');
     var bodyContent = (b1 >= 0 && b3 > b2) ? html.substring(b2, b3) : '';
-    /* Remove <img> tags — external src inside a foreignObject SVG causes Chrome
-       to silently block the entire canvas render, producing blank pages */
     bodyContent = bodyContent.replace(/<img\b[^>]*>/gi, '');
 
     var container = document.createElement('div');
@@ -2166,37 +2179,61 @@ function ReportViewer({ profile, scores, role, onClose }) {
       if (container.parentNode) container.parentNode.removeChild(container);
       var se = document.getElementById('cmrpt-s');
       if (se && se.parentNode) se.parentNode.removeChild(se);
+      if (cmapSt && origCmapText !== null) cmapSt.textContent = origCmapText;
+      if (previewIf && origSrcdoc !== null) previewIf.setAttribute('srcdoc', origSrcdoc);
     }
 
     var pdfFn = 'CareerMap_' + (profile.name || profile.id || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_') + '_' + lang + '.pdf';
+    /* onclone: belt-and-suspenders cleanup in case the cloned document still has
+       external link/style references (e.g. from the iframe stub's own processing) */
+    function stripInClone(clonedDoc) {
+      var sts = clonedDoc.querySelectorAll('style');
+      for (var j = 0; j < sts.length; j++) {
+        sts[j].textContent = sts[j].textContent.replace(/@import\s+url\([^)]*\)[^;]*;?\s*/gi, '');
+      }
+      var lks = clonedDoc.querySelectorAll('link[rel="stylesheet"],link[rel="preconnect"]');
+      for (var k = 0; k < lks.length; k++) {
+        if (lks[k].parentNode) lks[k].parentNode.removeChild(lks[k]);
+      }
+      var ifs = clonedDoc.querySelectorAll('iframe');
+      for (var m = 0; m < ifs.length; m++) {
+        if (ifs[m].parentNode) ifs[m].parentNode.removeChild(ifs[m]);
+      }
+    }
     var opt = {
       margin: 0, filename: pdfFn,
       image: {type: 'jpeg', quality: 0.95},
-      html2canvas: {scale: 2, useCORS: false, allowTaint: true, logging: false, backgroundColor: '#ffffff', foreignObjectRendering: true},
+      html2canvas: {scale: 2, useCORS: false, allowTaint: true, logging: false, backgroundColor: '#ffffff', foreignObjectRendering: false, onclone: stripInClone},
       jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'}
     };
 
+    function doRender() {
+      var pgs = container.querySelectorAll('.pdf-page');
+      var n = pgs.length;
+      var pr = document.getElementById('spdfprog');
+      if (!n) { cleanup(); return; }
+      if (pr) pr.textContent = '1 / ' + n;
+      html2pdf().set(opt).from(pgs[0]).toPdf().get('pdf').then(function(pdf) {
+        var i = 1;
+        function nx() {
+          if (i >= n) { pdf.save(pdfFn); cleanup(); return; }
+          if (pr) pr.textContent = (i + 1) + ' / ' + n;
+          html2pdf().set(opt).from(pgs[i]).toCanvas().get('canvas').then(function(c) {
+            pdf.addPage();
+            pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+            i++; nx();
+          }).catch(function() { i++; nx(); });
+        }
+        nx();
+      }).catch(function(err) {
+        var pr2 = document.getElementById('spdfprog');
+        if (pr2) pr2.textContent = 'Erreur — ' + (err && err.message ? err.message : String(err));
+        setTimeout(cleanup, 3000);
+      });
+    }
+
     document.fonts.ready.then(function() {
-      setTimeout(function() {
-        var pgs = container.querySelectorAll('.pdf-page');
-        var n = pgs.length;
-        var pr = document.getElementById('spdfprog');
-        if (!n) { cleanup(); return; }
-        if (pr) pr.textContent = '1 / ' + n;
-        html2pdf().set(opt).from(pgs[0]).toPdf().get('pdf').then(function(pdf) {
-          var i = 1;
-          function nx() {
-            if (i >= n) { pdf.save(pdfFn); cleanup(); return; }
-            if (pr) pr.textContent = (i + 1) + ' / ' + n;
-            html2pdf().set(opt).from(pgs[i]).toCanvas().get('canvas').then(function(c) {
-              pdf.addPage();
-              pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
-              i++; nx();
-            }).catch(function() { i++; nx(); });
-          }
-          nx();
-        }).catch(function() { cleanup(); });
-      }, 800);
+      setTimeout(doRender, 600);
     });
   }
 
