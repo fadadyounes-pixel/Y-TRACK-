@@ -1586,25 +1586,22 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             {!idea.trim() && (() => {
               const starters: Record<string, string[]> = {
                 fr: [
-                  "Je veux créer une activité d'artisanat avec des femmes de mon quartier",
-                  "Je veux lancer un projet d'élevage de poulets pour les jeunes de la région",
-                  "Je veux ouvrir un atelier de couture pour former des femmes au chômage",
-                  "Je veux démarrer une activité de vente de produits du terroir locaux",
-                  "Je veux ouvrir un salon de coiffure dans mon quartier",
+                  "Je veux créer un atelier de couture dans mon quartier à Casablanca.\nJ'aimerais former des femmes au chômage et vendre des vêtements traditionnels.",
+                  "Je veux lancer un projet d'élevage de poulets pour les jeunes de la région rurale.\nL'objectif est de créer des emplois et vendre localement au souk hebdomadaire.",
+                  "Je veux ouvrir un salon de coiffure et beauté dans mon quartier à Marrakech.\nIl n'existe aucun salon abordable pour les femmes de la zone.",
+                  "Je veux démarrer une activité de transformation de produits du terroir locaux.\nJe veux vendre de l'huile d'argan et des épices sur WhatsApp et au souk.",
                 ],
                 ar: [
-                  "أريد إنشاء نشاط للصناعة التقليدية مع نساء حيّنا",
-                  "أريد إطلاق مشروع تربية الدواجن للشباب في المنطقة",
-                  "أريد فتح ورشة خياطة لتكوين النساء العاطلات عن العمل",
-                  "أريد بيع المنتجات المحلية والتقليدية في منطقتي",
-                  "أريد فتح صالون حلاقة في حيّي",
+                  "أريد فتح ورشة خياطة في حيّنا بالدار البيضاء.\nأريد تكوين النساء العاطلات وبيع الملابس التقليدية محلياً.",
+                  "أريد إطلاق مشروع تربية الدواجن للشباب في منطقتي القروية.\nالهدف هو خلق فرص العمل والبيع في السوق الأسبوعي.",
+                  "أريد فتح صالون حلاقة وتجميل في حيّي بمراكش.\nلا يوجد أي صالون بأسعار معقولة للنساء في المنطقة.",
+                  "أريد بدء نشاط تحويل المنتجات المحلية في منطقتي.\nأريد بيع زيت الأركان والتوابل عبر واتساب وفي السوق.",
                 ],
                 en: [
-                  "I want to create a craft activity with women from my neighborhood",
-                  "I want to launch a poultry farming project for local youth",
-                  "I want to open a sewing workshop to train unemployed women",
-                  "I want to sell local traditional products in my region",
-                  "I want to open a hair salon in my neighborhood",
+                  "I want to open a sewing workshop in my neighborhood in Casablanca.\nI aim to train unemployed women and sell traditional clothes locally.",
+                  "I want to launch a poultry farming project for rural youth in my region.\nThe goal is to create jobs and sell produce at the weekly market.",
+                  "I want to open a hair and beauty salon in my neighborhood in Marrakech.\nThere is no affordable salon for women in this area.",
+                  "I want to start a local product processing activity in my region.\nI want to sell argan oil and spices on WhatsApp and at the local souk.",
                 ],
               };
               const list = starters[lang] || starters.fr;
@@ -1621,17 +1618,47 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                           border: `1.5px solid ${CD}`, background: WH, color: N,
                           fontSize: "12px", fontWeight: "500", textAlign: dir==="rtl"?"right":"left",
                           cursor: "pointer", fontFamily: ff(lang), direction: dir as "rtl"|"ltr",
-                          transition: "all .15s"}}>
-                        💡 {s}
+                          transition: "all .15s", lineHeight: "1.6"}}>
+                        💡 {s.split("\n")[0]}
                       </button>
                     ))}
                   </div>
                 </div>
               );
             })()}
-            <textarea value={idea} onChange={e => setIdea(e.target.value)} placeholder={t.ideaP as string}
-              style={{...fs, resize: "vertical", minHeight: idea.trim() ? "110px" : "90px", lineHeight: "1.7", marginBottom: "20px"}}/>
-            {indhBtn(busy ? t.loading : t.next, startChat, {opacity: (!idea.trim() || busy) ? .5 : 1})}
+            {(() => {
+              const wordCount = idea.trim().split(/\s+/).filter(Boolean).length;
+              const enough = wordCount >= 12;
+              const hint = lang === "ar"
+                ? `${wordCount} كلمة${enough ? " ✓" : ` — أضف ${12 - wordCount} كلمات على الأقل`}`
+                : lang === "fr"
+                ? `${wordCount} mot${wordCount > 1 ? "s" : ""}${enough ? " ✓" : ` — décrivez en au moins 2 lignes`}`
+                : `${wordCount} word${wordCount !== 1 ? "s" : ""}${enough ? " ✓" : ` — describe in at least 2 lines`}`;
+              return (
+                <>
+                  <textarea value={idea} onChange={e => setIdea(e.target.value)}
+                    placeholder={lang==="ar"
+                      ? "اشرح فكرتك بسطرين على الأقل: القطاع، المنطقة، من ستستفيد، ما الذي تحتاجه..."
+                      : lang==="fr"
+                      ? "Décrivez votre idée en au moins 2 lignes : secteur, zone géographique, qui va bénéficier, quel besoin..."
+                      : "Describe your idea in at least 2 lines: sector, area, who will benefit, what need it addresses..."}
+                    style={{...fs, resize: "vertical", minHeight: "110px", lineHeight: "1.7", marginBottom: "6px"}}/>
+                  <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px"}}>
+                    <span style={{fontSize: "11px", color: enough ? GN : GR, fontWeight: "600",
+                      fontFamily: ff(lang), direction: dir as "rtl"|"ltr"}}>{hint}</span>
+                    <div style={{display: "flex", gap: "3px"}}>
+                      {[4,8,12].map(n => (
+                        <div key={n} style={{width: "18px", height: "4px", borderRadius: "2px",
+                          background: wordCount >= n ? Y : CD, transition: "background .3s"}}/>
+                      ))}
+                    </div>
+                  </div>
+                  {indhBtn(busy ? t.loading : t.next, startChat,
+                    {opacity: (!enough || busy) ? .5 : 1,
+                     background: enough && !busy ? `linear-gradient(135deg,${Y},${YD})` : undefined})}
+                </>
+              );
+            })()}
           </Card>
         )}
 
@@ -1659,14 +1686,22 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               <PBar pct={(qN / MAX_Q) * 100}/>
             </div>
 
-            {/* Brief — what the advisor understood so far */}
+            {/* Brief — advisor's understanding of the project */}
             {brief && !busy && (
-              <div className="im-rise" style={{display: "flex", alignItems: "flex-start", gap: "10px",
-                padding: "11px 14px", background: YL, borderRadius: "13px",
-                border: `1.5px solid ${Y}33`, marginBottom: "14px"}}>
-                <AdvisorAvatar size={24}/>
-                <p style={{fontSize: "12px", color: N, lineHeight: "1.6", margin: 0,
-                  fontStyle: "italic", direction: dir as "rtl"|"ltr"}}>{brief}</p>
+              <div className="im-rise" style={{marginBottom: "14px", borderRadius: "14px",
+                border: `2px solid ${Y}`, overflow: "hidden"}}>
+                <div style={{display: "flex", alignItems: "center", gap: "10px",
+                  padding: "10px 14px", background: Y}}>
+                  <AdvisorAvatar size={32}/>
+                  <span style={{fontSize: "11px", fontWeight: "800", color: ND, textTransform: "uppercase",
+                    letterSpacing: ".5px"}}>
+                    {lang === "ar" ? "إليك ما فهمته من مشروعك :" : lang === "fr" ? "Voici ce que j'ai compris de votre projet :" : "Here's what I understood about your project:"}
+                  </span>
+                </div>
+                <div style={{padding: "13px 16px", background: WH}}>
+                  <p style={{fontSize: "14px", color: ND, lineHeight: "1.7", margin: 0, fontWeight: "500",
+                    direction: dir as "rtl"|"ltr"}}>{brief}</p>
+                </div>
               </div>
             )}
 
