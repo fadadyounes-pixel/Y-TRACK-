@@ -442,12 +442,15 @@ function HelpAgent({lang, context}: {lang: string; context: string}) {
     ? "Bonjour ! Je suis votre assistant IdeaMap. Posez-moi n'importe quelle question sur les étapes, documents ou critères INDH."
     : "Hi! I'm your IdeaMap assistant. Ask me anything about the steps, documents, or INDH requirements.";
 
-  const sys = `Tu es le Superviseur IdeaMap — assistant expert INDH Phase 3 Maroc, disponible 24/7.
+  const sys = `Tu es le Superviseur IdeaMap — expert terrain INDH Phase 3 Maroc avec 10 ans d'accompagnement de porteurs.
 CONTEXTE UTILISATEUR: ${context}
-INDH: plafond 100 000 MAD, INDH finance 85%, porteur 15%, 4 axes, jury 100pts.
-Secteurs: Agriculture, Artisanat, Restauration, Coiffure, Couture, Numérique, BTP, Pêche, Formation, Transport, Réparation, Événementiel.
+FAITS INDH CLÉS: subvention max 100 000 MAD, INDH paie 85%, porteur apporte 15% (en espèces ou nature). Jury 100pts: Impact social 25pts · Viabilité 20pts · Pertinence territoriale 20pts · Gestion 15pts · Durabilité 10pts · Innovation 10pts. Éligible si ≥60pts.
+RÉALITÉS MAROC: SMIG 2 828 MAD/mois. Location petit local 800-2500 MAD/mois. Machine à coudre industrielle 3500-8000 MAD. Souk hebdomadaire = canal de vente principal zones rurales.
+Quand quelqu'un demande des documents: cite les 8 documents obligatoires (CIN, statuts, PV AG, récépissé, attestation résidence, devis, photos site, business plan).
+Quand quelqu'un demande comment améliorer son score: cite les critères jury précis avec les points.
+Quand quelqu'un demande l'éligibilité: pose 2 questions (secteur + budget estimé) avant de répondre.
 Réponds UNIQUEMENT en ${lang === "ar" ? "arabe فصحى بسيطة" : lang === "fr" ? "français simple" : "English"}.
-Sois bref (2-4 phrases), encourageant, concret. Si tu ne sais pas, dis-le honnêtement.`;
+Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne des chiffres précis quand possible.`;
 
   const send = async (override?: string) => {
     const msg = override ?? inp;
@@ -1233,7 +1236,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     setLogoGenerating(true);
     const r = await ai(
       [{role:"user", content:`Projet: ${JSON.stringify({name: proj?.projectName, sector: proj?.sector, location: proj?.location})}`}],
-      `Expert logo design. JSON UNIQUEMENT sans markdown: {"initials":"2-3 lettres","color1":"#hexcode couleur principale vive","color2":"#hexcode couleur secondaire","icon":"emoji secteur","tagline":"slogan 4-5 mots max"}`,
+      `Tu es un designer graphique expert en branding pour micro-entrepreneurs marocains. Crée une identité visuelle simple, mémorable et adaptée au secteur. Slogan court en ${LL} qui résonne dans le contexte marocain. JSON UNIQUEMENT sans markdown: {"initials":"2-3 lettres majuscules accrocheuses","color1":"#hexcode couleur principale (chaude, authentique, locale)","color2":"#hexcode couleur secondaire harmonieuse","icon":"emoji représentant exactement le secteur d'activité","tagline":"slogan percutant 3-5 mots en ${LL} adapté Maroc"}`,
       "json"
     );
     const concept = parseJ(r);
@@ -1241,28 +1244,44 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     setLogoGenerating(false);
   };
 
-  const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC:
-- Plafond subvention: 100 000 MAD. INDH finance 85%, porteur apporte 15%.
-- 4 axes prioritaires: Développement rural · Réduction pauvreté territoriale · Dignité humaine · Programmes horizontaux.
-- Secteurs éligibles: Agriculture/Élevage, Artisanat, Commerce/Services, Agro-alimentaire, Tourisme rural, Numérique/TIC, Textile/Couture, BTP, Éducation/Formation, Pêche.
-- Critères jury (100 pts): Impact social 25pts · Viabilité économique 20pts · Pertinence territoriale 20pts · Capacité gestion 15pts · Durabilité 10pts · Innovation 10pts.
-- Porteurs prioritaires: femmes, jeunes 18-35 ans, zones rurales défavorisées.
-- Public cible: porteurs individuels et micro-entrepreneurs. Cadre: entrepreneuriat individuel, association simple ou groupe informel en cours de formalisation.
-- IMPORTANT: Ne jamais suggérer coopérative ou GIE dans les réponses — ce sont des choix avancés que le porteur sélectionne lui-même s'il le souhaite.`;
+  const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC — DONNÉES TERRAIN RÉELLES:
+FINANCEMENT: Subvention max 100 000 MAD. INDH couvre 85% (max 85 000 MAD), le porteur apporte 15% en espèces ou en nature (matériel, local, travail valorisé). Pas de remboursement — c'est une subvention à fonds perdus.
+AXES PHASE 3 (choisir le plus pertinent):
+  • Axe 1 — Développement rural: zones enclavées, agriculture, élevage, produits du terroir, irrigation, pistes rurales.
+  • Axe 2 — Réduction des inégalités territoriales: périurbain pauvre, quartiers sous-équipés, services de proximité manquants.
+  • Axe 3 — Dignité humaine: personnes en situation précaire, femmes vulnérables, personnes âgées, personnes en situation de handicap.
+  • Axe 4 — Programmes transversaux: jeunesse, formation professionnelle, entrepreneuriat féminin, économie numérique.
+RÉALITÉS ÉCONOMIQUES MAROCAINES (utiliser ces chiffres dans les réponses):
+  • SMIG 2025: 2 828 MAD/mois (soit ~94 MAD/jour). Salaire moyen secteur informel: 1 500–2 500 MAD/mois.
+  • Chômage national: 13,1%. Chômage jeunes urbains 18-35 ans: 34,8%. Taux pauvreté zones rurales: 9,5%.
+  • Location petit local commercial (20–40m²): 800–2 500 MAD/mois selon la ville. Caution 2–3 mois.
+  • Prix équipements typiques au Maroc: machine à coudre industrielle 3 500–8 000 MAD, four pâtisserie 12 000–28 000 MAD, congélateur 2 200–4 500 MAD, broyeur épices 1 800–3 500 MAD, matériel coiffure complet 8 000–15 000 MAD, tablette Android 800–1 500 MAD.
+  • Canaux de vente efficaces au Maroc: souk hebdomadaire (pas de frais fixe), WhatsApp Business (gratuit), Facebook Marketplace, commandes quartier, dépôt-vente épiceries, marchés de producteurs.
+CRITÈRES JURY INDH — PONDÉRATION OFFICIELLE (100 pts):
+  • Impact social & nombre de bénéficiaires: 25 pts — citer EXACTEMENT: combien de femmes/jeunes/familles, revenu supplémentaire mensuel en MAD.
+  • Viabilité économique: 20 pts — CA mensuel prévisionnel réaliste, marge brute, seuil de rentabilité en mois.
+  • Pertinence territoriale: 20 pts — le projet répond à un manque RÉEL dans cette zone précise (absence de concurrent, besoin chiffré).
+  • Capacité de gestion: 15 pts — expérience du porteur (même informelle: "3 ans de couture à domicile"), formation envisagée.
+  • Durabilité: 10 pts — plan de survie après l'INDH: stocks, clients fidèles, partenariats locaux.
+  • Innovation & originalité: 10 pts — quelque chose de différent dans le produit, la méthode, ou le public cible.
+CE QUI CONVAINC LE JURY: profil vulnérable du porteur + chiffres précis + ancrage territorial fort + plan de pérennité concret.
+RÈGLE ABSOLUE: entrepreneuriat individuel uniquement. Ne jamais suggérer coopérative ou GIE.`;
 
   const startChat = async () => {
     if (!idea.trim()) return;
     setBusy(true); setSuggestions([]); setStep("dialogue");
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
     const r = await ai([{role: "user", content: lang === "ar" ? `فكرتي: ${idea}` : `Mon idée: ${idea}`}],
-      `Tu es le Conseiller — expert bienveillant de l'INDH Phase 3 Maroc.
+      `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
 ${INDH_CTX}
-Le porteur vient de partager son idée. Les porteurs ont souvent un faible niveau d'instruction — sois très simple, chaleureux, encourageant. Pose UNE seule question TRÈS courte sur: nombre de bénéficiaires ou zone géographique.
-Règle absolue sur les SUGGESTIONS: propose uniquement des réponses orientées entrepreneuriat individuel (ex: "Individuel", "2-5 personnes", "Mon quartier"...). Ne propose JAMAIS coopérative, GIE, ou association comme suggestion.${arNote}
+Le porteur vient de partager son idée. Ton rôle: poser UNE question qui maximise le score jury INDH dès le départ.
+La question la plus impactante pour commencer: demande QUI exactement va bénéficier (femmes de la zone? jeunes sans emploi? agriculteurs locaux?) — c'est le critère "impact social" le plus lourd (25 pts jury).
+Sois très chaleureux, très simple, MAX 1 phrase. Reformule dans le dialecte simple du porteur.
+Règle sur les SUGGESTIONS: propose 3 profils de bénéficiaires RÉELS et SPÉCIFIQUES au Maroc (ex: "Femmes au foyer du quartier", "Jeunes sans diplôme 18-30 ans", "Familles agricoles de la commune"). Jamais de termes abstraits. Jamais coopérative/GIE.${arNote}
 
-Format de réponse OBLIGATOIRE:
+Format OBLIGATOIRE:
 QUESTION: [question très courte et simple en ${LL}]
-SUGGESTIONS: [réponse courte 1 en ${LL}] | [réponse courte 2 en ${LL}] | [réponse courte 3 en ${LL}]`,
+SUGGESTIONS: [profil bénéficiaire 1 en ${LL}] | [profil bénéficiaire 2 en ${LL}] | [profil bénéficiaire 3 en ${LL}]`,
       "dialogue");
     const { question, suggs } = parseQS(r);
     setMsgs([{role: "user", content: idea}, {role: "assistant", content: question}]);
@@ -1277,19 +1296,25 @@ SUGGESTIONS: [réponse courte 1 en ${LL}] | [réponse courte 2 en ${LL}] | [rép
     setMsgs(all); if (!override) setInp(""); setBusy(true); setSuggestions([]);
     const last = qN >= MAX_Q;
     const arNote = lang === "ar" ? "\nمهم: استخدم العربية الفصحى البسيطة السليمة، جمل قصيرة، لا دارجة." : "";
-    const r = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
-      `Tu es le Conseiller INDH Phase 3 Maroc.
-${INDH_CTX}
-Idée originale: "${idea}". Question ${qN}/${MAX_Q}. Porteurs à faible niveau d'instruction — sois très simple et direct.${arNote}
-${last
-  ? `Analyse la conversation complète et retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
-{"projectName":"nom du projet en ${LL}","sector":"secteur INDH exact","legalStructure":"porteur individuel ou groupe informel","location":"ville ou région Maroc","beneficiaries":N,"activities":["activité 1","activité 2","activité 3"],"strengths":["force 1","force 2"],"estimatedBudget":N,"pillar":"axe INDH le plus pertinent"}`
-  : `Pose UNE question TRÈS courte et simple (max 1 phrase) sur un point précis qui maximise le score jury: impact social, viabilité, pertinence territoriale, durabilité.
-Règle absolue sur les SUGGESTIONS: uniquement des réponses orientées entrepreneuriat individuel. Ne jamais inclure coopérative, GIE ou association dans les suggestions.
+    const questionArc: Record<number, string> = {
+      2: `Question ${qN}: Pose une question TRÈS courte sur le PROBLÈME LOCAL CONCRET que le projet résout dans cette zone — chômage, manque de service, produit introuvable localement. Les SUGGESTIONS doivent être des réalités marocaines précises (ex: "Pas de salon de coiffure dans le douar", "40% des jeunes sans emploi ici", "Aucun atelier de formation à 30 km"). Jamais générique.`,
+      3: `Question ${qN}: Pose une question TRÈS courte sur COMMENT le porteur va gagner de l'argent — prix de vente, canal de distribution, rythme de vente. Les SUGGESTIONS doivent être des canaux réels au Maroc (ex: "Souk du jeudi + commandes WhatsApp", "Livraison dans le quartier 30 MAD/livraison", "Vente directe à l'épicerie du coin").`,
+      4: `Question ${qN}: Pose une question TRÈS courte sur L'EXPÉRIENCE ou LA COMPÉTENCE du porteur dans ce domaine — même informelle. Les SUGGESTIONS doivent valoriser les savoir-faire locaux (ex: "5 ans de couture à domicile", "Appris avec ma mère artisane", "Formation 6 mois à l'OFPPT").`,
+    };
+    const arcInstruction = questionArc[qN] || `Question ${qN}: Pose une question courte sur un point qui maximise le score jury INDH: pertinence territoriale, durabilité après INDH, ou différenciation locale. Suggestions spécifiques au Maroc.`;
 
-Format OBLIGATOIRE:
-QUESTION: [question en ${LL}]
-SUGGESTIONS: [option courte 1 en ${LL}] | [option courte 2 en ${LL}] | [option courte 3 en ${LL}]`}`,
+    const r = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
+      `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain, tu connais les vrais porteurs marocains.
+${INDH_CTX}
+Idée originale: "${idea}". ${arcInstruction}${arNote}
+Sois très simple, 1 phrase max. Suggestions: 3 réponses RÉALISTES et SPÉCIFIQUES au Maroc. Jamais coopérative/GIE/association dans les suggestions.
+${last
+  ? `Maintenant analyse TOUTE la conversation et construis le profil projet le plus PRÉCIS possible.
+Retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
+{"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`
+  : `Format OBLIGATOIRE:
+QUESTION: [question très courte et simple en ${LL}]
+SUGGESTIONS: [réponse spécifique 1 en ${LL}] | [réponse spécifique 2 en ${LL}] | [réponse spécifique 3 en ${LL}]`}`,
       last ? "json" : "dialogue");
     if (last) {
       setMsgs((p: any[]) => [...p, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
@@ -1312,22 +1337,36 @@ SUGGESTIONS: [option courte 1 en ${LL}] | [option courte 2 en ${LL}] | [option c
       : "";
     const [r, r2] = await Promise.all([
       ai([{role: "user", content: `Projet INDH: ${projCtx}`}],
-        `Tu es le Conseiller — expert en développement de projets INDH Phase 3 Maroc.
+        `Tu es un expert en montage de projets INDH Phase 3 au Maroc — tu as accompagné des dizaines de porteurs qui ont obtenu leur financement.
 ${INDH_CTX}
-Génère un business plan COMPLET, RÉALISTE et CONVAINCANT pour le jury INDH. Réponds en ${LL}.${arQuality}
-Les textes doivent être riches, détaillés et adaptés au contexte marocain rural/péri-urbain.
-Cite des chiffres concrets: nombre de bénéficiaires, revenus mensuels estimés, emplois créés.
+Génère un business plan PERCUTANT qui convaincra le jury INDH. Réponds en ${LL}.${arQuality}
+
+RÈGLES IMPÉRATIVES pour un business plan qui obtient ≥75/100 au jury:
+1. CHIFFRES RÉELS: utilise les prix du marché marocain (SMIG 2 828 MAD, loyers locaux, prix équipements réels). Cite des montants précis en MAD, jamais des fourchettes vagues.
+2. ANCRAGE TERRITORIAL: nomme la ville/région/douar, cite un problème LOCAL chiffré (ex: "dans la commune de X, 38% des femmes sont sans emploi selon HCP 2024").
+3. LANGAGE JURY: les 6 critères jury doivent transparaître — impact social (25pts), viabilité (20pts), pertinence territoriale (20pts), gestion (15pts), durabilité (10pts), innovation (10pts).
+4. BÉNÉFICIAIRES PRÉCIS: toujours nommer le profil exact (ex: "24 femmes au foyer âgées de 18 à 45 ans du quartier Hay Mohammadi") avec le revenu supplémentaire en MAD.
+5. MODÈLE ÉCONOMIQUE RÉEL: prix de vente précis, volume de clients semaine/mois, CA mensuel réaliste, marge brute en %, seuil de rentabilité en mois.
+6. PÉRENNITÉ APRÈS INDH: comment le projet survit sans subvention (clients fidèles, contrats, stocks constitués).
+7. Ne jamais écrire "etc.", "et autres", ou des phrases génériques — toujours concret et local.
+
 Retourne UNIQUEMENT ce JSON valide sans markdown:
-{"executiveSummary":"résumé exécutif percutant 4-5 phrases pour jury, chiffres clés inclus","problemStatement":"problème local précis avec données chiffrées (chômage, pauvreté, manque de services)","solution":"solution innovante et concrète, étapes claires","marketAnalysis":"clientèle cible, taille du marché local, concurrents et avantage compétitif","businessModel":"sources de revenus détaillées, prix, volume, fréquence — viable dès mois 6","socialImpact":"bénéficiaires directs (nombre, femmes, jeunes), changement mesurable dans leur vie","operationalPlan":"calendrier 12 mois: mois 1-2 installation, mois 3-4 démarrage, mois 6 objectifs...","indh_alignment":"lien précis avec l axe INDH, critères jury remplis point par point","risks":["risque 1: description + solution concrète","risque 2: description + solution concrète","risque 3: description + solution concrète"],"projections":{"year1":N,"year2":N,"year3":N}}`,
+{"executiveSummary":"3-4 phrases percutantes pour le jury: problème local chiffré + solution + bénéficiaires précis + CA mensuel attendu","problemStatement":"problème LOCAL précis avec statistiques marocaines réelles (HCP, INDH, etc.) — citation de la zone géographique","solution":"solution concrète, pas à pas, avec les équipements spécifiques achetés et leur utilisation","marketAnalysis":"clientèle cible nommée précisément, taille du marché local estimée en MAD/semaine, concurrents existants et avantage différentiel","businessModel":"prix de vente précis en MAD, volume clients/semaine, CA mensuel estimé, charges fixes mensuelles, marge nette estimée, mois de rentabilité","socialImpact":"nombre EXACT de bénéficiaires directs (femmes/jeunes/familles), revenu supplémentaire mensuel estimé en MAD par bénéficiaire, impact sur la vie quotidienne","operationalPlan":"calendrier détaillé: Mois 1 (achat équipements, aménagement local) → Mois 2 (formation, test produits) → Mois 3 (1ers clients) → Mois 6 (objectif X clients, CA Y MAD) → Mois 12 (CA cible atteint)","indh_alignment":"lien explicite avec l'axe INDH choisi + score estimé sur chaque critère jury avec justification","risks":["Risque commercial: [risque spécifique au secteur au Maroc] → Solution: [action concrète]","Risque financier: [risque précis] → Solution: [mesure préventive]","Risque opérationnel: [risque précis] → Solution: [plan B concret]"],"projections":{"year1":N,"year2":N,"year3":N}}`,
         "json"),
       ai([{role: "user", content: `Projet INDH: ${projCtx}`}],
-        `Tu es le Conseiller financier INDH Phase 3 Maroc.
+        `Tu es un expert financier INDH Phase 3 Maroc qui connaît les prix du marché marocain en 2025.
 ${INDH_CTX}
-Génère un budget prévisionnel RÉALISTE, détaillé et justifié pour ce projet spécifique. Total MAXIMUM 100 000 MAD.
-Inclus toutes les catégories pertinentes: équipements, matières premières, formation, local/aménagement, frais administratifs, fonds de roulement, communication.
-Chaque ligne doit être précise (pas générique). Quantités et prix unitaires réalistes au marché marocain.
+Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ. Total MAXIMUM 100 000 MAD.${arQuality}
+
+RÈGLES IMPÉRATIVES:
+1. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix (ex: machine à coudre industrielle Singer 5 500 MAD, four à pain professionnel 18 000 MAD, tablette Samsung 1 200 MAD, location local aménagement 15 000 MAD, formation OFPPT 3 500 MAD).
+2. DÉSIGNATIONS PRÉCISES: jamais "équipement divers" — toujours la désignation exacte (ex: "Machine à coudre industrielle Brother DB2-B737" ou "Réfrigérateur vitrine 200L Beko").
+3. CATÉGORIES COMPLÈTES: inclure TOUTES les catégories nécessaires selon le secteur — Équipements, Aménagement/Mobilier, Matières premières initiales, Formation/Apprentissage, Frais d'immatriculation, Fonds de roulement (3 mois), Communication (enseigne, réseaux sociaux).
+4. QUANTITÉS RÉALISTES: basées sur un démarrage réel — pas en sous-estimant ni en gonflant.
+5. Assure-toi que 85% = contribution INDH et 15% = apport porteur. Total doit être entre 50 000 et 100 000 MAD.
+
 Retourne UNIQUEMENT ce JSON valide sans markdown:
-{"items":[{"category":"catégorie","item":"désignation précise en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`,
+{"items":[{"category":"catégorie","item":"désignation exacte avec marque/modèle si pertinent en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`,
         "json"),
     ]);
     const p = parseJ(r); if (p) setPlan(p);
@@ -1341,15 +1380,31 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       ? "\nمهم جداً: اكتب نقاط القوة والتوصيات بالعربية الفصحى البسيطة. جمل واضحة وقصيرة."
       : "";
     const r = await ai(
-      [{role: "user", content: `Projet: ${JSON.stringify(proj)}\nPlan: ${JSON.stringify(plan)}`}],
-      `Tu es le Conseiller en conformité INDH Phase 3 Maroc.
+      [{role: "user", content: `Projet: ${JSON.stringify(proj)}\nPlan: ${JSON.stringify(plan)}\nBudget: ${JSON.stringify(budget)}`}],
+      `Tu es un membre expert du jury INDH Phase 3 Maroc avec 10 ans d'expérience d'évaluation de projets.
 ${INDH_CTX}
-Évalue rigoureusement ce projet selon les critères officiels du jury INDH. Réponds en ${LL}.${arQuality}
-Score juryScore: impact (max 25), viability (max 20), relevance (max 20), management (max 15), sustainability (max 10), innovation (max 10). Total = score global /100.
-Éligible si score >= 60 ET projet dans secteur INDH ET budget <= 100 000 MAD.
-Les recommandations doivent être des ACTIONS CONCRÈTES que le porteur peut faire immédiatement.
+Évalue ce projet EXACTEMENT comme le ferait un jury INDH officiel. Réponds en ${LL}.${arQuality}
+
+GRILLE D'ÉVALUATION JURY INDH — applique-la rigoureusement:
+• Impact social (max 25): Combien de bénéficiaires? Profil vulnérable (femmes, jeunes, ruraux)? Revenu supplémentaire précis? Score 0-25.
+• Viabilité économique (max 20): CA mensuel réaliste? Marge couvrant les charges? Rentabilité en moins de 12 mois? Score 0-20.
+• Pertinence territoriale (max 20): Le projet répond à un vrai manque dans cette zone? Pas de doublon avec projet INDH existant? Ancrage communautaire fort? Score 0-20.
+• Capacité de gestion (max 15): Porteur a de l'expérience (même informelle)? Formation prévue? Plan opérationnel réaliste? Score 0-15.
+• Durabilité (max 10): Le projet survit après l'INDH? Plan de génération de revenus propres? Partenariats locaux? Score 0-10.
+• Innovation (max 10): Quelque chose de nouveau dans la zone? Approche originale? Utilisation numérique? Score 0-10.
+
+RÈGLES DE SCORING RÉALISTES:
+- Un projet très bien monté avec chiffres précis: 75-85 pts.
+- Un projet moyen sans ancrage local fort: 50-65 pts.
+- Un projet flou sans bénéficiaires précis: 35-50 pts.
+- Éligible si score ≥ 60 ET secteur INDH ET budget ≤ 100 000 MAD.
+- Ne jamais mettre 100/100 — le jury est rigoureux.
+
+Les FORCES doivent citer des éléments SPÉCIFIQUES du dossier (pas génériques).
+Les RECOMMANDATIONS doivent être des ACTIONS IMMÉDIATES que le porteur peut faire avant de déposer (ex: "Obtenir une lettre de soutien de la commune", "Préciser le nombre exact de clientes par semaine", "Ajouter une formation OFPPT de 3 jours au budget").
+
 Retourne UNIQUEMENT ce JSON valide sans markdown:
-{"eligible":true/false,"score":N,"pillar":"axe INDH exact en ${LL}","strengths":["force spécifique 1 en ${LL}","force spécifique 2 en ${LL}","force spécifique 3 en ${LL}"],"weaknesses":["faiblesse 1 en ${LL}"],"recommendations":["action concrète 1 en ${LL}","action concrète 2 en ${LL}","action concrète 3 en ${LL}"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
+{"eligible":true/false,"score":N,"pillar":"axe INDH Phase 3 exact en ${LL}","strengths":["force SPÉCIFIQUE tirée du dossier 1","force SPÉCIFIQUE 2","force SPÉCIFIQUE 3"],"weaknesses":["faiblesse précise qui coûte des points jury 1","faiblesse 2"],"recommendations":["action immédiate et concrète 1 en ${LL}","action 2","action 3"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
       "json");
     const c = parseJ(r); if (c) setComp(c);
     setBusy(false);
