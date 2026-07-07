@@ -452,6 +452,15 @@ Quand quelqu'un demande l'éligibilité: pose 2 questions (secteur + budget esti
 Réponds UNIQUEMENT en ${lang === "ar" ? "arabe فصحى بسيطة" : lang === "fr" ? "français simple" : "English"}.
 Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne des chiffres précis quand possible.`;
 
+  const errReply = (attempt: number) => {
+    if (attempt < 2) return null; // still retrying
+    return lang === "ar"
+      ? "أعتذر، خدمة المستشار مشغولة لحظياً. يرجى إعادة المحاولة خلال ثوانٍ. يمكنك في الأثناء الاطلاع على الأسئلة الشائعة أدناه."
+      : lang === "fr"
+      ? "Désolé, le conseiller est momentanément surchargé. Réessayez dans quelques secondes — ou consultez les questions fréquentes ci-dessus."
+      : "Sorry, the advisor is momentarily busy. Please retry in a few seconds — or tap a quick question above.";
+  };
+
   const send = async (override?: string) => {
     const msg = override ?? inp;
     if (!msg.trim() || busy) return;
@@ -460,15 +469,27 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
     setMsgs(history);
     if (!override) setInp("");
     setBusy(true);
-    try {
-      const r = await fetch("/api/ai", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({messages: history, system: sys, task:"dialogue"}),
-      });
-      const d = await r.json();
-      const text = d.content?.[0]?.text || "";
-      if (text) { setMsgs(p => [...p, {role:"assistant", content:text}]); setUnread(true); }
-    } catch {}
+    let replied = false;
+    for (let attempt = 0; attempt < 3 && !replied; attempt++) {
+      try {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 800 * attempt));
+        const r = await fetch("/api/ai", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({messages: history, system: sys, task:"dialogue"}),
+        });
+        const d = await r.json();
+        const text = d.content?.[0]?.text || "";
+        if (text) {
+          setMsgs(p => [...p, {role:"assistant", content:text}]);
+          setUnread(true);
+          replied = true;
+        }
+      } catch { /* network error — retry */ }
+    }
+    if (!replied) {
+      const fb = errReply(2);
+      if (fb) setMsgs(p => [...p, {role:"assistant", content:fb}]);
+    }
     setBusy(false);
   };
 
@@ -1267,13 +1288,69 @@ JSON UNIQUEMENT sans markdown:
   const dlLogo = () => {
     if (!logo?.concept) return;
     const c = logo.concept;
+    const ct = c.colorText || "#FFFFFF";
+    const tag = (c.tagline || "").slice(0, 24).toUpperCase();
+    const ini = (c.initials || "?").slice(0, 3);
+    const ico = c.icon || "💡";
+    // Helper: 8-pointed star points string (300×300 canvas)
+    const star = (ox: number, oy: number, R: number, r: number): string => {
+      const pts: string[] = [];
+      for (let i = 0; i < 16; i++) {
+        const a = (i * Math.PI / 8) - Math.PI / 2;
+        const rad = i % 2 === 0 ? R : r;
+        pts.push(`${(ox + rad * Math.cos(a)).toFixed(1)},${(oy + rad * Math.sin(a)).toFixed(1)}`);
+      }
+      return pts.join(" ");
+    };
     const svgs = [
-      // Style 0 — Circle badge
-      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><circle cx="150" cy="150" r="150" fill="${c.color1}"/><circle cx="150" cy="150" r="120" fill="${c.color2}" opacity="0.18"/><circle cx="150" cy="150" r="118" fill="none" stroke="${c.color2}" stroke-width="2.5" opacity="0.4"/><text x="150" y="135" text-anchor="middle" font-size="72" font-weight="900" fill="${c.colorText||'#FFFFFF'}" font-family="Arial Black,sans-serif">${(c.initials||'?').slice(0,3)}</text><text x="150" y="180" text-anchor="middle" font-size="48">${c.icon||'💡'}</text><text x="150" y="222" text-anchor="middle" font-size="16" fill="${c.colorText||'#FFFFFF'}" opacity="0.85" font-family="Arial,sans-serif" font-weight="700" letter-spacing="1">${(c.tagline||'').slice(0,28).toUpperCase()}</text></svg>`,
-      // Style 1 — Rounded badge
-      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect x="10" y="10" width="280" height="280" rx="40" ry="40" fill="${c.color1}"/><rect x="22" y="22" width="256" height="256" rx="32" ry="32" fill="none" stroke="${c.colorText||'#FFFFFF'}" stroke-width="2" opacity="0.3"/><text x="150" y="110" text-anchor="middle" font-size="48">${c.icon||'💡'}</text><text x="150" y="178" text-anchor="middle" font-size="68" font-weight="900" fill="${c.colorText||'#FFFFFF'}" font-family="Arial Black,sans-serif">${(c.initials||'?').slice(0,3)}</text><rect x="40" y="208" width="220" height="2" fill="${c.colorText||'#FFFFFF'}" opacity="0.3"/><text x="150" y="240" text-anchor="middle" font-size="14" fill="${c.colorText||'#FFFFFF'}" opacity="0.9" font-family="Arial,sans-serif" font-weight="600" letter-spacing="2">${(c.tagline||'').slice(0,28).toUpperCase()}</text></svg>`,
-      // Style 2 — Diamond / shield
-      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><polygon points="150,10 290,90 290,210 150,290 10,210 10,90" fill="${c.color1}"/><polygon points="150,28 272,99 272,201 150,272 28,201 28,99" fill="none" stroke="${c.colorText||'#FFFFFF'}" stroke-width="1.5" opacity="0.25"/><text x="150" y="128" text-anchor="middle" font-size="52">${c.icon||'💡'}</text><text x="150" y="192" text-anchor="middle" font-size="60" font-weight="900" fill="${c.colorText||'#FFFFFF'}" font-family="Arial Black,sans-serif">${(c.initials||'?').slice(0,3)}</text><text x="150" y="228" text-anchor="middle" font-size="12" fill="${c.colorText||'#FFFFFF'}" opacity="0.85" font-family="Arial,sans-serif" letter-spacing="2">${(c.tagline||'').slice(0,24).toUpperCase()}</text></svg>`,
+      // Style 0 — Gradient Burst
+      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <defs>
+    <linearGradient id="g0" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${c.color1}"/>
+      <stop offset="100%" stop-color="${c.color2||c.color1}bb"/>
+    </linearGradient>
+    <clipPath id="cp0"><rect width="300" height="300" rx="54" ry="54"/></clipPath>
+  </defs>
+  <rect width="300" height="300" rx="54" fill="url(#g0)"/>
+  ${[20,40,60,80,100,120,140].map((ang,i) => { const rad = ang*Math.PI/180; return `<line x1="300" y1="0" x2="${(300+420*Math.cos(rad)).toFixed(0)}" y2="${(420*Math.sin(rad)).toFixed(0)}" stroke="${ct}" stroke-width="7" opacity="0.07" clip-path="url(#cp0)"/>`; }).join("")}
+  <ellipse cx="60" cy="262" rx="195" ry="114" fill="${ct}" opacity="0.08" clip-path="url(#cp0)"/>
+  <text x="150" y="124" text-anchor="middle" font-size="78">${ico}</text>
+  <rect x="60" y="141" width="180" height="5" rx="3" fill="${ct}" opacity="0.35"/>
+  <text x="150" y="205" text-anchor="middle" font-size="86" font-weight="900" fill="${ct}" font-family="Arial Black,sans-serif">${ini}</text>
+  <rect x="24" y="252" width="252" height="39" rx="19" fill="${ct}" opacity="0.15"/>
+  <text x="150" y="278" text-anchor="middle" font-size="19" fill="${ct}" opacity="0.9" font-family="Arial,sans-serif" font-weight="700" letter-spacing="2">${tag}</text>
+</svg>`,
+      // Style 1 — Moroccan Geometric Star
+      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <rect width="300" height="300" fill="${c.color2||"#F0F0F0"}" opacity="0.12"/>
+  <polygon points="${star(150, 150, 138, 66)}" fill="${c.color1}"/>
+  <polygon points="${star(150, 150, 132, 62)}" fill="none" stroke="${ct}" stroke-width="2" opacity="0.2"/>
+  <circle cx="150" cy="150" r="69" fill="${c.color2||c.color1}"/>
+  <circle cx="150" cy="150" r="66" fill="none" stroke="${ct}" stroke-width="1" opacity="0.25"/>
+  <text x="150" y="133" text-anchor="middle" font-size="42">${ico}</text>
+  <text x="150" y="187" text-anchor="middle" font-size="52" font-weight="900" fill="${ct}" font-family="Arial Black,sans-serif">${ini}</text>
+  <circle cx="36" cy="36" r="10" fill="${c.color1}" opacity="0.55"/>
+  <circle cx="264" cy="36" r="10" fill="${c.color1}" opacity="0.55"/>
+  <circle cx="264" cy="264" r="10" fill="${c.color1}" opacity="0.55"/>
+  <circle cx="36" cy="264" r="10" fill="${c.color1}" opacity="0.55"/>
+  <text x="150" y="291" text-anchor="middle" font-size="17" fill="${c.color1}" opacity="0.85" font-family="Arial,sans-serif" font-weight="700" letter-spacing="1">${tag}</text>
+</svg>`,
+      // Style 2 — Dynamic Diagonal Split
+      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <defs>
+    <clipPath id="cpr"><rect width="300" height="300" rx="42" ry="42"/></clipPath>
+    <clipPath id="cpa"><polygon points="0,0 300,0 0,300"/></clipPath>
+    <clipPath id="cpb"><polygon points="315,-15 315,315 -15,315"/></clipPath>
+  </defs>
+  <rect width="300" height="300" rx="42" fill="${c.color1}"/>
+  <polygon points="315,-15 315,315 -15,315" fill="${c.color2||c.color1}99" clip-path="url(#cpr)"/>
+  <line x1="-15" y1="315" x2="315" y2="-15" stroke="#FFFFFF" stroke-width="7" opacity="0.18" clip-path="url(#cpr)"/>
+  <text x="100" y="163" text-anchor="middle" font-size="114" font-weight="900" fill="${ct}" font-family="Arial Black,sans-serif" clip-path="url(#cpa)" opacity="0.95">${ini[0]||"?"}</text>
+  <text x="207" y="225" text-anchor="middle" font-size="84" clip-path="url(#cpb)">${ico}</text>
+  <circle cx="150" cy="150" r="16" fill="#FFFFFF" opacity="0.9"/>
+  <text x="150" y="282" text-anchor="middle" font-size="17" fill="${ct}" opacity="0.85" font-family="Arial,sans-serif" font-weight="700" letter-spacing="3" clip-path="url(#cpr)">${tag}</text>
+</svg>`,
     ];
     const svg = svgs[logoStyle];
     const blob = new Blob([svg], {type:"image/svg+xml"});
@@ -1861,44 +1938,153 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </div>
             )}
 
-            {/* ── Generated logo: 3 style variants ── */}
+            {/* ── Generated logo: 3 innovative style variants ── */}
             {logo && logo.type === "generated" && logo.concept && !logoGenerating && (() => {
               const c = logo.concept;
+              const ct = c.colorText || "#FFFFFF";
               const styleNames = lang==="ar"
-                ? ["دائري","مربع","سداسي"]
+                ? ["تدرج لوني","نجمة مغربية","انقسام ديناميكي"]
                 : lang==="fr"
-                ? ["Cercle","Badge","Écu"]
-                : ["Circle","Badge","Shield"];
+                ? ["Dégradé","Étoile Marocaine","Split Dynamique"]
+                : ["Gradient Burst","Moroccan Star","Dynamic Split"];
+
+              // Compute 8-pointed star polygon points (zellige-inspired)
+              const starPoints = (ox: number, oy: number, R: number, r: number): string => {
+                const pts: string[] = [];
+                for (let i = 0; i < 16; i++) {
+                  const angle = (i * Math.PI / 8) - Math.PI / 2;
+                  const rad = i % 2 === 0 ? R : r;
+                  pts.push(`${(ox + rad * Math.cos(angle)).toFixed(1)},${(oy + rad * Math.sin(angle)).toFixed(1)}`);
+                }
+                return pts.join(" ");
+              };
 
               const renderVariant = (idx: number, size: number) => {
-                const s = size; const cx = s/2; const cy = s/2; const r = s/2;
+                const s = size; const cx = s/2; const cy = s/2;
+                const uid = `lv${idx}${s}`; // unique id per variant+size to avoid SVG id conflicts
+
+                // ── Style 0: Gradient Burst ──
+                // Diagonal gradient background, bold icon large top, initials bottom,
+                // decorative radial lines emanating from top-right like a sunburst
                 if (idx === 0) return (
-                  <svg key={idx} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-                    <circle cx={cx} cy={cy} r={r} fill={c.color1}/>
-                    <circle cx={cx} cy={cy} r={r*0.82} fill={c.color2} opacity="0.18"/>
-                    <circle cx={cx} cy={cy} r={r*0.81} fill="none" stroke={c.colorText||"#FFFFFF"} strokeWidth="1.5" opacity="0.3"/>
-                    <text x={cx} y={cy*0.88} textAnchor="middle" fontSize={s*0.26} fontWeight="900" fill={c.colorText||"#FFFFFF"} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
-                    <text x={cx} y={cy*1.28} textAnchor="middle" fontSize={s*0.19}>{c.icon||"💡"}</text>
-                    <text x={cx} y={s*0.91} textAnchor="middle" fontSize={s*0.062} fill={c.colorText||"#FFFFFF"} opacity="0.85" fontFamily="Arial,sans-serif" fontWeight="700" letterSpacing="0.8">{(c.tagline||"").slice(0,22).toUpperCase()}</text>
+                  <svg key={uid} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
+                    <defs>
+                      <linearGradient id={`g${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor={c.color1}/>
+                        <stop offset="100%" stopColor={c.color2||c.color1+"bb"}/>
+                      </linearGradient>
+                      <clipPath id={`cp${uid}`}>
+                        <rect width={s} height={s} rx={s*0.18} ry={s*0.18}/>
+                      </clipPath>
+                    </defs>
+                    {/* Background */}
+                    <rect width={s} height={s} rx={s*0.18} ry={s*0.18} fill={`url(#g${uid})`}/>
+                    {/* Sunburst rays from top-right corner */}
+                    {[20,40,60,80,100,120,140].map((angle, i) => {
+                      const rad = angle * Math.PI / 180;
+                      const x2 = cx*2 + s*1.4 * Math.cos(rad);
+                      const y2 = -s*0.2 + s*1.4 * Math.sin(rad);
+                      return <line key={i} x1={s} y1={0} x2={x2} y2={y2}
+                        stroke={ct} strokeWidth={s*0.025} opacity="0.07" clipPath={`url(#cp${uid})`}/>;
+                    })}
+                    {/* Inner wave blob */}
+                    <ellipse cx={cx*0.4} cy={cy*1.75} rx={s*0.65} ry={s*0.38}
+                      fill={ct} opacity="0.08" clipPath={`url(#cp${uid})`}/>
+                    {/* Large icon */}
+                    <text x={cx} y={cy*0.82} textAnchor="middle" fontSize={s*0.26}>{c.icon||"💡"}</text>
+                    {/* Divider line */}
+                    <rect x={s*0.2} y={cy*0.94} width={s*0.6} height={s*0.018} rx={s*0.01}
+                      fill={ct} opacity="0.35"/>
+                    {/* Initials */}
+                    <text x={cx} y={cy*1.3} textAnchor="middle" fontSize={s*0.29} fontWeight="900"
+                      fill={ct} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
+                    {/* Tagline pill */}
+                    <rect x={s*0.08} y={s*0.84} width={s*0.84} height={s*0.13} rx={s*0.065}
+                      fill={ct} opacity="0.15"/>
+                    <text x={cx} y={s*0.937} textAnchor="middle" fontSize={s*0.065} fill={ct}
+                      opacity="0.9" fontFamily="Arial,sans-serif" fontWeight="700" letterSpacing="0.8">
+                      {(c.tagline||"").slice(0,20).toUpperCase()}
+                    </text>
                   </svg>
                 );
+
+                // ── Style 1: Moroccan Geometric Star (zellige) ──
+                // 8-pointed star as outer shape, inner circle with initials,
+                // decorative corner dots echoing zellige tilework
                 if (idx === 1) return (
-                  <svg key={idx} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-                    <rect x="4" y="4" width={s-8} height={s-8} rx={s*0.15} ry={s*0.15} fill={c.color1}/>
-                    <rect x="11" y="11" width={s-22} height={s-22} rx={s*0.11} ry={s*0.11} fill="none" stroke={c.colorText||"#FFFFFF"} strokeWidth="1.2" opacity="0.25"/>
-                    <text x={cx} y={cy*0.72} textAnchor="middle" fontSize={s*0.2}>{c.icon||"💡"}</text>
-                    <text x={cx} y={cy*1.18} textAnchor="middle" fontSize={s*0.25} fontWeight="900" fill={c.colorText||"#FFFFFF"} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
-                    <rect x={s*0.18} y={s*0.72} width={s*0.64} height="1.5" fill={c.colorText||"#FFFFFF"} opacity="0.3"/>
-                    <text x={cx} y={s*0.85} textAnchor="middle" fontSize={s*0.056} fill={c.colorText||"#FFFFFF"} opacity="0.9" fontFamily="Arial,sans-serif" fontWeight="600" letterSpacing="1.5">{(c.tagline||"").slice(0,22).toUpperCase()}</text>
+                  <svg key={uid} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
+                    <defs>
+                      <clipPath id={`cp1${uid}`}><rect width={s} height={s}/></clipPath>
+                    </defs>
+                    {/* Subtle tiled background */}
+                    <rect width={s} height={s} fill={c.color2||"#F0F0F0"} opacity="0.12"/>
+                    {/* Outer 8-pointed star */}
+                    <polygon points={starPoints(cx, cy, s*0.46, s*0.22)}
+                      fill={c.color1} clipPath={`url(#cp1${uid})`}/>
+                    {/* Second inner star ring (decoration) */}
+                    <polygon points={starPoints(cx, cy, s*0.44, s*0.2)}
+                      fill="none" stroke={ct} strokeWidth="0.8" opacity="0.2"
+                      clipPath={`url(#cp1${uid})`}/>
+                    {/* Inner circle */}
+                    <circle cx={cx} cy={cy} r={s*0.23} fill={c.color2||c.color1}/>
+                    <circle cx={cx} cy={cy} r={s*0.22} fill="none" stroke={ct} strokeWidth="1" opacity="0.25"/>
+                    {/* Icon above initials */}
+                    <text x={cx} y={cy*0.82} textAnchor="middle" fontSize={s*0.18}>{c.icon||"💡"}</text>
+                    {/* Initials */}
+                    <text x={cx} y={cy*1.24} textAnchor="middle" fontSize={s*0.22} fontWeight="900"
+                      fill={ct} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
+                    {/* Decorative corner dots (zellige accent) */}
+                    {[[s*0.12,s*0.12],[s*0.88,s*0.12],[s*0.88,s*0.88],[s*0.12,s*0.88]].map(([dx,dy],i) => (
+                      <circle key={i} cx={dx} cy={dy} r={s*0.035} fill={c.color1} opacity="0.55"
+                        clipPath={`url(#cp1${uid})`}/>
+                    ))}
+                    {/* Tagline below star */}
+                    <text x={cx} y={s*0.97} textAnchor="middle" fontSize={s*0.06} fill={c.color1}
+                      opacity="0.85" fontFamily="Arial,sans-serif" fontWeight="700" letterSpacing="0.5">
+                      {(c.tagline||"").slice(0,24).toUpperCase()}
+                    </text>
                   </svg>
                 );
+
+                // ── Style 2: Dynamic Diagonal Split ──
+                // Bold diagonal split: top-left color1 / bottom-right color2
+                // Initial on top half, icon on bottom half, dynamic tension
                 return (
-                  <svg key={idx} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-                    <polygon points={`${cx},${s*0.04} ${s*0.96},${s*0.3} ${s*0.96},${s*0.7} ${cx},${s*0.96} ${s*0.04},${s*0.7} ${s*0.04},${s*0.3}`} fill={c.color1}/>
-                    <polygon points={`${cx},${s*0.1} ${s*0.9},${s*0.32} ${s*0.9},${s*0.68} ${cx},${s*0.9} ${s*0.1},${s*0.68} ${s*0.1},${s*0.32}`} fill="none" stroke={c.colorText||"#FFFFFF"} strokeWidth="1" opacity="0.22"/>
-                    <text x={cx} y={cy*0.85} textAnchor="middle" fontSize={s*0.2}>{c.icon||"💡"}</text>
-                    <text x={cx} y={cy*1.22} textAnchor="middle" fontSize={s*0.23} fontWeight="900" fill={c.colorText||"#FFFFFF"} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
-                    <text x={cx} y={s*0.86} textAnchor="middle" fontSize={s*0.053} fill={c.colorText||"#FFFFFF"} opacity="0.85" fontFamily="Arial,sans-serif" letterSpacing="1">{(c.tagline||"").slice(0,22).toUpperCase()}</text>
+                  <svg key={uid} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
+                    <defs>
+                      <clipPath id={`cp2a${uid}`}>
+                        <polygon points={`0,0 ${s},0 0,${s}`}/>
+                      </clipPath>
+                      <clipPath id={`cp2b${uid}`}>
+                        <polygon points={`${s},0 ${s},${s} 0,${s}`}/>
+                      </clipPath>
+                      <clipPath id={`cp2r${uid}`}>
+                        <rect width={s} height={s} rx={s*0.14} ry={s*0.14}/>
+                      </clipPath>
+                    </defs>
+                    {/* Base rounded rect */}
+                    <rect width={s} height={s} rx={s*0.14} fill={c.color1}/>
+                    {/* Bottom-right triangle in color2 */}
+                    <polygon points={`${s*1.05},${-s*0.05} ${s*1.05},${s*1.05} ${-s*0.05},${s*1.05}`}
+                      fill={c.color2||c.color1+"99"} clipPath={`url(#cp2r${uid})`}/>
+                    {/* Diagonal divider glow */}
+                    <line x1={-s*0.1} y1={s*1.1} x2={s*1.1} y2={-s*0.1}
+                      stroke="#FFFFFF" strokeWidth={s*0.022} opacity="0.18" clipPath={`url(#cp2r${uid})`}/>
+                    {/* Large initial top-left half */}
+                    <text x={cx*0.68} y={cy*1.05} textAnchor="middle" fontSize={s*0.38} fontWeight="900"
+                      fill={ct} fontFamily="Arial Black,sans-serif" clipPath={`url(#cp2a${uid})`}
+                      opacity="0.95">{(c.initials||"?")[0]}</text>
+                    {/* Icon bottom-right half */}
+                    <text x={cx*1.38} y={cy*1.48} textAnchor="middle" fontSize={s*0.28}
+                      clipPath={`url(#cp2b${uid})`}>{c.icon||"💡"}</text>
+                    {/* Accent dot */}
+                    <circle cx={cx} cy={cy} r={s*0.055} fill="#FFFFFF" opacity="0.9"/>
+                    {/* Tagline at bottom */}
+                    <text x={cx} y={s*0.94} textAnchor="middle" fontSize={s*0.058} fill={ct}
+                      opacity="0.85" fontFamily="Arial,sans-serif" fontWeight="700" letterSpacing="1"
+                      clipPath={`url(#cp2r${uid})`}>
+                      {(c.tagline||"").slice(0,22).toUpperCase()}
+                    </text>
                   </svg>
                 );
               };
