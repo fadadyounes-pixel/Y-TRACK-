@@ -2,8 +2,8 @@ import { Analytics } from '@vercel/analytics/next';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Y-TRACK Admin Dashboard',
-  description: 'A multi-tenant Monitoring & Evaluation system for youth platforms',
+  title: 'IdeaMap',
+  description: 'De l\'idée au projet financé — Plateforme INDH Phase 3',
 };
 
 export default function RootLayout({
