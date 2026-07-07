@@ -1247,7 +1247,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
 - Secteurs éligibles: Agriculture/Élevage, Artisanat, Commerce/Services, Agro-alimentaire, Tourisme rural, Numérique/TIC, Textile/Couture, BTP, Éducation/Formation, Pêche.
 - Critères jury (100 pts): Impact social 25pts · Viabilité économique 20pts · Pertinence territoriale 20pts · Capacité gestion 15pts · Durabilité 10pts · Innovation 10pts.
 - Porteurs prioritaires: femmes, jeunes 18-35 ans, zones rurales défavorisées.
-- Structure juridique: association loi 1958, coopérative, GIE ou groupe informel en cours de formalisation.`;
+- Public cible: porteurs individuels et micro-entrepreneurs. Cadre: entrepreneuriat individuel, association simple ou groupe informel en cours de formalisation.
+- IMPORTANT: Ne jamais suggérer coopérative ou GIE dans les réponses — ce sont des choix avancés que le porteur sélectionne lui-même s'il le souhaite.`;
 
   const startChat = async () => {
     if (!idea.trim()) return;
@@ -1256,7 +1257,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     const r = await ai([{role: "user", content: lang === "ar" ? `فكرتي: ${idea}` : `Mon idée: ${idea}`}],
       `Tu es le Conseiller — expert bienveillant de l'INDH Phase 3 Maroc.
 ${INDH_CTX}
-Le porteur vient de partager son idée. Les porteurs ont souvent un faible niveau d'instruction — sois très simple, chaleureux, encourageant. Pose UNE seule question TRÈS courte sur: nombre de bénéficiaires, zone géographique, ou type de structure juridique envisagée.${arNote}
+Le porteur vient de partager son idée. Les porteurs ont souvent un faible niveau d'instruction — sois très simple, chaleureux, encourageant. Pose UNE seule question TRÈS courte sur: nombre de bénéficiaires ou zone géographique.
+Règle absolue sur les SUGGESTIONS: propose uniquement des réponses orientées entrepreneuriat individuel (ex: "Individuel", "2-5 personnes", "Mon quartier"...). Ne propose JAMAIS coopérative, GIE, ou association comme suggestion.${arNote}
 
 Format de réponse OBLIGATOIRE:
 QUESTION: [question très courte et simple en ${LL}]
@@ -1281,8 +1283,9 @@ ${INDH_CTX}
 Idée originale: "${idea}". Question ${qN}/${MAX_Q}. Porteurs à faible niveau d'instruction — sois très simple et direct.${arNote}
 ${last
   ? `Analyse la conversation complète et retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
-{"projectName":"nom du projet en ${LL}","sector":"secteur INDH exact","legalStructure":"structure juridique","location":"ville ou région Maroc","beneficiaries":N,"activities":["activité 1","activité 2","activité 3"],"strengths":["force 1","force 2"],"estimatedBudget":N,"pillar":"axe INDH le plus pertinent"}`
+{"projectName":"nom du projet en ${LL}","sector":"secteur INDH exact","legalStructure":"porteur individuel ou groupe informel","location":"ville ou région Maroc","beneficiaries":N,"activities":["activité 1","activité 2","activité 3"],"strengths":["force 1","force 2"],"estimatedBudget":N,"pillar":"axe INDH le plus pertinent"}`
   : `Pose UNE question TRÈS courte et simple (max 1 phrase) sur un point précis qui maximise le score jury: impact social, viabilité, pertinence territoriale, durabilité.
+Règle absolue sur les SUGGESTIONS: uniquement des réponses orientées entrepreneuriat individuel. Ne jamais inclure coopérative, GIE ou association dans les suggestions.
 
 Format OBLIGATOIRE:
 QUESTION: [question en ${LL}]
@@ -1404,22 +1407,22 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   "Je veux créer une activité d'artisanat avec des femmes de mon quartier",
                   "Je veux lancer un projet d'élevage de poulets pour les jeunes de la région",
                   "Je veux ouvrir un atelier de couture pour former des femmes au chômage",
-                  "Je veux créer une coopérative agricole pour les agriculteurs de ma commune",
                   "Je veux démarrer une activité de vente de produits du terroir locaux",
+                  "Je veux ouvrir un salon de coiffure dans mon quartier",
                 ],
                 ar: [
                   "أريد إنشاء نشاط للصناعة التقليدية مع نساء حيّنا",
                   "أريد إطلاق مشروع تربية الدواجن للشباب في المنطقة",
                   "أريد فتح ورشة خياطة لتكوين النساء العاطلات عن العمل",
-                  "أريد إنشاء تعاونية فلاحية لفلاحي جماعتنا",
                   "أريد بيع المنتجات المحلية والتقليدية في منطقتي",
+                  "أريد فتح صالون حلاقة في حيّي",
                 ],
                 en: [
                   "I want to create a craft activity with women from my neighborhood",
                   "I want to launch a poultry farming project for local youth",
                   "I want to open a sewing workshop to train unemployed women",
-                  "I want to create an agricultural cooperative for farmers in my commune",
                   "I want to sell local traditional products in my region",
+                  "I want to open a hair salon in my neighborhood",
                 ],
               };
               const list = starters[lang] || starters.fr;
