@@ -1398,12 +1398,12 @@ ${INDH_CTX}
 Le porteur vient de partager son idée. Fais 2 choses:
 1. BRIEF: résume en 1-2 phrases MAX ce que tu as compris du projet (secteur + zone si mentionnée). MAX 25 mots.
 2. QUESTION: pose UNE question très courte sur QUI va bénéficier — critère "impact social" (25 pts jury). MAX 12 mots.
-3. SUGGESTIONS: 4 profils de bénéficiaires RÉELS et SPÉCIFIQUES au Maroc. Jamais coopérative/GIE.${arNote}
+3. SUGGESTIONS: 3 profils de bénéficiaires RÉELS et SPÉCIFIQUES au Maroc. Jamais coopérative/GIE.${arNote}
 
 Format STRICT — respecte EXACTEMENT ces 3 lignes:
 BRIEF: [1-2 phrases max en ${LL} — secteur + zone]
 QUESTION: [question directe en ${LL} — max 12 mots]
-SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}] | [profil D en ${LL}]`,
+SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}]`,
       "dialogue");
     const { brief: b, question, suggs } = parseQS(r);
     setBrief(b);
@@ -1421,11 +1421,11 @@ SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}] | [
     const last = qN >= MAX_Q;
     const arNote = lang === "ar" ? "\nمهم: استخدم العربية الفصحى البسيطة السليمة، جمل قصيرة، لا دارجة." : "";
     const questionArc: Record<number, string> = {
-      2: `Q${qN} — PROBLÈME LOCAL: Pose une question TRÈS courte sur le problème concret dans cette zone (chômage, manque de service, produit introuvable). MAX 12 mots. BRIEF: rappelle ce que tu as compris des bénéficiaires. 4 SUGGESTIONS: problèmes locaux précis au Maroc (ex: "Pas de salon dans le douar", "40% jeunes sans emploi", "Aucun atelier à 30km", "Marché dominé par revendeurs").`,
-      3: `Q${qN} — REVENU: Pose une question TRÈS courte sur le canal de vente et les prix. MAX 12 mots. BRIEF: synthèse bénéficiaires + problème. 4 SUGGESTIONS: canaux concrets marocains (ex: "Souk hebdomadaire + WhatsApp", "Commandes livraison quartier", "Épiceries en dépôt-vente", "Marché clients directs").`,
-      4: `Q${qN} — EXPÉRIENCE: Pose une question TRÈS courte sur la compétence/expérience du porteur. MAX 12 mots. BRIEF: synthèse projet jusqu'ici. 4 SUGGESTIONS: savoir-faire locaux valorisants (ex: "5 ans couture à domicile", "Appris avec ma mère artisane", "Formation OFPPT 6 mois", "Aidais mon père commerçant").`,
+      2: `Q${qN} — PROBLÈME LOCAL: Pose une question TRÈS courte sur le problème concret dans cette zone (chômage, manque de service, produit introuvable). MAX 12 mots. BRIEF: rappelle ce que tu as compris des bénéficiaires. 3 SUGGESTIONS: problèmes locaux précis au Maroc (ex: "Pas de salon dans le douar", "40% jeunes sans emploi", "Aucun atelier à 30km").`,
+      3: `Q${qN} — REVENU: Pose une question TRÈS courte sur le canal de vente et les prix. MAX 12 mots. BRIEF: synthèse bénéficiaires + problème. 3 SUGGESTIONS: canaux concrets marocains (ex: "Souk hebdomadaire + WhatsApp", "Commandes livraison quartier", "Épiceries en dépôt-vente").`,
+      4: `Q${qN} — EXPÉRIENCE: Pose une question TRÈS courte sur la compétence/expérience du porteur. MAX 12 mots. BRIEF: synthèse projet jusqu'ici. 3 SUGGESTIONS: savoir-faire locaux valorisants (ex: "5 ans couture à domicile", "Appris avec ma mère artisane", "Formation OFPPT 6 mois").`,
     };
-    const arcInstruction = questionArc[qN] || `Q${qN}: Pose une question courte sur pertinence territoriale ou durabilité après INDH. MAX 12 mots. BRIEF: ce que tu as compris. 4 SUGGESTIONS réalistes maroc.`;
+    const arcInstruction = questionArc[qN] || `Q${qN}: Pose une question courte sur pertinence territoriale ou durabilité après INDH. MAX 12 mots. BRIEF: ce que tu as compris. 3 SUGGESTIONS réalistes maroc.`;
 
     const r = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
       `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain, tu connais les vrais porteurs marocains.
@@ -1438,7 +1438,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
   : `Format STRICT — respecte EXACTEMENT ces 3 lignes:
 BRIEF: [1-2 phrases max en ${LL} qui synthétisent ce que tu as retenu jusqu'ici — max 25 mots]
 QUESTION: [question directe en ${LL} — max 12 mots]
-SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}] | [réponse D en ${LL}]`}`,
+SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}]`}`,
       last ? "json" : "dialogue");
     if (last) {
       setBrief(""); setCurrentQ(""); setSuggestions([]);
@@ -1690,7 +1690,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
             {/* Full-width answer bars */}
             {suggestions.length > 0 && !busy && (() => {
-              const labels = ["A", "B", "C", "D"];
+              const labels = ["A", "B", "C"];
               return (
                 <div style={{display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px"}}>
                   {suggestions.map((s, i) => (
