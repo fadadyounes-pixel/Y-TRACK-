@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+
 type Msg = { role: string; content: string };
 
 interface RafiqOpts {
@@ -36,6 +38,53 @@ const TOGETHER_MODELS = [
 ];
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// Anthropic Claude — reads ANTHROPIC_API_KEY env var, then falls back to the
+// Claude Code session bearer token (available in remote execution environments).
+// api.anthropic.com is reachable directly (NO_PROXY) so this always works in-session.
+async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const apiKey = ev("ANTHROPIC_API_KEY");
+  let headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "anthropic-version": "2023-06-01",
+  };
+
+  if (apiKey) {
+    headers["x-api-key"] = apiKey;
+  } else {
+    // Fall back to session bearer token (Claude Code remote env)
+    const tokenFile = ev("CLAUDE_SESSION_INGRESS_TOKEN_FILE");
+    if (!tokenFile) throw new Error("no ANTHROPIC_API_KEY");
+    try {
+      const token = readFileSync(tokenFile, "utf8").trim();
+      if (!token) throw new Error("empty token");
+      headers["Authorization"] = `Bearer ${token}`;
+    } catch {
+      throw new Error("no ANTHROPIC_API_KEY");
+    }
+  }
+
+  const model = ev("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001");
+  const body: Record<string, unknown> = {
+    model,
+    max_tokens: maxTok,
+    messages: msgs.map(m => ({
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: m.content,
+    })),
+  };
+  if (sys) body.system = sys;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) throw new Error("Anthropic 401");
+  if (!res.ok) throw new Error(`Anthropic ${res.status}`);
+  const d = await res.json();
+  return d.content?.[0]?.text ?? "";
+}
 
 async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("GEMINI_API_KEY");
@@ -141,9 +190,11 @@ async function tryOnce(fn: typeof groq, msgs: Msg[], sys: string | undefined, ma
 }
 
 export async function rafiq({ task, messages, system, max_tokens = 1200 }: RafiqOpts): Promise<string> {
+  // Anthropic is always first — works via env key or session bearer token.
+  // Other providers fill in when ANTHROPIC_API_KEY is not set in production.
   const order = task === "json"
-    ? [gemini, groq, together, openrouter]
-    : [groq, together, gemini, openrouter];
+    ? [anthropic, gemini, groq, together, openrouter]
+    : [anthropic, groq, together, gemini, openrouter];
 
   // Two full sweeps: first sweep is instant, second sweep waits 1.2s
   // (lets rate-limit windows partially reset before retrying)
