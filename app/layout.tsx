@@ -1,20 +1,19 @@
 import { Analytics } from '@vercel/analytics/next';
 import type { Metadata } from 'next';
+import { AuthProvider } from '../contexts/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'IdeaMap',
-  description: 'De l\'idée au projet financé — Plateforme INDH Phase 3',
+  title: 'TalentMap',
+  description: 'Plateforme intelligente de gestion des talents — Maroc',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="fr">
       <body>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <Analytics />
       </body>
     </html>
