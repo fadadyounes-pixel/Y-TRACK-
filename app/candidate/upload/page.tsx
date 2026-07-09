@@ -1,396 +1,375 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import PageHeader from '../../../components/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 
-const NAVY = '#0a1f5c';
-const BLUE = '#2563eb';
-const SKY  = '#38bdf8';
-const WH   = '#ffffff';
-const BG   = '#f0f4ff';
-const GR   = '#6b7280';
-const GN   = '#22c55e';
-const RE   = '#ef4444';
-const BORDER = '#dde4f0';
+const SKILL_SUGGESTIONS = ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'SQL', 'Django', 'Machine Learning', 'TensorFlow', 'Docker', 'AWS', 'Figma', 'Java', 'Spring Boot', 'GraphQL'];
 
-const SKILL_SUGGESTIONS = [
-  'JavaScript','React','Node.js','Python','SQL','Git','HTML/CSS','PHP',
-  'Gestion de projet','Marketing digital','Excel','Communication',
-  'Leadership','Vente','Service client','Comptabilité',
-  'AutoCAD','Maçonnerie','Plomberie','Électricité',
-  'Couture','Design','Artisanat','Broderie',
-];
+interface WorkEntry { company: string; title: string; startDate: string; endDate: string; description: string; }
+
+function generateCVHtml(data: {
+  name: string; email: string; phone: string; address: string; idNumber: string;
+  summary: string; skills: string[]; languages: string[];
+  experience: string; sector: string;
+  work: WorkEntry[]; education: { degree: string; institution: string; year: string };
+}) {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<title>${data.name} — CV</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f9fafb;color:#1f2937}
+.wrap{max-width:800px;margin:2rem auto;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.1);overflow:hidden}
+.hdr{background:linear-gradient(135deg,#0a1f5c,#2563eb);padding:2.5rem 2rem;color:#fff}
+.hdr h1{font-size:2rem;font-weight:800;letter-spacing:-.02em}
+.hdr p{margin-top:.35rem;opacity:.75;font-size:.95rem}
+.body{padding:2rem}
+.sec{margin-bottom:1.75rem}
+.sec-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#2563eb;border-bottom:2px solid #dbeafe;padding-bottom:.4rem;margin-bottom:1rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.item label{font-size:.75rem;color:#6b7280;font-weight:600}
+.item p{font-size:.95rem;color:#111827;margin-top:.15rem}
+.pills{display:flex;flex-wrap:wrap;gap:.5rem}
+.pill{background:#eff6ff;color:#1d4ed8;border-radius:9999px;padding:.3rem .9rem;font-size:.82rem;font-weight:600}
+.pill.lang{background:#f0fdf4;color:#065f46}
+.badge{display:inline-block;background:#f3f4f6;color:#374151;border-radius:9999px;padding:.35rem 1rem;font-size:.85rem;font-weight:600}
+.work-entry{padding:.75rem;background:#f9fafb;border-radius:8px;margin-bottom:.75rem;border-left:3px solid #2563eb}
+.work-entry h4{font-size:.95rem;font-weight:700;color:#111827}
+.work-entry .meta{font-size:.8rem;color:#6b7280;margin:.25rem 0}
+.work-entry p{font-size:.88rem;color:#374151;line-height:1.6}
+.footer{text-align:center;padding:1rem;font-size:.75rem;color:#9ca3af;border-top:1px solid #f3f4f6}
+</style></head><body>
+<div class="wrap">
+  <div class="hdr"><h1>${data.name}</h1><p>${data.experience} &bull; ${data.sector}</p></div>
+  <div class="body">
+    <div class="sec">
+      <div class="sec-title">Personal Information</div>
+      <div class="grid2">
+        <div class="item"><label>Full Name</label><p>${data.name}</p></div>
+        <div class="item"><label>ID Number</label><p>${data.idNumber}</p></div>
+        <div class="item"><label>Email</label><p>${data.email}</p></div>
+        <div class="item"><label>Phone</label><p>${data.phone}</p></div>
+        ${data.address ? `<div class="item" style="grid-column:1/-1"><label>Address</label><p>${data.address}</p></div>` : ''}
+      </div>
+    </div>
+    ${data.summary ? `<div class="sec"><div class="sec-title">Professional Summary</div><p style="color:#374151;line-height:1.7;font-size:.95rem">${data.summary}</p></div>` : ''}
+    ${data.work.some(w => w.company) ? `<div class="sec"><div class="sec-title">Work Experience</div>${data.work.filter(w=>w.company).map(w=>`<div class="work-entry"><h4>${w.title}</h4><div class="meta">${w.company} &bull; ${w.startDate}${w.endDate ? ' – '+w.endDate : ' – Present'}</div>${w.description?`<p>${w.description}</p>`:''}</div>`).join('')}</div>` : ''}
+    ${data.education.degree ? `<div class="sec"><div class="sec-title">Education</div><div class="work-entry"><h4>${data.education.degree}</h4><div class="meta">${data.education.institution}${data.education.year?' &bull; '+data.education.year:''}</div></div></div>` : ''}
+    ${data.skills.length ? `<div class="sec"><div class="sec-title">Skills</div><div class="pills">${data.skills.map(s=>`<span class="pill">${s}</span>`).join('')}</div></div>` : ''}
+    ${data.languages.length ? `<div class="sec"><div class="sec-title">Languages</div><div class="pills">${data.languages.map(l=>`<span class="pill lang">${l}</span>`).join('')}</div></div>` : ''}
+    <div class="sec"><div class="sec-title">Experience Level</div><span class="badge">${data.experience}</span></div>
+  </div>
+  <div class="footer">Generated by TalentMap &bull; ${new Date().toLocaleDateString('en-GB')}</div>
+</div></body></html>`;
+}
 
 export default function CandidateUpload() {
-  const { user, logout, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<'upload' | 'template'>('template');
-  const [uploading, setUploading] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState<'upload' | 'template'>('upload');
+  const [dragging, setDragging] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; size: string; status: 'done' | 'processing' }[]>([]);
+  const [saved, setSaved] = useState(false);
 
-  const [form, setForm] = useState({
-    name: '', email: '', phone: '', address: '', summary: '',
-    sector: '', region: '',
-    exp1Title: '', exp1Company: '', exp1Duration: '', exp1Desc: '',
-    exp2Title: '', exp2Company: '', exp2Duration: '', exp2Desc: '',
-    education: '', eduYear: '',
-  });
+  // Template form state
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [summary, setSummary] = useState('');
+  const [experience, setExperience] = useState('Mid-Level');
+  const [sector, setSector] = useState('Technology');
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
-  const [languages, setLanguages] = useState<string[]>(['Arabe']);
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [langInput, setLangInput] = useState('');
+  const [work, setWork] = useState<WorkEntry[]>([{ company: '', title: '', startDate: '', endDate: '', description: '' }]);
+  const [education, setEducation] = useState({ degree: '', institution: '', year: '' });
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== 'candidate')) router.push('/login');
-    if (user) {
-      setForm(p => ({ ...p, name: user.name, email: user.email, phone: user.phone ?? '' }));
-    }
-  }, [user, loading, router]);
+    if (!user || user.role !== 'candidate') { router.push('/login'); return; }
+    setName(user.name);
+    setEmail(user.email);
+  }, [user, router]);
 
-  if (loading || !user) return null;
+  if (!user || user.role !== 'candidate') return null;
 
-  function addSkill(s: string) {
-    const v = s.trim();
-    if (v && !skills.includes(v)) setSkills(p => [...p, v]);
+  function formatBytes(b: number) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    return (b / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function handleFiles(files: FileList) {
+    const arr = Array.from(files);
+    const newFiles = arr.map(f => ({ name: f.name, size: formatBytes(f.size), status: 'processing' as const }));
+    setUploadedFiles(prev => [...prev, ...newFiles]);
+    newFiles.forEach((_, i) => {
+      setTimeout(() => {
+        setUploadedFiles(prev => prev.map((f, fi) => fi === uploadedFiles.length + i ? { ...f, status: 'done' } : f));
+      }, 1400 + i * 500);
+    });
+  }
+
+  function addSkill(sk: string) {
+    const s = sk.trim();
+    if (s && !skills.includes(s)) setSkills(prev => [...prev, s]);
     setSkillInput('');
   }
 
-  function generateCVHtml(): string {
-    return `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="UTF-8"><title>CV — ${form.name}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',sans-serif;background:#f8faff}
-.container{max-width:820px;margin:0 auto;background:#fff;box-shadow:0 0 40px rgba(0,0,0,.1)}
-.header{background:linear-gradient(135deg,#0a1f5c,#2563eb);padding:36px 40px;color:#fff;display:flex;gap:20px;align-items:center}
-.avatar{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;flex-shrink:0}
-.name{font-size:24px;font-weight:800;margin-bottom:4px}
-.contact{font-size:12px;opacity:.75;margin-top:4px}
-.body{display:grid;grid-template-columns:1fr 260px}
-.main{padding:32px 36px}
-.sidebar{background:#f0f4ff;padding:28px 22px;border-left:3px solid #2563eb}
-h2{font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 12px;padding-bottom:6px;border-bottom:2px solid #dde4ff}
-.bio{font-size:13px;line-height:1.75;color:#555;margin-bottom:24px}
-.exp{padding-left:12px;border-left:3px solid #2563eb;margin-bottom:14px}
-.exp-title{font-size:14px;font-weight:700;color:#0a1f5c}
-.exp-meta{font-size:11px;color:#6b7280;margin-bottom:4px}
-.exp-desc{font-size:12px;line-height:1.6;color:#555}
-.pill{display:inline-block;padding:4px 12px;border-radius:20px;background:#dde4ff;color:#0a1f5c;font-size:11px;font-weight:600;margin:2px}
-.lang{font-size:12px;color:#444;margin-bottom:5px}
-@media print{body{background:#fff}.container{box-shadow:none}}
-</style></head><body>
-<div class="container">
-<div class="header">
-  <div class="avatar">${(form.name || 'C')[0]}</div>
-  <div>
-    <div class="name">${form.name}</div>
-    <div style="font-size:13px;opacity:.8;margin-bottom:6px">${form.sector}</div>
-    <div class="contact">📧 ${form.email} · 📞 ${form.phone} · 📍 ${form.address || form.region}</div>
-  </div>
-</div>
-<div class="body">
-  <div class="main">
-    ${form.summary ? `<h2>Profil</h2><p class="bio">${form.summary}</p>` : ''}
-    ${form.exp1Title ? `<h2>Expérience Professionnelle</h2>
-    <div class="exp">
-      <div class="exp-title">${form.exp1Title}</div>
-      <div class="exp-meta">${form.exp1Company} · ${form.exp1Duration}</div>
-      <div class="exp-desc">${form.exp1Desc}</div>
-    </div>` : ''}
-    ${form.exp2Title ? `<div class="exp">
-      <div class="exp-title">${form.exp2Title}</div>
-      <div class="exp-meta">${form.exp2Company} · ${form.exp2Duration}</div>
-      <div class="exp-desc">${form.exp2Desc}</div>
-    </div>` : ''}
-    ${form.education ? `<h2>Formation</h2>
-    <div class="exp">
-      <div class="exp-title">${form.education}</div>
-      <div class="exp-meta">${form.eduYear}</div>
-    </div>` : ''}
-  </div>
-  <div class="sidebar">
-    ${skills.length > 0 ? `<h2>Compétences</h2><div style="margin-bottom:20px">
-      ${skills.map(s => `<span class="pill">${s}</span>`).join('')}
-    </div>` : ''}
-    ${languages.length > 0 ? `<h2>Langues</h2>
-      ${languages.map(l => `<div class="lang">• ${l}</div>`).join('')}` : ''}
-    <div style="margin-top:20px">
-      <h2>Infos</h2>
-      ${form.region ? `<div class="lang">📍 ${form.region}</div>` : ''}
-      ${form.sector ? `<div class="lang">🏭 ${form.sector}</div>` : ''}
-    </div>
-  </div>
-</div>
-</div></body></html>`;
+  function addLang(l: string) {
+    const s = l.trim();
+    if (s && !languages.includes(s)) setLanguages(prev => [...prev, s]);
+    setLangInput('');
   }
 
-  function downloadCV() {
-    const html = generateCVHtml();
-    const a = Object.assign(document.createElement('a'), {
-      href: URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })),
-      download: `CV_${(form.name || user.name).replace(/\s+/g,'_')}.html`,
-    });
-    a.click();
+  function updateWork(i: number, field: keyof WorkEntry, val: string) {
+    setWork(prev => prev.map((w, wi) => wi === i ? { ...w, [field]: val } : w));
   }
 
-  async function analyzeWithAI(content: string) {
-    setAnalyzing(true);
-    try {
-      const r = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: `Analyse ce CV et donne 3 points forts et 3 suggestions d'amélioration concrètes:\n\n${content}` }],
-          system: 'Tu es un expert RH marocain. Analyse les CVs en français. Sois concis et pratique. Format: ✅ Forces: [3 points] · 💡 Améliorations: [3 points]',
-          task: 'dialogue',
-        }),
-      });
-      const d = await r.json();
-      setAiAnalysis(d.content?.[0]?.text || null);
-    } catch {
-      setAiAnalysis('Analyse IA temporairement indisponible.');
-    }
-    setAnalyzing(false);
+  function handleSaveDownload() {
+    const html = generateCVHtml({ name, email, phone, address, idNumber: user?.idNumber ?? '', summary, skills, languages, experience, sector, work, education });
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${name.replace(/\s+/g, '_')}_CV.html`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
-  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    // Read text content for AI analysis
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const content = ev.target?.result as string;
-      setUploading(false);
-      analyzeWithAI(content.slice(0, 2000));
-    };
-    reader.onerror = () => setUploading(false);
-    if (file.type === 'text/plain') reader.readAsText(file);
-    else {
-      // For PDF/Word — just use filename as context for now
-      setUploading(false);
-      analyzeWithAI(`CV de ${user.name} - Fichier: ${file.name} - Secteur: ${user.sector || 'non précisé'}`);
-    }
+  function handleSave() {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   }
 
-  const inp = (field: keyof typeof form, placeholder: string, multiline?: boolean) => {
-    const style: React.CSSProperties = {
-      width: '100%', padding: '11px 14px', borderRadius: 11,
-      border: `2px solid ${form[field] ? BLUE : BORDER}`,
-      background: form[field] ? '#f0f6ff' : WH,
-      fontSize: 13, color: NAVY, resize: multiline ? 'vertical' : undefined,
-      minHeight: multiline ? 80 : undefined, transition: 'all .18s', boxSizing: 'border-box',
-    };
-    if (multiline) return <textarea value={form[field]} placeholder={placeholder}
-      onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
-      style={style} rows={3}/>;
-    return <input value={form[field]} placeholder={placeholder}
-      onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))} style={style}/>;
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.6rem 0.9rem', border: '1.5px solid #e5e7eb',
+    borderRadius: '8px', fontSize: '0.9rem', color: '#111827', background: 'white',
+    fontFamily: 'inherit',
   };
-
-  const label = (text: string) => (
-    <label style={{ display: 'block', fontSize: 9, fontWeight: 700, color: GR,
-      textTransform: 'uppercase', letterSpacing: .8, marginBottom: 5 }}>{text}</label>
-  );
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' };
 
   return (
-    <div style={{ minHeight: '100vh', background: BG, fontFamily: "'Poppins',sans-serif" }}>
-      {/* Header */}
-      <div style={{ background: NAVY, height: 58, display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', padding: '0 24px', position: 'sticky', top: 0, zIndex: 200,
-        boxShadow: '0 2px 16px rgba(10,31,92,.3)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => router.back()} style={{ background: 'rgba(255,255,255,.1)',
-            border: 'none', color: WH, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12 }}>
-            ← Retour
-          </button>
-          <span style={{ fontSize: 15, fontWeight: 700, color: WH }}>Mettre à jour mon CV</span>
-        </div>
-        <button onClick={logout} style={{ padding: '5px 12px', borderRadius: 8,
-          border: '1px solid rgba(255,255,255,.15)', background: 'transparent',
-          color: 'rgba(255,255,255,.5)', fontSize: 11, cursor: 'pointer' }}>Déconnexion</button>
+    <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      <div style={{ position: 'relative' }}>
+        <PageHeader title="TalentMap" subtitle="Candidate Portal" />
       </div>
 
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 18px 80px' }}>
-        {/* Tab switcher */}
-        <div style={{ background: WH, borderRadius: 14, padding: 6, display: 'flex', gap: 4,
-          marginBottom: 20, border: `1px solid ${BORDER}` }}>
-          {[{ id: 'template', label: '✏️ Remplir le template' }, { id: 'upload', label: '📁 Importer un fichier' }].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id as any)} style={{
-              flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: tab === t.id ? `linear-gradient(135deg,${BLUE},${NAVY})` : 'transparent',
-              color: tab === t.id ? WH : GR, fontSize: 13, fontWeight: tab === t.id ? 700 : 500,
-            }}>{t.label}</button>
+      <div className="container" style={{ maxWidth: '860px', padding: '2rem 1.5rem' }}>
+        <Link href="/candidate" style={{ fontSize: '0.875rem', color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1.25rem' }}>
+          ← Back to My Profile
+        </Link>
+        <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#111827', marginBottom: '0.35rem' }}>Upload / Update CV</h1>
+        <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>Upload a file or fill in the template below.</p>
+
+        {/* Mode tabs */}
+        <div style={{ display: 'flex', gap: '0', marginBottom: '1.75rem', border: '1.5px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', width: 'fit-content' }}>
+          {(['upload', 'template'] as const).map(m => (
+            <button key={m} onClick={() => setMode(m)} style={{
+              padding: '0.6rem 1.5rem', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', border: 'none',
+              background: mode === m ? '#2563eb' : 'white',
+              color: mode === m ? 'white' : '#6b7280',
+              transition: 'all 0.15s',
+            }}>
+              {m === 'upload' ? '📁 Upload File' : '✏️ Fill Template'}
+            </button>
           ))}
         </div>
 
-        {tab === 'upload' && (
-          <div style={{ background: WH, borderRadius: 16, padding: '28px 24px',
-            border: `1px solid ${BORDER}`, boxShadow: '0 2px 12px rgba(10,31,92,.06)' }}>
-            <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-              padding: '48px 24px', borderRadius: 14, border: `2px dashed ${BLUE}`,
-              background: BG, cursor: 'pointer' }}>
-              <span style={{ fontSize: 48 }}>{uploading ? '⏳' : '📄'}</span>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 4 }}>
-                  {uploading ? 'Chargement...' : 'Glissez votre CV ici'}
-                </div>
-                <div style={{ fontSize: 12, color: GR }}>PDF, Word (.docx), JPG, PNG ou TXT</div>
+        {mode === 'upload' && (
+          <div>
+            <div
+              className="card"
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: `2px dashed ${dragging ? '#2563eb' : '#d1d5db'}`,
+                background: dragging ? '#eff6ff' : 'white',
+                borderRadius: '14px', padding: '3rem 2rem', textAlign: 'center', cursor: 'pointer',
+                transition: 'all 0.2s', marginBottom: '1.5rem',
+              }}
+            >
+              <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                style={{ display: 'none' }} onChange={e => e.target.files && handleFiles(e.target.files)} />
+              <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📂</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '0.4rem' }}>Drop your CV here or click to browse</h3>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1.25rem' }}>PDF, Word (.docx), JPG, PNG</p>
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+                {['PDF', 'DOCX', 'DOC', 'JPG', 'PNG'].map(ext => (
+                  <span key={ext} style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, background: '#f3f4f6', color: '#374151' }}>{ext}</span>
+                ))}
               </div>
-              <input type="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" style={{ display: 'none' }}
-                onChange={handleFileUpload} disabled={uploading}/>
-            </label>
-
-            {analyzing && (
-              <div style={{ marginTop: 20, padding: '16px 18px', background: BG, borderRadius: 12,
-                border: `1px solid ${BLUE}33`, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: '50%',
-                    background: BLUE, animation: `bounce 1s ease ${i*.2}s infinite` }}/>)}
+              <button className="btn-primary" onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}>Choose File</button>
+            </div>
+            {uploadedFiles.length > 0 && (
+              <div className="card">
+                <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1rem' }}>Uploaded Files</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {uploadedFiles.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', background: '#f9fafb', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>{f.name.endsWith('.pdf') ? '📄' : f.name.match(/\.(jpg|jpeg|png)$/i) ? '🖼️' : '📝'}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#111827' }}>{f.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{f.size}</div>
+                      </div>
+                      {f.status === 'processing'
+                        ? <span style={{ color: '#f59e0b', fontSize: '0.85rem' }}>⟳ Processing…</span>
+                        : <span style={{ color: '#10b981', fontSize: '0.85rem' }}>✓ Done</span>
+                      }
+                    </div>
+                  ))}
                 </div>
-                <span style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>L'IA analyse votre CV...</span>
-              </div>
-            )}
-
-            {aiAnalysis && !analyzing && (
-              <div style={{ marginTop: 20, padding: '18px 20px', background: BG, borderRadius: 14,
-                border: `2px solid ${BLUE}33` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: BLUE, textTransform: 'uppercase',
-                  letterSpacing: .8, marginBottom: 10 }}>🤖 Analyse IA de votre CV</div>
-                <p style={{ fontSize: 13, color: NAVY, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{aiAnalysis}</p>
               </div>
             )}
           </div>
         )}
 
-        {tab === 'template' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {/* Personal info */}
-            <div style={{ background: WH, borderRadius: 16, padding: '20px 22px',
-              border: `1px solid ${BORDER}`, boxShadow: '0 2px 12px rgba(10,31,92,.06)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ width: 4, height: 20, background: BLUE, borderRadius: 2 }}/>
-                <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Informations personnelles</span>
+        {mode === 'template' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Personal Info */}
+            <div className="card">
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>Personal Information</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                {[
+                  { label: 'Full Name', val: name, set: setName, placeholder: 'Your full name' },
+                  { label: 'Email', val: email, set: setEmail, placeholder: 'email@example.com' },
+                  { label: 'Phone', val: phone, set: setPhone, placeholder: '+212 6 XX XX XX XX' },
+                  { label: 'Address', val: address, set: setAddress, placeholder: 'City, Country' },
+                ].map(({ label, val, set, placeholder }) => (
+                  <div key={label}>
+                    <label style={labelStyle}>{label}</label>
+                    <input value={val} onChange={e => set(e.target.value)} placeholder={placeholder} style={inputStyle} />
+                  </div>
+                ))}
+                <div>
+                  <label style={labelStyle}>ID Number</label>
+                  <input value={user.idNumber} readOnly style={{ ...inputStyle, background: '#f3f4f6', color: '#6b7280' }} />
+                </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>{label('Prénom et Nom')}{inp('name', 'Mohammed Ait Aissa')}</div>
-                <div>{label('Email')}{inp('email', 'vous@email.com')}</div>
-                <div>{label('Téléphone')}{inp('phone', '+212 6 XX XX XX XX')}</div>
-                <div>{label('Secteur cible')}{inp('sector', 'Numérique/TIC')}</div>
-                <div>{label('Région')}{inp('region', 'Casablanca-Settat')}</div>
-                <div>{label('Adresse')}{inp('address', 'Quartier, Ville')}</div>
-              </div>
-              <div style={{ marginTop: 10 }}>{label('Résumé / Profil')}{inp('summary', 'Décrivez votre profil professionnel en 3-4 lignes...', true)}</div>
             </div>
 
-            {/* Experience */}
-            <div style={{ background: WH, borderRadius: 16, padding: '20px 22px',
-              border: `1px solid ${BORDER}`, boxShadow: '0 2px 12px rgba(10,31,92,.06)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ width: 4, height: 20, background: BLUE, borderRadius: 2 }}/>
-                <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Expérience professionnelle</span>
-              </div>
-              <div style={{ marginBottom: 14, padding: '14px 16px', background: BG, borderRadius: 12, border: `1px solid ${BORDER}` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: BLUE, marginBottom: 10 }}>Expérience 1</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 }}>
-                  <div>{label('Poste')}{inp('exp1Title', 'Ex: Développeur Web')}</div>
-                  <div>{label('Entreprise')}{inp('exp1Company', 'Ex: TechMaroc SARL')}</div>
-                  <div style={{ gridColumn: '1/-1' }}>{label('Durée')}{inp('exp1Duration', 'Ex: 2023–2026 (3 ans)')}</div>
+            {/* Summary */}
+            <div className="card">
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>Professional Summary</h2>
+              <textarea value={summary} onChange={e => setSummary(e.target.value)}
+                placeholder="Brief description of your professional background and goals..."
+                rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+
+            {/* Experience + Sector */}
+            <div className="card">
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>Experience & Sector</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={labelStyle}>Experience Level</label>
+                  <select value={experience} onChange={e => setExperience(e.target.value)} style={inputStyle}>
+                    {['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead', 'Manager'].map(l => <option key={l}>{l}</option>)}
+                  </select>
                 </div>
-                {inp('exp1Desc', 'Décrivez vos missions principales...', true)}
-              </div>
-              <div style={{ padding: '14px 16px', background: BG, borderRadius: 12, border: `1px solid ${BORDER}` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: BLUE, marginBottom: 10 }}>Expérience 2 (optionnel)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 }}>
-                  <div>{label('Poste')}{inp('exp2Title', 'Ex: Stagiaire IT')}</div>
-                  <div>{label('Entreprise')}{inp('exp2Company', 'Ex: StartupMaroc')}</div>
+                <div>
+                  <label style={labelStyle}>Sector</label>
+                  <select value={sector} onChange={e => setSector(e.target.value)} style={inputStyle}>
+                    {['Technology', 'Data Science', 'Finance', 'Healthcare', 'Marketing', 'Design', 'Operations', 'Other'].map(s => <option key={s}>{s}</option>)}
+                  </select>
                 </div>
-                {inp('exp2Desc', 'Description...', true)}
+              </div>
+            </div>
+
+            {/* Work Experience */}
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>Work Experience</h2>
+                {work.length < 3 && (
+                  <button onClick={() => setWork(p => [...p, { company: '', title: '', startDate: '', endDate: '', description: '' }])}
+                    style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>
+                    + Add Entry
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {work.map((w, i) => (
+                  <div key={i} style={{ padding: '1rem', background: '#f9fafb', borderRadius: '10px', borderLeft: '3px solid #2563eb' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                      <div><label style={labelStyle}>Company</label><input value={w.company} onChange={e => updateWork(i, 'company', e.target.value)} placeholder="Company name" style={inputStyle} /></div>
+                      <div><label style={labelStyle}>Job Title</label><input value={w.title} onChange={e => updateWork(i, 'title', e.target.value)} placeholder="Your role" style={inputStyle} /></div>
+                      <div><label style={labelStyle}>Start Date</label><input value={w.startDate} onChange={e => updateWork(i, 'startDate', e.target.value)} placeholder="Jan 2022" style={inputStyle} /></div>
+                      <div><label style={labelStyle}>End Date</label><input value={w.endDate} onChange={e => updateWork(i, 'endDate', e.target.value)} placeholder="Present" style={inputStyle} /></div>
+                    </div>
+                    <div><label style={labelStyle}>Description</label><textarea value={w.description} onChange={e => updateWork(i, 'description', e.target.value)} placeholder="Key responsibilities and achievements..." rows={2} style={{ ...inputStyle, resize: 'vertical' }} /></div>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Education */}
-            <div style={{ background: WH, borderRadius: 16, padding: '20px 22px',
-              border: `1px solid ${BORDER}`, boxShadow: '0 2px 12px rgba(10,31,92,.06)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ width: 4, height: 20, background: BLUE, borderRadius: 2 }}/>
-                <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Formation</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
-                <div>{label('Diplôme / Établissement')}{inp('education', 'Ex: Bac+3 Informatique — ENSAM Casablanca')}</div>
-                <div>{label('Année')}{inp('eduYear', 'Ex: 2023')}</div>
+            <div className="card">
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>Education</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                <div><label style={labelStyle}>Degree / Diploma</label><input value={education.degree} onChange={e => setEducation(p => ({ ...p, degree: e.target.value }))} placeholder="Bachelor's in Computer Science" style={inputStyle} /></div>
+                <div><label style={labelStyle}>Institution</label><input value={education.institution} onChange={e => setEducation(p => ({ ...p, institution: e.target.value }))} placeholder="University name" style={inputStyle} /></div>
+                <div><label style={labelStyle}>Year</label><input value={education.year} onChange={e => setEducation(p => ({ ...p, year: e.target.value }))} placeholder="2020" style={inputStyle} /></div>
               </div>
             </div>
 
             {/* Skills */}
-            <div style={{ background: WH, borderRadius: 16, padding: '20px 22px',
-              border: `1px solid ${BORDER}`, boxShadow: '0 2px 12px rgba(10,31,92,.06)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ width: 4, height: 20, background: BLUE, borderRadius: 2 }}/>
-                <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Compétences</span>
+            <div className="card">
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>Skills</h2>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSkill(skillInput); } }}
+                  placeholder="Type a skill and press Enter" style={{ ...inputStyle, flex: 1 }} />
+                <button onClick={() => addSkill(skillInput)} className="btn-primary" style={{ whiteSpace: 'nowrap' }}>Add</button>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                {skills.map((s, i) => (
-                  <span key={i} style={{ padding: '6px 12px', borderRadius: 20, background: BG,
-                    color: NAVY, fontSize: 12, fontWeight: 600, border: `1.5px solid ${BLUE}`,
-                    display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                {skills.map(s => (
+                  <span key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#eff6ff', color: '#1d4ed8', borderRadius: '9999px', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 600 }}>
                     {s}
-                    <button onClick={() => setSkills(p => p.filter((_, x) => x !== i))}
-                      style={{ background: 'none', border: 'none', color: GR, cursor: 'pointer', fontSize: 12, padding: 0 }}>×</button>
+                    <button onClick={() => setSkills(p => p.filter(x => x !== s))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1d4ed8', fontSize: '0.9rem', lineHeight: 1 }}>×</button>
                   </span>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addSkill(skillInput)}
-                  placeholder="Ajouter une compétence..."
-                  style={{ flex: 1, padding: '10px 13px', borderRadius: 10, border: `2px solid ${BORDER}`,
-                    fontSize: 12, color: NAVY, background: BG, boxSizing: 'border-box' }}/>
-                <button onClick={() => addSkill(skillInput)} style={{ padding: '10px 16px', borderRadius: 10,
-                  background: `linear-gradient(135deg,${BLUE},${NAVY})`, border: 'none',
-                  color: WH, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+</button>
-              </div>
-              <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {SKILL_SUGGESTIONS.filter(s => !skills.includes(s)).slice(0, 10).map((s, i) => (
-                  <button key={i} onClick={() => addSkill(s)} style={{ padding: '4px 10px', borderRadius: 14,
-                    border: `1px dashed ${BORDER}`, background: WH, color: GR,
-                    fontSize: 10, cursor: 'pointer' }}>+ {s}</button>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                {SKILL_SUGGESTIONS.filter(s => !skills.includes(s)).map(s => (
+                  <button key={s} onClick={() => addSkill(s)} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '9999px', padding: '0.25rem 0.7rem', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>+ {s}</button>
                 ))}
               </div>
             </div>
 
             {/* Languages */}
-            <div style={{ background: WH, borderRadius: 16, padding: '20px 22px',
-              border: `1px solid ${BORDER}`, boxShadow: '0 2px 12px rgba(10,31,92,.06)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <div style={{ width: 4, height: 20, background: BLUE, borderRadius: 2 }}/>
-                <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Langues</span>
+            <div className="card">
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>Languages</h2>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <input value={langInput} onChange={e => setLangInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLang(langInput); } }}
+                  placeholder="e.g. Arabic, French, English" style={{ ...inputStyle, flex: 1 }} />
+                <button onClick={() => addLang(langInput)} className="btn-primary" style={{ whiteSpace: 'nowrap' }}>Add</button>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {['Arabe', 'Français', 'Anglais', 'Espagnol', 'Tamazight'].map(l => (
-                  <button key={l} onClick={() => setLanguages(p => p.includes(l) ? p.filter(x => x !== l) : [...p, l])}
-                    style={{ padding: '7px 14px', borderRadius: 20,
-                      background: languages.includes(l) ? `linear-gradient(135deg,${BLUE},${NAVY})` : BG,
-                      color: languages.includes(l) ? WH : NAVY,
-                      border: `1.5px solid ${languages.includes(l) ? BLUE : BORDER}`,
-                      fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                {languages.map(l => (
+                  <span key={l} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f0fdf4', color: '#065f46', borderRadius: '9999px', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 600 }}>
                     {l}
-                  </button>
+                    <button onClick={() => setLanguages(p => p.filter(x => x !== l))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#065f46', fontSize: '0.9rem', lineHeight: 1 }}>×</button>
+                  </span>
                 ))}
               </div>
             </div>
 
-            {/* CTA */}
-            <button onClick={downloadCV} style={{
-              padding: '16px', borderRadius: 13, border: 'none',
-              background: `linear-gradient(135deg,${BLUE},${NAVY})`, color: WH,
-              fontSize: 15, fontWeight: 800, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            }}>⬇ Générer et Télécharger mon CV</button>
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button className="btn-primary" onClick={handleSaveDownload}>⬇ Save & Download CV</button>
+              <button onClick={handleSave} style={{ padding: '0.65rem 1.5rem', borderRadius: '8px', border: '1.5px solid #2563eb', background: 'white', color: '#2563eb', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer' }}>
+                Save Profile
+              </button>
+              {saved && <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.875rem' }}>✓ Profile saved successfully</span>}
+            </div>
           </div>
         )}
       </div>
-      <style>{`@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}`}</style>
-    </div>
+    </main>
   );
 }

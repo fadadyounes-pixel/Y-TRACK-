@@ -1,160 +1,236 @@
 'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
+import type { UserRole } from '../../contexts/AuthContext';
 
-const NAVY = '#0a1f5c';
-const BLUE = '#2563eb';
-const SKY  = '#38bdf8';
-const WH   = '#ffffff';
-const GR   = '#6b7280';
-const RE   = '#ef4444';
-
-const roleColors: Record<string, string> = {
-  admin: '#9B59B6',
-  coordinator: '#22c55e',
-  candidate: BLUE,
+const ROLE_ROUTES: Record<UserRole, string> = {
+  admin: '/admin',
+  coordinator: '/coordinator',
+  candidate: '/candidate',
 };
-const roleLabels: Record<string, string> = {
-  admin: 'Administrateur',
-  coordinator: 'Coordinateur',
-  candidate: 'Candidat',
-};
-
-function detectRole(id: string): string | null {
-  const v = id.trim().toUpperCase();
-  if (v.startsWith('ADMIN')) return 'admin';
-  if (v.startsWith('COORD')) return 'coordinator';
-  if (v.startsWith('CAN')) return 'candidate';
-  return null;
-}
 
 export default function LoginPage() {
-  const [id, setId] = useState('');
-  const [err, setErr] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const [idNumber, setIdNumber] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const liveRole = id.trim() ? detectRole(id) : null;
-  const borderColor = liveRole ? (roleColors[liveRole] ?? RE) : 'rgba(255,255,255,.15)';
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
 
-  function handleLogin() {
-    const ok = login(id);
-    if (!ok) { setErr(true); return; }
-    const role = detectRole(id);
-    if (role === 'admin') router.push('/admin');
-    else if (role === 'coordinator') router.push('/coordinator');
-    else router.push('/candidate');
-  }
+    const success = login(idNumber);
+
+    if (!success) {
+      setError('ID not recognized. Please check and try again.');
+      setIsLoading(false);
+      return;
+    }
+
+    // Read the role back from localStorage to determine redirect
+    try {
+      const stored = localStorage.getItem('talentmap_user');
+      if (stored) {
+        const user = JSON.parse(stored);
+        const route = ROLE_ROUTES[user.role as UserRole] ?? '/';
+        router.push(route);
+        return;
+      }
+    } catch {
+      // fallback
+    }
+
+    setIsLoading(false);
+  };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: `linear-gradient(135deg,${NAVY} 0%,#1a3a8f 60%,#0e2d6b 100%)`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 20, position: 'relative', overflow: 'hidden',
-      fontFamily: "'Poppins',sans-serif",
-    }}>
-      {/* Glow orbs */}
-      <div style={{ position: 'absolute', left: -100, bottom: -100, width: 400, height: 400,
-        borderRadius: '50%', background: 'rgba(37,99,235,.18)', filter: 'blur(80px)', pointerEvents: 'none' }}/>
-      <div style={{ position: 'absolute', right: -80, top: -80, width: 350, height: 350,
-        borderRadius: '50%', background: 'rgba(56,189,248,.12)', filter: 'blur(80px)', pointerEvents: 'none' }}/>
-
-      <div style={{
-        background: 'rgba(10,31,92,.95)', borderRadius: 24,
-        padding: '40px 32px', width: '100%', maxWidth: 420,
-        border: '1px solid rgba(56,189,248,.2)', boxShadow: '0 0 80px rgba(0,0,0,.5)',
-        position: 'relative', zIndex: 5,
-      }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0a1f5c 0%, #1a3a8f 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}
+    >
+      {/* Card */}
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: '16px',
+          padding: '2.5rem 2rem',
+          width: '100%',
+          maxWidth: '420px',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.35)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1.5rem',
+        }}
+      >
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 10 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 14,
-              background: `linear-gradient(135deg,${BLUE},${SKY})`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 24, fontWeight: 900, color: WH, boxShadow: '0 4px 16px rgba(37,99,235,.4)',
-            }}>T</div>
-            <span style={{ fontSize: 28, fontWeight: 900, color: WH, letterSpacing: '-.5px' }}>TalentMap</span>
-          </div>
+        <div style={{ marginBottom: '0.25rem' }}>
+          <Logo size="lg" showText variant="dark" />
         </div>
-        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,.35)', fontSize: 12, marginBottom: 32 }}>
-          Plateforme intelligente de gestion des talents
-        </p>
 
-        <label style={{ display: 'block', fontSize: 9, fontWeight: 700,
-          color: 'rgba(255,255,255,.4)', marginBottom: 7, letterSpacing: 1, textTransform: 'uppercase' }}>
-          Votre identifiant
-        </label>
+        {/* Heading */}
+        <div style={{ textAlign: 'center' }}>
+          <h1
+            style={{
+              margin: '0 0 0.4rem',
+              fontSize: '1.5rem',
+              fontWeight: 700,
+              color: '#0a1f5c',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Welcome to TalentMap
+          </h1>
+          <p
+            style={{
+              margin: 0,
+              fontSize: '0.9rem',
+              color: '#64748b',
+              lineHeight: 1.5,
+            }}
+          >
+            Enter your ID number to access the platform
+          </p>
+        </div>
 
-        <input
-          value={id}
-          onChange={e => { setId(e.target.value.toUpperCase()); setErr(false); }}
-          onKeyDown={e => e.key === 'Enter' && handleLogin()}
-          placeholder="ADMIN001 · COORD001 · CAN001"
-          maxLength={20}
-          autoFocus
-          style={{
-            width: '100%', padding: '14px 16px',
-            background: 'rgba(255,255,255,.05)',
-            border: `2px solid ${err ? RE : borderColor}`,
-            borderRadius: 12, fontSize: 15, fontFamily: 'monospace',
-            color: WH, marginBottom: liveRole ? 8 : 14,
-            transition: 'border-color .2s', letterSpacing: 1, boxSizing: 'border-box',
-          }}/>
-
-        {liveRole && !err && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12,
-            padding: '6px 12px', borderRadius: 8,
-            background: roleColors[liveRole] + '18',
-            border: `1px solid ${roleColors[liveRole]}30` }}>
-            <span style={{ fontSize: 14 }}>
-              {liveRole === 'admin' ? '⚙️' : liveRole === 'coordinator' ? '👔' : '🎓'}
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: roleColors[liveRole] }}>
-              {roleLabels[liveRole]}
-            </span>
+        {/* Form */}
+        <form
+          onSubmit={handleSubmit}
+          style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        >
+          {/* ID Number field */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <label
+              htmlFor="idNumber"
+              style={{
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: '#0a1f5c',
+              }}
+            >
+              ID Number
+            </label>
+            <input
+              id="idNumber"
+              type="text"
+              value={idNumber}
+              onChange={(e) => {
+                setIdNumber(e.target.value);
+                if (error) setError('');
+              }}
+              placeholder="e.g. ADMIN001"
+              autoComplete="off"
+              autoFocus
+              style={{
+                padding: '0.85rem 1rem',
+                fontSize: '1.05rem',
+                border: error ? '2px solid #ef4444' : '2px solid #e2e8f0',
+                borderRadius: '10px',
+                outline: 'none',
+                color: '#0f172a',
+                background: '#f8fafc',
+                transition: 'border-color 0.15s',
+                width: '100%',
+                boxSizing: 'border-box',
+                letterSpacing: '0.04em',
+              }}
+              onFocus={(e) => {
+                if (!error) e.currentTarget.style.borderColor = '#2563eb';
+              }}
+              onBlur={(e) => {
+                if (!error) e.currentTarget.style.borderColor = '#e2e8f0';
+              }}
+            />
           </div>
-        )}
 
-        {err && <p style={{ color: RE, fontSize: 12, marginBottom: 12 }}>Identifiant non reconnu. Vérifiez votre code d'accès.</p>}
+          {/* Error message */}
+          {error && (
+            <div
+              role="alert"
+              style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '8px',
+                padding: '0.65rem 0.9rem',
+                fontSize: '0.875rem',
+                color: '#dc2626',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
+            >
+              <span aria-hidden>&#9888;</span>
+              {error}
+            </div>
+          )}
 
-        <button onClick={handleLogin} disabled={!id.trim()} style={{
-          width: '100%', padding: 16,
-          background: liveRole && !err
-            ? `linear-gradient(135deg,${roleColors[liveRole]},${roleColors[liveRole]}cc)`
-            : `linear-gradient(135deg,${BLUE},${NAVY})`,
-          color: WH, border: 'none', borderRadius: 12,
-          fontSize: 15, fontWeight: 800, cursor: 'pointer',
-          opacity: !id.trim() ? .5 : 1, transition: 'all .18s',
-          boxSizing: 'border-box',
-        }}>
-          Accéder →
-        </button>
+          {/* Submit button */}
+          <button
+            type="submit"
+            disabled={isLoading || idNumber.trim() === ''}
+            style={{
+              width: '100%',
+              padding: '0.9rem',
+              fontSize: '1rem',
+              fontWeight: 700,
+              color: '#ffffff',
+              background:
+                isLoading || idNumber.trim() === '' ? '#93c5fd' : '#2563eb',
+              border: 'none',
+              borderRadius: '10px',
+              cursor:
+                isLoading || idNumber.trim() === '' ? 'not-allowed' : 'pointer',
+              transition: 'background 0.15s, transform 0.1s',
+              letterSpacing: '0.01em',
+            }}
+            onMouseEnter={(e) => {
+              if (!isLoading && idNumber.trim() !== '')
+                e.currentTarget.style.background = '#1d4ed8';
+            }}
+            onMouseLeave={(e) => {
+              if (!isLoading && idNumber.trim() !== '')
+                e.currentTarget.style.background = '#2563eb';
+            }}
+          >
+            {isLoading ? 'Signing in…' : 'Sign In'}
+          </button>
+        </form>
 
         {/* Demo IDs */}
-        <div style={{ marginTop: 28, padding: '14px 16px', background: 'rgba(255,255,255,.04)',
-          borderRadius: 12, border: '1px solid rgba(255,255,255,.08)' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,.3)',
-            textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Identifiants de démonstration</div>
-          {[
-            { id: 'ADMIN001', role: 'Admin', color: '#9B59B6' },
-            { id: 'COORD001', role: 'Coordinateur', color: '#22c55e' },
-            { id: 'CAN001 · CAN002 · CAN003', role: 'Candidat', color: BLUE },
-          ].map((x, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,.6)', letterSpacing: .5 }}>{x.id}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: x.color }}>{x.role}</span>
-            </div>
-          ))}
-        </div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: '0.78rem',
+            color: '#94a3b8',
+            textAlign: 'center',
+            lineHeight: 1.6,
+          }}
+        >
+          Demo:&nbsp;
+          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>ADMIN001</span>
+          &nbsp;&middot;&nbsp;
+          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>COORD001</span>
+          &nbsp;&middot;&nbsp;
+          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>CAN001</span>
+          &nbsp;&middot;&nbsp;
+          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>CAN002</span>
+          &nbsp;&middot;&nbsp;
+          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>CAN003</span>
+        </p>
       </div>
-
-      <p style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center',
-        fontSize: 11, color: 'rgba(255,255,255,.2)', fontFamily: "'Poppins',sans-serif" }}>
-        © 2026 TalentMap — Y-TRACK
-      </p>
     </div>
   );
 }
