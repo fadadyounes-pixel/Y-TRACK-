@@ -2149,7 +2149,14 @@ function ReportViewer({ profile, scores, role, onClose }) {
     if (cmapSt) cmapSt.textContent = origCmapText.replace(/@import\s+url\([^)]*\)[^;]*;?\s*/gi, '');
 
     var sm = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-    var styles = sm ? sm[1].replace('*{', '.cmrpt *{').replace('body{', '.cmrpt{') : '';
+    // Strip CSS fragmentation properties before injecting — break-after:page /
+    // page-break-after:always cause html2canvas's layout engine to add a
+    // phantom page-height of blank space after each .pdf-page element,
+    // inflating the canvas from the expected 2244px to 4488px.
+    var styles = (sm ? sm[1].replace('*{', '.cmrpt *{').replace('body{', '.cmrpt{') : '')
+      .replace(/page-break-[a-z-]+\s*:[^;]+;?\s*/gi, '')
+      .replace(/break-(?:after|before|inside)\s*:[^;]+;?\s*/gi, '')
+      .replace(/@page\s*\{[^}]*\}/gi, '');
     var styleEl = document.createElement('style');
     styleEl.id = 'cmrpt-s';
     styleEl.textContent = styles;
