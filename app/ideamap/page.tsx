@@ -12,8 +12,8 @@ function injectCSS() {
     "@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700;800&display=swap');",
     "*{box-sizing:border-box;margin:0;padding:0}",
     "html,body,#root{height:100%;width:100%}",
-    "body{font-family:'Poppins',sans-serif;background:#0F2233;color:#1C3A5C}",
-    "::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#2563EB;border-radius:4px}",
+    "body{font-family:'Poppins',sans-serif;background:#0A0F2C;color:#10132A}",
+    "::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#2A5CE0;border-radius:4px}",
     "@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}",
     "@keyframes im-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}",
     "@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}}",
@@ -35,18 +35,22 @@ function injectCSS() {
 }
 
 /* ── BRAND ──────────────────────────────────────────── */
-const Y  = "#2563EB";   // Primary blue — buttons, accents, progress
-const YD = "#1E40AF";   // Blue dark    — gradient end
-const YL = "#EFF6FF";   // Blue light   — backgrounds, selected states
-const N  = "#1C3A5C";   // Navy         — body text
-const ND = "#0F2233";   // Navy dark    — header, dark cards
-const NB = "rgba(255,255,255,.07)";
-const CR = "#F8FAFF";   // Cool white   — page background
-const CD = "#DDE4F0";   // Cool border  — dividers, table stripes
-const WH = "#FFFFFF";
-const GR = "#6B7280";
-const GN = "#22C55E";
-const RE = "#EF4444";
+const Y   = "#2A5CE0";   // Blue accent  — secondary data, links, charts
+const YD  = "#1E3A8A";   // Blue dark    — gradient end
+const YL  = "#EFF6FF";   // Blue light   — backgrounds, selected states
+const N   = "#10132A";   // Ink          — body text
+const ND  = "#0A0F2C";   // Navy primary — buttons, headings, active states
+const NVH = "#141B45";   // Navy hover   — button hover state
+const NB  = "rgba(255,255,255,.07)";
+const CR  = "#F7F8FA";   // Page bg      — dashboard background
+const IF  = "#F5F6F8";   // Input fill   — text input backgrounds
+const THS = "#FAFBFC";   // Table stripe — header rows, zebra striping
+const CD  = "#E4E7ED";   // Card border  — dividers, card borders
+const DV  = "#DDE0E8";   // Divider      — input borders on white/cream
+const WH  = "#FFFFFF";
+const GR  = "#5B6178";   // Muted gray   — secondary text, labels
+const GN  = "#1C7A62";   // Success      — eligible, positive indicators
+const RE  = "#C0632F";   // Warning      — errors, "En cours", risk indicators
 
 /* Logo appears only on the login page via /logo-transparent.png */
 
@@ -338,9 +342,9 @@ const Btn = ({children, onClick, disabled, outline, small, style = {}}: {
 );
 
 const Card = ({children, style = {}, onClick}: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) => (
-  <div onClick={onClick} style={{background: WH, borderRadius: "18px", padding: "24px",
-    boxShadow: "0 4px 24px rgba(15,34,51,.08)", marginBottom: "14px",
-    border: `1px solid rgba(28,58,92,.07)`, ...style}}>
+  <div onClick={onClick} style={{background: WH, borderRadius: "12px", padding: "22px",
+    boxShadow: "0 1px 2px rgba(10,15,44,.04)", marginBottom: "14px",
+    border: `1px solid ${CD}`, ...style}}>
     {children}
   </div>
 );
@@ -670,6 +674,61 @@ const ProgRow = ({t, si, steps}: { lang: string; t: any; si: number; steps: stri
   </div>
 );
 
+/* ── DASHBOARD SIDEBAR ─────────────────────────────── */
+const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, t}: {
+  user: any; navItems: {id:string; label:string}[]; activeTab: string;
+  onTabChange: (id:string)=>void; onLogout:()=>void; lang:string; t:any;
+}) => (
+  <div style={{width:240, flexShrink:0, background:WH, borderRight:`1px solid ${CD}`,
+    position:"sticky", top:0, height:"100vh", display:"flex", flexDirection:"column", zIndex:50}}>
+    {/* Logo area */}
+    <div style={{padding:"20px 18px 16px", borderBottom:`1px solid ${CD}`}}>
+      <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
+        <div style={{width:34, height:34, borderRadius:"9px", background:ND, flexShrink:0,
+          display:"flex", alignItems:"center", justifyContent:"center", fontSize:"15px", fontWeight:"900", color:WH}}>I</div>
+        <div>
+          <div style={{fontSize:"14.5px", fontWeight:"800", color:ND, lineHeight:1.2}}>IdeaMap</div>
+          <div style={{fontSize:"10px", color:GR, fontWeight:"500"}}>
+            {user.role==="admin" ? (lang==="ar"?"إدارة":lang==="fr"?"Administration":"Admin") : (lang==="ar"?"تنسيق":lang==="fr"?"Coordination":"Coordinator")}
+          </div>
+        </div>
+      </div>
+    </div>
+    {/* Nav items */}
+    <nav style={{padding:"10px 10px", flex:1, overflowY:"auto"}}>
+      {navItems.map(item => {
+        const active = activeTab === item.id;
+        return (
+          <button key={item.id} onClick={() => onTabChange(item.id)}
+            style={{width:"100%", display:"flex", alignItems:"center", gap:"11px",
+              padding:"9px 12px", borderRadius:"8px", border:"none", cursor:"pointer", marginBottom:"2px",
+              background: active ? "#F0F1F5" : "transparent", textAlign:"left", fontFamily:ff(lang)}}>
+            <div style={{width:7, height:7, borderRadius:"50%", flexShrink:0, background: active ? ND : "#D0D3DC"}}/>
+            <span style={{fontSize:"13.5px", fontWeight: active ? 700 : 500, color: active ? ND : GR}}>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+    {/* Footer */}
+    <div style={{padding:"14px 18px", borderTop:`1px solid ${CD}`}}>
+      <div style={{display:"flex", alignItems:"center", gap:"9px", marginBottom:"8px"}}>
+        <div style={{width:30, height:30, borderRadius:"50%", background:ND, flexShrink:0,
+          display:"flex", alignItems:"center", justifyContent:"center", fontSize:"11px", fontWeight:"800", color:WH}}>
+          {(user.name||user.id||"?")[0]}
+        </div>
+        <div style={{flex:1, overflow:"hidden"}}>
+          <div style={{fontSize:"12px", fontWeight:"600", color:N, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{user.name||user.id}</div>
+          <div style={{fontSize:"10px", color:GR, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{user.id}</div>
+        </div>
+      </div>
+      <button onClick={onLogout} style={{background:"transparent", border:"none", padding:0,
+        fontSize:"11px", fontWeight:"500", color:GR, cursor:"pointer", fontFamily:ff(lang), textDecoration:"underline"}}>
+        {t.logout}
+      </button>
+    </div>
+  </div>
+);
+
 /* ════════════════════════════════════════════════════════
    LOGIN SCREEN
 ════════════════════════════════════════════════════════ */
@@ -921,85 +980,109 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     );
   }
 
-  /* ── Main login card (CareerMap dark style) ── */
+  /* ── Main login (handoff design) ── */
   return (
-    <div style={{minHeight:"100vh", background:"#0A0F2C", display:"flex", alignItems:"center",
-      justifyContent:"center", padding:20, position:"relative", overflow:"hidden",
+    <div style={{minHeight:"100vh", background:ND, display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", padding:24, position:"relative", overflow:"hidden",
       fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
 
-      {/* Glow orbs */}
-      <div style={{position:"absolute", left:-80, bottom:-80, width:300, height:300,
-        borderRadius:"50%", background:"rgba(37,99,235,.18)", filter:"blur(70px)", pointerEvents:"none"}}/>
-      <div style={{position:"absolute", right:-60, top:-60, width:260, height:260,
-        borderRadius:"50%", background:"rgba(30,64,175,.4)", filter:"blur(70px)", pointerEvents:"none"}}/>
+      {/* SVG network diagram — top-right */}
+      <svg viewBox="0 0 960 960" style={{position:"absolute", top:-300, right:-320, width:960, height:960,
+        opacity:0.9, pointerEvents:"none", zIndex:1}}>
+        <line x1="480" y1="480" x2="720" y2="240" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.16"/>
+        <line x1="480" y1="480" x2="800" y2="520" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.16"/>
+        <line x1="480" y1="480" x2="600" y2="700" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.16"/>
+        <line x1="480" y1="480" x2="300" y2="680" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.16"/>
+        <line x1="720" y1="240" x2="800" y2="520" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.16"/>
+        <line x1="720" y1="240" x2="560" y2="120" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.16"/>
+        <line x1="800" y1="520" x2="600" y2="700" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.16"/>
+        <circle cx="480" cy="480" r="6" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="720" cy="240" r="5" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="800" cy="520" r="5" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="600" cy="700" r="5" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="300" cy="680" r="4" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="560" cy="120" r="4" fill="#FFFFFF" opacity="0.35"/>
+        <circle cx="480" cy="480" r="18" fill={Y} opacity="0.9"/>
+        <path d="M480 462 C469 462 460 471 460 482 C460 497 480 518 480 518 C480 518 500 497 500 482 C500 471 491 462 480 462 Z" fill="#FFFFFF" opacity="0.9"/>
+        <circle cx="480" cy="482" r="5" fill={Y} opacity="0.9"/>
+      </svg>
+
+      {/* SVG concentric circles — bottom-left */}
+      <svg viewBox="0 0 620 620" style={{position:"absolute", bottom:-200, left:-200, width:620, height:620,
+        opacity:0.5, pointerEvents:"none", zIndex:1}}>
+        <circle cx="310" cy="310" r="240" fill="none" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.12"/>
+        <circle cx="310" cy="310" r="180" fill="none" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.12"/>
+        <circle cx="310" cy="310" r="120" fill="none" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.12"/>
+      </svg>
 
       {/* Lang toggle */}
       <div style={{position:"absolute", top:14, right:dir==="rtl"?undefined:14, left:dir==="rtl"?14:undefined, zIndex:10}}>
         <LangToggle lang={lang} setLang={setLang}/>
       </div>
 
-      <div className="fadeUp" style={{background:"rgba(15,34,51,.95)", borderRadius:22,
-        padding:"34px 24px", width:"100%", maxWidth:400,
-        border:"1px solid rgba(28,58,92,.8)", boxShadow:"0 0 60px rgba(0,0,0,.5)",
-        position:"relative", zIndex:5}}>
+      {/* Content column */}
+      <div className="im-rise" style={{width:"100%", maxWidth:400, position:"relative", zIndex:5, display:"flex",
+        flexDirection:"column", alignItems:"center"}}>
 
-        <div style={{textAlign:"center", marginBottom:10}}>
-          <img src="/logo-transparent.png" alt="IdeaMap" style={{width:"200px", maxWidth:"100%", objectFit:"contain"}}/>
+        {/* Logo above card */}
+        <img src="/logo-transparent.png" alt="IdeaMap"
+          style={{width:270, maxWidth:"100%", objectFit:"contain", marginBottom:18}}/>
+
+        {/* White card */}
+        <div style={{background:WH, borderRadius:16, padding:"36px 32px", width:"100%",
+          boxShadow:"0 24px 60px rgba(0,0,0,.35)"}}>
+
+          <h2 style={{fontSize:22, fontWeight:800, color:N, marginBottom:6, fontFamily:ff(lang)}}>
+            {lang==="ar"?"تسجيل الدخول":lang==="fr"?"Sign in":"Sign in"}
+          </h2>
+          <p style={{fontSize:13.5, color:GR, marginBottom:20, fontFamily:ff(lang)}}>
+            {t.signInSub as string}
+          </p>
+
+          <input
+            value={val}
+            onChange={e => {const v=e.target.value; setVal(v.startsWith("@")?v:v.toUpperCase()); setErr(false);}}
+            onKeyDown={e => e.key === "Enter" && handleCheck()}
+            placeholder={t.codePh as string}
+            maxLength={30}
+            autoFocus
+            className={err ? "shake" : ""}
+            style={{width:"100%", padding:"13px 14px",
+              background:IF, border:`1px solid ${DV}`,
+              borderRadius:8, fontSize:15, fontFamily:"monospace",
+              color:N, marginBottom:liveRole ? "8px" : "12px",
+              transition:"border-color .2s", letterSpacing:.4,
+              direction:dir as "rtl"|"ltr"}}/>
+
+          {liveRole && !err && (
+            <div style={{display:"flex", alignItems:"center", gap:"6px", marginBottom:"10px",
+              padding:"5px 10px", borderRadius:"7px",
+              background:roleColors[liveRole] + "18",
+              border:`1px solid ${roleColors[liveRole]}30`}}>
+              <span style={{fontSize:"13px"}}>{roleIcons[liveRole]}</span>
+              <span style={{fontSize:"11px", fontWeight:"700", color:roleColors[liveRole]}}>
+                {roleLabels[liveRole]?.[lang] || roleLabels[liveRole].fr}
+              </span>
+            </div>
+          )}
+
+          {err && <p style={{color:RE, fontSize:13, marginBottom:10, fontFamily:ff(lang)}}>{t.cinError as string}</p>}
+
+          <button onClick={handleCheck} disabled={!val.trim()}
+            className="login-cont-btn"
+            style={{width:"100%", padding:14, marginTop:8,
+              background:ND,
+              color:WH, border:"none", borderRadius:8,
+              fontFamily:ff(lang), fontSize:14, fontWeight:700,
+              opacity:!val.trim() ? 0.5 : 1, transition:"background .18s",
+              boxShadow:"0 8px 20px rgba(10,15,44,0.32)"}}>
+            {t.cont as string} {dir==="rtl" ? "←" : "→"}
+          </button>
         </div>
-        <p style={{textAlign:"center", color:"rgba(255,255,255,.35)", fontSize:11, marginBottom:28, fontFamily:ff(lang)}}>
-          {t.tagline as string}
-        </p>
-
-        <label style={{display:"block", fontSize:9, fontWeight:700,
-          color:"rgba(255,255,255,.4)", marginBottom:6, letterSpacing:.9,
-          textTransform:"uppercase", fontFamily:ff(lang)}}>
-          {t.enter as string}
-        </label>
-
-        <input
-          value={val}
-          onChange={e => {const v=e.target.value; setVal(v.startsWith("@")?v:v.toUpperCase()); setErr(false);}}
-          onKeyDown={e => e.key === "Enter" && handleCheck()}
-          placeholder=""
-          maxLength={30}
-          autoFocus
-          className={err ? "shake" : ""}
-          style={{width:"100%", padding:"13px 14px",
-            background:"rgba(255,255,255,.04)",
-            border:`2px solid ${inputBorder}`,
-            borderRadius:11, fontSize:14, fontFamily:"monospace",
-            color:WH, marginBottom:liveRole ? "8px" : "12px",
-            transition:"border-color .2s", letterSpacing:1,
-            direction:dir as "rtl"|"ltr"}}/>
-
-        {liveRole && !err && (
-          <div style={{display:"flex", alignItems:"center", gap:"6px", marginBottom:"10px",
-            padding:"5px 10px", borderRadius:"7px",
-            background:roleColors[liveRole] + "18",
-            border:`1px solid ${roleColors[liveRole]}30`}}>
-            <span style={{fontSize:"13px"}}>{roleIcons[liveRole]}</span>
-            <span style={{fontSize:"11px", fontWeight:"700", color:roleColors[liveRole]}}>
-              {roleLabels[liveRole]?.[lang] || roleLabels[liveRole].fr}
-            </span>
-          </div>
-        )}
-
-        {err && <p style={{color:RE, fontSize:11, marginBottom:10, fontFamily:ff(lang)}}>{t.cinError as string}</p>}
-
-        <button onClick={handleCheck} disabled={!val.trim()}
-          style={{width:"100%", padding:15,
-            background: liveRole && liveRole!=="unknown"
-              ? `linear-gradient(135deg,${roleColors[liveRole]},${roleColors[liveRole]}cc)`
-              : `linear-gradient(135deg,${Y},${YD})`,
-            color:ND, border:"none", borderRadius:12,
-            fontFamily:ff(lang), fontSize:15, fontWeight:800,
-            opacity:!val.trim() ? 0.5 : 1, transition:"all .18s"}}>
-          {t.cont as string} {dir==="rtl" ? "←" : "→"}
-        </button>
       </div>
 
       <p style={{position:"absolute", bottom:16, left:0, right:0, textAlign:"center",
-        fontSize:12, color:"rgba(255,255,255,.2)"}}>
+        fontSize:12, color:"rgba(255,255,255,.4)", zIndex:5}}>
         © 2026 IdeaMap
       </p>
     </div>
@@ -2586,8 +2669,16 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
   onLogout: () => void; t: any; holders: any[];
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
+  const [tab, setTab]       = useState("holders");
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<any>(null);
+
+  const COORD_NAV = [
+    {id:"overview", label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
+    {id:"holders",  label: lang==="ar"?"حاملو مشاريعي":lang==="fr"?"Mes porteurs":"My Holders"},
+    {id:"activity", label: lang==="ar"?"النشاط":lang==="fr"?"Activité":"Activity"},
+    {id:"settings", label: lang==="ar"?"الإعدادات":lang==="fr"?"Paramètres":"Settings"},
+  ];
 
   const filtered = holders.filter(h =>
     (h.name || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -2600,154 +2691,363 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
     "budget": "#EC4899", "compliance": "#14B8A6", "documents": GN, "export": GN
   };
 
+  const STEPS_LIST = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
+
+  const exportCSV = () => {
+    const cols = ["ID","Nom","Région","Secteur","Projet","Score","Éligible","Étape"];
+    const rows = filtered.map(h => [
+      h.id, h.name||"", h.profile?.region||"", h.proj?.sector||h.profile?.sector||"",
+      h.proj?.projectName||"", h.comp?.score||"", h.comp?.eligible?"OUI":"NON", h.step||"idea",
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`));
+    const csv = [cols.join(";"), ...rows.map(r => r.join(";"))].join("\n");
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"})),
+      download: "IdeaMap_Porteurs_Coord.csv",
+    });
+    a.click();
+  };
+
+  const getStatus = (h: any) => {
+    const pct = STEPS_LIST.indexOf(h.step || "idea") / (STEPS_LIST.length - 1) * 100;
+    if (h.comp?.eligible) return {label:lang==="ar"?"مؤهل":lang==="fr"?"Éligible":"Eligible", bg:"#EAF3EF", fg:GN};
+    if (pct >= 40) return {label:lang==="ar"?"جارٍ":lang==="fr"?"En cours":"In progress", bg:"#FBF3EC", fg:RE};
+    return {label:lang==="ar"?"بداية":lang==="fr"?"Démarrage":"Starting", bg:"#F0EEE9", fg:GR};
+  };
+
   if (detail) {
     const h = detail;
     return (
-      <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
-        <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
-        <div style={{maxWidth: "700px", margin: "0 auto", padding: "24px 18px 60px"}}>
-          <button onClick={() => setDetail(null)} style={{marginBottom: "16px", padding: "8px 16px",
-            borderRadius: "10px", border: `1px solid ${N}`, background: "transparent",
-            color: N, fontSize: "12px", fontWeight: "600", fontFamily: ff(lang)}}>
-            ← {lang === "ar" ? "رجوع" : lang === "fr" ? "Retour" : "Back"}
-          </button>
-          <Card>
-            <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px"}}>
-              <div style={{width: "44px", height: "44px", borderRadius: "50%", background: Y,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "18px", fontWeight: "800", color: ND}}>{h.name[0]}</div>
-              <div>
-                <div style={{fontSize: "16px", fontWeight: "700", color: ND}}>{h.name} {h.profile?.lastName || ""}</div>
-                <div style={{fontSize: "12px", color: GR}}>{h.id} · {h.profile?.region} · {h.profile?.projType}</div>
+      <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+        <DashSidebar user={user} navItems={COORD_NAV} activeTab={tab}
+          onTabChange={id => { setTab(id); setDetail(null); }}
+          onLogout={onLogout} lang={lang} t={t}/>
+        <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+          <div style={{maxWidth:860, padding:"32px 40px 48px"}}>
+            <button onClick={() => setDetail(null)} style={{marginBottom:"20px", padding:"8px 16px",
+              borderRadius:"8px", border:`1px solid ${CD}`, background:WH,
+              color:N, fontSize:"12px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
+              ← {lang==="ar"?"رجوع":lang==="fr"?"Retour":"Back"}
+            </button>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"12px", marginBottom:"18px"}}>
+                <div style={{width:48, height:48, borderRadius:"50%", background:ND, flexShrink:0,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:"18px", fontWeight:"800", color:WH}}>{(h.name||"?")[0]}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:"17px", fontWeight:"700", color:ND}}>{h.name} {h.profile?.lastName||""}</div>
+                  <div style={{fontSize:"12px", color:GR}}>{h.id} · {h.profile?.region} · {h.profile?.projType}</div>
+                </div>
+                <Badge role="holder"/>
               </div>
-              <Badge role="holder"/>
-            </div>
-            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px"}}>
+              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
+                {[
+                  {l:"Age", v:h.profile?.age, i:"📅"}, {l:"Genre", v:h.profile?.gender, i:"👤"},
+                  {l:"Région", v:h.profile?.region, i:"📍"}, {l:"Secteur", v:h.profile?.sector, i:"🏭"},
+                  {l:"Téléphone", v:h.profile?.phone, i:"📞"}, {l:"Type porteur", v:h.profile?.projType, i:"⚖️"},
+                ].filter(x => x.v).map((x, i) => (
+                  <div key={i} style={{display:"flex", gap:"8px", alignItems:"center",
+                    padding:"10px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
+                    <span>{x.i}</span>
+                    <div><div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>{x.l}</div>
+                      <div style={{fontSize:"13px", color:ND, fontWeight:"600"}}>{x.v}</div></div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            {h.proj && <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>📋 {lang==="ar"?"ملف المشروع":lang==="fr"?"Profil du Projet":"Project Profile"}</span>
+              </div>
               {[
-                {l: "Age", v: h.profile?.age, i: "📅"},
-                {l: "Genre", v: h.profile?.gender, i: "👤"},
-                {l: "Région", v: h.profile?.region, i: "📍"},
-                {l: "Secteur", v: h.profile?.sector, i: "🏭"},
-                {l: "Téléphone", v: h.profile?.phone, i: "📞"},
-                {l: "Type porteur", v: h.profile?.projType, i: "⚖️"},
+                {l:"Projet", v:h.proj.projectName, i:"🏢"}, {l:"Secteur", v:h.proj.sector, i:"🏭"},
+                {l:"Structure", v:h.proj.legalStructure, i:"⚖️"}, {l:"Zone", v:h.proj.location, i:"📍"},
+                {l:"Bénéficiaires", v:h.proj.beneficiaries, i:"👥"}, {l:"Axe INDH", v:h.proj.pillar, i:"🏛️"},
+                {l:"Budget estimé", v:h.proj.estimatedBudget ? `${Number(h.proj.estimatedBudget).toLocaleString()} MAD` : null, i:"💰"},
               ].filter(x => x.v).map((x, i) => (
-                <div key={i} style={{display: "flex", gap: "8px", alignItems: "center",
-                  padding: "10px", background: CR, borderRadius: "10px", border: `1px solid ${CD}`}}>
-                  <span>{x.i}</span>
-                  <div><div style={{fontSize: "9px", color: GR, fontWeight: "700", textTransform: "uppercase"}}>{x.l}</div>
-                    <div style={{fontSize: "13px", color: ND, fontWeight: "600"}}>{x.v}</div></div>
+                <div key={i} style={{display:"flex", gap:"10px", alignItems:"center",
+                  padding:"10px 12px", background:CR, borderRadius:"10px",
+                  border:`1px solid ${CD}`, marginBottom:"7px"}}>
+                  <span style={{fontSize:"18px"}}>{x.i}</span>
+                  <div><div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>{x.l}</div>
+                    <div style={{fontSize:"13px", color:ND, fontWeight:"600"}}>{x.v}</div></div>
                 </div>
               ))}
-            </div>
-          </Card>
-          {h.proj && <Card>
-            <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "14px"}}>
-              <AccBar/>
-              <span style={{fontSize: "15px", fontWeight: "700", color: ND}}>📋 {lang === "ar" ? "ملف المشروع" : lang === "fr" ? "Profil du Projet" : "Project Profile"}</span>
-            </div>
-            {[
-              {l: "Projet", v: h.proj.projectName, i: "🏢"}, {l: "Secteur", v: h.proj.sector, i: "🏭"},
-              {l: "Structure", v: h.proj.legalStructure, i: "⚖️"}, {l: "Zone", v: h.proj.location, i: "📍"},
-              {l: "Bénéficiaires", v: h.proj.beneficiaries, i: "👥"}, {l: "Axe INDH", v: h.proj.pillar, i: "🏛️"},
-              {l: "Budget estimé", v: h.proj.estimatedBudget ? `${Number(h.proj.estimatedBudget).toLocaleString()} MAD` : null, i: "💰"},
-            ].filter(x => x.v).map((x, i) => (
-              <div key={i} style={{display: "flex", gap: "10px", alignItems: "center",
-                padding: "10px 12px", background: CR, borderRadius: "10px",
-                border: `1px solid ${CD}`, marginBottom: "7px"}}>
-                <span style={{fontSize: "18px"}}>{x.i}</span>
-                <div><div style={{fontSize: "9px", color: GR, fontWeight: "700", textTransform: "uppercase"}}>{x.l}</div>
-                  <div style={{fontSize: "13px", color: ND, fontWeight: "600"}}>{x.v}</div></div>
+            </Card>}
+            {h.comp && <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>✅ {t.compT}</span>
               </div>
-            ))}
-          </Card>}
-          {h.comp && <Card>
-            <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "14px"}}>
-              <AccBar/>
-              <span style={{fontSize: "15px", fontWeight: "700", color: ND}}>✅ {t.compT}</span>
-            </div>
-            <div style={{display: "flex", alignItems: "center", gap: "16px"}}>
-              <div style={{width: "72px", height: "72px", borderRadius: "50%",
-                background: h.comp.eligible ? ND : "#FFF0F0",
-                border: `3px solid ${h.comp.eligible ? Y : RE}`,
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0}}>
-                <span style={{fontSize: "22px", fontWeight: "800", color: h.comp.eligible ? Y : RE}}>{h.comp.score}</span>
+              <div style={{display:"flex", alignItems:"center", gap:"16px"}}>
+                <div style={{width:72, height:72, borderRadius:"50%",
+                  background: h.comp.eligible ? ND : "#FFF0F0",
+                  border:`3px solid ${h.comp.eligible ? Y : RE}`,
+                  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
+                  <span style={{fontSize:"22px", fontWeight:"800", color: h.comp.eligible ? Y : RE}}>{h.comp.score}</span>
+                </div>
+                <div>
+                  <div style={{fontSize:"14px", fontWeight:"700", color: h.comp.eligible ? GN : RE, marginBottom:"4px"}}>
+                    {h.comp.eligible ? t.eligible : t.notElig}</div>
+                  {h.comp.pillar && <div style={{fontSize:"12px", color:GR}}>📌 {h.comp.pillar}</div>}
+                </div>
               </div>
-              <div>
-                <div style={{fontSize: "14px", fontWeight: "700", color: h.comp.eligible ? GN : RE, marginBottom: "4px"}}>
-                  {h.comp.eligible ? t.eligible : t.notElig}</div>
-                {h.comp.pillar && <div style={{fontSize: "12px", color: GR}}>📌 {h.comp.pillar}</div>}
-              </div>
-            </div>
-          </Card>}
+            </Card>}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
-      <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
-      <div style={{maxWidth: "720px", margin: "0 auto", padding: "24px 18px 60px"}}>
-        <Card style={{background: ND}}>
-          <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px"}}>
-            <div style={{width: "40px", height: "40px", borderRadius: "11px", background: Y,
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "20px"}}>📊</div>
-            <div>
-              <div style={{fontSize: "18px", fontWeight: "800", color: WH}}>{t.coordDash}</div>
-              <div style={{fontSize: "12px", color: "rgba(255,255,255,.5)"}}>{user.id}</div>
-            </div>
-          </div>
-          <div style={{display: "flex", gap: "14px", marginTop: "16px"}}>
-            {[
-              {v: holders.length, l: t.totalProj, c: Y},
-              {v: holders.filter((h: any) => h.comp?.eligible).length, l: lang === "ar" ? "مؤهلون" : lang === "fr" ? "Éligibles" : "Eligible", c: GN},
-              {v: holders.filter((h: any) => h.step === "export").length, l: lang === "ar" ? "مكتملون" : lang === "fr" ? "Terminés" : "Completed", c: "#8B5CF6"},
-            ].map((x, i) => (
-              <div key={i} style={{flex: 1, padding: "14px", background: "rgba(255,255,255,.06)", borderRadius: "12px", textAlign: "center"}}>
-                <div style={{fontSize: "28px", fontWeight: "800", color: x.c}}>{x.v}</div>
-                <div style={{fontSize: "10px", color: "rgba(255,255,255,.5)", textTransform: "uppercase", letterSpacing: ".5px"}}>{x.l}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder={lang === "ar" ? "بحث..." : lang === "fr" ? "Rechercher un porteur..." : "Search holder..."}
-          style={{width: "100%", padding: "11px 14px", borderRadius: "12px", border: `2px solid ${CD}`,
-            fontSize: "13px", fontFamily: ff(lang), color: N, background: WH, direction: dir as "rtl" | "ltr", marginBottom: "14px"}}/>
-        {filtered.length === 0 ? (
-          <div style={{textAlign:"center", padding:"48px 20px"}}>
-            <div style={{fontSize:"56px", marginBottom:"12px"}}>📭</div>
-            <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>{t.noProjects}</div>
-            <div style={{fontSize:"13px", color:GR}}>{lang==="ar"?"لم يتم تسجيل أي مشروع بعد":lang==="fr"?"Aucun porteur n'a encore créé de compte":"No holders have created an account yet"}</div>
-          </div>
-        ) :
-          filtered.map((h: any, i: number) => (
-            <Card key={i} style={{cursor: "pointer"}} onClick={() => setDetail(h)}>
-              <div style={{display: "flex", alignItems: "center", gap: "12px"}}>
-                <div style={{width: "40px", height: "40px", borderRadius: "50%", background: Y,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "16px", fontWeight: "800", color: ND, flexShrink: 0}}>{h.name[0]}</div>
-                <div style={{flex: 1}}>
-                  <div style={{display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px"}}>
-                    <span style={{fontSize: "14px", fontWeight: "700", color: ND}}>{h.name} {h.profile?.lastName || ""}</span>
-                    <span style={{fontSize: "10px", fontWeight: "600", color: GR}}>{h.id}</span>
-                    {h.comp && <span style={{padding: "2px 7px", borderRadius: "5px", fontSize: "9px", fontWeight: "700",
-                      background: h.comp.eligible ? GN + "22" : RE + "22", color: h.comp.eligible ? GN : RE}}>
-                      {h.comp.score}/100</span>}
-                  </div>
-                  <div style={{fontSize: "11px", color: GR}}>{h.proj?.projectName || h.profile?.sector} · {h.profile?.region}</div>
-                  <div style={{marginTop: "6px"}}>
-                    <PBar pct={["idea","dialogue","profile","plan","budget","compliance","documents","export"].indexOf(h.step || "idea") / 7 * 100}
-                      h={4} color={stepColors[h.step || "idea"] || Y}/>
-                  </div>
+    <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+      <DashSidebar user={user} navItems={COORD_NAV} activeTab={tab}
+        onTabChange={setTab} onLogout={onLogout} lang={lang} t={t}/>
+      <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+        <div style={{padding:"32px 40px 48px", maxWidth:860}}>
+
+          {/* ── Overview ── */}
+          {tab === "overview" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>{user.id}</p>
+            <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:14, marginBottom:20}}>
+              {[
+                {v:holders.length, l:lang==="ar"?"الحاملون المعينون":lang==="fr"?"Porteurs assignés":"Assigned holders"},
+                {v:holders.length ? Math.round(holders.reduce((s,h)=>s+(STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100),0)/holders.length) + "%" : "—", l:lang==="ar"?"متوسط التقدم":lang==="fr"?"Préparation moyenne":"Avg progress"},
+                {v:holders.filter(h=>h.comp?.eligible).length, l:lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects"},
+              ].map((x,i) => (
+                <div key={i} style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                  padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                  <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>{x.l}</div>
+                  <div style={{fontSize:28, fontWeight:800, color:ND}}>{x.v}</div>
                 </div>
-                <span style={{fontSize: "11px", fontWeight: "700", color: stepColors[h.step || "idea"] || Y,
-                  background: (stepColors[h.step || "idea"] || Y) + "22", padding: "4px 10px", borderRadius: "8px",
-                  flexShrink: 0}}>{h.step || "idea"}</span>
+              ))}
+            </div>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  {lang==="ar"?"توزيع المراحل":lang==="fr"?"Distribution des étapes":"Step distribution"}
+                </span>
+              </div>
+              {["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"].map(s => {
+                const count = holders.filter(h=>(h.step||"idea")===s).length;
+                return (
+                  <div key={s} style={{marginBottom:9}}>
+                    <div style={{display:"flex", justifyContent:"space-between", marginBottom:3}}>
+                      <span style={{fontSize:11, color:N, fontWeight:500}}>{s}</span>
+                      <span style={{fontSize:11, fontWeight:700, color:ND}}>{count}</span>
+                    </div>
+                    <div style={{height:6, background:CD, borderRadius:3, overflow:"hidden"}}>
+                      <div style={{height:"100%", borderRadius:3, background:Y,
+                        width:holders.length ? `${(count/holders.length)*100}%` : "0%", transition:"width .5s"}}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </Card>
+            {holders.filter(h => STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100 < 40).length > 0 && (
+              <Card>
+                <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                  <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                    ⚠️ {lang==="ar"?"يحتاجون اهتمامك":lang==="fr"?"Nécessitent votre attention":"Need attention"}
+                  </span>
+                </div>
+                {holders.filter(h => STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100 < 40).map((h,i) => (
+                  <div key={i} onClick={() => setDetail(h)} style={{display:"flex", alignItems:"center",
+                    gap:10, padding:"10px 12px", background:CR, borderRadius:10,
+                    border:`1px solid ${CD}`, marginBottom:7, cursor:"pointer"}}>
+                    <div style={{width:32, height:32, borderRadius:"50%", background:ND, flexShrink:0,
+                      display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:800, color:WH}}>
+                      {(h.name||"?")[0]}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13, fontWeight:600, color:ND}}>{h.name}</div>
+                      <div style={{fontSize:11, color:GR}}>{h.step||"idea"}</div>
+                    </div>
+                    <span style={{fontSize:10, fontWeight:700, color:RE, background:"#FBF3EC", padding:"3px 8px", borderRadius:6}}>
+                      {Math.round(STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100)}%
+                    </span>
+                  </div>
+                ))}
+              </Card>
+            )}
+          </>)}
+
+          {/* ── Holders ── */}
+          {tab === "holders" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"حاملو مشاريعي":lang==="fr"?"Mes porteurs":"My Holders"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {holders.length} {lang==="ar"?"حامل مشروع":lang==="fr"?"porteur(s)":"holder(s)"}
+            </p>
+            <div style={{display:"flex", gap:8, marginBottom:12, flexWrap:"wrap"}}>
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder={lang==="ar"?"بحث...":lang==="fr"?"Rechercher un porteur...":"Search holder..."}
+                style={{flex:"1 1 200px", padding:"10px 13px", borderRadius:"10px", border:`1px solid ${CD}`,
+                  fontSize:"13px", fontFamily:ff(lang), color:N, background:WH, direction:dir as "rtl"|"ltr"}}/>
+              <button onClick={exportCSV} style={{padding:"10px 16px", borderRadius:10,
+                border:`1px solid ${GN}`, background:"transparent", color:GN,
+                fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer", flexShrink:0}}>
+                📥 {lang==="ar"?"تصدير CSV":lang==="fr"?"Exporter CSV":"Export CSV"}
+              </button>
+            </div>
+            {filtered.length === 0 ? (
+              <div style={{textAlign:"center", padding:"48px 20px"}}>
+                <div style={{fontSize:"56px", marginBottom:"12px"}}>📭</div>
+                <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>{t.noProjects}</div>
+                <div style={{fontSize:"13px", color:GR}}>{lang==="ar"?"لا يوجد حاملو مشاريع":lang==="fr"?"Aucun porteur correspondant":"No matching holders"}</div>
+              </div>
+            ) : (<>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%", borderCollapse:"collapse", fontSize:13}}>
+                  <thead>
+                    <tr style={{background:THS}}>
+                      {[lang==="ar"?"الحامل":lang==="fr"?"Porteur":"Holder",
+                        "CIN",
+                        lang==="ar"?"المشروع":lang==="fr"?"Projet":"Project",
+                        lang==="ar"?"المرحلة":lang==="fr"?"Étape":"Step",
+                        lang==="ar"?"التقدم":lang==="fr"?"Préparation":"Progress",
+                        lang==="ar"?"الحالة":lang==="fr"?"Statut":"Status",
+                      ].map((h2,i) => (
+                        <th key={i} style={{padding:"10px 12px", textAlign:"left", fontSize:10.5,
+                          fontWeight:700, textTransform:"uppercase", letterSpacing:.4, color:GR, whiteSpace:"nowrap"}}>
+                          {h2}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((h,i) => {
+                      const pct = Math.round(STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100);
+                      const st = getStatus(h);
+                      return (
+                        <tr key={i} onClick={() => setDetail(h)}
+                          style={{borderBottom:`1px solid ${CD}`, cursor:"pointer",
+                            background: i%2===0 ? WH : THS, transition:"background .15s"}}>
+                          <td style={{padding:"11px 12px", fontWeight:600, color:ND, whiteSpace:"nowrap"}}>
+                            <div style={{display:"flex", alignItems:"center", gap:8}}>
+                              <div style={{width:28, height:28, borderRadius:"50%", background:ND,
+                                display:"flex", alignItems:"center", justifyContent:"center",
+                                fontSize:10, fontWeight:800, color:WH, flexShrink:0}}>{(h.name||"?")[0]}</div>
+                              {h.name} {h.profile?.lastName||""}
+                            </div>
+                          </td>
+                          <td style={{padding:"11px 12px", color:GR, fontSize:12}}>{h.id}</td>
+                          <td style={{padding:"11px 12px", color:GR}}>{h.proj?.projectName||"—"}</td>
+                          <td style={{padding:"11px 12px", color:GR, fontSize:12}}>{h.step||"idea"}</td>
+                          <td style={{padding:"11px 12px", minWidth:90}}>
+                            <div style={{display:"flex", alignItems:"center", gap:6}}>
+                              <div style={{flex:1, height:5, background:CD, borderRadius:3, overflow:"hidden"}}>
+                                <div style={{height:"100%", borderRadius:3, background:Y, width:`${pct}%`}}/>
+                              </div>
+                              <span style={{fontSize:11, fontWeight:700, color:ND, flexShrink:0}}>{pct}%</span>
+                            </div>
+                          </td>
+                          <td style={{padding:"11px 12px"}}>
+                            <span style={{padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700,
+                              background:st.bg, color:st.fg}}>{st.label}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>)}
+          </>)}
+
+          {/* ── Activity ── */}
+          {tab === "activity" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"النشاط":lang==="fr"?"Activité":"Activity"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {lang==="ar"?"آخر أحداث الحاملين":lang==="fr"?"Derniers événements des porteurs":"Latest holder events"}
+            </p>
+            <Card>
+              {holders.length === 0 ? (
+                <div style={{textAlign:"center", padding:"32px", color:GR}}>
+                  {lang==="ar"?"لا توجد أحداث بعد":lang==="fr"?"Aucun événement encore":"No events yet"}
+                </div>
+              ) : holders.slice().reverse().map((h, i) => (
+                <div key={i} style={{display:"flex", alignItems:"flex-start", gap:12,
+                  paddingBottom:14, marginBottom:14,
+                  borderBottom: i < holders.length-1 ? `1px solid ${CD}` : "none"}}>
+                  <div style={{width:8, height:8, borderRadius:"50%", background:Y,
+                    marginTop:5, flexShrink:0}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13, color:ND, fontWeight:500}}>
+                      <strong>{h.name}</strong> —{" "}
+                      {lang==="ar"
+                        ? `وصل إلى مرحلة ${h.step||"idea"}`
+                        : lang==="fr"
+                        ? `Avancement à l'étape "${h.step||"idea"}"`
+                        : `Reached step "${h.step||"idea"}"`}
+                    </div>
+                    {h.proj?.projectName && (
+                      <div style={{fontSize:12, color:GR, marginTop:2}}>{h.proj.projectName}</div>
+                    )}
+                  </div>
+                  <span style={{fontSize:11, color:GR, whiteSpace:"nowrap", flexShrink:0}}>
+                    {lang==="ar"?"مؤخراً":lang==="fr"?"Récemment":"Recently"}
+                  </span>
+                </div>
+              ))}
+            </Card>
+          </>)}
+
+          {/* ── Settings ── */}
+          {tab === "settings" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"الإعدادات":lang==="fr"?"Paramètres":"Settings"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {lang==="ar"?"إعدادات حسابك":lang==="fr"?"Paramètres de votre compte":"Your account settings"}
+            </p>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"16px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  {lang==="ar"?"الملف الشخصي":lang==="fr"?"Profil":"Profile"}
+                </span>
+              </div>
+              <div style={{display:"flex", flexDirection:"column", gap:10}}>
+                {[
+                  {l:lang==="ar"?"الاسم":lang==="fr"?"Nom":"Name", v:user.name||user.id},
+                  {l:lang==="ar"?"رمز الوصول":lang==="fr"?"Code d'accès":"Access code", v:user.id},
+                ].map((f,i) => (
+                  <div key={i}>
+                    <div style={{fontSize:10, fontWeight:700, color:GR, textTransform:"uppercase",
+                      letterSpacing:.5, marginBottom:5}}>{f.l}</div>
+                    <input defaultValue={f.v} readOnly style={{width:"100%", padding:"11px 14px",
+                      borderRadius:8, border:`1px solid ${DV}`, background:IF,
+                      fontSize:13, fontFamily:ff(lang), color:N}}/>
+                  </div>
+                ))}
               </div>
             </Card>
-          ))
-        }
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"16px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  {lang==="ar"?"الإشعارات":lang==="fr"?"Notifications":"Notifications"}
+                </span>
+              </div>
+              {[{l:lang==="ar"?"تنبيهات الحاملين المتوقفين":lang==="fr"?"Alertes de blocage":"Blocking alerts", on:true}].map((n,i) => (
+                <div key={i} style={{display:"flex", alignItems:"center", justifyContent:"space-between",
+                  padding:"12px 0", borderBottom: i < 0 ? `1px solid ${CD}` : "none"}}>
+                  <span style={{fontSize:13, color:N}}>{n.l}</span>
+                  <div style={{position:"relative", width:40, height:22, borderRadius:11,
+                    background: n.on ? ND : CD, cursor:"pointer", transition:"background .2s"}}>
+                    <div style={{position:"absolute", top:3, left: n.on ? 21 : 3,
+                      width:16, height:16, borderRadius:"50%", background:WH,
+                      transition:"left .2s", boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                  </div>
+                </div>
+              ))}
+            </Card>
+          </>)}
+
+        </div>
       </div>
       <HelpAgent lang={lang} context={`Coordinateur: ${user.id} | ${holders.length} porteurs suivis | ${holders.filter(h => h.comp?.eligible).length} éligibles | ${holders.filter(h => h.step === "export").length} dossiers complets`}/>
     </div>
@@ -2763,13 +3063,21 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   onAddCoord: (c: string) => void; onDelCoord: (i: number) => void;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
-  const [tab, setTab]           = useState("stats");
+  const [tab, setTab]           = useState("overview");
   const [newCoord, setNewCoord] = useState("");
   const [search, setSearch]     = useState("");
   const [filterRegion, setFilterRegion] = useState("");
   const [filterSector, setFilterSector] = useState("");
   const [filterStep, setFilterStep]     = useState("");
   const [detailH, setDetailH]   = useState<any>(null);
+
+  const ADMIN_NAV = [
+    {id:"overview",  label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
+    {id:"projects",  label: lang==="ar"?"المشاريع":lang==="fr"?"Projets":"Projects"},
+    {id:"coords",    label: lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"},
+    {id:"activity",  label: lang==="ar"?"النشاط":lang==="fr"?"Activité":"Activity"},
+    {id:"settings",  label: lang==="ar"?"الإعدادات":lang==="fr"?"Paramètres":"Settings"},
+  ];
 
   const STEPS_LIST = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
 
@@ -2807,14 +3115,6 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
     a.click();
   };
 
-  const TabBtn = ({id, label}: {id: string; label: string}) => (
-    <button onClick={() => setTab(id)} style={{padding: "8px 18px", borderRadius: "10px", border: "none",
-      background: tab === id ? Y : "transparent", color: tab === id ? ND : "rgba(255,255,255,.5)",
-      fontSize: "12px", fontWeight: "700", fontFamily: ff(lang)}}>
-      {label}
-    </button>
-  );
-
   const BarRow = ({label, n, total, col}: {label: string; n: number; total: number; col: string}) => (
     <div style={{marginBottom: "10px"}}>
       <div style={{display: "flex", justifyContent: "space-between", marginBottom: "3px"}}>
@@ -2828,143 +3128,153 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
     </div>
   );
 
-  /* ── Detail modal ── */
+  const getStatus = (h: any) => {
+    if (h.comp?.eligible) return {label:lang==="ar"?"مؤهل":lang==="fr"?"Éligible":"Eligible", bg:"#EAF3EF", fg:GN};
+    const pct = STEPS_LIST.indexOf(h.step||"idea") / (STEPS_LIST.length-1) * 100;
+    if (pct >= 40) return {label:lang==="ar"?"جارٍ":lang==="fr"?"En cours":"In progress", bg:"#FBF3EC", fg:RE};
+    return {label:lang==="ar"?"بداية":lang==="fr"?"Démarrage":"Starting", bg:"#F0EEE9", fg:GR};
+  };
+
+  /* ── Detail view with sidebar ── */
   if (detailH) {
     const h = detailH;
     return (
-      <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
-        <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
-        <div style={{maxWidth: "720px", margin: "0 auto", padding: "24px 18px 60px"}}>
-          <button onClick={() => setDetailH(null)} style={{marginBottom: "16px", padding: "8px 16px",
-            borderRadius: "10px", border: `1px solid ${N}`, background: "transparent",
-            color: N, fontSize: "12px", fontWeight: "600", fontFamily: ff(lang)}}>
-            ← {lang === "ar" ? "رجوع" : lang === "fr" ? "Retour" : "Back"}
-          </button>
-          <Card>
-            <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px"}}>
-              <div style={{width: "44px", height: "44px", borderRadius: "50%", background: Y,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "18px", fontWeight: "800", color: ND}}>{(h.name||"?")[0]}</div>
-              <div style={{flex: 1}}>
-                <div style={{fontSize: "16px", fontWeight: "700", color: ND}}>{h.name} {h.profile?.lastName||""}</div>
-                <div style={{fontSize: "12px", color: GR}}>{h.id} · {h.profile?.region} · {h.profile?.projType}</div>
-              </div>
-              <div style={{display:"flex", gap:"6px", flexShrink:0}}>
-                <Badge role="holder"/>
-                {h.comp && <span style={{padding:"3px 8px", borderRadius:"7px", fontSize:"10px", fontWeight:"700",
-                  background: h.comp.eligible ? GN+"22" : RE+"22", color: h.comp.eligible ? GN : RE}}>
-                  {h.comp.score}/100
-                </span>}
-              </div>
-            </div>
-            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px"}}>
-              {[
-                {l:"Age", v:h.profile?.age, i:"📅"}, {l:"Genre", v:h.profile?.gender, i:"👤"},
-                {l:"Région", v:h.profile?.region, i:"📍"}, {l:"Secteur", v:h.profile?.sector, i:"🏭"},
-                {l:"Email", v:h.profile?.email, i:"📧"}, {l:"Téléphone", v:h.profile?.phone, i:"📞"},
-                {l:"Formation", v:h.profile?.edu, i:"🎓"}, {l:"Type porteur", v:h.profile?.projType, i:"⚖️"},
-              ].filter(x => x.v).map((x, i) => (
-                <div key={i} style={{display:"flex", gap:"8px", alignItems:"center",
-                  padding:"10px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
-                  <span>{x.i}</span>
-                  <div><div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>{x.l}</div>
-                    <div style={{fontSize:"12px", color:ND, fontWeight:"600"}}>{x.v}</div></div>
-                </div>
-              ))}
-            </div>
-          </Card>
-          {h.proj && <Card>
-            <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
-              <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>📋 {lang==="ar"?"ملف المشروع":lang==="fr"?"Profil du Projet":"Project Profile"}</span>
-            </div>
-            {[
-              {l:"Projet", v:h.proj.projectName, i:"🏢"}, {l:"Secteur", v:h.proj.sector, i:"🏭"},
-              {l:"Structure", v:h.proj.legalStructure, i:"⚖️"}, {l:"Zone", v:h.proj.location, i:"📍"},
-              {l:"Bénéficiaires", v:h.proj.beneficiaries, i:"👥"}, {l:"Axe INDH", v:h.proj.pillar, i:"🏛️"},
-              {l:"Budget estimé", v:h.proj.estimatedBudget ? `${Number(h.proj.estimatedBudget).toLocaleString()} MAD` : null, i:"💰"},
-            ].filter(x => x.v).map((x, i) => (
-              <div key={i} style={{display:"flex", gap:"10px", alignItems:"center",
-                padding:"10px 12px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`, marginBottom:"7px"}}>
-                <span style={{fontSize:"18px"}}>{x.i}</span>
-                <div><div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>{x.l}</div>
-                  <div style={{fontSize:"13px", color:ND, fontWeight:"600"}}>{x.v}</div></div>
-              </div>
-            ))}
-          </Card>}
-          {h.plan && <Card>
-            <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"12px"}}>
-              <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>📊 {lang==="ar"?"خطة الأعمال":lang==="fr"?"Plan d'Affaires":"Business Plan"}</span>
-            </div>
-            {h.plan.executiveSummary && <div style={{padding:"12px 14px", background:CR, borderRadius:"12px",
-              borderLeft:`4px solid ${Y}`, marginBottom:"8px", fontSize:"13px", color:ND, lineHeight:"1.7"}}>
-              {h.plan.executiveSummary.slice(0, 300)}{h.plan.executiveSummary.length > 300 ? "…" : ""}
-            </div>}
-            {h.plan.projections && <div style={{display:"flex", gap:"8px"}}>
-              {Object.entries(h.plan.projections).map(([y, v]) => (
-                <div key={y} style={{flex:1, textAlign:"center", padding:"10px", background:YL,
-                  borderRadius:"10px", border:`1px solid ${Y}55`}}>
-                  <div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>An {y.replace("year","")}</div>
-                  <div style={{fontSize:"18px", fontWeight:"800", color:N}}>{Number(v).toLocaleString()}</div>
-                  <div style={{fontSize:"9px", color:GR}}>MAD</div>
-                </div>
-              ))}
-            </div>}
-          </Card>}
-          {h.comp && <Card>
-            <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
-              <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>✅ {t.compT}</span>
-            </div>
-            <div style={{display:"flex", alignItems:"center", gap:"16px", marginBottom:"14px"}}>
-              <div style={{width:"72px", height:"72px", borderRadius:"50%",
-                background: h.comp.eligible ? ND : "#FFF0F0",
-                border:`3px solid ${h.comp.eligible ? Y : RE}`,
-                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
-                <span style={{fontSize:"22px", fontWeight:"800", color: h.comp.eligible ? Y : RE}}>{h.comp.score}</span>
-              </div>
-              <div>
-                <div style={{fontSize:"14px", fontWeight:"700", color: h.comp.eligible ? GN : RE, marginBottom:"4px"}}>
-                  {h.comp.eligible ? t.eligible : t.notElig}
-                </div>
-                {h.comp.pillar && <div style={{fontSize:"12px", color:GR}}>📌 {h.comp.pillar}</div>}
-              </div>
-            </div>
-            {h.comp.juryScore && JURY.map(({key, label, w}) => {
-              const sc = h.comp.juryScore[key]||0; const p = (sc/w)*100;
-              const col = p >= 70 ? Y : p >= 50 ? "#F59E0B" : RE;
-              return (<div key={key} style={{marginBottom:"8px"}}>
-                <div style={{display:"flex", justifyContent:"space-between", marginBottom:"2px"}}>
-                  <span style={{fontSize:"11px", color:N}}>{label}</span>
-                  <span style={{fontSize:"11px", fontWeight:"800", color:ND}}>{sc}/{w}</span>
-                </div>
-                <div style={{height:"5px", background:CD, borderRadius:"3px", overflow:"hidden"}}>
-                  <div style={{height:"100%", borderRadius:"3px", background:col, width:`${Math.min(p,100)}%`}}/>
-                </div>
-              </div>);
-            })}
-          </Card>}
-          <div style={{padding:"14px 16px", background:ND, borderRadius:"14px", display:"flex",
-            alignItems:"center", justifyContent:"space-between", gap:"12px"}}>
-            <span style={{fontSize:"13px", color:WH, fontWeight:"600"}}>
-              📄 {lang==="ar"?"تصدير بيانات هذا الحامل":lang==="fr"?"Exporter ce porteur":"Export this holder"}
-            </span>
-            <button onClick={() => {
-              const h2 = detailH;
-              const total = (h2.budget?.items||[]).reduce((s: number, x: any) => s+(x.total||0), 0);
-              const rows = [
-                ["ID","Nom","Prénom","Email","Téléphone","Région","Secteur","Projet","Score","Éligible","Étape"],
-                [h2.id, h2.profile?.lastName||"", h2.name||"", h2.profile?.email||"",
-                 h2.profile?.phone||"", h2.profile?.region||"", h2.proj?.sector||"",
-                 h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
-              ].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(";")).join("\n");
-              const a = Object.assign(document.createElement("a"), {
-                href: URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"})),
-                download: `Porteur_${h2.id}.csv`,
-              });
-              a.click();
-            }} style={{padding:"8px 16px", borderRadius:"10px", border:`1.5px solid ${Y}`,
-              background:"transparent", color:Y, fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
-              ⬇ CSV
+      <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+        <DashSidebar user={user} navItems={ADMIN_NAV} activeTab={tab}
+          onTabChange={id => { setTab(id); setDetailH(null); }}
+          onLogout={onLogout} lang={lang} t={t}/>
+        <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+          <div style={{padding:"32px 40px 48px", maxWidth:860}}>
+            <button onClick={() => setDetailH(null)} style={{marginBottom:"20px", padding:"8px 16px",
+              borderRadius:"8px", border:`1px solid ${CD}`, background:WH,
+              color:N, fontSize:"12px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
+              ← {lang==="ar"?"رجوع":lang==="fr"?"Retour":"Back"}
             </button>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"12px", marginBottom:"18px"}}>
+                <div style={{width:48, height:48, borderRadius:"50%", background:ND, flexShrink:0,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:"18px", fontWeight:"800", color:WH}}>{(h.name||"?")[0]}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:"17px", fontWeight:"700", color:ND}}>{h.name} {h.profile?.lastName||""}</div>
+                  <div style={{fontSize:"12px", color:GR}}>{h.id} · {h.profile?.region} · {h.profile?.projType}</div>
+                </div>
+                <div style={{display:"flex", gap:"6px", flexShrink:0}}>
+                  <Badge role="holder"/>
+                  {h.comp && <span style={{padding:"3px 8px", borderRadius:"7px", fontSize:"10px", fontWeight:"700",
+                    background: h.comp.eligible ? GN+"22" : RE+"22", color: h.comp.eligible ? GN : RE}}>
+                    {h.comp.score}/100
+                  </span>}
+                </div>
+              </div>
+              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
+                {[
+                  {l:"Age", v:h.profile?.age, i:"📅"}, {l:"Genre", v:h.profile?.gender, i:"👤"},
+                  {l:"Région", v:h.profile?.region, i:"📍"}, {l:"Secteur", v:h.profile?.sector, i:"🏭"},
+                  {l:"Email", v:h.profile?.email, i:"📧"}, {l:"Téléphone", v:h.profile?.phone, i:"📞"},
+                  {l:"Formation", v:h.profile?.edu, i:"🎓"}, {l:"Type porteur", v:h.profile?.projType, i:"⚖️"},
+                ].filter(x => x.v).map((x, i) => (
+                  <div key={i} style={{display:"flex", gap:"8px", alignItems:"center",
+                    padding:"10px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
+                    <span>{x.i}</span>
+                    <div><div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>{x.l}</div>
+                      <div style={{fontSize:"12px", color:ND, fontWeight:"600"}}>{x.v}</div></div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            {h.proj && <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>📋 {lang==="ar"?"ملف المشروع":lang==="fr"?"Profil du Projet":"Project Profile"}</span>
+              </div>
+              {[
+                {l:"Projet", v:h.proj.projectName, i:"🏢"}, {l:"Secteur", v:h.proj.sector, i:"🏭"},
+                {l:"Structure", v:h.proj.legalStructure, i:"⚖️"}, {l:"Zone", v:h.proj.location, i:"📍"},
+                {l:"Bénéficiaires", v:h.proj.beneficiaries, i:"👥"}, {l:"Axe INDH", v:h.proj.pillar, i:"🏛️"},
+                {l:"Budget estimé", v:h.proj.estimatedBudget ? `${Number(h.proj.estimatedBudget).toLocaleString()} MAD` : null, i:"💰"},
+              ].filter(x => x.v).map((x, i) => (
+                <div key={i} style={{display:"flex", gap:"10px", alignItems:"center",
+                  padding:"10px 12px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`, marginBottom:"7px"}}>
+                  <span style={{fontSize:"18px"}}>{x.i}</span>
+                  <div><div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>{x.l}</div>
+                    <div style={{fontSize:"13px", color:ND, fontWeight:"600"}}>{x.v}</div></div>
+                </div>
+              ))}
+            </Card>}
+            {h.plan && <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"12px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>📊 {lang==="ar"?"خطة الأعمال":lang==="fr"?"Plan d'Affaires":"Business Plan"}</span>
+              </div>
+              {h.plan.executiveSummary && <div style={{padding:"12px 14px", background:CR, borderRadius:"12px",
+                borderLeft:`4px solid ${Y}`, marginBottom:"8px", fontSize:"13px", color:ND, lineHeight:"1.7"}}>
+                {h.plan.executiveSummary.slice(0,300)}{h.plan.executiveSummary.length > 300 ? "…" : ""}
+              </div>}
+              {h.plan.projections && <div style={{display:"flex", gap:"8px"}}>
+                {Object.entries(h.plan.projections).map(([y, v]) => (
+                  <div key={y} style={{flex:1, textAlign:"center", padding:"10px", background:YL,
+                    borderRadius:"10px", border:`1px solid ${Y}55`}}>
+                    <div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>An {y.replace("year","")}</div>
+                    <div style={{fontSize:"18px", fontWeight:"800", color:N}}>{Number(v).toLocaleString()}</div>
+                    <div style={{fontSize:"9px", color:GR}}>MAD</div>
+                  </div>
+                ))}
+              </div>}
+            </Card>}
+            {h.comp && <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>✅ {t.compT}</span>
+              </div>
+              <div style={{display:"flex", alignItems:"center", gap:"16px", marginBottom:"14px"}}>
+                <div style={{width:72, height:72, borderRadius:"50%",
+                  background: h.comp.eligible ? ND : "#FFF0F0",
+                  border:`3px solid ${h.comp.eligible ? Y : RE}`,
+                  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
+                  <span style={{fontSize:"22px", fontWeight:"800", color: h.comp.eligible ? Y : RE}}>{h.comp.score}</span>
+                </div>
+                <div>
+                  <div style={{fontSize:"14px", fontWeight:"700", color: h.comp.eligible ? GN : RE, marginBottom:"4px"}}>
+                    {h.comp.eligible ? t.eligible : t.notElig}
+                  </div>
+                  {h.comp.pillar && <div style={{fontSize:"12px", color:GR}}>📌 {h.comp.pillar}</div>}
+                </div>
+              </div>
+              {h.comp.juryScore && JURY.map(({key, label, w}) => {
+                const sc = h.comp.juryScore[key]||0; const p = (sc/w)*100;
+                const col = p >= 70 ? Y : p >= 50 ? "#F59E0B" : RE;
+                return (<div key={key} style={{marginBottom:"8px"}}>
+                  <div style={{display:"flex", justifyContent:"space-between", marginBottom:"2px"}}>
+                    <span style={{fontSize:"11px", color:N}}>{label}</span>
+                    <span style={{fontSize:"11px", fontWeight:"800", color:ND}}>{sc}/{w}</span>
+                  </div>
+                  <div style={{height:"5px", background:CD, borderRadius:"3px", overflow:"hidden"}}>
+                    <div style={{height:"100%", borderRadius:"3px", background:col, width:`${Math.min(p,100)}%`}}/>
+                  </div>
+                </div>);
+              })}
+            </Card>}
+            <div style={{padding:"14px 16px", background:ND, borderRadius:"12px", display:"flex",
+              alignItems:"center", justifyContent:"space-between", gap:"12px"}}>
+              <span style={{fontSize:"13px", color:WH, fontWeight:"600"}}>
+                📄 {lang==="ar"?"تصدير بيانات هذا الحامل":lang==="fr"?"Exporter ce porteur":"Export this holder"}
+              </span>
+              <button onClick={() => {
+                const h2 = detailH;
+                const rows = [
+                  ["ID","Nom","Prénom","Email","Téléphone","Région","Secteur","Projet","Score","Éligible","Étape"],
+                  [h2.id, h2.profile?.lastName||"", h2.name||"", h2.profile?.email||"",
+                   h2.profile?.phone||"", h2.profile?.region||"", h2.proj?.sector||"",
+                   h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
+                ].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(";")).join("\n");
+                const a = Object.assign(document.createElement("a"), {
+                  href: URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"})),
+                  download: `Porteur_${h2.id}.csv`,
+                });
+                a.click();
+              }} style={{padding:"8px 16px", borderRadius:"8px", border:`1.5px solid ${Y}`,
+                background:"transparent", color:Y, fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
+                ⬇ CSV
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2972,178 +3282,347 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   }
 
   return (
-    <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
-      <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
-      <div style={{background: ND, padding: "0 22px", borderBottom: "1px solid rgba(255,255,255,.08)"}}>
-        <div style={{maxWidth: "720px", margin: "0 auto", display: "flex", gap: "4px", padding: "8px 0"}}>
-          <TabBtn id="stats" label={`📊 ${t.stats}`}/>
-          <TabBtn id="projects" label={`📋 ${t.projects}`}/>
-          <TabBtn id="coords" label={`👥 ${lang === "ar" ? "المنسقون" : lang === "fr" ? "Coordinateurs" : "Coordinators"}`}/>
-        </div>
-      </div>
-      <div style={{maxWidth: "720px", margin: "0 auto", padding: "24px 18px 60px"}}>
+    <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+      <DashSidebar user={user} navItems={ADMIN_NAV} activeTab={tab}
+        onTabChange={setTab} onLogout={onLogout} lang={lang} t={t}/>
+      <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+        <div style={{padding:"32px 40px 48px", maxWidth:900}}>
 
-        {tab === "stats" && (<>
-          <div style={{display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "16px"}}>
-            {[
-              {label: t.totalProj, val: holders.length, col: Y},
-              {label: lang === "ar" ? "مؤهلون" : lang === "fr" ? "Éligibles" : "Eligible", val: holders.filter((h: any) => h.comp?.eligible).length, col: GN},
-              {label: lang === "ar" ? "مكتملون" : lang === "fr" ? "Terminés" : "Completed", val: holders.filter((h: any) => h.step === "export").length, col: "#8B5CF6"},
-              {label: lang === "ar" ? "منسقون" : lang === "fr" ? "Coordinateurs" : "Coordinators", val: coords.length, col: "#3B82F6"},
-              {label: lang === "ar" ? "متوسط النقاط" : lang === "fr" ? "Score moyen" : "Avg score", val: holders.length ? Math.round(holders.reduce((s: number, h: any) => s + (h.comp?.score || 0), 0) / holders.length) : 0, col: "#EC4899"},
-              {label: lang === "ar" ? "نسبة الاكتمال" : lang === "fr" ? "Taux complétion" : "Completion rate", val: `${holders.length ? Math.round(holders.filter((h: any) => h.step === "export").length / holders.length * 100) : 0}%`, col: "#14B8A6"},
-            ].map((x, i) => (
-              <div key={i} style={{background: WH, borderRadius: "14px", padding: "16px", textAlign: "center",
-                boxShadow: "0 2px 12px rgba(15,34,51,.07)", border: `1px solid ${CD}`}}>
-                <div style={{fontSize: "24px", fontWeight: "800", color: x.col}}>{x.val}</div>
-                <div style={{fontSize: "9px", color: GR, textTransform: "uppercase", letterSpacing: ".5px", marginTop: "4px"}}>{x.label}</div>
-              </div>
-            ))}
-          </div>
-          <Card>
-            <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "14px"}}>
-              <AccBar/><span style={{fontSize: "14px", fontWeight: "700", color: ND}}>📍 {t.byRegion}</span>
-            </div>
-            {Object.entries(byRegion).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([r, n], i) => (
-              <BarRow key={r} label={r} n={n as number} total={holders.length}
-                col={[Y, "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#14B8A6", "#F59E0B", "#EF4444"][i % 8]}/>
-            ))}
-            {Object.keys(byRegion).length === 0 && <p style={{color: GR, fontSize: "13px"}}>{t.noProjects}</p>}
-          </Card>
-          <Card>
-            <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "14px"}}>
-              <AccBar/><span style={{fontSize: "14px", fontWeight: "700", color: ND}}>🏭 {t.bySector}</span>
-            </div>
-            {Object.entries(bySector).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([s, n], i) => (
-              <BarRow key={s} label={s} n={n as number} total={holders.length}
-                col={[Y, "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#14B8A6"][i % 6]}/>
-            ))}
-            {Object.keys(bySector).length === 0 && <p style={{color: GR, fontSize: "13px"}}>{t.noProjects}</p>}
-          </Card>
-        </>)}
-
-        {tab === "projects" && (<>
-          {/* Search + filter row */}
-          <div style={{display:"flex", gap:"8px", marginBottom:"10px", flexWrap:"wrap"}}>
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder={lang === "ar" ? "بحث..." : lang === "fr" ? "Rechercher..." : "Search..."}
-              style={{flex:"1 1 160px", minWidth:"120px", padding:"10px 13px", borderRadius:"10px", border:`2px solid ${CD}`,
-                fontSize:"12px", fontFamily:ff(lang), color:N, background:WH, direction:dir as "rtl"|"ltr"}}/>
-            <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)}
-              style={{flex:"1 1 130px", minWidth:"110px", padding:"10px 10px", borderRadius:"10px",
-                border:`2px solid ${filterRegion ? Y : CD}`, background:filterRegion ? YL : WH,
-                fontSize:"11px", fontFamily:ff(lang), color:filterRegion ? ND : GR, appearance:"none"}}>
-              <option value="">{lang==="ar"?"كل الجهات":lang==="fr"?"Toutes régions":"All regions"}</option>
-              {REGIONS.map(r => <option key={r} value={r}>{r.slice(0,18)}</option>)}
-            </select>
-            <select value={filterSector} onChange={e => setFilterSector(e.target.value)}
-              style={{flex:"1 1 120px", minWidth:"100px", padding:"10px 10px", borderRadius:"10px",
-                border:`2px solid ${filterSector ? Y : CD}`, background:filterSector ? YL : WH,
-                fontSize:"11px", fontFamily:ff(lang), color:filterSector ? ND : GR, appearance:"none"}}>
-              <option value="">{lang==="ar"?"كل القطاعات":lang==="fr"?"Tous secteurs":"All sectors"}</option>
-              {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select value={filterStep} onChange={e => setFilterStep(e.target.value)}
-              style={{flex:"1 1 100px", minWidth:"90px", padding:"10px 10px", borderRadius:"10px",
-                border:`2px solid ${filterStep ? Y : CD}`, background:filterStep ? YL : WH,
-                fontSize:"11px", fontFamily:ff(lang), color:filterStep ? ND : GR, appearance:"none"}}>
-              <option value="">{lang==="ar"?"كل المراحل":lang==="fr"?"Toutes étapes":"All steps"}</option>
-              {STEPS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          {/* CSV export + count row */}
-          <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px"}}>
-            <span style={{fontSize:"11px", color:GR, fontWeight:"600"}}>
-              {filtered.length} {lang==="ar"?"نتيجة":lang==="fr"?"résultat(s)":"result(s)"}
-            </span>
-            <button onClick={exportCSV}
-              style={{padding:"7px 14px", borderRadius:"9px", border:`1.5px solid ${N}`,
-                background:"transparent", color:N, fontSize:"11px", fontWeight:"700",
-                fontFamily:ff(lang), cursor:"pointer"}}>
-              📥 CSV
-            </button>
-          </div>
-          {filtered.length === 0 ? (
-            <div style={{textAlign:"center", padding:"48px 20px"}}>
-              <div style={{fontSize:"56px", marginBottom:"12px"}}>📭</div>
-              <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>{t.noProjects}</div>
-              <div style={{fontSize:"13px", color:GR}}>{lang==="ar"?"لا توجد مشاريع تطابق معايير البحث":lang==="fr"?"Aucun projet ne correspond à vos filtres":"No projects match your search filters"}</div>
-            </div>
-          ) :
-            filtered.map((h: any, i: number) => (
-              <Card key={i} style={{cursor:"pointer"}} onClick={() => setDetailH(h)}>
-                <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
-                  <div style={{width: "36px", height: "36px", borderRadius: "50%", background: Y,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "14px", fontWeight: "800", color: ND, flexShrink: 0}}>{(h.name||"?")[0]}</div>
-                  <div style={{flex: 1}}>
-                    <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "2px"}}>
-                      <span style={{fontSize: "13px", fontWeight: "700", color: ND}}>{h.name}</span>
-                      <span style={{fontSize: "10px", color: GR}}>{h.id}</span>
-                      {h.comp && <span style={{fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px",
-                        background: h.comp.eligible ? GN + "22" : RE + "22", color: h.comp.eligible ? GN : RE}}>{h.comp.score}/100</span>}
-                    </div>
-                    <div style={{fontSize: "11px", color: GR}}>{h.proj?.projectName || "—"} · {h.profile?.region}</div>
-                    <div style={{marginTop: "5px"}}>
-                      <PBar pct={STEPS_LIST.indexOf(h.step || "idea") / (STEPS_LIST.length - 1) * 100} h={4}/>
-                    </div>
-                  </div>
-                  <span style={{fontSize: "10px", fontWeight: "700", color: Y, background: Y + "22",
-                    padding: "3px 8px", borderRadius: "7px", flexShrink: 0}}>{h.step || "idea"}</span>
-                </div>
-              </Card>
-            ))
-          }
-        </>)}
-
-        {tab === "coords" && (<>
-          <Card>
-            <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "14px"}}>
-              <AccBar/><span style={{fontSize: "14px", fontWeight: "700", color: ND}}>➕ {t.addCoord}</span>
-            </div>
-            <p style={{fontSize: "11px", color: GR, marginBottom: "10px"}}>
-              {lang === "ar" ? "الصيغة: @NOMCOD (مثال: @KHALIDCOD)" : lang === "fr" ? "Format: @NOMCOD (ex: @KHALIDCOD)" : "Format: @LASTNAMECOD (e.g. @KHALIDCOD)"}
+          {/* ── Overview ── */}
+          {tab === "overview" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {lang==="ar"?"لوحة تحكم المدير":lang==="fr"?"Tableau de bord Administrateur":"Admin Dashboard"}
             </p>
-            <div style={{display: "flex", gap: "8px"}}>
-              <input value={newCoord} onChange={e => setNewCoord(e.target.value.toUpperCase())}
-                placeholder="@KHALIDCOD"
-                style={{flex: 1, padding: "11px 14px", borderRadius: "11px", border: `2px solid ${newCoord && RE_COORD.test(newCoord) ? Y : CD}`,
-                  fontSize: "13px", fontFamily: ff(lang), color: N, background: CR, fontWeight: "700", letterSpacing: "1px"}}/>
-              <button onClick={() => {if (RE_COORD.test(newCoord)) {onAddCoord(newCoord); setNewCoord("");}}}
-                disabled={!RE_COORD.test(newCoord)}
-                style={{padding: "11px 20px", borderRadius: "11px", border: "none", cursor: "pointer",
-                  background: `linear-gradient(135deg,${Y},${YD})`, color: ND, fontSize: "13px",
-                  fontWeight: "700", fontFamily: ff(lang), opacity: RE_COORD.test(newCoord) ? 1 : .5}}>
-                {t.add}
+            <div style={{display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:14, marginBottom:20}}>
+              {[
+                {label:lang==="ar"?"الحاملون النشطون":lang==="fr"?"Porteurs actifs":"Active holders", val:holders.length},
+                {label:lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects", val:holders.filter(h=>h.comp?.eligible).length},
+                {label:lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs actifs":"Active coordinators", val:coords.length},
+                {label:lang==="ar"?"متوسط النقاط":lang==="fr"?"Score moyen":"Avg score", val:holders.length ? Math.round(holders.reduce((s,h)=>s+(h.comp?.score||0),0)/holders.length) : 0},
+              ].map((x,i) => (
+                <div key={i} style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                  padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                  <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>{x.label}</div>
+                  <div style={{fontSize:28, fontWeight:800, color:ND}}>{x.val}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
+              <Card style={{marginBottom:0}}>
+                <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                  <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>📍 {t.byRegion}</span>
+                </div>
+                {Object.entries(byRegion).sort((a,b)=>(b[1] as number)-(a[1] as number)).slice(0,6).map(([r,n],i) => (
+                  <BarRow key={r} label={r} n={n as number} total={holders.length}
+                    col={[ND,Y,"#22C55E","#8B5CF6","#EC4899","#14B8A6"][i%6]}/>
+                ))}
+                {Object.keys(byRegion).length === 0 && <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p>}
+              </Card>
+              <Card style={{marginBottom:0}}>
+                <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                  <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>🏭 {t.bySector}</span>
+                </div>
+                {Object.entries(bySector).sort((a,b)=>(b[1] as number)-(a[1] as number)).slice(0,6).map(([s,n],i) => (
+                  <BarRow key={s} label={s} n={n as number} total={holders.length}
+                    col={[ND,Y,"#22C55E","#8B5CF6","#EC4899","#14B8A6"][i%6]}/>
+                ))}
+                {Object.keys(bySector).length === 0 && <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p>}
+              </Card>
+            </div>
+            {holders.length > 0 && <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                  {lang==="ar"?"أحدث المشاريع":lang==="fr"?"Derniers projets":"Latest projects"}
+                </span>
+              </div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%", borderCollapse:"collapse", fontSize:12}}>
+                  <thead>
+                    <tr style={{background:THS}}>
+                      {["Porteur","CIN","Projet","Statut"].map((h2,i) => (
+                        <th key={i} style={{padding:"9px 12px", textAlign:"left", fontSize:10.5,
+                          fontWeight:700, textTransform:"uppercase", letterSpacing:.4, color:GR}}>{h2}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {holders.slice(-5).reverse().map((h,i) => {
+                      const st = getStatus(h);
+                      return (
+                        <tr key={i} onClick={() => setDetailH(h)} style={{borderBottom:`1px solid ${CD}`,
+                          cursor:"pointer", background: i%2===0 ? WH : THS}}>
+                          <td style={{padding:"10px 12px", fontWeight:600, color:ND}}>{h.name} {h.profile?.lastName||""}</td>
+                          <td style={{padding:"10px 12px", color:GR, fontSize:11}}>{h.id}</td>
+                          <td style={{padding:"10px 12px", color:GR}}>{h.proj?.projectName||"—"}</td>
+                          <td style={{padding:"10px 12px"}}>
+                            <span style={{padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700,
+                              background:st.bg, color:st.fg}}>{st.label}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>}
+          </>)}
+
+          {/* ── Projects ── */}
+          {tab === "projects" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>{t.projects}</h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {holders.length} {lang==="ar"?"مشروع مسجل":lang==="fr"?"projet(s) enregistré(s)":"registered project(s)"}
+            </p>
+            <div style={{display:"flex", gap:"8px", marginBottom:"10px", flexWrap:"wrap"}}>
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder={lang==="ar"?"بحث...":lang==="fr"?"Rechercher...":"Search..."}
+                style={{flex:"1 1 160px", minWidth:"120px", padding:"10px 13px", borderRadius:"10px", border:`1px solid ${CD}`,
+                  fontSize:"12px", fontFamily:ff(lang), color:N, background:WH, direction:dir as "rtl"|"ltr"}}/>
+              <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)}
+                style={{flex:"1 1 130px", minWidth:"110px", padding:"10px 10px", borderRadius:"10px",
+                  border:`1px solid ${filterRegion ? Y : CD}`, background:filterRegion ? YL : WH,
+                  fontSize:"11px", fontFamily:ff(lang), color:filterRegion ? ND : GR, appearance:"none"}}>
+                <option value="">{lang==="ar"?"كل الجهات":lang==="fr"?"Toutes régions":"All regions"}</option>
+                {REGIONS.map(r => <option key={r} value={r}>{r.slice(0,18)}</option>)}
+              </select>
+              <select value={filterSector} onChange={e => setFilterSector(e.target.value)}
+                style={{flex:"1 1 120px", minWidth:"100px", padding:"10px 10px", borderRadius:"10px",
+                  border:`1px solid ${filterSector ? Y : CD}`, background:filterSector ? YL : WH,
+                  fontSize:"11px", fontFamily:ff(lang), color:filterSector ? ND : GR, appearance:"none"}}>
+                <option value="">{lang==="ar"?"كل القطاعات":lang==="fr"?"Tous secteurs":"All sectors"}</option>
+                {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={filterStep} onChange={e => setFilterStep(e.target.value)}
+                style={{flex:"1 1 100px", minWidth:"90px", padding:"10px 10px", borderRadius:"10px",
+                  border:`1px solid ${filterStep ? Y : CD}`, background:filterStep ? YL : WH,
+                  fontSize:"11px", fontFamily:ff(lang), color:filterStep ? ND : GR, appearance:"none"}}>
+                <option value="">{lang==="ar"?"كل المراحل":lang==="fr"?"Toutes étapes":"All steps"}</option>
+                {STEPS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <button onClick={exportCSV} style={{padding:"10px 14px", borderRadius:"10px",
+                border:`1px solid ${GN}`, background:"transparent", color:GN,
+                fontSize:"11px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer", flexShrink:0}}>
+                📥 {lang==="ar"?"تصدير":lang==="fr"?"Exporter CSV":"Export CSV"}
               </button>
             </div>
-          </Card>
-          <Card>
-            <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "14px"}}>
-              <AccBar/><span style={{fontSize: "14px", fontWeight: "700", color: ND}}>👥 {t.coordList} ({coords.length})</span>
-            </div>
-            {coords.length === 0 ? <p style={{color: GR, fontSize: "13px"}}>{lang === "ar" ? "لا يوجد منسقون بعد" : lang === "fr" ? "Aucun coordinateur ajouté." : "No coordinators added yet."}</p> :
-              coords.map((c: string, i: number) => (
-                <div key={i} style={{display: "flex", alignItems: "center", gap: "10px", padding: "12px",
-                  borderRadius: "12px", background: CR, border: `1px solid ${CD}`, marginBottom: "7px"}}>
-                  <div style={{width: "34px", height: "34px", borderRadius: "50%",
-                    background: "linear-gradient(135deg,#22C55E,#16A34A)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "14px", fontWeight: "800", color: WH}}>{c[1]}</div>
-                  <div style={{flex: 1}}>
-                    <div style={{fontSize: "13px", fontWeight: "700", color: ND}}>{c}</div>
-                    <Badge role="coord"/>
-                  </div>
-                  <button onClick={() => onDelCoord(i)}
-                    style={{padding: "5px 12px", borderRadius: "8px", border: `1px solid ${RE}`,
-                      background: "transparent", color: RE, fontSize: "11px", fontWeight: "600", fontFamily: ff(lang)}}>
-                    {t.delete}
-                  </button>
+            {filtered.length === 0 ? (
+              <div style={{textAlign:"center", padding:"48px 20px"}}>
+                <div style={{fontSize:"56px", marginBottom:"12px"}}>📭</div>
+                <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>{t.noProjects}</div>
+                <div style={{fontSize:"13px", color:GR}}>{lang==="ar"?"لا توجد مشاريع تطابق معايير البحث":lang==="fr"?"Aucun projet ne correspond à vos filtres":"No projects match your search filters"}</div>
+              </div>
+            ) : (
+              <Card style={{padding:0, overflow:"hidden"}}>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%", borderCollapse:"collapse", fontSize:13}}>
+                    <thead>
+                      <tr style={{background:THS}}>
+                        {[lang==="ar"?"الحامل":"Porteur","CIN",
+                          lang==="ar"?"المشروع":"Projet",
+                          lang==="ar"?"المرحلة":"Étape",
+                          lang==="ar"?"التقدم":"Préparation",
+                          lang==="ar"?"الحالة":"Statut",
+                        ].map((h2,i) => (
+                          <th key={i} style={{padding:"10px 14px", textAlign:"left", fontSize:10.5,
+                            fontWeight:700, textTransform:"uppercase", letterSpacing:.4, color:GR, whiteSpace:"nowrap"}}>
+                            {h2}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((h,i) => {
+                        const pct = Math.round(STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100);
+                        const st = getStatus(h);
+                        return (
+                          <tr key={i} onClick={() => setDetailH(h)}
+                            style={{borderBottom:`1px solid ${CD}`, cursor:"pointer",
+                              background: i%2===0 ? WH : THS, transition:"background .15s"}}>
+                            <td style={{padding:"11px 14px", fontWeight:600, color:ND, whiteSpace:"nowrap"}}>
+                              <div style={{display:"flex", alignItems:"center", gap:8}}>
+                                <div style={{width:28, height:28, borderRadius:"50%", background:ND,
+                                  display:"flex", alignItems:"center", justifyContent:"center",
+                                  fontSize:10, fontWeight:800, color:WH, flexShrink:0}}>{(h.name||"?")[0]}</div>
+                                {h.name} {h.profile?.lastName||""}
+                              </div>
+                            </td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{h.id}</td>
+                            <td style={{padding:"11px 14px", color:GR}}>{h.proj?.projectName||"—"}</td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{h.step||"idea"}</td>
+                            <td style={{padding:"11px 14px", minWidth:90}}>
+                              <div style={{display:"flex", alignItems:"center", gap:6}}>
+                                <div style={{flex:1, height:5, background:CD, borderRadius:3, overflow:"hidden"}}>
+                                  <div style={{height:"100%", borderRadius:3, background:ND, width:`${pct}%`}}/>
+                                </div>
+                                <span style={{fontSize:11, fontWeight:700, color:ND, flexShrink:0}}>{pct}%</span>
+                              </div>
+                            </td>
+                            <td style={{padding:"11px 14px"}}>
+                              <span style={{padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700,
+                                background:st.bg, color:st.fg}}>{st.label}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              ))
-            }
-          </Card>
-        </>)}
+              </Card>
+            )}
+          </>)}
+
+          {/* ── Coordinators ── */}
+          {tab === "coords" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {coords.length} {lang==="ar"?"منسق مسجل":lang==="fr"?"coordinateur(s) enregistré(s)":"registered coordinator(s)"}
+            </p>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>➕ {t.addCoord}</span>
+              </div>
+              <p style={{fontSize:"11px", color:GR, marginBottom:"10px"}}>
+                {lang==="ar"?"الصيغة: @NOMCOD (مثال: @KHALIDCOD)":lang==="fr"?"Format: @NOMCOD (ex: @KHALIDCOD)":"Format: @LASTNAMECOD (e.g. @KHALIDCOD)"}
+              </p>
+              <div style={{display:"flex", gap:"8px"}}>
+                <input value={newCoord} onChange={e => setNewCoord(e.target.value.toUpperCase())}
+                  placeholder="@KHALIDCOD"
+                  style={{flex:1, padding:"11px 14px", borderRadius:"8px", border:`1px solid ${newCoord && RE_COORD.test(newCoord) ? Y : DV}`,
+                    fontSize:"13px", fontFamily:ff(lang), color:N, background:IF, fontWeight:"700", letterSpacing:"1px"}}/>
+                <button onClick={() => {if (RE_COORD.test(newCoord)) {onAddCoord(newCoord); setNewCoord("");}}}
+                  disabled={!RE_COORD.test(newCoord)}
+                  style={{padding:"11px 20px", borderRadius:"8px", border:"none", cursor:"pointer",
+                    background:ND, color:WH, fontSize:"13px",
+                    fontWeight:"700", fontFamily:ff(lang), opacity: RE_COORD.test(newCoord) ? 1 : .5}}>
+                  {t.add}
+                </button>
+              </div>
+            </Card>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>👥 {t.coordList} ({coords.length})</span>
+              </div>
+              {coords.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{lang==="ar"?"لا يوجد منسقون بعد":lang==="fr"?"Aucun coordinateur ajouté.":"No coordinators added yet."}</p> :
+                coords.map((c: string, i: number) => (
+                  <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px",
+                    borderRadius:"10px", background:CR, border:`1px solid ${CD}`, marginBottom:"7px"}}>
+                    <div style={{width:34, height:34, borderRadius:"50%", background:ND,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      fontSize:"14px", fontWeight:"800", color:WH}}>{c[1]}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:"13px", fontWeight:"700", color:ND}}>{c}</div>
+                      <Badge role="coord"/>
+                    </div>
+                    <button onClick={() => onDelCoord(i)}
+                      style={{padding:"5px 12px", borderRadius:"8px", border:`1px solid ${RE}`,
+                        background:"transparent", color:RE, fontSize:"11px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
+                      {t.delete}
+                    </button>
+                  </div>
+                ))
+              }
+            </Card>
+          </>)}
+
+          {/* ── Activity ── */}
+          {tab === "activity" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"النشاط":lang==="fr"?"Activité":"Activity"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {lang==="ar"?"آخر الأحداث":lang==="fr"?"Derniers événements":"Latest events"}
+            </p>
+            <Card>
+              {holders.length === 0 ? (
+                <div style={{textAlign:"center", padding:"32px", color:GR}}>
+                  {lang==="ar"?"لا توجد أحداث بعد":lang==="fr"?"Aucun événement encore":"No events yet"}
+                </div>
+              ) : holders.slice().reverse().map((h, i) => (
+                <div key={i} style={{display:"flex", alignItems:"flex-start", gap:12,
+                  paddingBottom:14, marginBottom:14,
+                  borderBottom: i < holders.length-1 ? `1px solid ${CD}` : "none"}}>
+                  <div style={{width:8, height:8, borderRadius:"50%", background:ND,
+                    marginTop:5, flexShrink:0}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13, color:ND, fontWeight:500}}>
+                      <strong>{h.name}</strong> —{" "}
+                      {lang==="ar"
+                        ? `وصل إلى مرحلة "${h.step||"idea"}"`
+                        : lang==="fr"
+                        ? `Avancement à l'étape "${h.step||"idea"}"`
+                        : `Reached step "${h.step||"idea"}"`}
+                    </div>
+                    {h.proj?.projectName && (
+                      <div style={{fontSize:12, color:GR, marginTop:2}}>{h.proj.projectName} · {h.profile?.region||""}</div>
+                    )}
+                  </div>
+                  <span style={{fontSize:11, color:GR, whiteSpace:"nowrap", flexShrink:0}}>
+                    {lang==="ar"?"مؤخراً":lang==="fr"?"Récemment":"Recently"}
+                  </span>
+                </div>
+              ))}
+            </Card>
+          </>)}
+
+          {/* ── Settings ── */}
+          {tab === "settings" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"الإعدادات":lang==="fr"?"Paramètres":"Settings"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {lang==="ar"?"إعدادات حسابك":lang==="fr"?"Paramètres de votre compte":"Your account settings"}
+            </p>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"16px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  {lang==="ar"?"الملف الشخصي":lang==="fr"?"Profil":"Profile"}
+                </span>
+              </div>
+              <div style={{display:"flex", flexDirection:"column", gap:10}}>
+                {[
+                  {l:lang==="ar"?"الاسم":lang==="fr"?"Nom":"Name", v:user.name||user.id},
+                  {l:lang==="ar"?"رمز الوصول":lang==="fr"?"Code d'accès":"Access code", v:user.id},
+                ].map((f,i) => (
+                  <div key={i}>
+                    <div style={{fontSize:10, fontWeight:700, color:GR, textTransform:"uppercase",
+                      letterSpacing:.5, marginBottom:5}}>{f.l}</div>
+                    <input defaultValue={f.v} readOnly style={{width:"100%", padding:"11px 14px",
+                      borderRadius:8, border:`1px solid ${DV}`, background:IF,
+                      fontSize:13, fontFamily:ff(lang), color:N}}/>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"16px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  {lang==="ar"?"الإشعارات":lang==="fr"?"Notifications":"Notifications"}
+                </span>
+              </div>
+              {[
+                {l:lang==="ar"?"إشعارات المشاريع الجديدة":lang==="fr"?"Nouveaux dossiers":"New applications", on:true},
+                {l:lang==="ar"?"تنبيهات الحاملين المتوقفين":lang==="fr"?"Alertes de blocage":"Blocking alerts", on:false},
+              ].map((n,i,arr) => (
+                <div key={i} style={{display:"flex", alignItems:"center", justifyContent:"space-between",
+                  padding:"12px 0", borderBottom: i < arr.length-1 ? `1px solid ${CD}` : "none"}}>
+                  <span style={{fontSize:13, color:N}}>{n.l}</span>
+                  <div style={{position:"relative", width:40, height:22, borderRadius:11,
+                    background: n.on ? ND : CD, cursor:"pointer", transition:"background .2s"}}>
+                    <div style={{position:"absolute", top:3, left: n.on ? 21 : 3,
+                      width:16, height:16, borderRadius:"50%", background:WH,
+                      transition:"left .2s", boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                  </div>
+                </div>
+              ))}
+            </Card>
+          </>)}
+
+        </div>
       </div>
       <HelpAgent lang={lang} context={`Administrateur INDH | ${holders.length} porteurs | ${coords.length} coordinateurs | ${holders.filter(h => h.comp?.eligible).length} éligibles | Score moyen: ${holders.length ? Math.round(holders.reduce((s, h) => s + (h.comp?.score || 0), 0) / holders.length) : 0}/100`}/>
     </div>
