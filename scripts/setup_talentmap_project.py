@@ -48,13 +48,10 @@ with open('.vercel/project.json', 'w') as f:
     json.dump({"projectId": proj_id, "orgId": org_id}, f)
 print(f"Written .vercel/project.json: projectId={proj_id} orgId={org_id}")
 
-existing_aliases = [a.get('domain', '') for a in (proj.get('alias', []) if proj else [])]
+# Always attempt to register both domains (idempotent — Vercel ignores duplicates)
 for domain in ['talentmaponline.org', 'www.talentmaponline.org']:
-    if domain not in existing_aliases:
-        result = vreq("POST", f"/v9/projects/{proj_id}/domains", {"name": domain})
-        if result.get('name'):
-            print(f"Domain added: {domain}")
-        else:
-            print(f"Domain {domain} note: {result}")
+    result = vreq("POST", f"/v9/projects/{proj_id}/domains", {"name": domain})
+    if result.get('name'):
+        print(f"Domain registered: {domain}")
     else:
-        print(f"Domain already set: {domain}")
+        print(f"Domain {domain}: {result}")
