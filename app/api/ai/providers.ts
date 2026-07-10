@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 type Msg = { role: string; content: string };
 
 interface RafiqOpts {
-  task: "json" | "dialogue";
+  task: "json" | "dialogue" | "fast";
   messages: Msg[];
   system?: string;
   max_tokens?: number;
@@ -23,12 +23,26 @@ const _k = {
 const ev = (k: string, fb = "") => process.env[k] || fb;
 
 // Groq free-tier models — each has INDEPENDENT rate limits (30 RPM each).
-// Cycling through them multiplies effective throughput ~4×.
+// Cycling through them multiplies effective throughput ~6×.
+// Llama 4 Scout (MoE 17B active) added April 2025 — faster than 8b-instant, higher quality.
+// Llama 4 Maverick (128k ctx) added April 2025 — best for long document analysis.
 const GROQ_MODELS = [
+  "meta-llama/llama-4-scout-17b-16e-instruct",
   "llama-3.3-70b-versatile",
+  "meta-llama/llama-4-maverick-17b-128e-instruct",
   "llama-3.1-8b-instant",
   "gemma2-9b-it",
   "mixtral-8x7b-32768",
+];
+
+// For "fast" tasks: Llama 4 Scout MoE is fastest with best quality on Groq (~120ms).
+// Falls back to 8b-instant if Scout hits rate limit.
+const GROQ_MODELS_FAST = [
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "llama-3.1-8b-instant",
+  "gemma2-9b-it",
+  "mixtral-8x7b-32768",
+  "llama-3.3-70b-versatile",
 ];
 
 // Together AI free models (no key required for free tier variants)
@@ -86,10 +100,11 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
   return d.content?.[0]?.text ?? "";
 }
 
-async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("GEMINI_API_KEY");
   if (!key) throw new Error("no GEMINI_API_KEY");
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  // gemini-2.5-flash-lite is ~2× faster than flash for short tasks (summaries, skill lists).
+  const model = process.env.GEMINI_MODEL || (fast ? "gemini-2.5-flash-lite" : "gemini-2.5-flash");
   const contents = msgs.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
@@ -107,11 +122,11 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number): Pro
 
 // Groq: tries every free model in sequence until one succeeds.
 // 429 (rate limit) on model N → immediately tries model N+1.
-async function groq(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("GROQ_API_KEY", _k.g);
   if (!key) throw new Error("no GROQ_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
-  for (const model of GROQ_MODELS) {
+  for (const model of fast ? GROQ_MODELS_FAST : GROQ_MODELS) {
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -135,8 +150,14 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number): Promi
 async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("OPENROUTER_API_KEY");
   if (!key) throw new Error("no OPENROUTER_API_KEY");
+  // Free models on OpenRouter — expanded pool as of mid-2025.
+  // Llama 4 Scout/Maverick, DeepSeek-V3, Qwen3, Phi-4 all added free tiers.
   const models = [
-    process.env.OPENROUTER_MODEL || "qwen/qwen3-235b-a22b:free",
+    process.env.OPENROUTER_MODEL || "meta-llama/llama-4-scout:free",
+    "meta-llama/llama-4-maverick:free",
+    "deepseek/deepseek-v3-0324:free",
+    "qwen/qwen3-235b-a22b:free",
+    "microsoft/phi-4:free",
     "meta-llama/llama-3.3-70b-instruct:free",
     "mistralai/mistral-7b-instruct:free",
   ];
@@ -190,14 +211,32 @@ async function tryOnce(fn: typeof groq, msgs: Msg[], sys: string | undefined, ma
 }
 
 export async function rafiq({ task, messages, system, max_tokens = 1200 }: RafiqOpts): Promise<string> {
-  // Anthropic is always first — works via env key or session bearer token.
-  // Other providers fill in when ANTHROPIC_API_KEY is not set in production.
+  const fast = task === "fast";
+
+  if (fast) {
+    // Fast path: skip Anthropic (high-latency), go Groq-first with small model.
+    // Max 800 tokens — enough for summaries and suggestions.
+    const fastTok = Math.min(max_tokens, 800);
+    for (let sweep = 0; sweep < 2; sweep++) {
+      if (sweep > 0) await sleep(800);
+      for (const fn of [
+        (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
+        (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, true),
+        anthropic,
+      ]) {
+        const text = await tryOnce(fn, messages, system, fastTok);
+        if (text) return text;
+      }
+    }
+    throw new Error("Fast AI providers busy. Please try again.");
+  }
+
+  // Standard path — Anthropic is always first.
   const order = task === "json"
     ? [anthropic, gemini, groq, together, openrouter]
     : [anthropic, groq, together, gemini, openrouter];
 
   // Two full sweeps: first sweep is instant, second sweep waits 1.2s
-  // (lets rate-limit windows partially reset before retrying)
   for (let sweep = 0; sweep < 2; sweep++) {
     if (sweep > 0) await sleep(1200);
     for (const fn of order) {
@@ -206,6 +245,5 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     }
   }
 
-  // All providers on both sweeps failed — surface a clear message
   throw new Error("All AI providers temporarily busy. Please try again in a few seconds.");
 }
