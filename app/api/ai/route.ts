@@ -3,7 +3,12 @@ import { rafiq } from "./providers";
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, system, max_tokens = 1200, task = "dialogue" } = await request.json();
+    const { messages, system, max_tokens = 1200, task = "dialogue" } = await request.json() as {
+      messages: { role: string; content: string }[];
+      system?: string;
+      max_tokens?: number;
+      task?: "json" | "dialogue" | "fast";
+    };
     const text = await rafiq({ task, messages, system, max_tokens });
     return NextResponse.json({ content: [{ text }] });
   } catch (err: unknown) {

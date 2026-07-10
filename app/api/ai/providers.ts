@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 type Msg = { role: string; content: string };
 
 interface RafiqOpts {
-  task: "json" | "dialogue";
+  task: "json" | "dialogue" | "fast";
   messages: Msg[];
   system?: string;
   max_tokens?: number;
@@ -29,6 +29,15 @@ const GROQ_MODELS = [
   "llama-3.1-8b-instant",
   "gemma2-9b-it",
   "mixtral-8x7b-32768",
+];
+
+// For "fast" tasks: llama-3.1-8b-instant is the lowest-latency Groq model (~150ms typical).
+// Priority order shifts to smallest/fastest first, quality second.
+const GROQ_MODELS_FAST = [
+  "llama-3.1-8b-instant",
+  "gemma2-9b-it",
+  "mixtral-8x7b-32768",
+  "llama-3.3-70b-versatile",
 ];
 
 // Together AI free models (no key required for free tier variants)
@@ -107,11 +116,11 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number): Pro
 
 // Groq: tries every free model in sequence until one succeeds.
 // 429 (rate limit) on model N → immediately tries model N+1.
-async function groq(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("GROQ_API_KEY", _k.g);
   if (!key) throw new Error("no GROQ_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
-  for (const model of GROQ_MODELS) {
+  for (const model of fast ? GROQ_MODELS_FAST : GROQ_MODELS) {
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -190,14 +199,32 @@ async function tryOnce(fn: typeof groq, msgs: Msg[], sys: string | undefined, ma
 }
 
 export async function rafiq({ task, messages, system, max_tokens = 1200 }: RafiqOpts): Promise<string> {
-  // Anthropic is always first — works via env key or session bearer token.
-  // Other providers fill in when ANTHROPIC_API_KEY is not set in production.
+  const fast = task === "fast";
+
+  if (fast) {
+    // Fast path: skip Anthropic (high-latency), go Groq-first with small model.
+    // Max 800 tokens — enough for summaries and suggestions.
+    const fastTok = Math.min(max_tokens, 800);
+    for (let sweep = 0; sweep < 2; sweep++) {
+      if (sweep > 0) await sleep(800);
+      for (const fn of [
+        (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
+        gemini,
+        anthropic,
+      ]) {
+        const text = await tryOnce(fn, messages, system, fastTok);
+        if (text) return text;
+      }
+    }
+    throw new Error("Fast AI providers busy. Please try again.");
+  }
+
+  // Standard path — Anthropic is always first.
   const order = task === "json"
     ? [anthropic, gemini, groq, together, openrouter]
     : [anthropic, groq, together, gemini, openrouter];
 
   // Two full sweeps: first sweep is instant, second sweep waits 1.2s
-  // (lets rate-limit windows partially reset before retrying)
   for (let sweep = 0; sweep < 2; sweep++) {
     if (sweep > 0) await sleep(1200);
     for (const fn of order) {
@@ -206,6 +233,5 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     }
   }
 
-  // All providers on both sweeps failed — surface a clear message
   throw new Error("All AI providers temporarily busy. Please try again in a few seconds.");
 }
