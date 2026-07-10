@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'next.config*'
+      - 'tsconfig.json'
   workflow_dispatch:
     inputs:
       vercel_token:
@@ -32,5 +39,4 @@ jobs:
       - name: Deploy to Vercel
         env:
           VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
-        run: |
-          vercel --token "$VERCEL_TOKEN" --prod --yes
+        run: vercel --token "$VERCEL_TOKEN" --prod --yes

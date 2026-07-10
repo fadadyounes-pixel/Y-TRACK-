@@ -1,0 +1,38 @@
+name: Deploy to talentmaponline.org
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Link or create talentmaponline Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: python3 scripts/setup_talentmap_project.py
+
+      - name: Deploy to talentmaponline Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel --token "$VERCEL_TOKEN" --prod --yes
+          echo "Deployment complete -> https://talentmaponline.org"
