@@ -3214,19 +3214,46 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
               {lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"}
             </h2>
             <p style={{fontSize:14, color:GR, marginBottom:24}}>{user.id}</p>
-            <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:14, marginBottom:20}}>
-              {[
-                {v:holders.length, l:lang==="ar"?"الحاملون المعينون":lang==="fr"?"Porteurs assignés":"Assigned holders"},
-                {v:holders.length ? Math.round(holders.reduce((s,h)=>s+(STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100),0)/holders.length) + "%" : "—", l:lang==="ar"?"متوسط التقدم":lang==="fr"?"Préparation moyenne":"Avg progress"},
-                {v:holders.filter(h=>h.comp?.eligible).length, l:lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects"},
-              ].map((x,i) => (
-                <div key={i} style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
-                  padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
-                  <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>{x.l}</div>
-                  <div style={{fontSize:28, fontWeight:800, color:ND}}>{x.v}</div>
+            {(() => {
+              const eligC  = holders.filter(h => h.comp?.eligible).length;
+              const eligR  = holders.length ? Math.round((eligC / holders.length) * 100) : 0;
+              const avgPct = holders.length
+                ? Math.round(holders.reduce((s, h) => s + (STEPS_LIST.indexOf(h.step||"idea") / (STEPS_LIST.length - 1) * 100), 0) / holders.length)
+                : 0;
+              return (
+                <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:14, marginBottom:20}}>
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"الحاملون المعينون":lang==="fr"?"Porteurs assignés":"Assigned holders"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{holders.length}</div>
+                  </div>
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"متوسط التقدم":lang==="fr"?"Préparation":"Avg progress"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{holders.length ? avgPct + "%" : "—"}</div>
+                    {holders.length > 0 && (
+                      <div style={{height:4, background:CD, borderRadius:2, marginTop:8, overflow:"hidden"}}>
+                        <div style={{height:"100%", borderRadius:2, background:Y, width:`${avgPct}%`, transition:"width .5s"}}/>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{background: eligC > 0 ? "#EAF3EF" : WH, border:`1px solid ${eligC > 0 ? GN + "44" : CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects"}
+                    </div>
+                    <div style={{display:"flex", alignItems:"baseline", gap:6}}>
+                      <div style={{fontSize:28, fontWeight:800, color: eligC > 0 ? GN : ND}}>{eligC}</div>
+                      {holders.length > 0 && <div style={{fontSize:12, fontWeight:700, color: eligC > 0 ? GN : GR}}>({eligR}%)</div>}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })()}
             {holders.length === 0 ? (
               <Card style={{textAlign:"center", padding:"40px 24px"}}>
                 <svg viewBox="0 0 200 140" style={{width:180, height:126, margin:"0 auto 18px", display:"block"}}>
@@ -3721,20 +3748,60 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
             <p style={{fontSize:14, color:GR, marginBottom:24}}>
               {lang==="ar"?"لوحة تحكم المدير":lang==="fr"?"Tableau de bord Administrateur":"Admin Dashboard"}
             </p>
-            <div style={{display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:14, marginBottom:20}}>
-              {[
-                {label:lang==="ar"?"الحاملون النشطون":lang==="fr"?"Porteurs actifs":"Active holders", val:holders.length},
-                {label:lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects", val:holders.filter(h=>h.comp?.eligible).length},
-                {label:lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs actifs":"Active coordinators", val:coords.length},
-                {label:lang==="ar"?"متوسط النقاط":lang==="fr"?"Score moyen":"Avg score", val:holders.length ? Math.round(holders.reduce((s,h)=>s+(h.comp?.score||0),0)/holders.length) : 0},
-              ].map((x,i) => (
-                <div key={i} style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
-                  padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
-                  <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>{x.label}</div>
-                  <div style={{fontSize:28, fontWeight:800, color:ND}}>{x.val}</div>
+            {(() => {
+              const eligCount   = holders.filter(h => h.comp?.eligible).length;
+              const eligRate    = holders.length ? Math.round((eligCount / holders.length) * 100) : 0;
+              const doneCount   = holders.filter(h => h.step === "export").length;
+              const avgScore    = holders.length ? Math.round(holders.reduce((s, h) => s + (h.comp?.score || 0), 0) / holders.length) : 0;
+              const scoreCol    = avgScore >= 60 ? GN : avgScore >= 40 ? "#D97706" : avgScore > 0 ? RE : GR;
+              return (
+                <div style={{display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:14, marginBottom:20}}>
+                  {/* Card 1 — total holders */}
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"الحاملون النشطون":lang==="fr"?"Porteurs actifs":"Active holders"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{holders.length}</div>
+                  </div>
+                  {/* Card 2 — eligible count + rate */}
+                  <div style={{background:eligCount > 0 ? "#EAF3EF" : WH, border:`1px solid ${eligCount > 0 ? GN + "44" : CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects"}
+                    </div>
+                    <div style={{display:"flex", alignItems:"baseline", gap:6}}>
+                      <div style={{fontSize:28, fontWeight:800, color: eligCount > 0 ? GN : ND}}>{eligCount}</div>
+                      {holders.length > 0 && <div style={{fontSize:12, fontWeight:700, color: eligCount > 0 ? GN : GR}}>({eligRate}%)</div>}
+                    </div>
+                  </div>
+                  {/* Card 3 — coordinators */}
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{coords.length}</div>
+                  </div>
+                  {/* Card 4 — avg jury score with color + completed dossiers */}
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"متوسط النقاط":lang==="fr"?"Score moyen":"Avg score"}
+                    </div>
+                    <div style={{display:"flex", alignItems:"baseline", gap:6}}>
+                      <div style={{fontSize:28, fontWeight:800, color:scoreCol}}>{avgScore > 0 ? avgScore : "—"}</div>
+                      {avgScore > 0 && <div style={{fontSize:12, fontWeight:700, color:scoreCol}}>/100</div>}
+                    </div>
+                    {doneCount > 0 && (
+                      <div style={{fontSize:10.5, color:GN, fontWeight:600, marginTop:4}}>
+                        ✓ {doneCount} {lang==="ar"?"دوسيه كامل":lang==="fr"?"dossier(s) complet(s)":"complete dossier(s)"}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })()}
             <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
               <Card style={{marginBottom:0}}>
                 <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
