@@ -1083,7 +1083,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
 
       <p style={{position:"absolute", bottom:16, left:0, right:0, textAlign:"center",
         fontSize:12, color:"rgba(255,255,255,.4)", zIndex:5}}>
-        © 2026 IdeaMap
+        © 2026 IdeaMap · v2
       </p>
     </div>
   );
