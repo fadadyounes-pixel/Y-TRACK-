@@ -22,7 +22,7 @@ interface Job {
 
 const INITIAL_JOBS: Job[] = [
   { id: 'J001', title: 'Développeur React Senior', company: 'TechCorp', sector: 'Technology', experience: 'Senior', location: 'Casablanca', salary: '15 000 – 20 000 MAD', skills: ['React', 'TypeScript', 'Node.js'], description: 'Développement d\'applications frontend scalables.', status: 'Open', createdAt: '2026-07-01' },
-  { id: 'J002', title: 'Ingénieur Machine Learning', company: 'AI Ventures', sector: 'Data Science', experience: 'Mid-Level', location: 'Rabat', salary: '12 000 – 16 000 MAD', skills: ['Python', 'TensorFlow', 'SQL'], description: 'Développement et déploiement de modèles ML à grande échelle.', status: 'Open', createdAt: '2026-07-03' },
+  { id: 'J002', title: 'Ingénieur Machine Learning', company: 'DataVentures', sector: 'Data Science', experience: 'Mid-Level', location: 'Rabat', salary: '12 000 – 16 000 MAD', skills: ['Python', 'TensorFlow', 'SQL'], description: 'Développement et déploiement de modèles ML à grande échelle.', status: 'Open', createdAt: '2026-07-03' },
   { id: 'J003', title: 'Développeur Python Backend', company: 'DataSoft Solutions', sector: 'Technology', experience: 'Mid-Level', location: 'Casablanca', salary: '10 000 – 14 000 MAD', skills: ['Python', 'Django', 'SQL'], description: 'Conception d\'APIs REST et pipelines de données.', status: 'Open', createdAt: '2026-07-05' },
 ];
 

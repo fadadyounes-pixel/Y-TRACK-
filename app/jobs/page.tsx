@@ -12,7 +12,7 @@ const FALLBACK_JOBS = [
     candidates: 0, topScore: 0, posted: '2026-07-01', status: 'active',
   },
   {
-    id: 2, title: 'Ingénieur Machine Learning', company: 'AI Ventures', sector: 'Data Science',
+    id: 2, title: 'Ingénieur Machine Learning', company: 'DataVentures', sector: 'Data Science',
     experience: 'Mid-Level', skills: ['Python', 'TensorFlow', 'SQL'],
     candidates: 0, topScore: 0, posted: '2026-07-03', status: 'active',
   },
@@ -90,7 +90,7 @@ export default function JobsPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Job Offers</h1>
-            <p style={{ color: '#6b7280', marginTop: '0.25rem' }}>{filtered.length} positions · AI matching active</p>
+            <p style={{ color: '#6b7280', marginTop: '0.25rem' }}>{filtered.length} positions · Matching Expert RH actif</p>
           </div>
           <button className="btn-primary" onClick={() => setShowForm(!showForm)}>
             + Post New Job
