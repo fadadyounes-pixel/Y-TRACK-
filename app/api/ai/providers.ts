@@ -103,6 +103,17 @@ const MISTRAL_MODELS = [
   "open-mixtral-8x7b",        // reliable fallback
 ];
 
+// SiliconFlow: best free Arabic/French inference in 2026.
+// Qwen3-8B is top-3 Arabic LLM; permanently free with no credit card.
+// 3 models are free forever (no rate-limit concern): Qwen3-8B, DeepSeek-R1-Distill-Qwen-7B.
+// Sign up free (no card): https://cloud.siliconflow.cn/en/sign_up
+// Set env var: SILICONFLOW_API_KEY
+const SILICONFLOW_MODELS = [
+  "Qwen/Qwen3-8B",                                // #1 free Arabic/French — 128k ctx
+  "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",      // strong reasoning, free forever
+  "Qwen/Qwen2.5-7B-Instruct",                     // reliable multilingual fallback
+];
+
 // Together AI free models (no key required for free tier variants)
 const TOGETHER_MODELS = [
   "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
@@ -334,6 +345,33 @@ async function together(msgs: Msg[], sys: string | undefined, maxTok: number): P
   throw new Error("Together exhausted");
 }
 
+// SiliconFlow: permanently free Qwen3-8B (top-3 Arabic LLM) + DeepSeek, no credit card.
+// Best free option for Arabic/French/Darija INDH content in 2026.
+async function siliconflow(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = ev("SILICONFLOW_API_KEY");
+  if (!key) throw new Error("no SILICONFLOW_API_KEY");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  for (const model of SILICONFLOW_MODELS) {
+    try {
+      const res = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("SiliconFlow 401");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401")) throw e;
+      continue;
+    }
+  }
+  throw new Error("SiliconFlow all models exhausted");
+}
+
 async function tryOnce(fn: typeof groq, msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string | null> {
   try {
     const text = await fn(msgs, sys, maxTok);
@@ -356,6 +394,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
         (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, true),
         (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
         sambanova,
+        siliconflow,
         (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, true),
         anthropic,
       ]) {
@@ -367,11 +406,13 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
   }
 
   // Standard path — Anthropic first for quality, then Cerebras (speed),
-  // then Groq, SambaNova, Mistral (best French/Arabic), Together, Gemini, OpenRouter.
+  // then Groq, SambaNova, Mistral + SiliconFlow (best French/Arabic/Darija),
+  // Together, Gemini, OpenRouter.
   // JSON tasks put Gemini second (reliable structured output).
+  // SiliconFlow has free Qwen3-8B — top-3 Arabic LLM, permanently free, no card.
   const order = task === "json"
-    ? [anthropic, gemini, cerebras, sambanova, mistral, groq, together, openrouter]
-    : [anthropic, cerebras, groq, sambanova, mistral, together, gemini, openrouter];
+    ? [anthropic, gemini, cerebras, sambanova, mistral, siliconflow, groq, together, openrouter]
+    : [anthropic, cerebras, groq, sambanova, mistral, siliconflow, together, gemini, openrouter];
 
   // Two full sweeps: first sweep is instant, second sweep waits 1.2s
   for (let sweep = 0; sweep < 2; sweep++) {
