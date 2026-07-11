@@ -1253,6 +1253,166 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     a.click();
   };
 
+  // Opens a print-ready HTML window — browser converts to PDF via Ctrl+P / Save as PDF.
+  // Uses the browser's native PDF engine (free, offline, professional output).
+  const dlPDF = (exportLang: string = dlLang) => {
+    const eAr = exportLang === "ar"; const eEn = exportLang === "en";
+    const dir2 = eAr ? "rtl" : "ltr";
+    const font = eAr ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
+    const total = (budget?.items||[]).reduce((s: number, x: any) => s + (x.total||0), 0);
+    const indhAmt = budget?.indhContribution || Math.round(total * 0.85);
+    const holdAmt = budget?.beneficiaryContribution || Math.round(total * 0.15);
+    const T = {
+      title:   eAr?"خطة الأعمال":eEn?"Business Plan":"Plan d'Affaires",
+      holder:  eAr?"الحامل":eEn?"Holder":"Porteur",
+      exec:    eAr?"الملخص التنفيذي":eEn?"Executive Summary":"Résumé Exécutif",
+      problem: eAr?"إشكالية المشروع":eEn?"Problem Statement":"Problématique",
+      sol:     eAr?"الحل المقترح":eEn?"Proposed Solution":"Solution",
+      market:  eAr?"تحليل السوق":eEn?"Market Analysis":"Analyse de Marché",
+      biz:     eAr?"نموذج الأعمال":eEn?"Business Model":"Modèle Économique",
+      impact:  eAr?"الأثر الاجتماعي":eEn?"Social Impact":"Impact Social",
+      ops:     eAr?"الخطة التشغيلية":eEn?"Operational Plan":"Plan Opérationnel",
+      indh:    eAr?"التوافق مع المبادرة":eEn?"INDH Alignment":"Alignement INDH",
+      risks:   eAr?"المخاطر":eEn?"Risks":"Risques",
+      proj:    eAr?"التوقعات المالية (درهم)":eEn?"Financial Projections (MAD)":"Projections Financières (MAD)",
+      budT:    eAr?"الميزانية التفصيلية":eEn?"Detailed Budget":"Budget Prévisionnel",
+      cat:     eAr?"الفئة":eEn?"Category":"Catégorie",
+      item:    eAr?"البند":eEn?"Item":"Désignation",
+      qty:     eAr?"الكمية":eEn?"Qty":"Qté",
+      pu:      eAr?"السعر الوحدوي":eEn?"Unit Price":"Prix unit.",
+      tot:     eAr?"المجموع":eEn?"Total":"Total",
+      indhC:   eAr?"مساهمة المبادرة الوطنية (85%)":eEn?"INDH Contribution (85%)":"Contribution INDH (85%)",
+      holdC:   eAr?"مساهمة الحامل (15%)":eEn?"Holder Contribution (15%)":"Apport porteur (15%)",
+      compT:   eAr?"تقرير الامتثال":eEn?"Compliance Report":"Rapport de Conformité",
+      score:   eAr?"النقطة الإجمالية":eEn?"Overall Score":"Score global",
+      elig:    eAr?`مؤهل للتمويل ✓`:eEn?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
+      notEl:   eAr?"يحتاج تعديلات ✗":eEn?"NOT ELIGIBLE ✗":"NON ÉLIGIBLE ✗",
+      str:     eAr?"نقاط القوة":eEn?"Strengths":"Points forts",
+      recs:    eAr?"التوصيات":eEn?"Recommendations":"Recommandations",
+      jury:    eAr?"تقييم اللجنة":eEn?"Jury Evaluation":"Grille Jury",
+      ax:      eAr?"محور المبادرة":eEn?"INDH Pillar":"Axe INDH",
+      yr:      eAr?"السنة":eEn?"Year":"An",
+    };
+    const sec = (heading: string, body: string, accent = "#2A5CE0") => body ? `
+      <div class="section">
+        <h3 style="color:${accent};border-bottom:2px solid ${accent};padding-bottom:6px;margin:24px 0 10px">${heading}</h3>
+        <p>${body.replace(/\n/g,"<br>")}</p>
+      </div>` : "";
+    const html = `<!DOCTYPE html><html lang="${exportLang}" dir="${dir2}">
+<head>
+<meta charset="utf-8"/>
+<title>${proj?.projectName||"IdeaMap"} — ${T.title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:${font};font-size:13px;color:#10132A;background:#fff;padding:0}
+  @page{size:A4;margin:18mm 16mm 18mm 16mm}
+  @media print{body{padding:0}.no-print{display:none!important}}
+  .header{background:#0A0F2C;color:#fff;padding:28px 32px;margin-bottom:0}
+  .header h1{font-size:22px;font-weight:800;color:#2A5CE0;margin-bottom:4px}
+  .header p{font-size:12px;color:rgba(255,255,255,.6)}
+  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:18px 32px;background:#F7F8FA;border-bottom:1px solid #E4E7ED}
+  .meta-item{display:flex;flex-direction:column}
+  .meta-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#5B6178;margin-bottom:2px}
+  .meta-value{font-size:13px;font-weight:600;color:#0A0F2C}
+  .body{padding:20px 32px 32px}
+  .section{margin-bottom:18px;page-break-inside:avoid}
+  h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+  p{font-size:12.5px;line-height:1.75;color:#1C3A5C}
+  table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:10px}
+  th{background:#0A0F2C;color:#fff;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;text-align:${eAr?"right":"left"}}
+  td{padding:8px 10px;border-bottom:1px solid #E4E7ED;color:#10132A}
+  tr:nth-child(even) td{background:#F7F8FA}
+  .tfoot td{background:#0A0F2C!important;color:#fff;font-weight:700}
+  .tfoot td:last-child{color:#2A5CE0}
+  .score-box{display:inline-block;padding:14px 28px;border-radius:12px;text-align:center;margin-bottom:14px}
+  .score-num{font-size:38px;font-weight:800}
+  .jury-bar{height:6px;border-radius:3px;background:#E4E7ED;overflow:hidden;margin-top:4px}
+  .jury-fill{height:100%;border-radius:3px}
+  ul{padding-${eAr?"right":"left"}:16px;margin-top:6px}
+  li{font-size:12px;margin-bottom:4px;color:#1C3A5C;line-height:1.6}
+  .proj-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .proj-card{background:#EFF6FF;border-radius:8px;padding:14px;text-align:center;border:1px solid #2A5CE055}
+  .proj-year{font-size:9px;font-weight:700;color:#5B6178;text-transform:uppercase;margin-bottom:4px}
+  .proj-val{font-size:18px;font-weight:800;color:#0A0F2C}
+  .btn-print{display:block;margin:20px auto 0;padding:12px 32px;background:#0A0F2C;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:${font}}
+  .footer{margin-top:32px;padding-top:12px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;align-items:center}
+  .footer p{font-size:10px;color:#5B6178}
+  .indh-badge{background:#0A0F2C;color:#2A5CE0;font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>${proj?.projectName||""}</h1>
+  <p>${T.holder}: ${user.name} ${user.profile?.lastName||""} · ${proj?.location||user.profile?.region||""} · INDH Phase 3</p>
+</div>
+<div class="meta-grid">
+  <div class="meta-item"><span class="meta-label">Secteur / القطاع</span><span class="meta-value">${proj?.sector||""}</span></div>
+  <div class="meta-item"><span class="meta-label">${T.ax}</span><span class="meta-value">${proj?.pillar||""}</span></div>
+  <div class="meta-item"><span class="meta-label">Budget total</span><span class="meta-value">${total.toLocaleString()} MAD</span></div>
+  <div class="meta-item"><span class="meta-label">${T.indhC}</span><span class="meta-value">${indhAmt.toLocaleString()} MAD</span></div>
+</div>
+<div class="body">
+${plan ? `
+${sec(T.exec, plan.executiveSummary)}
+${sec(T.problem, plan.problemStatement)}
+${sec(T.sol, plan.solution)}
+${sec(T.market, plan.marketAnalysis)}
+${sec(T.biz, plan.businessModel)}
+${sec(T.impact, plan.socialImpact)}
+${sec(T.ops, plan.operationalPlan)}
+${sec(T.indh, plan.indh_alignment)}
+${plan.risks?.length ? `<div class="section"><h3 style="color:#C0632F;border-bottom:2px solid #C0632F;padding-bottom:6px;margin:24px 0 10px">⚠️ ${T.risks}</h3><ul>${plan.risks.map((r: string)=>`<li>${r}</li>`).join("")}</ul></div>` : ""}
+${plan.projections ? `<div class="section"><h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">📈 ${T.proj}</h3><div class="proj-grid">${Object.entries(plan.projections).map(([y,v])=>`<div class="proj-card"><div class="proj-year">${T.yr} ${y.replace("year","")}</div><div class="proj-val">${Number(v).toLocaleString()}</div><div style="font-size:9px;color:#5B6178;margin-top:2px">MAD</div></div>`).join("")}</div></div>` : ""}
+` : ""}
+${budget?.items?.length ? `
+<div class="section" style="page-break-before:always">
+<h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">💰 ${T.budT}</h3>
+<table><thead><tr>
+  <th>${T.cat}</th><th>${T.item}</th><th style="text-align:center">${T.qty}</th>
+  <th style="text-align:center">${T.pu}</th><th style="text-align:center">${T.tot}</th>
+</tr></thead><tbody>
+${budget.items.map((x: any,i: number)=>`<tr><td>${x.category}</td><td>${x.item}</td><td style="text-align:center">${x.quantity}</td><td style="text-align:center">${Number(x.unitPrice||0).toLocaleString()}</td><td style="text-align:center;font-weight:700">${Number(x.total||0).toLocaleString()}</td></tr>`).join("")}
+<tr class="tfoot"><td colspan="4">${T.tot}</td><td style="text-align:center">${total.toLocaleString()} MAD</td></tr>
+</tbody></table>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+  <div style="background:#0A0F2C;border-radius:10px;padding:14px;text-align:center">
+    <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:4px">🏛️ ${T.indhC}</div>
+    <div style="font-size:20px;font-weight:800;color:#2A5CE0">${indhAmt.toLocaleString()} MAD</div>
+  </div>
+  <div style="background:#EFF6FF;border-radius:10px;padding:14px;text-align:center;border:2px solid #2A5CE0">
+    <div style="font-size:9px;font-weight:700;color:#5B6178;text-transform:uppercase;margin-bottom:4px">👥 ${T.holdC}</div>
+    <div style="font-size:20px;font-weight:800;color:#0A0F2C">${holdAmt.toLocaleString()} MAD</div>
+  </div>
+</div>
+</div>` : ""}
+${comp ? `
+<div class="section" style="page-break-before:always">
+<h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">✅ ${T.compT}</h3>
+<div class="score-box" style="background:${comp.eligible?"#0A0F2C":"#FFF0F0"};border:2px solid ${comp.eligible?"#2A5CE0":"#C0632F"}">
+  <div class="score-num" style="color:${comp.eligible?"#2A5CE0":"#C0632F"}">${comp.score}</div>
+  <div style="font-size:11px;color:${comp.eligible?"rgba(255,255,255,.6)":"#C0632F"};margin-top:2px">/100</div>
+  <div style="font-size:12px;font-weight:700;color:${comp.eligible?"#2A5CE0":"#C0632F"};margin-top:4px">${comp.eligible?T.elig:T.notEl}</div>
+</div>
+${comp.pillar ? `<p style="margin-bottom:10px">📌 ${T.ax}: <strong>${comp.pillar}</strong></p>` : ""}
+${comp.juryScore ? `<table><thead><tr><th>${eAr?"المعيار":eEn?"Criterion":"Critère"}</th><th style="text-align:center">${eAr?"الوزن":eEn?"Weight":"Poids"}</th><th style="text-align:center">${eAr?"النقطة":eEn?"Score":"Score"}</th></tr></thead><tbody>${[{k:"impact",l:"Impact social",w:25},{k:"viability",l:"Viabilité",w:20},{k:"relevance",l:"Pertinence territoriale",w:20},{k:"management",l:"Capacité de gestion",w:15},{k:"sustainability",l:"Durabilité",w:10},{k:"innovation",l:"Innovation",w:10}].map(j=>{const sc=comp.juryScore[j.k]||0;const p=Math.round((sc/j.w)*100);return`<tr><td>${j.l}</td><td style="text-align:center">/${j.w}</td><td style="text-align:center"><strong style="color:${p>=70?"#2A5CE0":p>=50?"#F59E0B":"#C0632F"}">${sc}</strong></td></tr>`;}).join("")}</tbody></table>` : ""}
+${comp.strengths?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#1C7A62;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💪 ${T.str}</h4><ul>${comp.strengths.map((s: string)=>`<li>${s}</li>`).join("")}</ul></div>` : ""}
+${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#2A5CE0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💡 ${T.recs}</h4><ul>${comp.recommendations.map((r: string)=>`<li>${r}</li>`).join("")}</ul></div>` : ""}
+</div>` : ""}
+<div class="footer">
+  <p>© IdeaMap 2026 · ideamaponline.org · ${new Date().toLocaleDateString(exportLang==="ar"?"ar-MA":exportLang==="fr"?"fr-FR":"en-GB")}</p>
+  <span class="indh-badge">INDH Phase 3</span>
+</div>
+</div>
+<button class="btn-print no-print" onclick="window.print()">
+  🖨️ ${eAr?"طباعة / حفظ كـ PDF":eEn?"Print / Save as PDF":"Imprimer / Enregistrer en PDF"}
+</button>
+</body></html>`;
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 600); }
+  };
+
   const dlPPTX = async (type: "pitch" | "jury", exportLang: string = dlLang) => {
     try {
       const PptxGenJS = (await import("pptxgenjs")).default;
@@ -2649,6 +2809,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 const indhAmt = budget?.indhContribution||Math.round(total*.85);
                 const holdAmt = budget?.beneficiaryContribution||Math.round(total*.15);
                 const items: {icon:string;l:string;ok:boolean;onDl:()=>void;badge?:string}[] = [
+                  {icon:"📄", l:eAr?"تحميل ملف PDF الكامل":eEn?"Download Full PDF Dossier":"Télécharger le Dossier PDF", ok:!!plan,
+                    onDl:() => dlPDF(dlLang), badge:"pdf"},
                   {icon:"📊", l:TXT.bp, ok:!!plan,
                     onDl:() => dlText([
                       `${proj?.projectName||"Projet"} — ${TXT.bp}`,``,
