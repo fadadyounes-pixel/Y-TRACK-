@@ -380,22 +380,29 @@ const AccBar = () => <div style={{width: "4px", height: "20px", background: Y, b
 // Uses Groq Whisper free tier (2 000 req/day) — auto-detects Arabic, French, Darija.
 // Mic button appears next to the idea textarea; tap to record, tap again to stop & transcribe.
 function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) => void; onError: (e: string) => void}) {
-  const [rec, setRec]   = useState(false);
-  const [busy, setBusy] = useState(false);
-  const mrRef  = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<Blob[]>([]);
+  const [rec, setRec]       = useState(false);
+  const [busy, setBusy]     = useState(false);
+  const [secs, setSecs]     = useState(0);
+  const mrRef    = useRef<MediaRecorder | null>(null);
+  const chunks   = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const MAX_SECS = 60;
 
   const start = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-      const mr = new MediaRecorder(stream, {mimeType: "audio/webm"});
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+      const mr = new MediaRecorder(stream, mimeType ? {mimeType} : {});
       chunks.current = [];
       mr.ondataavailable = e => { if (e.data.size > 0) chunks.current.push(e.data); };
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+        setSecs(0);
         setBusy(true);
         try {
-          const blob = new Blob(chunks.current, {type: "audio/webm"});
+          const blob = new Blob(chunks.current, {type: mimeType || "audio/webm"});
           const fd = new FormData();
           fd.append("audio", blob);
           fd.append("lang", lang);
@@ -411,18 +418,31 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
       mr.start();
       mrRef.current = mr;
       setRec(true);
+      setSecs(0);
+      // Auto-stop at MAX_SECS with live countdown
+      let elapsed = 0;
+      timerRef.current = setInterval(() => {
+        elapsed += 1;
+        setSecs(elapsed);
+        if (elapsed >= MAX_SECS) stop();
+      }, 1000);
     } catch {
       onError(lang==="ar"?"يرجى السماح بالوصول إلى الميكروفون":lang==="fr"?"Autorisez l'accès au micro":"Allow microphone access");
     }
   };
 
-  const stop = () => { mrRef.current?.stop(); mrRef.current = null; setRec(false); };
+  const stop = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    mrRef.current?.stop(); mrRef.current = null; setRec(false);
+  };
 
+  const recLabel = rec
+    ? `${lang==="ar"?"⏹ إيقاف":lang==="fr"?"⏹ Arrêter":"⏹ Stop"} ${MAX_SECS - secs}s`
+    : (lang==="ar"?"تحدث عن فكرتك 🎤":lang==="fr"?"Parlez votre idée 🎤":"Speak your idea 🎤");
   const label = busy
     ? (lang==="ar"?"جاري التحويل...":lang==="fr"?"Transcription...":"Transcribing...")
-    : rec
-    ? (lang==="ar"?"إيقاف التسجيل ⏹":lang==="fr"?"Arrêter ⏹":"Stop ⏹")
-    : (lang==="ar"?"تحدث عن فكرتك 🎤":lang==="fr"?"Parlez votre idée 🎤":"Speak your idea 🎤");
+    : recLabel;
+  const nearLimit = rec && secs >= MAX_SECS - 10;
 
   return (
     <button
@@ -431,8 +451,10 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
       title={label}
       style={{
         display:"flex", alignItems:"center", gap:"6px",
-        padding:"10px 14px", borderRadius:"11px", border:`1.5px solid ${rec ? "#EF4444" : Y}`,
-        background: rec ? "#FFF0F0" : YL, color: rec ? "#EF4444" : ND,
+        padding:"10px 14px", borderRadius:"11px",
+        border:`1.5px solid ${nearLimit ? "#C0632F" : rec ? "#EF4444" : Y}`,
+        background: nearLimit ? "#FFF5EC" : rec ? "#FFF0F0" : YL,
+        color: nearLimit ? "#C0632F" : rec ? "#EF4444" : ND,
         fontSize:"12px", fontWeight:"700", cursor: busy ? "wait" : "pointer",
         fontFamily:"inherit", opacity: busy ? 0.7 : 1, transition:"all .2s",
         animation: rec ? "pulse 1.4s ease infinite" : "none",
@@ -1219,6 +1241,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [currentQ, setCurrentQ]             = useState(initialState?.currentQ || "");
   const [dlLang, setDlLang]                 = useState(lang);
   const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
+  // Keep download language in sync with the UI language unless the user has explicitly overridden it
+  useEffect(() => { setDlLang(lang); }, [lang]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const msgEnd = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
@@ -1230,6 +1254,11 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   useEffect(() => {
     if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, docFiles, brief, currentQ, suggestions});
   }, [proj, plan, comp, step, logo, docs, msgs, budget, brief, currentQ]);
+
+  // Auto-check Business Plan doc (#8) when plan is generated — matches its "Généré automatiquement ✓" label
+  useEffect(() => {
+    if (plan && !docs[8]) setDocs(p => ({...p, 8: true}));
+  }, [plan]);
 
   const showToast = (msg: string, type: "error"|"success" = "error") => {
     setToast({msg, type});
@@ -2350,7 +2379,17 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     <span style={{fontSize: "15px", fontWeight: "800", color: Y}}>{total.toLocaleString()} MAD</span>
                   </div>
                 </div>
-              </div>) : <div style={{textAlign: "center", padding: "28px", color: GR}}><Dots/></div>}
+              </div>) : (
+                <div style={{textAlign: "center", padding: "24px 16px"}}>
+                  {busy ? <><div style={{display:"flex",justifyContent:"center"}}><Dots/></div></> : <>
+                    <div style={{fontSize:"36px", marginBottom:"10px"}}>⚠️</div>
+                    <div style={{fontSize:"13px", color:GR, marginBottom:"14px", lineHeight:1.6}}>
+                      {lang==="ar"?"فشل إنشاء الميزانية":lang==="fr"?"Génération du budget échouée":"Budget generation failed"}
+                    </div>
+                    {indhBtn(lang==="ar"?"🔄 إعادة التوليد":lang==="fr"?"🔄 Régénérer le budget":"🔄 Regenerate budget", genPlan)}
+                  </>}
+                </div>
+              )}
               <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px"}}>
                 <div style={{padding: "16px", background: ND, borderRadius: "13px", textAlign: "center"}}>
                   <div style={{fontSize: "9px", color: Y, fontWeight: "700", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: "5px"}}>🏛️ {t.indhC}</div>
