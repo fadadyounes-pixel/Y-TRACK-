@@ -15,11 +15,11 @@ const ALL_CANDIDATES = [
   { id: 'CAN006', name: 'Lina Benkhalifa', email: 'lina@email.com', phone: '+212 6 66 77 88 99', skills: ['Java', 'Spring Boot', 'Microservices', 'PostgreSQL'], sector: 'Technology', experience: 'Mid-Level', matchScore: 73, bestJob: 'Java Backend Developer', company: 'FinanceAI', status: 'Active' },
 ];
 
-const JOB_OFFERS = [
-  { id: 'J001', title: 'Senior React Developer', company: 'TechCorp', sector: 'Technology', experience: 'Senior', matches: 3, status: 'Open' },
-  { id: 'J002', title: 'Machine Learning Engineer', company: 'AI Ventures', sector: 'Data Science', experience: 'Mid-Level', matches: 2, status: 'Open' },
-  { id: 'J003', title: 'Backend Python Developer', company: 'DataSoft Solutions', sector: 'Technology', experience: 'Mid-Level', matches: 2, status: 'Open' },
-  { id: 'J004', title: 'DevOps Engineer', company: 'CloudTech', sector: 'Technology', experience: 'Senior', matches: 1, status: 'Closed' },
+const DEFAULT_JOBS = [
+  { id: 'J001', title: 'Senior React Developer', company: 'TechCorp', sector: 'Technology', experience: 'Senior', location: 'Casablanca', matches: 3, status: 'Open' },
+  { id: 'J002', title: 'Machine Learning Engineer', company: 'AI Ventures', sector: 'Data Science', experience: 'Mid-Level', location: 'Rabat', matches: 2, status: 'Open' },
+  { id: 'J003', title: 'Backend Python Developer', company: 'DataSoft Solutions', sector: 'Technology', experience: 'Mid-Level', location: 'Casablanca', matches: 2, status: 'Open' },
+  { id: 'J004', title: 'DevOps Engineer', company: 'CloudTech', sector: 'Technology', experience: 'Senior', location: 'Tanger', matches: 1, status: 'Closed' },
 ];
 
 function ScoreBadge({ score }: { score: number }) {
@@ -34,10 +34,21 @@ export default function CoordinatorDashboard() {
   const [tab, setTab] = useState<'overview' | 'candidates' | 'jobs'>('overview');
   const [search, setSearch] = useState('');
   const [filterSector, setFilterSector] = useState('All');
+  const [JOB_OFFERS, setJobOffers] = useState(DEFAULT_JOBS);
 
   useEffect(() => {
     if (!user || user.role !== 'coordinator') router.push('/login');
   }, [user, router]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('coordinator_jobs');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setJobOffers(parsed.map((j: any) => ({ ...j, matches: j.matches ?? 0 })));
+      }
+    } catch {}
+  }, []);
 
   if (!user || user.role !== 'coordinator') return null;
 
