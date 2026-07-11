@@ -30,6 +30,18 @@ function injectCSS() {
     "button:active{transform:scale(.96)!important}",
     "input,select,textarea{font-family:inherit}",
     "input:focus,select:focus,textarea:focus{outline:none}",
+    // Print styles — hide chrome, expand content, force white background for PDF output
+    "@media print{",
+    "header,nav,.no-print,[data-noprint]{display:none!important}",
+    "body{background:#fff!important;color:#10132A!important}",
+    ".fadeUp,.im-rise{animation:none!important}",
+    "*{box-shadow:none!important}",
+    "a{text-decoration:none;color:#10132A}",
+    "@page{margin:14mm 12mm}",
+    "}",
+    // Hover micro-interactions for cards and list rows
+    ".im-card-row:hover{background:#F0F1F5!important}",
+    ".im-holder-row:hover{background:#EFF6FF!important}",
   ].join("");
   document.head.appendChild(el);
 }
@@ -2865,7 +2877,9 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                       `• www.indh.ma`,
                       `• www.rokhsa.ma`,
                     ].join("\n"), `GuideSubmission_${proj?.projectName||"IdeaMap"}.txt`)},
-                  {icon:"🎯", l:TXT.jury, ok:!!proj, onDl:() => dlPPTX("jury", dlLang), badge:"pptx"},
+                  {icon:"🎤", l:eAr?"عرض تقديمي للممولين (5 شرائح)":eEn?"Investor Pitch Deck — 5 slides":"Pitch Deck Investisseur — 5 diapositives", ok:!!plan,
+                    onDl:() => dlPPTX("pitch", dlLang), badge:"pptx"},
+                  {icon:"🏛️", l:TXT.jury, ok:!!proj, onDl:() => dlPPTX("jury", dlLang), badge:"pptx"},
                 ];
                 return items.map((x, i) => (
                   <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px",
@@ -2888,6 +2902,55 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   </div>
                 ));
               })()}
+            </Card>
+
+            {/* Submission process steps */}
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"16px"}}>
+                <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>🗺️ {t.processT}</span>
+              </div>
+              {[
+                {n:"1", l:lang==="ar"?"إعداد جميع الوثائق":lang==="fr"?"Finaliser et réunir les documents":"Finalize and gather all documents", d:lang==="ar"?"8 وثائق إلزامية + 4 اختيارية":lang==="fr"?"8 obligatoires + 4 recommandés":"8 required + 4 recommended"},
+                {n:"2", l:lang==="ar"?"إيداع الملف لدى مديرية العمل الاجتماعي (DAS)":lang==="fr"?"Déposer le dossier à la DAS":"Submit to Division of Social Action (DAS)", d:lang==="ar"?"احصل على وصل الإيداع":lang==="fr"?"Obtenez le récépissé de dépôt":"Obtain deposit receipt"},
+                {n:"3", l:lang==="ar"?"دراسة الملف من طرف اللجنة الإقليمية (CPDH)":lang==="fr"?"Instruction par le CPDH local":"Review by local CPDH committee", d:lang==="ar"?"4 إلى 8 أسابيع":lang==="fr"?"Délai: 4 à 8 semaines":"Timeline: 4 to 8 weeks"},
+                {n:"4", l:lang==="ar"?"المثول أمام لجنة التحكيم":lang==="fr"?"Présentation devant le jury INDH":"Present before INDH selection jury", d:lang==="ar"?"100 نقطة — حد الأهلية 60/100":lang==="fr"?"100 pts — éligible si ≥ 60/100":"100 pts — eligible if ≥ 60/100"},
+                {n:"5", l:lang==="ar"?"التوقيع على اتفاقية المبادرة وانطلاق المشروع":lang==="fr"?"Signature de la convention et démarrage":"Sign INDH convention and launch", d:lang==="ar"?"INDH 85% + مساهمة الحامل 15%":lang==="fr"?"INDH 85% + apport porteur 15%":"INDH 85% + holder 15%"},
+              ].map((s, i, arr) => (
+                <div key={i} style={{display:"flex", gap:"12px", paddingBottom: i < arr.length-1 ? "16px" : 0,
+                  marginBottom: i < arr.length-1 ? "16px" : 0,
+                  borderBottom: i < arr.length-1 ? `1px solid ${CD}` : "none"}}>
+                  <div style={{width:28, height:28, borderRadius:"50%", background:ND, flexShrink:0,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:"11px", fontWeight:"800", color:Y}}>{s.n}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:"13px", fontWeight:"600", color:ND, marginBottom:"3px"}}>{s.l}</div>
+                    <div style={{fontSize:"11px", color:GR}}>{s.d}</div>
+                  </div>
+                </div>
+              ))}
+            </Card>
+
+            {/* Jury tips */}
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"16px"}}>
+                <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>🏆 {t.tipsT}</span>
+              </div>
+              <div style={{display:"flex", flexDirection:"column", gap:"8px"}}>
+                {[
+                  {icon:"👥", tip:lang==="ar"?"اذكر عدداً دقيقاً من المستفيدين مع ملفهم (نساء، شباب، أسر...)":lang==="fr"?"Citez un nombre PRÉCIS de bénéficiaires avec leur profil (femmes, jeunes, familles...)":"Name the EXACT beneficiary count with their profile (women, youth, families...)"},
+                  {icon:"💰", tip:lang==="ar"?"أعط أرقاماً واقعية: الإيراد الشهري المتوقع، هامش الربح، شهور الربحية":lang==="fr"?"Donnez des chiffres réels: CA mensuel, marge brute, mois de rentabilité":"Give real numbers: monthly revenue, gross margin, break-even in months"},
+                  {icon:"📍", tip:lang==="ar"?"أبرز المشكلة المحلية بالأرقام (بطالة الشباب، غياب الخدمة...)":lang==="fr"?"Montrez le problème LOCAL avec des stats (chômage, service manquant...)":"Show the LOCAL problem with stats (unemployment, missing service...)"},
+                  {icon:"📜", tip:lang==="ar"?"أضف شهادة أو رسالة دعم من الجماعة المحلية لتعزيز الانتماء الترابي":lang==="fr"?"Ajoutez un courrier de soutien de la commune pour le critère 'pertinence territoriale'":"A support letter from the local commune boosts the 'territorial relevance' criterion"},
+                  {icon:"🔄", tip:lang==="ar"?"بيّن كيف سيستمر المشروع بعد انتهاء دعم المبادرة الوطنية":lang==="fr"?"Expliquez comment le projet survit APRÈS l'INDH: clients fidèles, partenariats":"Explain how the project survives AFTER INDH: repeat clients, partnerships"},
+                ].map((item, i) => (
+                  <div key={i} style={{display:"flex", gap:"10px", padding:"11px 13px",
+                    background:YL, borderRadius:"11px", border:`1px solid ${Y}33`}}>
+                    <span style={{fontSize:"18px", flexShrink:0}}>{item.icon}</span>
+                    <span style={{fontSize:"12px", color:ND, lineHeight:"1.65", fontFamily:ff(lang),
+                      direction:lang==="ar"?"rtl":"ltr"}}>{item.tip}</span>
+                  </div>
+                ))}
+              </div>
             </Card>
           </>);
         })()}
@@ -3060,6 +3123,26 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
                 </div>
               ))}
             </div>
+            {holders.length === 0 ? (
+              <Card style={{textAlign:"center", padding:"40px 24px"}}>
+                <svg viewBox="0 0 200 140" style={{width:180, height:126, margin:"0 auto 18px", display:"block"}}>
+                  <circle cx="100" cy="56" r="38" fill={YL} stroke={Y} strokeWidth="1.5"/>
+                  <text x="100" y="68" textAnchor="middle" fontSize="32">🎓</text>
+                  <rect x="30" y="104" width="140" height="8" rx="4" fill={CD}/>
+                  <rect x="55" y="118" width="90" height="8" rx="4" fill={CD}/>
+                </svg>
+                <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>
+                  {lang==="ar"?"لا يوجد حاملون بعد":lang==="fr"?"Aucun porteur assigné":"No holders assigned yet"}
+                </div>
+                <div style={{fontSize:"13px", color:GR, lineHeight:1.6, maxWidth:300, margin:"0 auto"}}>
+                  {lang==="ar"
+                    ? "سيظهر حاملو مشاريعك هنا بمجرد تسجيلهم باستخدام رمز CIN الخاص بهم."
+                    : lang==="fr"
+                    ? "Vos porteurs apparaîtront ici dès qu'ils se connectent avec leur CIN."
+                    : "Your holders appear here once they sign in with their CIN."}
+                </div>
+              </Card>
+            ) : (
             <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
                 <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
@@ -3082,6 +3165,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
                 );
               })}
             </Card>
+            )}
             {holders.filter(h => STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100 < 40).length > 0 && (
               <Card>
                 <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
@@ -3569,6 +3653,32 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                 {Object.keys(bySector).length === 0 && <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p>}
               </Card>
             </div>
+            {holders.length === 0 && (
+              <Card style={{textAlign:"center", padding:"40px 24px"}}>
+                <svg viewBox="0 0 200 140" style={{width:180, height:126, margin:"0 auto 18px", display:"block"}}>
+                  <rect x="20" y="20" width="160" height="100" rx="14" fill={YL} stroke={Y} strokeWidth="1.5"/>
+                  <rect x="36" y="38" width="64" height="8" rx="4" fill={Y} opacity=".35"/>
+                  <rect x="36" y="54" width="128" height="6" rx="3" fill={CD}/>
+                  <rect x="36" y="66" width="100" height="6" rx="3" fill={CD}/>
+                  <rect x="36" y="78" width="116" height="6" rx="3" fill={CD}/>
+                  <circle cx="152" cy="42" r="14" fill={Y} opacity=".12"/>
+                  <circle cx="152" cy="42" r="8" fill={Y} opacity=".5"/>
+                  <path d="M148 42 l3 3 l6-6" stroke={WH} strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  <rect x="36" y="96" width="44" height="14" rx="7" fill={ND} opacity=".12"/>
+                  <text x="58" y="107" textAnchor="middle" fontSize="8" fill={ND} fontFamily="Arial" fontWeight="700">INDH</text>
+                </svg>
+                <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>
+                  {lang==="ar"?"لا توجد مشاريع بعد":lang==="fr"?"Aucun porteur enregistré":"No holders yet"}
+                </div>
+                <div style={{fontSize:"13px", color:GR, lineHeight:1.6, maxWidth:320, margin:"0 auto"}}>
+                  {lang==="ar"
+                    ? "سيظهر حاملو المشاريع هنا بعد تسجيلهم باستخدام رمز CIN الخاص بهم."
+                    : lang==="fr"
+                    ? "Les porteurs apparaîtront ici dès qu'ils se connectent avec leur CIN."
+                    : "Holders appear here once they sign in with their CIN."}
+                </div>
+              </Card>
+            )}
             {holders.length > 0 && <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
                 <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
