@@ -744,7 +744,10 @@ const ProgRow = ({t, si, steps}: { lang: string; t: any; si: number; steps: stri
       <div style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
         {steps.map((s: string, i: number) => (
           <span key={i} style={{fontSize: "9px", fontWeight: "700", textTransform: "uppercase",
-            letterSpacing: ".5px", color: si >= i ? N : GR}}>{s}</span>
+            letterSpacing: ".5px",
+            color: i < si ? GN : i === si ? N : GR}}>
+            {i < si ? "✓" : s}
+          </span>
         ))}
       </div>
       <PBar pct={((si + 1) / steps.length) * 100} h={6}
@@ -2025,6 +2028,16 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </div>
             </div>
 
+            {/* Idea reminder pill */}
+            {idea && <div style={{display:"flex", alignItems:"flex-start", gap:"7px", marginBottom:"14px",
+              padding:"9px 12px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
+              <span style={{fontSize:"15px", flexShrink:0}}>💡</span>
+              <p style={{fontSize:"11px", color:GR, lineHeight:"1.55", margin:0,
+                direction:dir as "rtl"|"ltr", maxHeight:"2.8em", overflow:"hidden"}}>
+                {idea.trim()}
+              </p>
+            </div>}
+
             {/* Progress */}
             <div style={{marginBottom: "16px"}}>
               <div style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
@@ -2531,14 +2544,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     letterSpacing:".6px", marginBottom:"10px", textAlign:"center"}}>
                     {lang==="ar"?"اختر التصميم المفضل:":lang==="fr"?"Choisissez votre style :":"Choose your style:"}
                   </p>
-                  <div style={{display:"flex", gap:"10px", justifyContent:"center", marginBottom:"14px"}}>
+                  <div style={{display:"flex", gap:"10px", marginBottom:"14px",
+                    overflowX:"auto", paddingBottom:"4px"}}>
                     {[0,1,2].map(idx => (
                       <div key={idx} onClick={() => setLogoStyle(idx)}
                         style={{cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center",
-                          gap:"6px", padding:"10px", borderRadius:"14px",
+                          gap:"6px", padding:"10px", borderRadius:"14px", flexShrink:0,
                           border:`2px solid ${logoStyle===idx ? Y : CD}`,
                           background:logoStyle===idx ? YL : WH,
-                          transition:"all .2s", opacity:1}}>
+                          transition:"all .2s"}}>
                         {renderVariant(idx, 80)}
                         <span style={{fontSize:"9px", fontWeight:"700", color:logoStyle===idx ? ND : GR,
                           textTransform:"uppercase", letterSpacing:".5px"}}>{styleNames[idx]}</span>
@@ -2698,7 +2712,11 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               <div style={{fontSize: "10px", fontWeight: "700", color: ND, textTransform: "uppercase", letterSpacing: ".4px", marginBottom: "8px"}}>💡 {t.recs}</div>
               {comp.recommendations.map((r: string, i: number) => <div key={i} style={{display: "flex", gap: "7px", fontSize: "12px", color: N, marginBottom: "4px"}}><span style={{color: Y, fontWeight: "700"}}>→</span>{r}</div>)}
             </div>}
-            {indhBtn(`📁 ${lang === "ar" ? "الوثائق" : lang === "fr" ? "Documents Requis" : "Required Documents"} →`, () => setStep("documents"))}
+            {indhBtn(`📁 ${lang === "ar" ? "الوثائق" : lang === "fr" ? "Documents Requis" : "Required Documents"} →`, () => {
+              // Auto-check doc #8 (Business Plan) since IdeaMap generates it automatically
+              if (plan) setDocs(p => ({...p, 8: true}));
+              setStep("documents");
+            })}
             {backBtn()}
           </>)}
         </Card>)}
@@ -2789,6 +2807,16 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         {step === "export" && (() => {
           const done = Object.values(docs).filter(Boolean).length;
           const readiness = Math.round(((comp?.score || 0) * .5) + ((done / DOCS.length) * 50));
+          const exportTotal = (budget?.items||[]).reduce((s: number, x: any) => s + (x.total||0), 0);
+          const waText = encodeURIComponent([
+            `🎉 ${lang==="ar"?"مشروعي INDH جاهز":lang==="fr"?"Mon projet INDH est prêt !":"My INDH project is ready!"}`,
+            `📌 ${proj?.projectName||""}`,
+            comp ? `✅ ${lang==="ar"?"النقطة":lang==="fr"?"Score":"Score"}: ${comp.score}/100${comp.eligible?" ✓":""}` : "",
+            `📍 ${proj?.location||proj?.sector||""}`,
+            exportTotal ? `💰 ${exportTotal.toLocaleString()} MAD` : "",
+            ``,
+            `🔗 ${lang==="ar"?"تم إنشاؤه بواسطة IdeaMap":lang==="fr"?"Généré avec IdeaMap":"Generated with IdeaMap"}`,
+          ].filter(Boolean).join("\n"));
           return (<>
             <div style={{background: ND, borderRadius: "18px", padding: "32px 24px",
               textAlign: "center", marginBottom: "14px"}}>
@@ -2799,6 +2827,26 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 background: "rgba(37,99,235,.2)", borderRadius: "16px", border: `2px solid ${Y}`}}>
                 <div style={{fontSize: "48px", fontWeight: "800", color: Y, lineHeight: 1}}>{readiness}%</div>
                 <div style={{fontSize: "11px", color: "rgba(255,255,255,.5)", marginTop: "5px"}}>{t.readiness}</div>
+              </div>
+              {/* CIN + WhatsApp row */}
+              <div style={{display:"flex", gap:"8px", marginTop:"16px", flexWrap:"wrap", justifyContent:"center"}}>
+                <button onClick={() => {
+                  navigator.clipboard?.writeText(user.id).catch(() => {});
+                  showToast(lang==="ar"?"تم نسخ رقم البطاقة":lang==="fr"?"CIN copié !":"CIN copied!", "success");
+                }} style={{display:"flex", alignItems:"center", gap:"6px",
+                  padding:"10px 16px", borderRadius:"10px",
+                  background:"rgba(255,255,255,.1)", border:"1px solid rgba(255,255,255,.2)",
+                  color:WH, fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
+                  📋 {user.id}
+                </button>
+                <a href={`https://wa.me/?text=${waText}`} target="_blank" rel="noopener noreferrer"
+                  style={{display:"flex", alignItems:"center", gap:"6px",
+                    padding:"10px 16px", borderRadius:"10px",
+                    background:"#25D366", color:WH, fontSize:"12px", fontWeight:"700",
+                    textDecoration:"none", fontFamily:ff(lang)}}>
+                  <span>📲</span>
+                  {lang==="ar"?"واتساب":lang==="fr"?"WhatsApp":"WhatsApp"}
+                </a>
               </div>
             </div>
             <Card>
