@@ -747,17 +747,26 @@ const Header = ({lang, setLang, user, onLogout, t}: {
 );
 
 /* ── PROGRESS BAR ROW ───────────────────────────────── */
-const ProgRow = ({t, si, steps}: { lang: string; t: any; si: number; steps: string[] }) => (
+const ProgRow = ({t, si, steps, onStepClick}: { lang: string; t: any; si: number; steps: string[]; onStepClick?: (i: number) => void }) => (
   <div style={{background: WH, padding: "9px 22px", borderBottom: `1px solid ${CD}`}}>
     <div style={{maxWidth: "720px", margin: "0 auto"}}>
       <div style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-        {steps.map((s: string, i: number) => (
-          <span key={i} style={{fontSize: "9px", fontWeight: "700", textTransform: "uppercase",
-            letterSpacing: ".5px",
-            color: i < si ? GN : i === si ? N : GR}}>
-            {i < si ? "✓" : s}
-          </span>
-        ))}
+        {steps.map((s: string, i: number) => {
+          const done = i < si;
+          return (
+            <span key={i}
+              onClick={() => done && onStepClick?.(i)}
+              title={done ? s : undefined}
+              style={{fontSize: "9px", fontWeight: "700", textTransform: "uppercase",
+                letterSpacing: ".5px",
+                color: done ? GN : i === si ? N : GR,
+                cursor: done ? "pointer" : "default",
+                transition: "opacity .15s",
+              }}>
+              {done ? "✓" : s}
+            </span>
+          );
+        })}
       </div>
       <PBar pct={((si + 1) / steps.length) * 100} h={6}
         color={`linear-gradient(90deg,${Y},${YD})`}/>
@@ -1920,7 +1929,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)}/>}
       <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
-      <ProgRow lang={lang} t={t} si={si} steps={t.steps as string[]}/>
+      <ProgRow lang={lang} t={t} si={si} steps={t.steps as string[]}
+        onStepClick={i => setStep(STEPS[i])}/>
       <div className="fadeUp" style={{maxWidth: "700px", margin: "0 auto", padding: "24px 18px 60px"}}>
 
         {/* ── IDEA ── */}
@@ -1939,6 +1949,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             </div>
             {/* Quick starter templates */}
             {!idea.trim() && (() => {
+              const profileSector = user.profile?.sector || "";
+              const profileCity   = user.profile?.city || user.profile?.region || "";
+              const personalStarter = profileSector ? (
+                lang === "ar"
+                  ? `أريد إطلاق مشروع في قطاع ${profileSector} في ${profileCity || "منطقتي"}.\nأريد تقديم خدمات بأسعار معقولة وخلق فرصة عمل لي ولأسرتي.`
+                  : lang === "en"
+                  ? `I want to start a ${profileSector} project in ${profileCity || "my city"}.\nI want to offer affordable services and create employment for myself and my family.`
+                  : `Je veux démarrer un projet dans le secteur "${profileSector}" à ${profileCity || "ma ville"}.\nJe veux offrir des services accessibles et créer mon propre emploi.`
+              ) : null;
               const starters: Record<string, string[]> = {
                 fr: [
                   "Je veux créer un atelier de couture dans mon quartier à Casablanca.\nJ'aimerais former des femmes au chômage et vendre des vêtements traditionnels.",
@@ -1962,9 +1981,25 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               const list = starters[lang] || starters.fr;
               return (
                 <div style={{marginBottom: "14px"}}>
+                  {personalStarter && (
+                    <div style={{marginBottom: "10px"}}>
+                      <p style={{fontSize: "10px", fontWeight: "700", color: Y, textTransform: "uppercase",
+                        letterSpacing: ".6px", marginBottom: "6px"}}>
+                        🎯 {lang==="ar"?"مقترح بناءً على ملفك:":lang==="fr"?"Suggestion personnalisée :":"Suggested for you:"}
+                      </p>
+                      <button onClick={() => setIdea(personalStarter)}
+                        style={{width:"100%", padding: "11px 14px", borderRadius: "11px",
+                          border: `2px solid ${Y}`, background: YL, color: ND,
+                          fontSize: "12px", fontWeight: "600", textAlign: dir==="rtl"?"right":"left",
+                          cursor: "pointer", fontFamily: ff(lang), direction: dir as "rtl"|"ltr",
+                          lineHeight: "1.6"}}>
+                        ✨ {personalStarter.split("\n")[0]}
+                      </button>
+                    </div>
+                  )}
                   <p style={{fontSize: "10px", fontWeight: "700", color: GR, textTransform: "uppercase",
                     letterSpacing: ".6px", marginBottom: "8px"}}>
-                    ✨ {lang==="ar"?"اختر مثالاً للبدء:":lang==="fr"?"Exemples — cliquez pour démarrer :":"Examples — click to start:"}
+                    💡 {lang==="ar"?"أمثلة للإلهام:":lang==="fr"?"Exemples — cliquez pour démarrer :":"Examples — click to start:"}
                   </p>
                   <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
                     {list.map((s, i) => (
