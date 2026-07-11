@@ -65,13 +65,32 @@ export default function Home() {
     <main>
       {/* Hero */}
       <section style={{
-        background: 'linear-gradient(135deg, #0a1f5c 0%, #1a3a8f 45%, #1d4ed8 100%)',
+        background: 'linear-gradient(135deg, #0a1f5c 0%, #2563eb 100%)',
         minHeight: '92vh',
         display: 'flex',
-        alignItems: 'center',
+        flexDirection: 'column',
         position: 'relative',
         overflow: 'hidden',
       }}>
+        {/* Nav bar */}
+        <div style={{ padding: '1.5rem', position: 'relative', zIndex: 2 }}>
+          <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Logo size="md" variant="light" />
+            <Link href="/login" style={{
+              background: '#ffffff',
+              color: '#1d4ed8',
+              padding: '0.65rem 1.4rem',
+              borderRadius: '8px',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              textDecoration: 'none',
+              transition: 'all 0.15s',
+            }}>
+              Sign in
+            </Link>
+          </div>
+        </div>
+
         <div style={{
           position: 'absolute', top: '-120px', right: '-120px',
           width: '500px', height: '500px', borderRadius: '50%',
@@ -83,7 +102,8 @@ export default function Home() {
           background: 'rgba(147,197,253,0.07)', pointerEvents: 'none',
         }} />
 
-        <div className="container" style={{ position: 'relative', zIndex: 1, padding: '5rem 1.5rem' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+        <div className="container" style={{ position: 'relative', zIndex: 1, padding: '3rem 1.5rem 5rem' }}>
           <div style={{ maxWidth: '700px' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
@@ -133,6 +153,7 @@ export default function Home() {
               ))}
             </div>
           </div>
+        </div>
         </div>
       </section>
 
