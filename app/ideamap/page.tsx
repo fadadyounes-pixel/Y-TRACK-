@@ -1876,6 +1876,22 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       fontSize: "14px", fontWeight: "800", fontFamily: ff(lang), ...style}}>{label}</button>
   );
 
+  const backBtn = (overrideStep?: string) => {
+    const target = overrideStep || STEPS[si - 1];
+    if (!target || si <= 0) return null;
+    return (
+      <button onClick={() => setStep(target)} style={{
+        marginTop: "10px", background: "none", border: `1px solid ${CD}`,
+        borderRadius: "10px", color: GR, fontSize: "12px", fontFamily: ff(lang),
+        cursor: "pointer", padding: "9px", width: "100%",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: "5px"
+      }}>
+        <span style={{fontSize: "14px"}}>{dir === "rtl" ? "→" : "←"}</span>
+        {lang === "ar" ? "المرحلة السابقة" : lang === "fr" ? "Étape précédente" : "Previous step"}
+      </button>
+    );
+  };
+
   const planBlock = (key: string, fr: string, ar: string, en: string, icon: string) => plan[key] && (
     <div key={key} style={{padding: "14px 16px", background: CR, borderRadius: "13px",
       borderLeft: `4px solid ${Y}`, marginBottom: "12px"}}>
@@ -2100,6 +2116,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </button>
             </div>
             <div ref={msgEnd}/>
+            {!busy && qN <= 1 && backBtn("idea")}
           </Card>
         )}
 
@@ -2139,6 +2156,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </div>
             </>) : (<div style={{textAlign: "center", padding: "40px", color: GR}}><Dots/></div>)}
             {indhBtn(t.genPlan, genPlan)}
+            {backBtn()}
           </Card>
         )}
 
@@ -2150,6 +2168,19 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             <p style={{color: GR, fontSize: "13px", marginBottom: "18px"}}>{lang === "ar" ? "إعداد خطة الأعمال والميزانية..." : lang === "fr" ? "Préparation du business plan et budget..." : "Preparing business plan and budget..."}</p>
             <div style={{display: "flex", justifyContent: "center"}}><Dots/></div>
           </Card>}
+          {!busy && !plan && (
+            <Card style={{textAlign:"center", padding:"40px 24px"}}>
+              <div style={{fontSize:"48px", marginBottom:"14px"}}>⚠️</div>
+              <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"8px"}}>
+                {lang==="ar"?"فشل إنشاء الخطة":lang==="fr"?"Génération échouée":"Generation failed"}
+              </div>
+              <div style={{fontSize:"13px", color:GR, marginBottom:"18px", lineHeight:1.6}}>
+                {lang==="ar"?"جميع خوادم الذكاء الاصطناعي مشغولة. انتظر ثوانٍ ثم حاول مجدداً.":lang==="fr"?"L'IA est temporairement surchargée. Attendez quelques secondes et réessayez.":"All AI providers are busy. Wait a few seconds and try again."}
+              </div>
+              {indhBtn(lang==="ar"?"🔄 إعادة المحاولة":lang==="fr"?"🔄 Réessayer":"🔄 Try again", genPlan)}
+              {backBtn()}
+            </Card>
+          )}
           {plan && !busy && (<>
             <Card>
               <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px"}}>
@@ -2188,6 +2219,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </div>}
             </Card>
             {indhBtn(`💰 ${lang === "ar" ? "الميزانية" : lang === "fr" ? "Voir le Budget" : "View Budget"} →`, () => setStep("budget"))}
+            {backBtn()}
           </>)}
         </>)}
 
@@ -2272,6 +2304,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 </div>
               </div>
               {indhBtn(`🎨 ${lang === "ar" ? "التالي: الشعار ←" : lang === "fr" ? "Suivant : Logo →" : "Next: Logo →"}`, () => setStep("logo"))}
+              {backBtn()}
             </Card>
           );
         })()}
@@ -2600,6 +2633,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               lang==="ar"?"← التالي: الامتثال":lang==="fr"?"Continuer → Conformité":"Continue → Compliance",
               checkComp
             )}
+            {backBtn()}
           </Card>
         )}
 
@@ -2618,6 +2652,19 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             </p>
             <div style={{display: "flex", justifyContent: "center", marginTop: "14px"}}><Dots/></div>
           </div>}
+          {!busy && !comp && (
+            <div style={{textAlign:"center", padding:"32px 20px"}}>
+              <div style={{fontSize:"48px", marginBottom:"14px"}}>⚠️</div>
+              <div style={{fontSize:"15px", fontWeight:"700", color:ND, marginBottom:"8px"}}>
+                {lang==="ar"?"فشل تحليل الامتثال":lang==="fr"?"Analyse échouée":"Analysis failed"}
+              </div>
+              <div style={{fontSize:"13px", color:GR, marginBottom:"18px", lineHeight:1.6}}>
+                {lang==="ar"?"حاول مجدداً":lang==="fr"?"Réessayez dans quelques secondes":"Try again in a few seconds"}
+              </div>
+              {indhBtn(t.checkBtn as string, checkComp)}
+              {backBtn()}
+            </div>
+          )}
           {comp && !busy && (<>
             <div style={{padding: "24px", borderRadius: "16px", textAlign: "center", marginBottom: "18px",
               background: comp.eligible ? ND : "#FFF0F0", border: `2px solid ${comp.eligible ? Y : RE}`}}>
@@ -2652,6 +2699,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               {comp.recommendations.map((r: string, i: number) => <div key={i} style={{display: "flex", gap: "7px", fontSize: "12px", color: N, marginBottom: "4px"}}><span style={{color: Y, fontWeight: "700"}}>→</span>{r}</div>)}
             </div>}
             {indhBtn(`📁 ${lang === "ar" ? "الوثائق" : lang === "fr" ? "Documents Requis" : "Required Documents"} →`, () => setStep("documents"))}
+            {backBtn()}
           </>)}
         </Card>)}
 
@@ -2732,6 +2780,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   style={{fontSize: "12px", color: "#1E40AF", fontWeight: "600"}}>www.rokhsa.ma →</a>
               </div>
               {indhBtn(`🎉 ${lang === "ar" ? "عرض ملفي الكامل" : lang === "fr" ? "Voir Mon Dossier" : "View My Application"} →`, () => setStep("export"))}
+              {backBtn()}
             </Card>
           );
         })()}
@@ -2952,6 +3001,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 ))}
               </div>
             </Card>
+            {backBtn()}
           </>);
         })()}
 
