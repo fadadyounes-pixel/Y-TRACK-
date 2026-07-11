@@ -710,8 +710,8 @@ const Sel = ({value, onChange, options, placeholder, dir}: {
 );
 
 /* ── HEADER ─────────────────────────────────────────── */
-const Header = ({lang, user, onLogout, t}: {
-  lang: string;
+const Header = ({lang, setLang, user, onLogout, t}: {
+  lang: string; setLang: (l: string) => void;
   user: any; onLogout: () => void; t: any;
 }) => (
   <div style={{background: ND, height: "58px", display: "flex", alignItems: "center",
@@ -722,7 +722,8 @@ const Header = ({lang, user, onLogout, t}: {
         display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", fontWeight: "900", color: WH}}>I</div>
       <span style={{fontSize: "17px", fontWeight: "800", color: WH, lineHeight: 1, letterSpacing: "-.3px"}}>IdeaMap</span>
     </div>
-    <div style={{display: "flex", alignItems: "center", gap: "14px"}}>
+    <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
+      <LangToggle lang={lang} setLang={setLang}/>
       {user && <>
         <div style={{display: "flex", alignItems: "center", gap: "8px",
           padding: "4px 12px", background: NB, borderRadius: "10px",
@@ -763,9 +764,9 @@ const ProgRow = ({t, si, steps}: { lang: string; t: any; si: number; steps: stri
 );
 
 /* ── DASHBOARD SIDEBAR ─────────────────────────────── */
-const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, t}: {
+const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, setLang, t}: {
   user: any; navItems: {id:string; label:string}[]; activeTab: string;
-  onTabChange: (id:string)=>void; onLogout:()=>void; lang:string; t:any;
+  onTabChange: (id:string)=>void; onLogout:()=>void; lang:string; setLang:(l:string)=>void; t:any;
 }) => (
   <div style={{width:240, flexShrink:0, background:WH, borderRight:`1px solid ${CD}`,
     position:"sticky", top:0, height:"100vh", display:"flex", flexDirection:"column", zIndex:50}}>
@@ -808,6 +809,9 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, t}
           <div style={{fontSize:"12px", fontWeight:"600", color:N, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{user.name||user.id}</div>
           <div style={{fontSize:"10px", color:GR, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{user.id}</div>
         </div>
+      </div>
+      <div style={{marginBottom:"8px"}}>
+        <LangToggle lang={lang} setLang={setLang}/>
       </div>
       <button onClick={onLogout} style={{background:"transparent", border:"none", padding:0,
         fontSize:"11px", fontWeight:"500", color:GR, cursor:"pointer", fontFamily:ff(lang), textDecoration:"underline"}}>
@@ -1913,7 +1917,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
   return (
     <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)}/>}
-      <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
+      <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
       <ProgRow lang={lang} t={t} si={si} steps={t.steps as string[]}/>
       <div className="fadeUp" style={{maxWidth: "700px", margin: "0 auto", padding: "24px 18px 60px"}}>
 
@@ -3124,7 +3128,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
       <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
         <DashSidebar user={user} navItems={COORD_NAV} activeTab={tab}
           onTabChange={id => { setTab(id); setDetail(null); }}
-          onLogout={onLogout} lang={lang} t={t}/>
+          onLogout={onLogout} lang={lang} setLang={setLang} t={t}/>
         <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
           <div style={{maxWidth:860, padding:"32px 40px 48px"}}>
             <button onClick={() => setDetail(null)} style={{marginBottom:"20px", padding:"8px 16px",
@@ -3204,7 +3208,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
   return (
     <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
       <DashSidebar user={user} navItems={COORD_NAV} activeTab={tab}
-        onTabChange={setTab} onLogout={onLogout} lang={lang} t={t}/>
+        onTabChange={setTab} onLogout={onLogout} lang={lang} setLang={setLang} t={t}/>
       <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
         <div style={{padding:"32px 40px 48px", maxWidth:860}}>
 
@@ -3594,7 +3598,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
       <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
         <DashSidebar user={user} navItems={ADMIN_NAV} activeTab={tab}
           onTabChange={id => { setTab(id); setDetailH(null); }}
-          onLogout={onLogout} lang={lang} t={t}/>
+          onLogout={onLogout} lang={lang} setLang={setLang} t={t}/>
         <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
           <div style={{padding:"32px 40px 48px", maxWidth:860}}>
             <button onClick={() => setDetailH(null)} style={{marginBottom:"20px", padding:"8px 16px",
@@ -3736,7 +3740,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   return (
     <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
       <DashSidebar user={user} navItems={ADMIN_NAV} activeTab={tab}
-        onTabChange={setTab} onLogout={onLogout} lang={lang} t={t}/>
+        onTabChange={setTab} onLogout={onLogout} lang={lang} setLang={setLang} t={t}/>
       <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
         <div style={{padding:"32px 40px 48px", maxWidth:900}}>
 
