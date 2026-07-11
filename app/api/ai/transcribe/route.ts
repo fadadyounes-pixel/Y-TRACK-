@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "no audio" }, { status: 400 });
     }
 
-    const key = process.env.GROQ_API_KEY || _kg;
+    const key = process.env.GROQ_API_KEY || "";
     if (!key) {
       return NextResponse.json({ error: "no GROQ_API_KEY" }, { status: 503 });
     }

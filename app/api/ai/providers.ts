@@ -33,17 +33,6 @@ interface RafiqOpts {
   max_tokens?: number;
 }
 
-// Server-side bootstrap: env vars take priority; fallback activates only when unset.
-// TODO: set GROQ_API_KEY in Vercel environment variables, then remove _d/_k below.
-const _d = (s: string) => Buffer.from(s, "base64").toString("utf8");
-const _k = {
-  g: _d([
-    "Z3NrX0VKUUFsYWNrcWsx",
-    "WVhMaExTcjJqV0dkeWIz",
-    "Rlkzb3I1aWI3U3ZvVUQ3",
-    "YUlCQ29FcVJlRWQ=",
-  ].join("")),
-};
 const ev = (k: string, fb = "") => process.env[k] || fb;
 
 // Groq free-tier models — each has INDEPENDENT rate limits (30 RPM each).
@@ -188,7 +177,7 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
 
 // Groq: tries every free model in sequence until one succeeds.
 async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
-  const key = ev("GROQ_API_KEY", _k.g);
+  const key = ev("GROQ_API_KEY");
   if (!key) throw new Error("no GROQ_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of fast ? GROQ_MODELS_FAST : GROQ_MODELS) {
