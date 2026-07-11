@@ -208,6 +208,8 @@ export default function CandidateUpload() {
   const [coordJobs, setCoordJobs] = useState<any[]>([]);
   const [adaptingJob, setAdaptingJob] = useState<string | null>(null);
   const [adaptedCV, setAdaptedCV] = useState<{ jobId: string; summary: string; skills: string[] } | null>(null);
+  const [precomputedAdaptations, setPrecomputedAdaptations] = useState<Record<string, { summary: string; skills: string[] }>>({});
+  const precomputeStarted = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user || user.role !== 'candidate') { router.push('/login'); return; }
@@ -222,6 +224,44 @@ export default function CandidateUpload() {
       if (stored) setCoordJobs(JSON.parse(stored));
     } catch {}
   }, []);
+
+  // Pre-compute adaptations in background as soon as profile + jobs are ready
+  const skillsKey = skills.join(',');
+  useEffect(() => {
+    if (coordJobs.length === 0 || !name || skills.length < 2) return;
+    const openJobs = coordJobs.filter((j: any) => j.status === 'Open').slice(0, 6);
+    openJobs.forEach((job: any) => {
+      if (precomputeStarted.current.has(job.id)) return;
+      precomputeStarted.current.add(job.id);
+      const ctx = `${name} | ${sector} | ${experience}\nCompétences: ${skills.slice(0, 12).join(', ')}\nProfil: ${summary.slice(0, 200)}`;
+      fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Poste: ${job.title} (${job.sector}, ${job.experience})\nRequis: ${(job.skills || []).join(', ')}\nProfil: ${ctx}` }],
+          system: `Expert RH Maroc. JSON uniquement: {"summary":"accroche 2-3 phrases avec compétences alignées et verbes d'action","skills":["8 compétences priorisées pour ce poste"]}`,
+          task: 'fast',
+          max_tokens: 350,
+        }),
+      })
+        .then(r => r.json())
+        .then(d => {
+          const text = d.content?.[0]?.text || '';
+          const m = text.match(/\{[\s\S]*\}/);
+          if (m) {
+            const parsed = JSON.parse(m[0]);
+            if (parsed.summary) {
+              setPrecomputedAdaptations(prev => ({
+                ...prev,
+                [job.id]: { summary: parsed.summary, skills: Array.isArray(parsed.skills) ? parsed.skills : [] },
+              }));
+            }
+          }
+        })
+        .catch(() => {});
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coordJobs, name, skillsKey]);
 
   if (!user || user.role !== 'candidate') return null;
 
@@ -398,24 +438,61 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
     return match || 'Other';
   }
 
+  function instantAdapt(job: any): { summary: string; skills: string[] } {
+    const jobSkills: string[] = Array.isArray(job.skills) ? job.skills : [];
+    const matching = skills.filter(s => jobSkills.some(js => js.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(js.toLowerCase())));
+    const extra = jobSkills.filter(js => !skills.some(s => s.toLowerCase().includes(js.toLowerCase()) || js.toLowerCase().includes(s.toLowerCase())));
+    const adaptedSkills = [...matching, ...skills.filter(s => !matching.includes(s)), ...extra.slice(0, 3)].slice(0, 8);
+    const top3 = adaptedSkills.slice(0, 3).join(', ');
+    const base = summary.trim() || `Professionnel en ${sector} avec un niveau ${experience}`;
+    const adapted = `Pour le poste de ${job.title} chez ${job.company}, je mets en avant mon expertise en ${top3}. ${base}${matching.length > 0 ? ` Ma maîtrise de ${matching.slice(0, 2).join(' et ')} est directement applicable aux exigences du poste.` : ''}`;
+    return { summary: adapted, skills: adaptedSkills };
+  }
+
   async function adaptCVForJob(job: any) {
     if (adaptingJob) return;
+
+    // Cache hit — instant
+    if (precomputedAdaptations[job.id]) {
+      setAdaptedCV({ jobId: job.id, ...precomputedAdaptations[job.id] });
+      return;
+    }
+
     setAdaptingJob(job.id);
     setAdaptedCV(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
-      const ctx = `Candidat: ${name || 'Professionnel'} | Secteur: ${sector} | Niveau: ${experience}\nCompétences: ${skills.join(', ')}\nProfil actuel: ${summary.slice(0, 300)}`;
-      const text = await callAI(
-        [{ role: 'user', content: `Adapte ce CV pour ce poste:\nPoste: ${job.title} chez ${job.company} (${job.sector}, ${job.experience})\nCompétences requises: ${job.skills?.join(', ')}\nDescription: ${job.description || ''}\n\nProfil candidat:\n${ctx}` }],
-        `Tu es un expert en recrutement au Maroc. Adapte le profil du candidat pour maximiser sa compatibilité avec ce poste spécifique. Retourne UNIQUEMENT ce JSON valide:\n{"summary":"Accroche professionnelle réécrite en 3-4 phrases qui met en avant les compétences alignées avec ce poste, avec verbes d'action forts et résultats chiffrés si possible","skills":["8 compétences prioritaires qui correspondent exactement aux exigences du poste, en ajoutant les compétences manquantes pertinentes"]}`,
-        'json',
-        800
-      );
+      const ctx = `${name || 'Professionnel'} | ${sector} | ${experience}\nCompétences: ${skills.slice(0, 12).join(', ')}\nProfil: ${summary.slice(0, 200)}`;
+      const r = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Poste: ${job.title} chez ${job.company} (${job.sector}, ${job.experience})\nRequis: ${(job.skills || []).join(', ')}\nProfil: ${ctx}` }],
+          system: `Expert RH Maroc. JSON uniquement: {"summary":"accroche 2-3 phrases avec compétences alignées et verbes d'action","skills":["8 compétences priorisées pour ce poste"]}`,
+          task: 'fast',
+          max_tokens: 350,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const d = await r.json();
+      const text = d.content?.[0]?.text || '';
       const m = text.match(/\{[\s\S]*\}/);
       if (m) {
         const parsed = JSON.parse(m[0]);
-        setAdaptedCV({ jobId: job.id, summary: parsed.summary || '', skills: Array.isArray(parsed.skills) ? parsed.skills : [] });
+        const result = { summary: parsed.summary || '', skills: Array.isArray(parsed.skills) ? parsed.skills : [] };
+        setPrecomputedAdaptations(prev => ({ ...prev, [job.id]: result }));
+        setAdaptedCV({ jobId: job.id, ...result });
+      } else {
+        setAdaptedCV({ jobId: job.id, ...instantAdapt(job) });
       }
-    } catch {}
+    } catch {
+      clearTimeout(timeoutId);
+      setAdaptedCV({ jobId: job.id, ...instantAdapt(job) });
+    }
     setAdaptingJob(null);
   }
 
