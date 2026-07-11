@@ -44,6 +44,12 @@ function injectCSS() {
     ".im-holder-row:hover{background:#EFF6FF!important}",
   ].join("");
   document.head.appendChild(el);
+  // Register service worker for offline-first PWA support
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    });
+  }
 }
 
 /* ── BRAND ──────────────────────────────────────────── */
