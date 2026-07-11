@@ -24,8 +24,6 @@ const ev = (k: string, fb = "") => process.env[k] || fb;
 
 // Groq free-tier models — each has INDEPENDENT rate limits (30 RPM each).
 // Cycling through them multiplies effective throughput ~6×.
-// Llama 4 Scout (MoE 17B active) added April 2025 — faster than 8b-instant, higher quality.
-// Llama 4 Maverick (128k ctx) added April 2025 — best for long document analysis.
 const GROQ_MODELS = [
   "meta-llama/llama-4-scout-17b-16e-instruct",
   "llama-3.3-70b-versatile",
@@ -35,14 +33,50 @@ const GROQ_MODELS = [
   "mixtral-8x7b-32768",
 ];
 
-// For "fast" tasks: Llama 4 Scout MoE is fastest with best quality on Groq (~120ms).
-// Falls back to 8b-instant if Scout hits rate limit.
 const GROQ_MODELS_FAST = [
   "meta-llama/llama-4-scout-17b-16e-instruct",
   "llama-3.1-8b-instant",
   "gemma2-9b-it",
   "mixtral-8x7b-32768",
   "llama-3.3-70b-versatile",
+];
+
+// Cerebras: custom LPU hardware — 1 000–2 000 tok/s, 1M tokens/day free.
+// Fastest inference available; ideal for real-time dialogue.
+// Sign up free (no card): https://cloud.cerebras.ai
+// Set env var: CEREBRAS_API_KEY
+const CEREBRAS_MODELS = [
+  "llama-4-scout-17b-16e-instruct",  // best speed/quality ratio
+  "qwen3-32b",                        // multilingual incl. Arabic & French
+  "llama-3.3-70b",
+  "llama-3.1-8b",
+];
+
+const CEREBRAS_MODELS_FAST = [
+  "llama-4-scout-17b-16e-instruct",
+  "llama-3.1-8b",
+  "qwen3-32b",
+];
+
+// SambaNova: RDU hardware — ~700 tok/s, free tier with $5 starter credit.
+// Excellent for long document analysis (128k context on Llama 4 Maverick).
+// Sign up free (no card): https://cloud.sambanova.ai
+// Set env var: SAMBANOVA_API_KEY
+const SAMBANOVA_MODELS = [
+  "Llama-4-Maverick-17B-128E-Instruct",  // 128k ctx — best for INDH dossier analysis
+  "Llama-4-Scout-17B-16E-Instruct",
+  "DeepSeek-V3-0324",                     // strong French/Arabic reasoning
+  "Llama-3.3-70B-Instruct",
+];
+
+// Mistral La Plateforme: ~1B tokens/month free.
+// Best French + Arabic bilingual model pool — critical for INDH Morocco context.
+// Sign up free: https://console.mistral.ai
+// Set env var: MISTRAL_API_KEY
+const MISTRAL_MODELS = [
+  "mistral-small-latest",     // 128k ctx, excellent French/Arabic, free tier
+  "open-mistral-nemo",        // 128k ctx, multilingual, fast
+  "open-mixtral-8x7b",        // reliable fallback
 ];
 
 // Together AI free models (no key required for free tier variants)
@@ -55,7 +89,6 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // Anthropic Claude — reads ANTHROPIC_API_KEY env var, then falls back to the
 // Claude Code session bearer token (available in remote execution environments).
-// api.anthropic.com is reachable directly (NO_PROXY) so this always works in-session.
 async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const apiKey = ev("ANTHROPIC_API_KEY");
   let headers: Record<string, string> = {
@@ -66,7 +99,6 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
   if (apiKey) {
     headers["x-api-key"] = apiKey;
   } else {
-    // Fall back to session bearer token (Claude Code remote env)
     const tokenFile = ev("CLAUDE_SESSION_INGRESS_TOKEN_FILE");
     if (!tokenFile) throw new Error("no ANTHROPIC_API_KEY");
     try {
@@ -103,7 +135,6 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
 async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("GEMINI_API_KEY");
   if (!key) throw new Error("no GEMINI_API_KEY");
-  // gemini-2.5-flash-lite is ~2× faster than flash for short tasks (summaries, skill lists).
   const model = process.env.GEMINI_MODEL || (fast ? "gemini-2.5-flash-lite" : "gemini-2.5-flash");
   const contents = msgs.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -121,7 +152,6 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
 }
 
 // Groq: tries every free model in sequence until one succeeds.
-// 429 (rate limit) on model N → immediately tries model N+1.
 async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("GROQ_API_KEY", _k.g);
   if (!key) throw new Error("no GROQ_API_KEY");
@@ -133,8 +163,8 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
       });
-      if (res.status === 429) continue; // rate-limited — try next model
-      if (res.status === 401) throw new Error("Groq 401"); // bad key — stop
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("Groq 401");
       if (!res.ok) continue;
       const d = await res.json();
       const text = d.choices?.[0]?.message?.content;
@@ -147,11 +177,91 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
   throw new Error("Groq all models exhausted");
 }
 
+// Cerebras: 1000–2000 tok/s on LPU hardware — fastest free inference available.
+// 1M tokens/day free, no credit card. Best for real-time dialogue & suggestions.
+async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
+  const key = ev("CEREBRAS_API_KEY");
+  if (!key) throw new Error("no CEREBRAS_API_KEY");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  for (const model of fast ? CEREBRAS_MODELS_FAST : CEREBRAS_MODELS) {
+    try {
+      const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("Cerebras 401");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401")) throw e;
+      continue;
+    }
+  }
+  throw new Error("Cerebras all models exhausted");
+}
+
+// SambaNova: RDU hardware ~700 tok/s, Llama 4 Maverick at 128k context.
+// Excellent for INDH dossier analysis and long business plan generation.
+async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = ev("SAMBANOVA_API_KEY");
+  if (!key) throw new Error("no SAMBANOVA_API_KEY");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  for (const model of SAMBANOVA_MODELS) {
+    try {
+      const res = await fetch("https://api.sambanova.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("SambaNova 401");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401")) throw e;
+      continue;
+    }
+  }
+  throw new Error("SambaNova all models exhausted");
+}
+
+// Mistral La Plateforme: ~1B tokens/month free.
+// Best French + Arabic bilingual models — essential for INDH Morocco (French & Arabic official languages).
+// mistral-small-latest scores highest on French/Arabic benchmarks among free-tier models.
+async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = ev("MISTRAL_API_KEY");
+  if (!key) throw new Error("no MISTRAL_API_KEY");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  for (const model of MISTRAL_MODELS) {
+    try {
+      const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("Mistral 401");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401")) throw e;
+      continue;
+    }
+  }
+  throw new Error("Mistral all models exhausted");
+}
+
 async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("OPENROUTER_API_KEY");
   if (!key) throw new Error("no OPENROUTER_API_KEY");
-  // Free models on OpenRouter — expanded pool as of mid-2025.
-  // Llama 4 Scout/Maverick, DeepSeek-V3, Qwen3, Phi-4 all added free tiers.
   const models = [
     process.env.OPENROUTER_MODEL || "meta-llama/llama-4-scout:free",
     "meta-llama/llama-4-maverick:free",
@@ -179,7 +289,6 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
   throw new Error("OpenRouter exhausted");
 }
 
-// Together: tries both free models, no API key required for *-Free variants.
 async function together(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("TOGETHER_API_KEY");
   if (!key) throw new Error("no TOGETHER_API_KEY");
@@ -214,13 +323,15 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
   const fast = task === "fast";
 
   if (fast) {
-    // Fast path: skip Anthropic (high-latency), go Groq-first with small model.
-    // Max 800 tokens — enough for summaries and suggestions.
+    // Fast path: Cerebras first (1000–2000 tok/s), then Groq, then SambaNova.
+    // Skips Anthropic & Gemini (higher latency). Max 800 tokens.
     const fastTok = Math.min(max_tokens, 800);
     for (let sweep = 0; sweep < 2; sweep++) {
       if (sweep > 0) await sleep(800);
       for (const fn of [
+        (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, true),
         (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
+        sambanova,
         (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, true),
         anthropic,
       ]) {
@@ -231,10 +342,12 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     throw new Error("Fast AI providers busy. Please try again.");
   }
 
-  // Standard path — Anthropic is always first.
+  // Standard path — Anthropic first for quality, then Cerebras (speed),
+  // then Groq, SambaNova, Mistral (best French/Arabic), Together, Gemini, OpenRouter.
+  // JSON tasks put Gemini second (reliable structured output).
   const order = task === "json"
-    ? [anthropic, gemini, groq, together, openrouter]
-    : [anthropic, groq, together, gemini, openrouter];
+    ? [anthropic, gemini, cerebras, sambanova, mistral, groq, together, openrouter]
+    : [anthropic, cerebras, groq, sambanova, mistral, together, gemini, openrouter];
 
   // Two full sweeps: first sweep is instant, second sweep waits 1.2s
   for (let sweep = 0; sweep < 2; sweep++) {
