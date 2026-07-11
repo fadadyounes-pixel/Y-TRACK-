@@ -500,12 +500,14 @@ const Badge = ({role}: { role: string }) => {
     background: b.c + "22", color: b.c, border: `1px solid ${b.c}55`}}>{b.l}</span>;
 };
 
-const LangToggle = ({lang, setLang}: { lang: string; setLang: (l: string) => void }) => (
+const LangToggle = ({lang, setLang, dark = true}: { lang: string; setLang: (l: string) => void; dark?: boolean }) => (
   <div style={{display: "flex", gap: "4px"}}>
     {["fr", "ar", "en"].map(k => (
       <button key={k} onClick={() => setLang(k)} style={{
-        padding: "4px 10px", borderRadius: "7px", border: `1px solid ${lang === k ? Y : "rgba(255,255,255,.15)"}`,
-        background: lang === k ? Y : "transparent", color: lang === k ? ND : "rgba(255,255,255,.55)",
+        padding: "4px 10px", borderRadius: "7px",
+        border: `1px solid ${lang === k ? Y : dark ? "rgba(255,255,255,.15)" : CD}`,
+        background: lang === k ? Y : "transparent",
+        color: lang === k ? ND : dark ? "rgba(255,255,255,.55)" : GR,
         fontSize: "11px", fontWeight: "700", textTransform: "uppercase",
         fontFamily: ff(lang), transition: "all .18s"
       }}>{k}</button>
@@ -811,7 +813,7 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, se
         </div>
       </div>
       <div style={{marginBottom:"8px"}}>
-        <LangToggle lang={lang} setLang={setLang}/>
+        <LangToggle lang={lang} setLang={setLang} dark={false}/>
       </div>
       <button onClick={onLogout} style={{background:"transparent", border:"none", padding:0,
         fontSize:"11px", fontWeight:"500", color:GR, cursor:"pointer", fontFamily:ff(lang), textDecoration:"underline"}}>
