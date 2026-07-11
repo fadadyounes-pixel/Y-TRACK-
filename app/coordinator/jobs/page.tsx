@@ -22,7 +22,7 @@ interface Job {
 
 const INITIAL_JOBS: Job[] = [
   { id: 'J001', title: 'Développeur React Senior', company: 'TechCorp', sector: 'Technology', experience: 'Senior', location: 'Casablanca', salary: '15 000 – 20 000 MAD', skills: ['React', 'TypeScript', 'Node.js'], description: 'Développement d\'applications frontend scalables.', status: 'Open', createdAt: '2026-07-01' },
-  { id: 'J002', title: 'Ingénieur Machine Learning', company: 'AI Ventures', sector: 'Data Science', experience: 'Mid-Level', location: 'Rabat', salary: '12 000 – 16 000 MAD', skills: ['Python', 'TensorFlow', 'SQL'], description: 'Développement et déploiement de modèles ML à grande échelle.', status: 'Open', createdAt: '2026-07-03' },
+  { id: 'J002', title: 'Ingénieur Machine Learning', company: 'DataVentures', sector: 'Data Science', experience: 'Mid-Level', location: 'Rabat', salary: '12 000 – 16 000 MAD', skills: ['Python', 'TensorFlow', 'SQL'], description: 'Développement et déploiement de modèles ML à grande échelle.', status: 'Open', createdAt: '2026-07-03' },
   { id: 'J003', title: 'Développeur Python Backend', company: 'DataSoft Solutions', sector: 'Technology', experience: 'Mid-Level', location: 'Casablanca', salary: '10 000 – 14 000 MAD', skills: ['Python', 'Django', 'SQL'], description: 'Conception d\'APIs REST et pipelines de données.', status: 'Open', createdAt: '2026-07-05' },
 ];
 
@@ -30,6 +30,23 @@ const SKILL_SUGGESTIONS = ['JavaScript', 'TypeScript', 'React', 'Python', 'SQL',
 const SECTORS = ['Technology', 'Data Science', 'Finance', 'BTP', 'Tourisme', 'Agro-alimentaire', 'Healthcare', 'Marketing', 'Design', 'Operations', 'Other'];
 const EXPERIENCE_LEVELS = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
 const CITIES = ['Casablanca', 'Rabat', 'Tanger', 'Marrakech', 'Fès', 'Agadir', 'Oujda', 'Kénitra', 'Meknès', 'Autre'];
+
+const EXP_ORDER = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
+
+function computeMatch(cv: any, job: Job): number {
+  const cvSkills: string[] = Array.isArray(cv.skills) ? cv.skills : [];
+  const jobSkills: string[] = Array.isArray(job.skills) ? job.skills : [];
+  const overlap = cvSkills.filter(s =>
+    jobSkills.some(js => js.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(js.toLowerCase()))
+  );
+  const skillScore = jobSkills.length === 0 ? 30 : Math.round((overlap.length / jobSkills.length) * 60);
+  const sectorScore = cv.sector === job.sector ? 25 : 0;
+  const cvI = EXP_ORDER.indexOf(cv.experience);
+  const jobI = EXP_ORDER.indexOf(job.experience);
+  const diff = cvI >= 0 && jobI >= 0 ? Math.abs(cvI - jobI) : 2;
+  const expScore = diff === 0 ? 15 : diff === 1 ? 9 : diff === 2 ? 4 : 0;
+  return Math.min(skillScore + sectorScore + expScore, 100);
+}
 
 export default function CoordinatorJobs() {
   const { user } = useAuth();
@@ -52,10 +69,21 @@ export default function CoordinatorJobs() {
   const [saved, setSaved] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'Open' | 'Closed'>('all');
   const [search, setSearch] = useState('');
+  const [expandedJob, setExpandedJob] = useState<string | null>(null);
+  const [coordCvs, setCoordCvs] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user || user.role !== 'coordinator') router.push('/login');
   }, [user, router]);
+
+  // Load imported CVs from localStorage (uploaded by coordinator)
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const stored = localStorage.getItem('coordinator_cvs');
+      if (stored) setCoordCvs(JSON.parse(stored));
+    } catch {}
+  }, [user]);
 
   // Load from localStorage
   useEffect(() => {
@@ -275,8 +303,58 @@ export default function CoordinatorJobs() {
                   </div>
                 </div>
                 {j.description && <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.75rem', lineHeight: 1.55 }}>{j.description}</p>}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.75rem' }}>
                   {j.skills.map(s => <span key={s} style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: '4px', padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 600 }}>{s}</span>)}
+                </div>
+                {/* Ranked candidates panel */}
+                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '0.75rem' }}>
+                  <button
+                    onClick={() => setExpandedJob(expandedJob === j.id ? null : j.id)}
+                    style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 700, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '0.35rem 0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                    🎯 {expandedJob === j.id ? 'Masquer' : `Candidats classés (${coordCvs.length})`}
+                  </button>
+                  {expandedJob === j.id && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      {coordCvs.length === 0 ? (
+                        <div style={{ padding: '0.9rem', background: '#f9fafb', borderRadius: '8px', fontSize: '0.82rem', color: '#6b7280', textAlign: 'center' }}>
+                          Aucun CV importé. <Link href="/coordinator/upload" style={{ color: '#2563eb', fontWeight: 600 }}>Importer des CVs →</Link>
+                        </div>
+                      ) : (() => {
+                        const ranked = coordCvs
+                          .map(cv => ({ ...cv, score: computeMatch(cv, j) }))
+                          .sort((a, b) => b.score - a.score)
+                          .slice(0, 8);
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                            {ranked.map(cv => {
+                              const scoreColor = cv.score >= 70 ? '#15803d' : cv.score >= 45 ? '#92400e' : '#6b7280';
+                              const scoreBg = cv.score >= 70 ? '#f0fdf4' : cv.score >= 45 ? '#fefce8' : '#f9fafb';
+                              const scoreBorder = cv.score >= 70 ? '#bbf7d0' : cv.score >= 45 ? '#fde68a' : '#e5e7eb';
+                              return (
+                                <div key={cv.id} style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.55rem 0.8rem', borderRadius: '8px', background: scoreBg, border: `1px solid ${scoreBorder}` }}>
+                                  <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: cv.score >= 70 ? '#22c55e' : cv.score >= 45 ? '#eab308' : '#d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '0.8rem', flexShrink: 0 }}>
+                                    {cv.score}%
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cv.name || cv.fileName}</div>
+                                    <div style={{ fontSize: '0.72rem', color: '#6b7280' }}>{cv.sector} · {cv.experience}{cv.phone ? ` · ${cv.phone}` : ''}</div>
+                                  </div>
+                                  {cv.email ? (
+                                    <a href={`mailto:${cv.email}?subject=Offre: ${j.title} chez ${j.company}`} style={{ fontSize: '0.73rem', color: '#2563eb', fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none', padding: '0.25rem 0.6rem', borderRadius: '5px', border: '1px solid #bfdbfe', background: 'white' }}>
+                                      ✉ Contacter
+                                    </a>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                            <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.25rem' }}>
+                              Score: compétences (60pts) + secteur (25pts) + niveau (15pts)
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

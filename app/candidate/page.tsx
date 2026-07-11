@@ -49,7 +49,7 @@ const PROFILES: Record<string, CandidateProfile> = {
     summary:
       'Data scientist with hands-on ML experience using TensorFlow and Python. Focused on building predictive models and delivering actionable insights from complex datasets.',
     bestMatchJob: 'Machine Learning Engineer',
-    bestMatchCompany: 'AI Ventures',
+    bestMatchCompany: 'DataVentures',
   },
 };
 
@@ -172,6 +172,12 @@ export default function CandidateDashboard() {
   const profile = PROFILES[user.idNumber] ?? FALLBACK_PROFILE;
   const scoreColors = getScoreColors(profile.matchScore);
 
+  const STEPS = [
+    { num: '1', icon: '📄', label: 'Upload Your CV', desc: 'Share your CV to get analysed by Expert RH', duration: '~2 min' },
+    { num: '2', icon: '🎯', label: 'Match Jobs', desc: 'Expert RH ranks you against open positions', duration: '~instant' },
+    { num: '3', icon: '🚀', label: 'Apply', desc: 'Receive an adapted CV for your best match', duration: '~5 min' },
+  ];
+
   return (
     <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
       {/* Header row with logout */}
@@ -212,19 +218,73 @@ export default function CandidateDashboard() {
         <div style={{
           background: 'linear-gradient(135deg, #0a1f5c 0%, #2563eb 100%)',
           borderRadius: '14px',
-          padding: '2rem 2rem',
+          padding: '2rem',
           marginBottom: '1.75rem',
           color: 'white',
         }}>
           <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.65)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
-            Welcome back
+            Welcome to TalentMap
           </p>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
-            {user.name}
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.4rem' }}>
+            Hello, {user.name.split(' ')[0]} 👋
           </h1>
-          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.875rem', color: 'rgba(255,255,255,0.75)' }}>
-            <span>ID: <strong style={{ color: 'white' }}>{user.idNumber}</strong></span>
-            <span>Email: <strong style={{ color: 'white' }}>{user.email}</strong></span>
+          <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.8)', marginBottom: '0.5rem' }}>
+            Three steps. Your complete career map.
+          </p>
+          <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
+            Complete all 3 steps to receive your match score to share with your advisor.
+          </p>
+        </div>
+
+        {/* Three-step info table */}
+        <div className="card" style={{ marginBottom: '1.75rem' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>
+            How it works
+          </h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc' }}>
+                {['#', 'Step', 'Description', 'Time'].map((h, i) => (
+                  <th key={h} style={{
+                    padding: '0.65rem 0.875rem',
+                    textAlign: i === 0 ? 'center' : 'left',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    color: '#6b7280',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    borderBottom: '2px solid #e5e7eb',
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {STEPS.map((s, i) => (
+                <tr key={i} style={{ borderBottom: i < STEPS.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                  <td style={{ padding: '0.875rem', textAlign: 'center', fontSize: '1.1rem' }}>{s.icon}</td>
+                  <td style={{ padding: '0.875rem', fontWeight: 700, color: '#111827', fontSize: '0.9rem' }}>{s.label}</td>
+                  <td style={{ padding: '0.875rem', color: '#6b7280', fontSize: '0.875rem' }}>{s.desc}</td>
+                  <td style={{ padding: '0.875rem', color: '#9ca3af', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{s.duration}</td>
+                </tr>
+              ))}
+              <tr style={{ background: '#f8fafc', borderTop: '2px solid #e5e7eb' }}>
+                <td colSpan={2} style={{ padding: '0.875rem', fontWeight: 700, color: '#111827', fontSize: '0.875rem' }}>
+                  Total
+                </td>
+                <td style={{ padding: '0.875rem', color: '#6b7280', fontSize: '0.875rem' }}>
+                  3 steps · Your career map
+                </td>
+                <td style={{ padding: '0.875rem', color: '#2563eb', fontWeight: 700, fontSize: '0.82rem' }}>
+                  ~10 min
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style={{ marginTop: '1.25rem' }}>
+            <Link href="/candidate/upload" className="btn-primary">
+              Begin — Upload my CV →
+            </Link>
           </div>
         </div>
 
@@ -323,11 +383,7 @@ export default function CandidateDashboard() {
                       transition: 'width 0.8s ease',
                     }} />
                   </div>
-                  <span style={{
-                    fontWeight: 800,
-                    fontSize: '1.1rem',
-                    color: scoreColors.color,
-                  }}>
+                  <span style={{ fontWeight: 800, fontSize: '1.1rem', color: scoreColors.color }}>
                     {profile.matchScore}%
                   </span>
                 </div>
@@ -368,10 +424,7 @@ export default function CandidateDashboard() {
 
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <Link
-            href="/candidate/upload"
-            className="btn-primary"
-          >
+          <Link href="/candidate/upload" className="btn-primary">
             Update CV
           </Link>
           <button

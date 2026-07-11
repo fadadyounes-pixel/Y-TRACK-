@@ -141,10 +141,27 @@ body{font-family:'Inter',Arial,sans-serif;background:#f1f5f9;color:#1e293b;-webk
       </div>
     </div>
   </div>
-  <div class="footer">Généré par TalentMap AI — Optimisé marché marocain &bull; ${today}</div>
+  <div class="footer">Optimisé par l'Expert RH TalentMap — Marché marocain &bull; ${today}</div>
 </div>
 </body>
 </html>`;
+}
+
+const EXP_ORDER_C = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
+
+function computeMatchCandidate(cv: { skills: string[]; sector: string; experience: string }, job: any): number {
+  const cvSkills = Array.isArray(cv.skills) ? cv.skills : [];
+  const jobSkills: string[] = Array.isArray(job.skills) ? job.skills : [];
+  const overlap = cvSkills.filter(s =>
+    jobSkills.some((js: string) => js.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(js.toLowerCase()))
+  );
+  const skillScore = jobSkills.length === 0 ? 30 : Math.round((overlap.length / jobSkills.length) * 60);
+  const sectorScore = cv.sector === job.sector ? 25 : 0;
+  const cvI = EXP_ORDER_C.indexOf(cv.experience);
+  const jobI = EXP_ORDER_C.indexOf(job.experience);
+  const diff = cvI >= 0 && jobI >= 0 ? Math.abs(cvI - jobI) : 2;
+  const expScore = diff === 0 ? 15 : diff === 1 ? 9 : diff === 2 ? 4 : 0;
+  return Math.min(skillScore + sectorScore + expScore, 100);
 }
 
 async function callAI(messages: { role: string; content: string }[], system: string, task = 'fast', maxTokens = 900) {
@@ -187,11 +204,64 @@ export default function CandidateUpload() {
   const [saved, setSaved] = useState(false);
   const [autoEnhanced, setAutoEnhanced] = useState(false);
 
+  // Matching state
+  const [coordJobs, setCoordJobs] = useState<any[]>([]);
+  const [adaptingJob, setAdaptingJob] = useState<string | null>(null);
+  const [adaptedCV, setAdaptedCV] = useState<{ jobId: string; summary: string; skills: string[] } | null>(null);
+  const [precomputedAdaptations, setPrecomputedAdaptations] = useState<Record<string, { summary: string; skills: string[] }>>({});
+  const precomputeStarted = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!user || user.role !== 'candidate') { router.push('/login'); return; }
     setName(user.name);
     setEmail(user.email);
   }, [user, router]);
+
+  // Load coordinator jobs for matching
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('coordinator_jobs');
+      if (stored) setCoordJobs(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  // Pre-compute adaptations in background as soon as profile + jobs are ready
+  const skillsKey = skills.join(',');
+  useEffect(() => {
+    if (coordJobs.length === 0 || !name || skills.length < 2) return;
+    const openJobs = coordJobs.filter((j: any) => j.status === 'Open').slice(0, 6);
+    openJobs.forEach((job: any) => {
+      if (precomputeStarted.current.has(job.id)) return;
+      precomputeStarted.current.add(job.id);
+      const ctx = `${name} | ${sector} | ${experience}\nCompétences: ${skills.slice(0, 12).join(', ')}\nProfil: ${summary.slice(0, 200)}`;
+      fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Poste: ${job.title} (${job.sector}, ${job.experience})\nRequis: ${(job.skills || []).join(', ')}\nProfil: ${ctx}` }],
+          system: `Expert RH Maroc. JSON uniquement: {"summary":"accroche 2-3 phrases avec compétences alignées et verbes d'action","skills":["8 compétences priorisées pour ce poste"]}`,
+          task: 'fast',
+          max_tokens: 350,
+        }),
+      })
+        .then(r => r.json())
+        .then(d => {
+          const text = d.content?.[0]?.text || '';
+          const m = text.match(/\{[\s\S]*\}/);
+          if (m) {
+            const parsed = JSON.parse(m[0]);
+            if (parsed.summary) {
+              setPrecomputedAdaptations(prev => ({
+                ...prev,
+                [job.id]: { summary: parsed.summary, skills: Array.isArray(parsed.skills) ? parsed.skills : [] },
+              }));
+            }
+          }
+        })
+        .catch(() => {});
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coordJobs, name, skillsKey]);
 
   if (!user || user.role !== 'candidate') return null;
 
@@ -368,6 +438,64 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
     return match || 'Other';
   }
 
+  function instantAdapt(job: any): { summary: string; skills: string[] } {
+    const jobSkills: string[] = Array.isArray(job.skills) ? job.skills : [];
+    const matching = skills.filter(s => jobSkills.some(js => js.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(js.toLowerCase())));
+    const extra = jobSkills.filter(js => !skills.some(s => s.toLowerCase().includes(js.toLowerCase()) || js.toLowerCase().includes(s.toLowerCase())));
+    const adaptedSkills = [...matching, ...skills.filter(s => !matching.includes(s)), ...extra.slice(0, 3)].slice(0, 8);
+    const top3 = adaptedSkills.slice(0, 3).join(', ');
+    const base = summary.trim() || `Professionnel en ${sector} avec un niveau ${experience}`;
+    const adapted = `Pour le poste de ${job.title} chez ${job.company}, je mets en avant mon expertise en ${top3}. ${base}${matching.length > 0 ? ` Ma maîtrise de ${matching.slice(0, 2).join(' et ')} est directement applicable aux exigences du poste.` : ''}`;
+    return { summary: adapted, skills: adaptedSkills };
+  }
+
+  async function adaptCVForJob(job: any) {
+    if (adaptingJob) return;
+
+    // Cache hit — instant
+    if (precomputedAdaptations[job.id]) {
+      setAdaptedCV({ jobId: job.id, ...precomputedAdaptations[job.id] });
+      return;
+    }
+
+    setAdaptingJob(job.id);
+    setAdaptedCV(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const ctx = `${name || 'Professionnel'} | ${sector} | ${experience}\nCompétences: ${skills.slice(0, 12).join(', ')}\nProfil: ${summary.slice(0, 200)}`;
+      const r = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Poste: ${job.title} chez ${job.company} (${job.sector}, ${job.experience})\nRequis: ${(job.skills || []).join(', ')}\nProfil: ${ctx}` }],
+          system: `Expert RH Maroc. JSON uniquement: {"summary":"accroche 2-3 phrases avec compétences alignées et verbes d'action","skills":["8 compétences priorisées pour ce poste"]}`,
+          task: 'fast',
+          max_tokens: 350,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const d = await r.json();
+      const text = d.content?.[0]?.text || '';
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) {
+        const parsed = JSON.parse(m[0]);
+        const result = { summary: parsed.summary || '', skills: Array.isArray(parsed.skills) ? parsed.skills : [] };
+        setPrecomputedAdaptations(prev => ({ ...prev, [job.id]: result }));
+        setAdaptedCV({ jobId: job.id, ...result });
+      } else {
+        setAdaptedCV({ jobId: job.id, ...instantAdapt(job) });
+      }
+    } catch {
+      clearTimeout(timeoutId);
+      setAdaptedCV({ jobId: job.id, ...instantAdapt(job) });
+    }
+    setAdaptingJob(null);
+  }
+
   function handleFiles(files: FileList) {
     Array.from(files).forEach(f => analyzeFile(f));
   }
@@ -414,7 +542,7 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
   const suggestions = SKILL_SUGGESTIONS[sector] || SKILL_SUGGESTIONS.Other;
 
   const statusLabel: Record<AnalyzedFile['status'], string> = {
-    analyzing: '🤖 Lecture du CV en cours…',
+    analyzing: '👔 Lecture du CV en cours…',
     enhancing: '🇲🇦 Optimisation pour le marché marocain…',
     done: 'CV amélioré et prêt',
     error: 'Analyse impossible',
@@ -429,7 +557,7 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
           ← Retour à mon profil
         </Link>
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#111827', marginBottom: '0.35rem' }}>Construire votre CV</h1>
-        <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>Déposez votre CV existant — l'IA l'améliore automatiquement pour le marché marocain, ou remplissez le formulaire.</p>
+        <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>Déposez votre CV existant — notre Expert RH l'améliore automatiquement pour le marché marocain, ou remplissez le formulaire.</p>
 
         {/* Mode tabs */}
         <div style={{ display: 'flex', gap: 0, marginBottom: '1.75rem', border: '1.5px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', width: 'fit-content' }}>
@@ -462,7 +590,7 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '0.4rem' }}>Déposez votre CV ici ou cliquez pour parcourir</h3>
               <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>PDF, Word, TXT, JPG, PNG</p>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', background: '#fefce8', borderRadius: '9999px', fontSize: '0.82rem', color: '#92400e', fontWeight: 600, marginBottom: '0.75rem', border: '1px solid #fde68a' }}>
-                🇲🇦 IA optimisée pour le marché marocain — extraction + amélioration automatique
+                🇲🇦 Expert RH — extraction et amélioration automatique pour le marché marocain
               </div>
               <br/>
               <button style={{ padding: '0.65rem 1.5rem', borderRadius: '8px', background: '#2563eb', color: 'white', border: 'none', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer' }}>Choisir un fichier</button>
@@ -471,7 +599,7 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
             {analyzedFiles.length > 0 && (
               <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
                 <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1rem' }}>
-                  {analyzedFiles.length} fichier{analyzedFiles.length > 1 ? 's' : ''} — Traitement IA en cours
+                  {analyzedFiles.length} fichier{analyzedFiles.length > 1 ? 's' : ''} — Analyse Expert RH en cours
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {analyzedFiles.map((f, i) => (
@@ -552,7 +680,7 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
               <div style={{ padding: '1rem 1.25rem', borderRadius: '12px', background: '#f0fdf4', border: '1.5px solid #86efac', display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
                 <span style={{ fontSize: '1.4rem' }}>🇲🇦</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, color: '#15803d', fontSize: '0.9rem', marginBottom: '0.2rem' }}>CV amélioré automatiquement pour le marché marocain ✅</div>
+                  <div style={{ fontWeight: 700, color: '#15803d', fontSize: '0.9rem', marginBottom: '0.2rem' }}>CV optimisé par l'Expert RH pour le marché marocain ✅</div>
                   <div style={{ fontSize: '0.8rem', color: '#166534' }}>
                     Résumé professionnel, compétences et postes cibles ont été optimisés. Complétez vos informations personnelles et expériences ci-dessous.
                   </div>
@@ -566,6 +694,74 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
                 <button onClick={() => setAutoEnhanced(false)} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '1.1rem', cursor: 'pointer', flexShrink: 0 }}>×</button>
               </div>
             )}
+
+            {/* Matching job offers */}
+            {(() => {
+              const openJobs = coordJobs.filter(j => j.status === 'Open');
+              if (!openJobs.length) return null;
+              const matches = openJobs
+                .map(j => ({ ...j, score: computeMatchCandidate({ skills, sector, experience }, j) }))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 6);
+              return (
+                <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #bfdbfe' }}>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>🎯 Offres qui correspondent à votre profil</h2>
+                  <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '1.1rem' }}>
+                    {matches.length} offre{matches.length > 1 ? 's' : ''} triée{matches.length > 1 ? 's' : ''} par compatibilité — cliquez sur une offre pour adapter votre CV automatiquement
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    {matches.map(j => {
+                      const isAdapting = adaptingJob === j.id;
+                      const hasAdapted = adaptedCV?.jobId === j.id;
+                      const scoreColor = j.score >= 70 ? '#15803d' : j.score >= 45 ? '#92400e' : '#6b7280';
+                      const scoreBg = j.score >= 70 ? '#f0fdf4' : j.score >= 45 ? '#fefce8' : '#f9fafb';
+                      return (
+                        <div key={j.id} style={{ borderRadius: '10px', border: `1.5px solid ${j.score >= 70 ? '#86efac' : j.score >= 45 ? '#fde68a' : '#e5e7eb'}`, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', padding: '0.9rem 1rem', background: scoreBg }}>
+                            <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: j.score >= 70 ? '#22c55e' : j.score >= 45 ? '#eab308' : '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '0.85rem', flexShrink: 0 }}>
+                              {j.score}%
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>{j.title}</div>
+                              <div style={{ fontSize: '0.775rem', color: '#6b7280' }}>{j.company} · {j.sector} · {j.experience}{j.location ? ` · 📍 ${j.location}` : ''}</div>
+                              {j.salary && <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600 }}>💰 {j.salary}</div>}
+                            </div>
+                            <button
+                              onClick={() => adaptCVForJob(j)}
+                              disabled={!!adaptingJob}
+                              style={{ padding: '0.45rem 0.9rem', borderRadius: '8px', border: 'none', background: isAdapting ? '#e5e7eb' : '#2563eb', color: isAdapting ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '0.78rem', cursor: adaptingJob ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              {isAdapting ? '⟳ Adaptation…' : hasAdapted ? '✓ Adapté' : '✨ Adapter mon CV'}
+                            </button>
+                          </div>
+                          {j.skills?.length > 0 && (
+                            <div style={{ padding: '0.5rem 1rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                              {j.skills.map((s: string) => {
+                                const matched = skills.some(cs => cs.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(cs.toLowerCase()));
+                                return <span key={s} style={{ padding: '0.12rem 0.5rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 600, background: matched ? '#eff6ff' : '#f3f4f6', color: matched ? '#1d4ed8' : '#9ca3af', border: `1px solid ${matched ? '#bfdbfe' : '#e5e7eb'}` }}>{matched ? '✓ ' : ''}{s}</span>;
+                              })}
+                            </div>
+                          )}
+                          {hasAdapted && adaptedCV && (
+                            <div style={{ padding: '1rem', background: '#f0f9ff', borderTop: '1px solid #bae6fd' }}>
+                              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.5rem' }}>👔 Version adaptée par l'Expert RH</div>
+                              <p style={{ fontSize: '0.82rem', color: '#374151', lineHeight: 1.65, marginBottom: '0.6rem', fontStyle: 'italic' }}>{adaptedCV.summary}</p>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
+                                {adaptedCV.skills.map(s => <span key={s} style={{ padding: '0.18rem 0.6rem', borderRadius: '9999px', background: '#eff6ff', color: '#1d4ed8', fontSize: '0.72rem', fontWeight: 600, border: '1px solid #bfdbfe' }}>{s}</span>)}
+                              </div>
+                              <button
+                                onClick={() => { setSummary(adaptedCV.summary); setSkills(adaptedCV.skills); setAdaptedCV(null); }}
+                                style={{ padding: '0.45rem 1rem', borderRadius: '7px', background: '#0369a1', color: 'white', border: 'none', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+                                Appliquer au formulaire →
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Personal Info */}
             <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
@@ -625,13 +821,13 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
                   }}>
                   {enhancing
                     ? <><span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> Rédaction…</>
-                    : '✨ Améliorer avec l\'IA'}
+                    : '✨ Améliorer avec l\'Expert RH'}
                 </button>
               </div>
               <textarea
                 value={summary}
                 onChange={e => setSummary(e.target.value)}
-                placeholder="Cliquez sur '✨ Améliorer avec l'IA' pour générer un profil professionnel adapté au marché marocain, ou saisissez le vôtre…"
+                placeholder="Cliquez sur '✨ Améliorer avec l'Expert RH' pour générer un profil professionnel adapté au marché marocain, ou saisissez le vôtre…"
                 rows={4}
                 style={{ ...inp, resize: 'vertical', lineHeight: 1.7 }}
               />
@@ -691,7 +887,7 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
                     color: suggestingSkills ? '#9ca3af' : '#1d4ed8',
                     border: '1.5px solid #bfdbfe', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
                   }}>
-                  {suggestingSkills ? '⟳ Suggestions…' : '🤖 Suggérer (Maroc)'}
+                  {suggestingSkills ? '⟳ Suggestions…' : '✨ Suggérer (Expert RH)'}
                 </button>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>

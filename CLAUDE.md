@@ -1,3 +1,18 @@
+# ⚠️ PERMANENT ROUTING CONSTRAINT — READ FIRST
+
+This repo hosts **two separate apps** on one Next.js instance:
+
+| App | Domain | Route |
+|---|---|---|
+| **TalentMap** | talentmaponline.org | `/` (app/page.tsx) |
+| **IdeaMap** | ideamaponline.org | `/ideamap` (app/ideamap/page.tsx) |
+
+**NEVER** add `{ source: '/', destination: '/ideamap' }` (or any root redirect/rewrite to IdeaMap) in `next.config.js`. It silently replaces TalentMap's entire site with IdeaMap.
+
+**NEVER** touch, redeploy, or modify anything under `app/ideamap/` when working on TalentMap features.
+
+---
+
 # IdeaMap — Design Brief for Claude
 
 > This file is the single source of truth for how Claude should reason about, extend, and redesign the IdeaMap application. Read it before touching any file in `app/ideamap/`.

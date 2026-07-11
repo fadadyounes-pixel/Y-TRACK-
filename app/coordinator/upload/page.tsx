@@ -72,6 +72,14 @@ export default function CoordinatorUpload() {
     if (!user || user.role !== 'coordinator') router.push('/login');
   }, [user, router]);
 
+  // Persist done CVs to localStorage for matching
+  useEffect(() => {
+    const done = cvList.filter(c => c.status === 'done');
+    if (done.length > 0) {
+      try { localStorage.setItem('coordinator_cvs', JSON.stringify(done)); } catch {}
+    }
+  }, [cvList]);
+
   if (!user || user.role !== 'coordinator') return null;
 
   async function processOne(id: string) {
@@ -182,7 +190,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown ni texte avant ou après:
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#111827', marginBottom: '0.3rem' }}>📁 Import de CVs en masse</h1>
-            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Sélectionnez autant de CVs que nécessaire — PDF, Word, JPG, PNG. L'IA extrait automatiquement les informations.</p>
+            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Sélectionnez autant de CVs que nécessaire — PDF, Word, JPG, PNG. L'Expert RH extrait automatiquement les informations.</p>
           </div>
           <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
             {done > 0 && (
@@ -218,7 +226,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown ni texte avant ou après:
             {dragging ? 'Déposez les CVs ici' : 'Glissez-déposez vos CVs ici'}
           </h3>
           <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '1rem' }}>
-            Sélection illimitée · {CONCURRENCY} traitements en parallèle · IA adaptée au marché marocain
+            Sélection illimitée · {CONCURRENCY} traitements en parallèle · Expert RH adapté au marché marocain
           </p>
           <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.1rem' }}>
             {[['PDF', '#fee2e2', '#991b1b'], ['DOCX', '#dbeafe', '#1e40af'], ['DOC', '#dbeafe', '#1e40af'], ['JPG', '#fef3c7', '#92400e'], ['PNG', '#fef3c7', '#92400e'], ['WEBP', '#fef3c7', '#92400e']].map(([ext, bg, color]) => (
@@ -303,7 +311,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown ni texte avant ou après:
                         {cv.status === 'queued' && <span style={{ fontSize: '0.78rem', color: '#d97706', fontWeight: 600 }}>⏳ En attente</span>}
                         {cv.status === 'processing' && (
                           <span style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> Traitement IA…
+                            <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> Analyse Expert RH…
                           </span>
                         )}
                         {cv.status === 'done' && (

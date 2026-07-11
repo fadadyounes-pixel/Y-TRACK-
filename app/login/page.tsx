@@ -12,39 +12,81 @@ const ROLE_ROUTES: Record<UserRole, string> = {
   candidate: '/candidate',
 };
 
+type DetectedRole = 'admin' | 'coordinator' | 'candidate' | 'unknown' | null;
+
+function detectRole(val: string): DetectedRole {
+  if (!val.trim()) return null;
+  const v = val.trim().toUpperCase();
+  if (/^ADMIN/i.test(v)) return 'admin';
+  if (/^COORD/i.test(v)) return 'coordinator';
+  if (/^(CAN|CM)[A-Z0-9]/i.test(v) || /^[A-Z]{2}\d{3,}$/.test(v)) return 'candidate';
+  if (v.length >= 3) return 'unknown';
+  return null;
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: '#7c3aed',
+  coordinator: '#059669',
+  candidate: '#2563eb',
+  unknown: '#dc2626',
+};
+
+const ROLE_LABELS: Record<string, { fr: string; en: string }> = {
+  admin: { fr: 'Administrateur', en: 'Administrator' },
+  coordinator: { fr: 'Conseiller RH', en: 'HR Advisor' },
+  candidate: { fr: 'Candidat', en: 'Candidate' },
+  unknown: { fr: 'Code non reconnu', en: 'Unrecognized code' },
+};
+
+const TX = {
+  fr: {
+    tagline: 'Votre carrière, cartographiée.',
+    label: 'Code d\'accès',
+    hint: 'Admin: ADMIN001 · Conseiller: COORD001 · Candidat: CAN001',
+    error: 'Code non reconnu. Vérifiez et réessayez.',
+    cont: 'Continuer →',
+    loading: 'Connexion…',
+  },
+  en: {
+    tagline: 'Your career, mapped.',
+    label: 'Access Code',
+    hint: 'Admin: ADMIN001 · Advisor: COORD001 · Candidate: CAN001',
+    error: 'Unrecognized code. Please check and try again.',
+    cont: 'Continue →',
+    loading: 'Signing in…',
+  },
+};
+
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
-  const [idNumber, setIdNumber] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [lang, setLang] = useState<'fr' | 'en'>('fr');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const t = TX[lang];
+  const liveRole = detectRole(code);
+  const roleColor = liveRole && liveRole !== 'unknown' ? ROLE_COLORS[liveRole] : undefined;
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     setError('');
     setIsLoading(true);
-
-    const success = login(idNumber);
-
+    const success = login(code);
     if (!success) {
-      setError('ID not recognized. Please check and try again.');
+      setError(t.error);
       setIsLoading(false);
       return;
     }
-
-    // Read the role back from localStorage to determine redirect
     try {
       const stored = localStorage.getItem('talentmap_user');
       if (stored) {
         const user = JSON.parse(stored);
-        const route = ROLE_ROUTES[user.role as UserRole] ?? '/';
-        router.push(route);
+        router.push(ROLE_ROUTES[user.role as UserRole] ?? '/');
         return;
       }
-    } catch {
-      // fallback
-    }
-
+    } catch {}
     setIsLoading(false);
   };
 
@@ -57,10 +99,28 @@ export default function LoginPage() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1rem',
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        position: 'relative',
       }}
     >
+      {/* Language toggle — top right */}
+      <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 4 }}>
+        {(['fr', 'en'] as const).map(k => (
+          <button
+            key={k}
+            onClick={() => setLang(k)}
+            style={{
+              padding: '4px 10px', borderRadius: 7,
+              border: `1px solid ${lang === k ? '#ffffff88' : 'rgba(255,255,255,.25)'}`,
+              background: lang === k ? 'rgba(255,255,255,.2)' : 'transparent',
+              color: lang === k ? '#fff' : 'rgba(255,255,255,.55)',
+              fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+              cursor: 'pointer', transition: 'all .18s',
+            }}
+          >{k}</button>
+        ))}
+      </div>
+
       {/* Card */}
       <div
         style={{
@@ -73,7 +133,7 @@ export default function LoginPage() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '1.5rem',
+          gap: '1.25rem',
         }}
       >
         {/* Logo */}
@@ -85,59 +145,46 @@ export default function LoginPage() {
         <div style={{ textAlign: 'center' }}>
           <h1
             style={{
-              margin: '0 0 0.4rem',
+              margin: '0 0 0.35rem',
               fontSize: '1.5rem',
               fontWeight: 700,
               color: '#0a1f5c',
               letterSpacing: '-0.02em',
             }}
           >
-            Welcome to TalentMap
+            {t.tagline}
           </h1>
-          <p
-            style={{
-              margin: 0,
-              fontSize: '0.9rem',
-              color: '#64748b',
-              lineHeight: 1.5,
-            }}
-          >
-            Enter your ID number to access the platform
+          <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
+            {lang === 'fr' ? 'Entrez votre code d\'accès pour continuer.' : 'Enter your access code to continue.'}
           </p>
         </div>
 
         {/* Form */}
         <form
           onSubmit={handleSubmit}
-          style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}
         >
-          {/* ID Number field */}
+          {/* Access Code field */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <label
-              htmlFor="idNumber"
-              style={{
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: '#0a1f5c',
-              }}
+              htmlFor="code"
+              style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0a1f5c' }}
             >
-              ID Number
+              {t.label}
             </label>
             <input
-              id="idNumber"
+              id="code"
               type="text"
-              value={idNumber}
-              onChange={(e) => {
-                setIdNumber(e.target.value);
-                if (error) setError('');
-              }}
-              placeholder="e.g. ADMIN001"
+              value={code}
+              onChange={(e) => { setCode(e.target.value.toUpperCase()); if (error) setError(''); }}
+              placeholder="e.g. CAN001"
               autoComplete="off"
               autoFocus
+              maxLength={30}
               style={{
                 padding: '0.85rem 1rem',
                 fontSize: '1.05rem',
-                border: error ? '2px solid #ef4444' : '2px solid #e2e8f0',
+                border: `2px solid ${error ? '#ef4444' : roleColor ?? '#e2e8f0'}`,
                 borderRadius: '10px',
                 outline: 'none',
                 color: '#0f172a',
@@ -145,18 +192,29 @@ export default function LoginPage() {
                 transition: 'border-color 0.15s',
                 width: '100%',
                 boxSizing: 'border-box',
-                letterSpacing: '0.04em',
-              }}
-              onFocus={(e) => {
-                if (!error) e.currentTarget.style.borderColor = '#2563eb';
-              }}
-              onBlur={(e) => {
-                if (!error) e.currentTarget.style.borderColor = '#e2e8f0';
+                letterSpacing: '0.06em',
+                fontFamily: 'monospace',
               }}
             />
+
+            {/* Live role badge */}
+            {liveRole && !error && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 10px', borderRadius: 8,
+                background: (roleColor ?? '#dc2626') + '12',
+                border: `1px solid ${(roleColor ?? '#dc2626')}30`,
+                width: 'fit-content',
+              }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: roleColor ?? '#dc2626' }}>
+                  {liveRole === 'unknown' ? '✗' : '✓'}{' '}
+                  {ROLE_LABELS[liveRole]?.[lang]}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Error message */}
+          {/* Error */}
           {error && (
             <div
               role="alert"
@@ -177,58 +235,33 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Submit button */}
+          {/* Submit */}
           <button
             type="submit"
-            disabled={isLoading || idNumber.trim() === ''}
+            disabled={isLoading || !code.trim()}
             style={{
               width: '100%',
               padding: '0.9rem',
               fontSize: '1rem',
               fontWeight: 700,
               color: '#ffffff',
-              background:
-                isLoading || idNumber.trim() === '' ? '#93c5fd' : '#2563eb',
+              background: isLoading || !code.trim()
+                ? '#93c5fd'
+                : roleColor ?? '#2563eb',
               border: 'none',
               borderRadius: '10px',
-              cursor:
-                isLoading || idNumber.trim() === '' ? 'not-allowed' : 'pointer',
-              transition: 'background 0.15s, transform 0.1s',
+              cursor: isLoading || !code.trim() ? 'not-allowed' : 'pointer',
+              transition: 'background 0.15s',
               letterSpacing: '0.01em',
             }}
-            onMouseEnter={(e) => {
-              if (!isLoading && idNumber.trim() !== '')
-                e.currentTarget.style.background = '#1d4ed8';
-            }}
-            onMouseLeave={(e) => {
-              if (!isLoading && idNumber.trim() !== '')
-                e.currentTarget.style.background = '#2563eb';
-            }}
           >
-            {isLoading ? 'Signing in…' : 'Sign In'}
+            {isLoading ? t.loading : t.cont}
           </button>
         </form>
 
-        {/* Demo IDs */}
-        <p
-          style={{
-            margin: 0,
-            fontSize: '0.78rem',
-            color: '#94a3b8',
-            textAlign: 'center',
-            lineHeight: 1.6,
-          }}
-        >
-          Demo:&nbsp;
-          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>ADMIN001</span>
-          &nbsp;&middot;&nbsp;
-          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>COORD001</span>
-          &nbsp;&middot;&nbsp;
-          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>CAN001</span>
-          &nbsp;&middot;&nbsp;
-          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>CAN002</span>
-          &nbsp;&middot;&nbsp;
-          <span style={{ color: '#0a1f5c', fontWeight: 600 }}>CAN003</span>
+        {/* Hint */}
+        <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center', lineHeight: 1.6 }}>
+          {t.hint}
         </p>
       </div>
     </div>
