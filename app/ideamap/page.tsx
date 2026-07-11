@@ -358,6 +358,73 @@ const PBar = ({pct, h = 6, color = Y}: { pct: number; h?: number; color?: string
 
 const AccBar = () => <div style={{width: "4px", height: "20px", background: Y, borderRadius: "2px", flexShrink: 0}}/>;
 
+/* ── VOICE BUTTON ───────────────────────────────────── */
+// Uses Groq Whisper free tier (2 000 req/day) — auto-detects Arabic, French, Darija.
+// Mic button appears next to the idea textarea; tap to record, tap again to stop & transcribe.
+function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) => void; onError: (e: string) => void}) {
+  const [rec, setRec]   = useState(false);
+  const [busy, setBusy] = useState(false);
+  const mrRef  = useRef<MediaRecorder | null>(null);
+  const chunks = useRef<Blob[]>([]);
+
+  const start = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      const mr = new MediaRecorder(stream, {mimeType: "audio/webm"});
+      chunks.current = [];
+      mr.ondataavailable = e => { if (e.data.size > 0) chunks.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        setBusy(true);
+        try {
+          const blob = new Blob(chunks.current, {type: "audio/webm"});
+          const fd = new FormData();
+          fd.append("audio", blob);
+          fd.append("lang", lang);
+          const r = await fetch("/api/ai/transcribe", {method: "POST", body: fd});
+          const d = await r.json();
+          if (d.text) onText(d.text);
+          else onError(lang==="ar"?"فشل التعرف على الكلام":lang==="fr"?"Transcription échouée":"Transcription failed");
+        } catch {
+          onError(lang==="ar"?"خطأ في الشبكة":lang==="fr"?"Erreur réseau":"Network error");
+        }
+        setBusy(false);
+      };
+      mr.start();
+      mrRef.current = mr;
+      setRec(true);
+    } catch {
+      onError(lang==="ar"?"يرجى السماح بالوصول إلى الميكروفون":lang==="fr"?"Autorisez l'accès au micro":"Allow microphone access");
+    }
+  };
+
+  const stop = () => { mrRef.current?.stop(); mrRef.current = null; setRec(false); };
+
+  const label = busy
+    ? (lang==="ar"?"جاري التحويل...":lang==="fr"?"Transcription...":"Transcribing...")
+    : rec
+    ? (lang==="ar"?"إيقاف التسجيل ⏹":lang==="fr"?"Arrêter ⏹":"Stop ⏹")
+    : (lang==="ar"?"تحدث عن فكرتك 🎤":lang==="fr"?"Parlez votre idée 🎤":"Speak your idea 🎤");
+
+  return (
+    <button
+      onClick={rec ? stop : start}
+      disabled={busy}
+      title={label}
+      style={{
+        display:"flex", alignItems:"center", gap:"6px",
+        padding:"10px 14px", borderRadius:"11px", border:`1.5px solid ${rec ? "#EF4444" : Y}`,
+        background: rec ? "#FFF0F0" : YL, color: rec ? "#EF4444" : ND,
+        fontSize:"12px", fontWeight:"700", cursor: busy ? "wait" : "pointer",
+        fontFamily:"inherit", opacity: busy ? 0.7 : 1, transition:"all .2s",
+        animation: rec ? "pulse 1.4s ease infinite" : "none",
+      }}>
+      <span style={{fontSize:"15px"}}>{busy ? "⏳" : rec ? "⏹" : "🎤"}</span>
+      <span style={{whiteSpace:"nowrap"}}>{label}</span>
+    </button>
+  );
+}
+
 const AdvisorAvatar = ({ size = 28 }: { size?: number }) => (
   <div style={{width: size, height: size, borderRadius: "50%", flexShrink: 0,
     background: `linear-gradient(135deg,${Y},${YD})`,
@@ -1721,6 +1788,14 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 : `${wordCount} word${wordCount !== 1 ? "s" : ""}${enough ? " ✓" : ` — describe in at least 2 lines`}`;
               return (
                 <>
+                  {/* Voice-to-text button — Groq Whisper free tier, auto-detects Arabic/French/Darija */}
+                  <div style={{display:"flex", justifyContent:"flex-end", marginBottom:"8px"}}>
+                    <VoiceBtn
+                      lang={lang}
+                      onText={t => setIdea(prev => prev ? prev.trimEnd() + " " + t : t)}
+                      onError={msg => showToast(msg, "error")}
+                    />
+                  </div>
                   <textarea value={idea} onChange={e => setIdea(e.target.value)}
                     placeholder={lang==="ar"
                       ? "اشرح فكرتك بسطرين على الأقل: القطاع، المنطقة، من ستستفيد، ما الذي تحتاجه..."
