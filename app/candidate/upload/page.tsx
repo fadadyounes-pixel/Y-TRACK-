@@ -20,12 +20,12 @@ const SKILL_SUGGESTIONS: Record<string, string[]> = {
   Other:              ['Communication', 'Leadership', 'Résolution de problèmes', 'Travail en équipe', 'Suite Microsoft Office', 'Gestion du temps'],
 };
 
-const LANGUAGES = ['Arabe', 'Français', 'Anglais', 'Espagnol', 'Allemand', 'Néerlandais', 'Italien', 'Darija', 'Portugais'];
+const LANGUAGES = ['Français', 'Anglais', 'Arabe', 'Espagnol', 'Allemand', 'Néerlandais', 'Italien', 'Portugais'];
 
 const MOROCCO_CONTEXT = `MARCHÉ DE L'EMPLOI MAROCAIN — CONTEXTE EXPERT:
 Secteurs porteurs: BTP/Immobilier, Industrie automobile (Renault-Nissan Tanger, PSA Kénitra), Textile/Habillement (Inditex, H&M sous-traitance), Tourisme (hôtellerie 5*, guides), Agro-alimentaire (OCP, Centrale Danone, Cosumar), Numérique/TIC (CBI, IBM Maroc, Capgemini), Banque/Finance (Attijariwafa Bank, BMCE Bank, Banque Populaire, CIH, BMCI), Énergie renouvelable (MASEN, IRESEN, Nareva), Santé.
 Diplômes reconnus au Maroc: Baccalauréat, DUT/BTS/DEUST (Bac+2), Licence professionnelle (Bac+3), Master/MBA (Bac+5), Doctorat, Diplômes OFPPT (TSGE, TSI, TH, TC, TP...), Grandes écoles (EHTP, EMI, ENSAM, ENSA, ENCG, ISCAE, HEM, ENAM, Polytechnique).
-Langues: Français (langue professionnelle dominante), Arabe classique (obligatoire dans la fonction publique), Anglais (exigé dans le numérique et les multinationales), Darija (communication informelle), Espagnol (nord du Maroc, tourisme).
+Langues: Français (langue professionnelle dominante), Arabe classique (obligatoire dans la fonction publique), Anglais (exigé dans le numérique et les multinationales), Espagnol (nord du Maroc, tourisme).
 Compétences transversales recherchées: Suite Office (Excel avancé, PowerPoint), ERP (SAP/SAGE/Microsoft Dynamics), langues étrangères, certifications sectorielles (PMP, CIMA, CFA, CISCO, Microsoft...).
 Format CV marocain idéal: sobre et professionnel, rédigé en français, 1-2 pages max, avec photo recommandée, état civil complet (CIN, situation familiale, date de naissance), accroche/objectif professionnel en entête, expériences en ordre chronologique inverse, compétences techniques et linguistiques clairement listées.
 Villes principales: Casablanca (hub économique), Rabat (administration/institutions), Marrakech (tourisme/immobilier), Fès/Meknès (industrie), Tanger/Tétouan (industrie automobile/textile), Agadir (tourisme/pêche), Oujda (Oriental).`;
