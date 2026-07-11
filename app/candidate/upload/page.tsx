@@ -506,8 +506,8 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
                         <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
                           {[
                             { label: 'Extraction', done: f.status !== 'analyzing' },
-                            { label: 'Optimisation Maroc', done: f.status === 'done' },
-                            { label: 'CV prêt', done: f.status === 'done' },
+                            { label: 'Optimisation Maroc', done: (f.status as string) === 'done' },
+                            { label: 'CV prêt', done: (f.status as string) === 'done' },
                           ].map((step, si) => (
                             <div key={si} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
                               <div style={{ width: '100%', height: '4px', borderRadius: '2px', background: step.done ? '#22c55e' : (si === 0 && f.status === 'enhancing') || (si === 1 && f.status === 'enhancing') ? '#2563eb' : '#e5e7eb' }}/>
