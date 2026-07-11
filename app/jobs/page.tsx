@@ -1,35 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
 import PageHeader from '../../components/PageHeader';
 
-const initialJobs = [
+const FALLBACK_JOBS = [
   {
-    id: 1, title: 'Senior React Developer', company: 'TechCorp', sector: 'Technology',
-    experience: 'Senior (5+ yrs)', skills: ['React', 'TypeScript', 'Node.js', 'GraphQL'],
-    candidates: 24, topScore: 94, posted: '2 days ago', status: 'active',
+    id: 1, title: 'Développeur React Senior', company: 'TechCorp', sector: 'Technology',
+    experience: 'Senior', skills: ['React', 'TypeScript', 'Node.js', 'GraphQL'],
+    candidates: 0, topScore: 0, posted: '2026-07-01', status: 'active',
   },
   {
-    id: 2, title: 'Data Scientist', company: 'FinanceAI', sector: 'Finance',
-    experience: 'Mid (3-5 yrs)', skills: ['Python', 'Machine Learning', 'TensorFlow', 'SQL'],
-    candidates: 18, topScore: 88, posted: '4 days ago', status: 'active',
+    id: 2, title: 'Ingénieur Machine Learning', company: 'AI Ventures', sector: 'Data Science',
+    experience: 'Mid-Level', skills: ['Python', 'TensorFlow', 'SQL'],
+    candidates: 0, topScore: 0, posted: '2026-07-03', status: 'active',
   },
   {
-    id: 3, title: 'UX Designer', company: 'DesignStudio', sector: 'Design',
-    experience: 'Junior (1-3 yrs)', skills: ['Figma', 'UX Research', 'Prototyping'],
-    candidates: 31, topScore: 91, posted: '1 week ago', status: 'active',
-  },
-  {
-    id: 4, title: 'Product Manager', company: 'StartupXYZ', sector: 'Technology',
-    experience: 'Senior (5+ yrs)', skills: ['Product Strategy', 'Roadmap', 'Agile', 'Analytics'],
-    candidates: 12, topScore: 85, posted: '1 week ago', status: 'active',
-  },
-  {
-    id: 5, title: 'DevOps Engineer', company: 'CloudCo', sector: 'Technology',
-    experience: 'Mid (3-5 yrs)', skills: ['Docker', 'Kubernetes', 'AWS', 'CI/CD'],
-    candidates: 9, topScore: 81, posted: '2 weeks ago', status: 'closed',
+    id: 3, title: 'Développeur Python Backend', company: 'DataSoft Solutions', sector: 'Technology',
+    experience: 'Mid-Level', skills: ['Python', 'Django', 'SQL'],
+    candidates: 0, topScore: 0, posted: '2026-07-05', status: 'active',
   },
 ];
 
@@ -45,8 +35,29 @@ const sectorColors: Record<string, string> = {
 };
 
 export default function JobsPage() {
-  const [jobs, setJobs] = useState(initialJobs);
+  const [jobs, setJobs] = useState(FALLBACK_JOBS);
   const [sectorFilter, setSectorFilter] = useState('All');
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('coordinator_jobs');
+      if (!stored) return;
+      const parsed: any[] = JSON.parse(stored);
+      if (!parsed.length) return;
+      setJobs(parsed.map(j => ({
+        id: j.id ?? Date.now(),
+        title: j.title ?? '',
+        company: j.company ?? '',
+        sector: j.sector ?? 'Other',
+        experience: j.experience ?? 'Mid-Level',
+        skills: Array.isArray(j.skills) ? j.skills : [],
+        candidates: 0,
+        topScore: 0,
+        posted: j.createdAt ?? 'Récemment',
+        status: j.status === 'Open' ? 'active' : 'closed',
+      })));
+    } catch {}
+  }, []);
   const [expFilter, setExpFilter] = useState('All');
   const [showForm, setShowForm] = useState(false);
   const [newJob, setNewJob] = useState({ title: '', company: '', sector: 'Technology', experience: 'Mid (3-5 yrs)', skills: '' });

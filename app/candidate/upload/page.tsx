@@ -147,6 +147,23 @@ body{font-family:'Inter',Arial,sans-serif;background:#f1f5f9;color:#1e293b;-webk
 </html>`;
 }
 
+const EXP_ORDER_C = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
+
+function computeMatchCandidate(cv: { skills: string[]; sector: string; experience: string }, job: any): number {
+  const cvSkills = Array.isArray(cv.skills) ? cv.skills : [];
+  const jobSkills: string[] = Array.isArray(job.skills) ? job.skills : [];
+  const overlap = cvSkills.filter(s =>
+    jobSkills.some((js: string) => js.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(js.toLowerCase()))
+  );
+  const skillScore = jobSkills.length === 0 ? 30 : Math.round((overlap.length / jobSkills.length) * 60);
+  const sectorScore = cv.sector === job.sector ? 25 : 0;
+  const cvI = EXP_ORDER_C.indexOf(cv.experience);
+  const jobI = EXP_ORDER_C.indexOf(job.experience);
+  const diff = cvI >= 0 && jobI >= 0 ? Math.abs(cvI - jobI) : 2;
+  const expScore = diff === 0 ? 15 : diff === 1 ? 9 : diff === 2 ? 4 : 0;
+  return Math.min(skillScore + sectorScore + expScore, 100);
+}
+
 async function callAI(messages: { role: string; content: string }[], system: string, task = 'fast', maxTokens = 900) {
   const r = await fetch('/api/ai', {
     method: 'POST',
@@ -187,11 +204,24 @@ export default function CandidateUpload() {
   const [saved, setSaved] = useState(false);
   const [autoEnhanced, setAutoEnhanced] = useState(false);
 
+  // Matching state
+  const [coordJobs, setCoordJobs] = useState<any[]>([]);
+  const [adaptingJob, setAdaptingJob] = useState<string | null>(null);
+  const [adaptedCV, setAdaptedCV] = useState<{ jobId: string; summary: string; skills: string[] } | null>(null);
+
   useEffect(() => {
     if (!user || user.role !== 'candidate') { router.push('/login'); return; }
     setName(user.name);
     setEmail(user.email);
   }, [user, router]);
+
+  // Load coordinator jobs for matching
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('coordinator_jobs');
+      if (stored) setCoordJobs(JSON.parse(stored));
+    } catch {}
+  }, []);
 
   if (!user || user.role !== 'candidate') return null;
 
@@ -366,6 +396,27 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
     const sectorKeys = Object.keys(SKILL_SUGGESTIONS);
     const match = sectorKeys.find(k => lower.includes(k.toLowerCase()));
     return match || 'Other';
+  }
+
+  async function adaptCVForJob(job: any) {
+    if (adaptingJob) return;
+    setAdaptingJob(job.id);
+    setAdaptedCV(null);
+    try {
+      const ctx = `Candidat: ${name || 'Professionnel'} | Secteur: ${sector} | Niveau: ${experience}\nCompétences: ${skills.join(', ')}\nProfil actuel: ${summary.slice(0, 300)}`;
+      const text = await callAI(
+        [{ role: 'user', content: `Adapte ce CV pour ce poste:\nPoste: ${job.title} chez ${job.company} (${job.sector}, ${job.experience})\nCompétences requises: ${job.skills?.join(', ')}\nDescription: ${job.description || ''}\n\nProfil candidat:\n${ctx}` }],
+        `Tu es un expert en recrutement au Maroc. Adapte le profil du candidat pour maximiser sa compatibilité avec ce poste spécifique. Retourne UNIQUEMENT ce JSON valide:\n{"summary":"Accroche professionnelle réécrite en 3-4 phrases qui met en avant les compétences alignées avec ce poste, avec verbes d'action forts et résultats chiffrés si possible","skills":["8 compétences prioritaires qui correspondent exactement aux exigences du poste, en ajoutant les compétences manquantes pertinentes"]}`,
+        'json',
+        800
+      );
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) {
+        const parsed = JSON.parse(m[0]);
+        setAdaptedCV({ jobId: job.id, summary: parsed.summary || '', skills: Array.isArray(parsed.skills) ? parsed.skills : [] });
+      }
+    } catch {}
+    setAdaptingJob(null);
   }
 
   function handleFiles(files: FileList) {
@@ -566,6 +617,74 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
                 <button onClick={() => setAutoEnhanced(false)} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '1.1rem', cursor: 'pointer', flexShrink: 0 }}>×</button>
               </div>
             )}
+
+            {/* Matching job offers */}
+            {(() => {
+              const openJobs = coordJobs.filter(j => j.status === 'Open');
+              if (!openJobs.length) return null;
+              const matches = openJobs
+                .map(j => ({ ...j, score: computeMatchCandidate({ skills, sector, experience }, j) }))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 6);
+              return (
+                <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #bfdbfe' }}>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>🎯 Offres qui correspondent à votre profil</h2>
+                  <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '1.1rem' }}>
+                    {matches.length} offre{matches.length > 1 ? 's' : ''} triée{matches.length > 1 ? 's' : ''} par compatibilité — cliquez sur une offre pour adapter votre CV automatiquement
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    {matches.map(j => {
+                      const isAdapting = adaptingJob === j.id;
+                      const hasAdapted = adaptedCV?.jobId === j.id;
+                      const scoreColor = j.score >= 70 ? '#15803d' : j.score >= 45 ? '#92400e' : '#6b7280';
+                      const scoreBg = j.score >= 70 ? '#f0fdf4' : j.score >= 45 ? '#fefce8' : '#f9fafb';
+                      return (
+                        <div key={j.id} style={{ borderRadius: '10px', border: `1.5px solid ${j.score >= 70 ? '#86efac' : j.score >= 45 ? '#fde68a' : '#e5e7eb'}`, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', padding: '0.9rem 1rem', background: scoreBg }}>
+                            <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: j.score >= 70 ? '#22c55e' : j.score >= 45 ? '#eab308' : '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '0.85rem', flexShrink: 0 }}>
+                              {j.score}%
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>{j.title}</div>
+                              <div style={{ fontSize: '0.775rem', color: '#6b7280' }}>{j.company} · {j.sector} · {j.experience}{j.location ? ` · 📍 ${j.location}` : ''}</div>
+                              {j.salary && <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600 }}>💰 {j.salary}</div>}
+                            </div>
+                            <button
+                              onClick={() => adaptCVForJob(j)}
+                              disabled={!!adaptingJob}
+                              style={{ padding: '0.45rem 0.9rem', borderRadius: '8px', border: 'none', background: isAdapting ? '#e5e7eb' : '#2563eb', color: isAdapting ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '0.78rem', cursor: adaptingJob ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              {isAdapting ? '⟳ Adaptation…' : hasAdapted ? '✓ Adapté' : '✨ Adapter mon CV'}
+                            </button>
+                          </div>
+                          {j.skills?.length > 0 && (
+                            <div style={{ padding: '0.5rem 1rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                              {j.skills.map((s: string) => {
+                                const matched = skills.some(cs => cs.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(cs.toLowerCase()));
+                                return <span key={s} style={{ padding: '0.12rem 0.5rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 600, background: matched ? '#eff6ff' : '#f3f4f6', color: matched ? '#1d4ed8' : '#9ca3af', border: `1px solid ${matched ? '#bfdbfe' : '#e5e7eb'}` }}>{matched ? '✓ ' : ''}{s}</span>;
+                              })}
+                            </div>
+                          )}
+                          {hasAdapted && adaptedCV && (
+                            <div style={{ padding: '1rem', background: '#f0f9ff', borderTop: '1px solid #bae6fd' }}>
+                              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.5rem' }}>🤖 Version adaptée pour ce poste</div>
+                              <p style={{ fontSize: '0.82rem', color: '#374151', lineHeight: 1.65, marginBottom: '0.6rem', fontStyle: 'italic' }}>{adaptedCV.summary}</p>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
+                                {adaptedCV.skills.map(s => <span key={s} style={{ padding: '0.18rem 0.6rem', borderRadius: '9999px', background: '#eff6ff', color: '#1d4ed8', fontSize: '0.72rem', fontWeight: 600, border: '1px solid #bfdbfe' }}>{s}</span>)}
+                              </div>
+                              <button
+                                onClick={() => { setSummary(adaptedCV.summary); setSkills(adaptedCV.skills); setAdaptedCV(null); }}
+                                style={{ padding: '0.45rem 1rem', borderRadius: '7px', background: '#0369a1', color: 'white', border: 'none', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+                                Appliquer au formulaire →
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Personal Info */}
             <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>

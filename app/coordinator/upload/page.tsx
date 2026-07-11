@@ -72,6 +72,14 @@ export default function CoordinatorUpload() {
     if (!user || user.role !== 'coordinator') router.push('/login');
   }, [user, router]);
 
+  // Persist done CVs to localStorage for matching
+  useEffect(() => {
+    const done = cvList.filter(c => c.status === 'done');
+    if (done.length > 0) {
+      try { localStorage.setItem('coordinator_cvs', JSON.stringify(done)); } catch {}
+    }
+  }, [cvList]);
+
   if (!user || user.role !== 'coordinator') return null;
 
   async function processOne(id: string) {
