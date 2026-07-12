@@ -633,6 +633,7 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
     <>
       {/* Floating button */}
       <button
+        data-noprint="true"
         onClick={() => { setOpen(p => !p); setUnread(false); }}
         title={lang==="ar"?"المساعد الشخصي":lang==="fr"?"Assistant IdeaMap":"IdeaMap Assistant"}
         style={{position:"fixed", bottom:24, right:24, zIndex:1000,
@@ -651,7 +652,7 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
 
       {/* Chat panel */}
       {open && (
-        <div className="fadeUp" style={{position:"fixed", bottom:88, right:24, zIndex:999,
+        <div data-noprint="true" className="fadeUp" style={{position:"fixed", bottom:88, right:24, zIndex:999,
           width:320, maxWidth:"calc(100vw - 48px)", maxHeight:460, background:WH, borderRadius:18,
           boxShadow:"0 8px 48px rgba(15,34,51,.2)", border:`1px solid ${CD}`,
           display:"flex", flexDirection:"column", fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
@@ -755,7 +756,7 @@ const Header = ({lang, setLang, user, onLogout, t}: {
   lang: string; setLang: (l: string) => void;
   user: any; onLogout: () => void; t: any;
 }) => (
-  <div style={{background: ND, height: "58px", display: "flex", alignItems: "center",
+  <div data-noprint="true" style={{background: ND, height: "58px", display: "flex", alignItems: "center",
     justifyContent: "space-between", padding: "0 22px",
     boxShadow: "0 2px 16px rgba(15,34,51,.3)", position: "sticky", top: 0, zIndex: 200}}>
     <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
@@ -787,7 +788,7 @@ const Header = ({lang, setLang, user, onLogout, t}: {
 
 /* ── PROGRESS BAR ROW ───────────────────────────────── */
 const ProgRow = ({t, si, steps, onStepClick}: { lang: string; t: any; si: number; steps: string[]; onStepClick?: (i: number) => void }) => (
-  <div style={{background: WH, padding: "9px 22px", borderBottom: `1px solid ${CD}`}}>
+  <div data-noprint="true" style={{background: WH, padding: "9px 22px", borderBottom: `1px solid ${CD}`}}>
     <div style={{maxWidth: "720px", margin: "0 auto"}}>
       <div style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
         {steps.map((s: string, i: number) => {
@@ -1691,7 +1692,15 @@ JSON UNIQUEMENT sans markdown:
       "json"
     );
     const concept = parseJ(r);
-    if (concept) { setLogo({type:"generated", concept}); setLogoStyle(0); }
+    if (concept) {
+      // Ensure required color fields have safe fallbacks in case AI skips them
+      concept.color1     = concept.color1     || Y;
+      concept.color2     = concept.color2     || YD;
+      concept.colorText  = concept.colorText  || WH;
+      concept.icon       = concept.icon       || "💡";
+      concept.initials   = concept.initials   || (proj?.projectName||"").slice(0,2).toUpperCase() || "IM";
+      setLogo({type:"generated", concept}); setLogoStyle(0);
+    }
     setLogoGenerating(false);
   };
 

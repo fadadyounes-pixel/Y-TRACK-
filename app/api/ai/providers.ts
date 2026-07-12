@@ -111,6 +111,11 @@ const TOGETHER_MODELS = [
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+// Per-request fetch timeout: prevents a stalled TCP connection from blocking
+// the entire cascade indefinitely. AbortError is caught by each provider's
+// try/catch which continues to the next model.
+const PROVIDER_TIMEOUT_MS = 28_000;
+
 // Anthropic Claude — reads ANTHROPIC_API_KEY env var, then falls back to the
 // Claude Code session bearer token (available in remote execution environments).
 async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
@@ -149,6 +154,7 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
     method: "POST",
     headers,
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   if (res.status === 401) throw new Error("Anthropic 401");
   if (!res.ok) throw new Error(`Anthropic ${res.status}`);
@@ -168,7 +174,7 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
   if (sys) body.systemInstruction = { parts: [{ text: sys }] };
   const res = await tFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) }
   );
   if (!res.ok) throw new Error(`Gemini ${res.status}`);
   const d = await res.json();
@@ -186,6 +192,7 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Groq 401");
@@ -213,6 +220,7 @@ async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fa
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Cerebras 401");
@@ -240,6 +248,7 @@ async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): 
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("SambaNova 401");
@@ -268,6 +277,7 @@ async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Pr
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Mistral 401");
@@ -302,6 +312,7 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (!res.ok) continue;
@@ -323,6 +334,7 @@ async function together(msgs: Msg[], sys: string | undefined, maxTok: number): P
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (!res.ok) continue;
@@ -346,6 +358,7 @@ async function siliconflow(msgs: Msg[], sys: string | undefined, maxTok: number)
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("SiliconFlow 401");
