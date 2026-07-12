@@ -1271,8 +1271,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
   // Keep download language in sync with the UI language unless the user has explicitly overridden it
   useEffect(() => { setDlLang(lang); }, [lang]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const msgEnd = useRef<HTMLDivElement>(null);
+  const fileInputRef  = useRef<HTMLInputElement>(null);
+  const msgEnd        = useRef<HTMLDivElement>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
   const LL  = lang === "ar" ? "arabe" : lang === "fr" ? "français" : "anglais";
   const MAX_Q = 4;
@@ -1294,8 +1295,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   }, [step]);
 
   const showToast = (msg: string, type: "error"|"success" = "error") => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({msg, type});
-    setTimeout(() => setToast(null), 4500);
+    toastTimerRef.current = setTimeout(() => setToast(null), 4500);
   };
 
   // Auto-retries up to 3× with exponential back-off before surfacing any error.
@@ -1910,6 +1912,7 @@ SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL
 
   const genPlan = async () => {
     setBusy(true); setStep("plan");
+    try {
     const projCtx = JSON.stringify(proj || {idea});
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب كل النصوص بالعربية الفصحى السليمة والواضحة. جمل كاملة ومنظمة. لا دارجة مغربية. لا حروف لاتينية داخل النصوص العربية."
@@ -1950,11 +1953,14 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     ]);
     const p = parseJ(r); if (p) setPlan(p);
     const b = parseJ(r2); if (b) setBudget(b);
-    setBusy(false);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const checkComp = async () => {
     setStep("compliance"); setBusy(true);
+    try {
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب نقاط القوة والتوصيات بالعربية الفصحى البسيطة. جمل واضحة وقصيرة."
       : "";
@@ -1986,7 +1992,9 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"eligible":true/false,"score":N,"pillar":"axe INDH Phase 3 exact en ${LL}","strengths":["force SPÉCIFIQUE tirée du dossier 1","force SPÉCIFIQUE 2","force SPÉCIFIQUE 3"],"weaknesses":["faiblesse précise qui coûte des points jury 1","faiblesse 2"],"recommendations":["action immédiate et concrète 1 en ${LL}","action 2","action 3"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
       "json");
     const c = parseJ(r); if (c) setComp(c);
-    setBusy(false);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const STEPS = ["idea", "dialogue", "profile", "plan", "budget", "logo", "compliance", "documents", "export"];
