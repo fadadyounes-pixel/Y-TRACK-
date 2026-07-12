@@ -1688,6 +1688,7 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
 
   const genLogo = async () => {
     setLogoGenerating(true);
+    try {
     const projInfo = {
       name: proj?.projectName,
       sector: proj?.sector,
@@ -1728,7 +1729,9 @@ JSON UNIQUEMENT sans markdown:
         "error"
       );
     }
-    setLogoGenerating(false);
+    } finally {
+      setLogoGenerating(false);
+    }
   };
 
   const dlLogo = () => {
@@ -2051,7 +2054,12 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)}/>}
       <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
       <ProgRow lang={lang} t={t} si={si} steps={t.steps as string[]}
-        onStepClick={i => setStep(STEPS[i])}/>
+        onStepClick={i => {
+          // Dialogue is a one-way step — once proj is set the Q&A is done;
+          // navigating back to it would show a broken empty state.
+          if (STEPS[i] === "dialogue" && proj) return;
+          setStep(STEPS[i]);
+        }}/>
       <div className="fadeUp" style={{maxWidth: "700px", margin: "0 auto", padding: "24px 18px 60px"}}>
 
         {/* ── IDEA ── */}
