@@ -29,7 +29,7 @@ function ScoreBadge({ score }: { score: number }) {
 }
 
 export default function CoordinatorDashboard() {
-  const { user, logout } = useAuth();
+  const { user, initialized, logout } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<'overview' | 'candidates' | 'jobs'>('overview');
   const [search, setSearch] = useState('');
@@ -37,8 +37,8 @@ export default function CoordinatorDashboard() {
   const [JOB_OFFERS, setJobOffers] = useState(DEFAULT_JOBS);
 
   useEffect(() => {
-    if (!user || user.role !== 'coordinator') router.push('/login');
-  }, [user, router]);
+    if (initialized && (!user || user.role !== 'coordinator')) router.push('/login');
+  }, [user, initialized, router]);
 
   useEffect(() => {
     try {
@@ -50,7 +50,7 @@ export default function CoordinatorDashboard() {
     } catch {}
   }, []);
 
-  if (!user || user.role !== 'coordinator') return null;
+  if (!initialized || !user || user.role !== 'coordinator') return null;
 
   const filtered = ALL_CANDIDATES.filter(c => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||

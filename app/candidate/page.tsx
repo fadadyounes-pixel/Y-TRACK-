@@ -158,16 +158,16 @@ function downloadCV(
 }
 
 export default function CandidateDashboard() {
-  const { user, logout } = useAuth();
+  const { user, initialized, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!user || user.role !== 'candidate') {
+    if (initialized && (!user || user.role !== 'candidate')) {
       router.push('/login');
     }
-  }, [user, router]);
+  }, [user, initialized, router]);
 
-  if (!user || user.role !== 'candidate') return null;
+  if (!initialized || !user || user.role !== 'candidate') return null;
 
   const profile = PROFILES[user.idNumber] ?? FALLBACK_PROFILE;
   const scoreColors = getScoreColors(profile.matchScore);

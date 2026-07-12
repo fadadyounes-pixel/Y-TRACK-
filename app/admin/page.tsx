@@ -80,15 +80,15 @@ ${type === 'Full' ? `<h2 style="color:#2563eb;margin-bottom:1rem">All Users</h2>
 }
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth();
+  const { user, initialized, logout } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<'overview' | 'users' | 'candidates' | 'activity'>('overview');
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') router.push('/login');
-  }, [user, router]);
+    if (initialized && (!user || user.role !== 'admin')) router.push('/login');
+  }, [user, initialized, router]);
 
-  if (!user || user.role !== 'admin') return null;
+  if (!initialized || !user || user.role !== 'admin') return null;
 
   const avgScore = Math.round(ALL_CANDIDATES.reduce((a, c) => a + c.matchScore, 0) / ALL_CANDIDATES.length);
 

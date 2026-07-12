@@ -15,6 +15,7 @@ export interface User {
 
 interface AuthContextValue {
   user: User | null;
+  initialized: boolean;
   login: (idNumber: string) => boolean;
   logout: () => void;
 }
@@ -59,10 +60,13 @@ const MOCK_USERS: User[] = [
 
 const STORAGE_KEY = 'talentmap_user';
 
+const RE_CANDIDATE = /^[A-Z]{2,3}\d{3,}$/;
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [initialized, setInitialized] = useState(false);
   const router = useRouter();
 
   // Initialize user from localStorage on mount
@@ -75,18 +79,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
+    } finally {
+      setInitialized(true);
     }
   }, []);
 
   const login = (idNumber: string): boolean => {
-    const found = MOCK_USERS.find(
-      (u) => u.idNumber.toLowerCase() === idNumber.trim().toLowerCase()
-    );
-    if (!found) return false;
+    const normalised = idNumber.trim().toUpperCase();
 
-    setUser(found);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(found));
-    return true;
+    // Check hardcoded users first (admin, coordinator, known candidates)
+    const found = MOCK_USERS.find(
+      (u) => u.idNumber.toLowerCase() === normalised.toLowerCase()
+    );
+    if (found) {
+      setUser(found);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(found));
+      return true;
+    }
+
+    // Accept any valid candidate code: 2–3 uppercase letters + 3+ digits (e.g. AB12345)
+    if (RE_CANDIDATE.test(normalised)) {
+      const dynamic: User = {
+        id: normalised,
+        idNumber: normalised,
+        name: `Candidat ${normalised}`,
+        email: `${normalised.toLowerCase()}@talentmap.ma`,
+        role: 'candidate',
+      };
+      setUser(dynamic);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dynamic));
+      return true;
+    }
+
+    return false;
   };
 
   const logout = () => {
@@ -96,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, initialized, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
