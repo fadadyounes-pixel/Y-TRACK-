@@ -1401,7 +1401,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
       ax:      eAr?"محور المبادرة":eEn?"INDH Pillar":"Axe INDH",
       yr:      eAr?"السنة":eEn?"Year":"An",
     };
-    const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const esc = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
     const sec = (heading: string, body: string, accent = "#2A5CE0") => body ? `
       <div class="section">
         <h3 style="color:${accent};border-bottom:2px solid ${accent};padding-bottom:6px;margin:24px 0 10px">${heading}</h3>
@@ -1410,7 +1410,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     const html = `<!DOCTYPE html><html lang="${exportLang}" dir="${dir2}">
 <head>
 <meta charset="utf-8"/>
-<title>${proj?.projectName||"IdeaMap"} — ${T.title}</title>
+<title>${esc(proj?.projectName||"IdeaMap")} — ${T.title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
 <style>
@@ -1453,12 +1453,12 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
 </head>
 <body>
 <div class="header">
-  <h1>${proj?.projectName||""}</h1>
-  <p>${T.holder}: ${user.name} ${user.profile?.lastName||""} · ${proj?.location||user.profile?.region||""} · INDH Phase 3</p>
+  <h1>${esc(proj?.projectName||"")}</h1>
+  <p>${T.holder}: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · ${esc(proj?.location||user.profile?.region||"")} · INDH Phase 3</p>
 </div>
 <div class="meta-grid">
-  <div class="meta-item"><span class="meta-label">Secteur / القطاع</span><span class="meta-value">${proj?.sector||""}</span></div>
-  <div class="meta-item"><span class="meta-label">${T.ax}</span><span class="meta-value">${proj?.pillar||""}</span></div>
+  <div class="meta-item"><span class="meta-label">Secteur / القطاع</span><span class="meta-value">${esc(proj?.sector||"")}</span></div>
+  <div class="meta-item"><span class="meta-label">${T.ax}</span><span class="meta-value">${esc(proj?.pillar||"")}</span></div>
   <div class="meta-item"><span class="meta-label">Budget total</span><span class="meta-value">${total.toLocaleString()} MAD</span></div>
   <div class="meta-item"><span class="meta-label">${T.indhC}</span><span class="meta-value">${indhAmt.toLocaleString()} MAD</span></div>
 </div>
@@ -1735,8 +1735,9 @@ JSON UNIQUEMENT sans markdown:
     if (!logo?.concept) return;
     const c = logo.concept;
     const ct = c.colorText || "#FFFFFF";
-    const tag = (c.tagline || "").slice(0, 24).toUpperCase();
-    const ini = (c.initials || "?").slice(0, 3);
+    const escXml = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const tag = escXml((c.tagline || "").slice(0, 24).toUpperCase());
+    const ini = escXml((c.initials || "?").slice(0, 3));
     const ico = c.icon || "💡";
     // Helper: 8-pointed star points string (300×300 canvas)
     const star = (ox: number, oy: number, R: number, r: number): string => {
