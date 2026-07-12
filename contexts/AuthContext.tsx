@@ -15,6 +15,7 @@ export interface User {
 
 interface AuthContextValue {
   user: User | null;
+  initialized: boolean;
   login: (idNumber: string) => boolean;
   logout: () => void;
 }
@@ -63,6 +64,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [initialized, setInitialized] = useState(false);
   const router = useRouter();
 
   // Initialize user from localStorage on mount
@@ -75,6 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
+    } finally {
+      setInitialized(true);
     }
   }, []);
 
@@ -96,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, initialized, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
