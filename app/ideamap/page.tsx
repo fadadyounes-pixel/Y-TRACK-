@@ -49,6 +49,8 @@ function injectCSS() {
     ".dash-topbar{display:flex!important}",
     "}",
     "@media(min-width:769px){.dash-topbar{display:none!important}}",
+    // ProgRow — hide future step labels on small screens (keep ✓ + current step name only)
+    "@media(max-width:520px){.prog-fut{visibility:hidden}}",
   ].join("");
   document.head.appendChild(el);
   // Register service worker for offline-first PWA support
@@ -642,7 +644,7 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
       {/* Chat panel */}
       {open && (
         <div className="fadeUp" style={{position:"fixed", bottom:88, right:24, zIndex:999,
-          width:320, maxHeight:460, background:WH, borderRadius:18,
+          width:320, maxWidth:"calc(100vw - 48px)", maxHeight:460, background:WH, borderRadius:18,
           boxShadow:"0 8px 48px rgba(15,34,51,.2)", border:`1px solid ${CD}`,
           display:"flex", flexDirection:"column", fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
 
@@ -786,6 +788,7 @@ const ProgRow = ({t, si, steps, onStepClick}: { lang: string; t: any; si: number
             <span key={i}
               onClick={() => done && onStepClick?.(i)}
               title={done ? s : undefined}
+              className={!done && i !== si ? "prog-fut" : ""}
               style={{fontSize: "9px", fontWeight: "700", textTransform: "uppercase",
                 letterSpacing: ".5px",
                 color: done ? GN : i === si ? N : GR,
@@ -1274,6 +1277,11 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   useEffect(() => {
     if (plan && !docs[8]) setDocs(p => ({...p, 8: true}));
   }, [plan]);
+
+  // Scroll to top on step transitions so users see the new step header
+  useEffect(() => {
+    window.scrollTo({top: 0, behavior: "smooth"});
+  }, [step]);
 
   const showToast = (msg: string, type: "error"|"success" = "error") => {
     setToast({msg, type});
@@ -2962,7 +2970,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <span style={{fontSize:"11px", fontWeight:"700", color:ND, flexShrink:0}}>
                   🌐 {lang==="ar"?"لغة التنزيل:":lang==="fr"?"Langue des téléchargements :":"Download language:"}
                 </span>
-                <div style={{display:"flex", gap:"6px"}}>
+                <div style={{display:"flex", gap:"6px", flexWrap:"wrap"}}>
                   {[{k:"fr",fl:"🇫🇷",lb:"Français"},{k:"ar",fl:"🇲🇦",lb:"العربية"},{k:"en",fl:"🇬🇧",lb:"English"}].map(({k,fl,lb}) => (
                     <button key={k} onClick={() => setDlLang(k)}
                       style={{padding:"6px 14px", borderRadius:"9px",
@@ -3082,20 +3090,20 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 return items.map((x, i) => (
                   <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px",
                     borderRadius:"13px", marginBottom:"7px", background:x.ok?ND:CR, border:`1px solid ${x.ok?Y:CD}`}}>
-                    <span style={{fontSize:"20px"}}>{x.icon}</span>
-                    <span style={{flex:1, fontSize:"12px", color:x.ok?WH:ND, fontWeight:"500",
+                    <span style={{fontSize:"20px", flexShrink:0}}>{x.icon}</span>
+                    <span style={{flex:1, minWidth:0, fontSize:"12px", color:x.ok?WH:ND, fontWeight:"500",
                       fontFamily:dlLang==="ar"?"'Tajawal',sans-serif":undefined,
                       direction:dlLang==="ar"?"rtl":"ltr"}}>{x.l}</span>
                     {x.ok ? (
                       <button onClick={x.onDl}
                         style={{padding:"5px 12px", borderRadius:"8px", border:`1.5px solid ${Y}`,
                           background:"transparent", color:Y, fontSize:"11px", fontWeight:"700",
-                          fontFamily:ff(lang), cursor:"pointer"}}>
+                          fontFamily:ff(lang), cursor:"pointer", flexShrink:0, whiteSpace:"nowrap"}}>
                         ⬇ {x.badge || "txt"}
                       </button>
                     ) : (
                       <span style={{padding:"2px 7px", borderRadius:"5px", fontSize:"9px", fontWeight:"700",
-                        background:CD, color:GR}}>⏳</span>
+                        background:CD, color:GR, flexShrink:0}}>⏳</span>
                     )}
                   </div>
                 ));
