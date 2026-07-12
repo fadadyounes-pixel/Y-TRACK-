@@ -1506,7 +1506,16 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
 </button>
 </body></html>`;
     const w = window.open("", "_blank", "width=900,height=700");
-    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 600); }
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      // Wait for fonts & images to load before opening print dialog — more reliable than a fixed delay.
+      // Fallback fires after 2.5s in case the load event never triggers (popup blocker quirks).
+      const printWhenReady = () => { try { w.print(); } catch {} };
+      let fallback: ReturnType<typeof setTimeout>;
+      w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 200); }, {once: true});
+      fallback = setTimeout(printWhenReady, 2500);
+    }
     else { showToast(lang==="ar"?"يُرجى السماح بالنوافذ المنبثقة في المتصفح للتحميل":lang==="fr"?"Autorisez les popups dans votre navigateur pour générer le PDF":"Allow popups in your browser to download the PDF", "error"); }
   };
 
@@ -4327,6 +4336,7 @@ export default function IdeaMapPage() {
   const [holders, setHolders] = useState<any[]>([]);
   const [coords, setCoords]   = useState<string[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ── Fetch live data from Google Sheets on mount ──────
      Falls back to localStorage if Sheets isn't configured */
@@ -4413,7 +4423,23 @@ export default function IdeaMapPage() {
         : [...p, data];
       return updated;
     });
-    persistHolder(data);
+    // Write localStorage immediately so offline reload never loses progress.
+    try {
+      const cur = JSON.parse(localStorage.getItem("idm_holders") || "[]") as any[];
+      const idx = cur.findIndex(h => h.id === data.id);
+      localStorage.setItem("idm_holders", JSON.stringify(
+        idx >= 0 ? cur.map((h, i) => i === idx ? {...h, ...data} : h) : [...cur, data]
+      ));
+    } catch {}
+    // Debounce Redis writes: dialogue fires this every message, batch to 2s.
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(() => {
+      fetch("/api/sheets", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({type: "save_holder", holder: data}),
+      }).catch(() => {});
+    }, 2000);
   }
 
   function onAddCoord(c: string) {
