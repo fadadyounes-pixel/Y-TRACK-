@@ -1,6 +1,22 @@
 import { readFileSync } from "fs";
 
-type Msg = { role: string; content: string };
+type MsgContentItem =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: string; media_type: string; data: string } }
+  | { type: "document"; source: { type: string; media_type: string; data: string } };
+
+type Msg = { role: string; content: string | MsgContentItem[] };
+
+function textOnly(content: string | MsgContentItem[]): string {
+  if (typeof content === "string") return content;
+  const texts: string[] = [];
+  for (const c of content as MsgContentItem[]) {
+    if (c.type === "text") texts.push((c as { type: "text"; text: string }).text);
+    else if (c.type === "image") texts.push("[Image CV fournie — analyse visuelle requise]");
+    else if (c.type === "document") texts.push("[Document PDF fourni — analyse requise]");
+  }
+  return texts.join("\n") || "[fichier joint]";
+}
 
 interface RafiqOpts {
   task: "json" | "dialogue" | "fast";
@@ -138,7 +154,7 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
   const model = process.env.GEMINI_MODEL || (fast ? "gemini-2.5-flash-lite" : "gemini-2.5-flash");
   const contents = msgs.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
+    parts: [{ text: textOnly(m.content) }],
   }));
   const body: Record<string, unknown> = { contents, generationConfig: { maxOutputTokens: maxTok } };
   if (sys) body.systemInstruction = { parts: [{ text: sys }] };
@@ -155,7 +171,7 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
 async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("GROQ_API_KEY", _k.g);
   if (!key) throw new Error("no GROQ_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of fast ? GROQ_MODELS_FAST : GROQ_MODELS) {
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -182,7 +198,7 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
 async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("CEREBRAS_API_KEY");
   if (!key) throw new Error("no CEREBRAS_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of fast ? CEREBRAS_MODELS_FAST : CEREBRAS_MODELS) {
     try {
       const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
@@ -209,7 +225,7 @@ async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fa
 async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("SAMBANOVA_API_KEY");
   if (!key) throw new Error("no SAMBANOVA_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of SAMBANOVA_MODELS) {
     try {
       const res = await fetch("https://api.sambanova.ai/v1/chat/completions", {
@@ -237,7 +253,7 @@ async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): 
 async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("MISTRAL_API_KEY");
   if (!key) throw new Error("no MISTRAL_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of MISTRAL_MODELS) {
     try {
       const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
@@ -271,7 +287,7 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
     "meta-llama/llama-3.3-70b-instruct:free",
     "mistralai/mistral-7b-instruct:free",
   ];
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of models) {
     try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -292,7 +308,7 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
 async function together(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("TOGETHER_API_KEY");
   if (!key) throw new Error("no TOGETHER_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of TOGETHER_MODELS) {
     try {
       const res = await fetch("https://api.together.xyz/v1/chat/completions", {
