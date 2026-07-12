@@ -1792,7 +1792,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   <div style={{display:"flex", justifyContent:"flex-end", marginBottom:"8px"}}>
                     <VoiceBtn
                       lang={lang}
-                      onText={t => setIdea(prev => prev ? prev.trimEnd() + " " + t : t)}
+                      onText={t => setIdea((prev: string) => prev ? prev.trimEnd() + " " + t : t)}
                       onError={msg => showToast(msg, "error")}
                     />
                   </div>
