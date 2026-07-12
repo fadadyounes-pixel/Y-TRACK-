@@ -392,10 +392,11 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
   const [rec, setRec]       = useState(false);
   const [busy, setBusy]     = useState(false);
   const [secs, setSecs]     = useState(0);
-  const mrRef    = useRef<MediaRecorder | null>(null);
-  const chunks   = useRef<Blob[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const MAX_SECS = 60;
+  const mrRef      = useRef<MediaRecorder | null>(null);
+  const chunks     = useRef<Blob[]>([]);
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(true);
+  const MAX_SECS   = 60;
 
   const start = async () => {
     try {
@@ -408,6 +409,7 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+        if (!mountedRef.current) return; // component unmounted — skip state updates
         setSecs(0);
         setBusy(true);
         try {
@@ -445,9 +447,11 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
     mrRef.current?.stop(); mrRef.current = null; setRec(false);
   };
 
-  // Cleanup on unmount: stop any active recording and cancel timer
+  // Cleanup on unmount: mark as unmounted first so onstop handler skips setState,
+  // then stop the recording and cancel the countdown timer.
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       if (timerRef.current) clearInterval(timerRef.current);
       try { mrRef.current?.stop(); } catch {}
     };
@@ -606,6 +610,7 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
         const r = await fetch("/api/ai", {
           method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({messages: history, system: sys, task:"dialogue"}),
+          signal: AbortSignal.timeout(65_000),
         });
         const d = await r.json();
         const text = d.content?.[0]?.text || "";
@@ -2518,7 +2523,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             </div>
 
             {/* ── Logo options: upload or AI generate ── */}
-            {!logo && (
+            {!logo && !logoGenerating && (
               <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginBottom:"16px"}}>
                 <label style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
                   padding:"24px 14px", borderRadius:"14px", border:`2px dashed ${CD}`,
