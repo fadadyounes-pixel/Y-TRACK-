@@ -1302,6 +1302,11 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     window.scrollTo({top: 0, behavior: "smooth"});
   }, [step]);
 
+  // Cancel any pending toast timer on unmount to avoid setState-on-unmounted warning
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, []);
+
   const showToast = (msg: string, type: "error"|"success" = "error") => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({msg, type});

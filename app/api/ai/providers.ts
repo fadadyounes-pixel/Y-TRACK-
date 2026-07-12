@@ -112,6 +112,15 @@ const TOGETHER_MODELS = [
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+// Strip chain-of-thought blocks emitted by some models (Qwen3, DeepSeek-R1).
+// <think>...</think> tags and ```thinking fences confuse the BRIEF/QUESTION parser.
+function stripThinking(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/```thinking[\s\S]*?```/gi, "")
+    .trim();
+}
+
 // Per-request fetch timeout: prevents a stalled TCP connection from blocking
 // the entire cascade indefinitely. AbortError is caught by each provider's
 // try/catch which continues to the next model.
@@ -377,7 +386,8 @@ async function siliconflow(msgs: Msg[], sys: string | undefined, maxTok: number)
 
 async function tryOnce(fn: typeof groq, msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string | null> {
   try {
-    const text = await fn(msgs, sys, maxTok);
+    const raw = await fn(msgs, sys, maxTok);
+    const text = raw ? stripThinking(raw) : null;
     return text || null;
   } catch {
     return null;
