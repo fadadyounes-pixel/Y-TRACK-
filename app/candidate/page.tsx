@@ -424,6 +424,9 @@ export default function CandidateDashboard() {
 
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <Link href="/candidate/info" className="btn-primary" style={{ background: '#0a1f5c' }}>
+            👤 Mes Informations
+          </Link>
           <Link href="/candidate/upload" className="btn-primary">
             Update CV
           </Link>
