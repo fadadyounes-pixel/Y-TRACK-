@@ -53,9 +53,13 @@ function generateCVHtml(data: {
   experience: string; sector: string;
   work: WorkEntry[]; education: { degree: string; institution: string; year: string };
   targetRoles?: string[]; certifications?: string[];
+  photo?: string; linkedin?: string; portfolio?: string;
 }) {
   const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
   const initials = data.name.split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+  const avatarHtml = data.photo
+    ? `<img src="${data.photo}" alt="Photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : initials || '?';
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -69,7 +73,7 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
 .page{max-width:840px;margin:2rem auto;background:#fff;border-radius:0;box-shadow:0 12px 48px rgba(0,0,0,.14);overflow:hidden}
 .hdr{background:linear-gradient(135deg,#0a1631 0%,#1a3a6b 50%,#2563eb 100%);padding:2.5rem 2.75rem 2rem;color:#fff;position:relative;overflow:hidden;display:flex;align-items:center;gap:2rem}
 .hdr::before{content:'';position:absolute;top:-80px;right:-80px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.06)}
-.hdr-avatar{width:80px;height:80px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.9rem;font-weight:900;color:#fff;flex-shrink:0;position:relative;z-index:1}
+.hdr-avatar{width:90px;height:90px;border-radius:50%;border:3px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.9rem;font-weight:900;color:#fff;flex-shrink:0;position:relative;z-index:1;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 .hdr-info{flex:1;position:relative;z-index:1}
 .hdr-name{font-size:1.95rem;font-weight:900;letter-spacing:-.03em;line-height:1.1}
 .hdr-role{margin-top:.4rem;font-size:1rem;font-weight:600;opacity:.75}
@@ -104,7 +108,7 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
 <body>
 <div class="page">
   <div class="hdr">
-    <div class="hdr-avatar">${initials || '?'}</div>
+    <div class="hdr-avatar">${avatarHtml}</div>
     <div class="hdr-info">
       <div class="hdr-name">${data.name || 'Nom Prénom'}</div>
       <div class="hdr-role">${data.experience} · ${data.sector}</div>
@@ -113,6 +117,8 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
         ${data.phone ? `<span>📞 ${data.phone}</span>` : ''}
         ${data.address ? `<span>📍 ${data.address}</span>` : ''}
         ${data.idNumber ? `<span>🪪 CIN ${data.idNumber}</span>` : ''}
+        ${data.linkedin ? `<span>🔗 ${data.linkedin}</span>` : ''}
+        ${data.portfolio ? `<span>💻 ${data.portfolio}</span>` : ''}
       </div>
     </div>
   </div>
@@ -225,10 +231,31 @@ export default function CandidateUpload() {
   const [precomputedAdaptations, setPrecomputedAdaptations] = useState<Record<string, { summary: string; skills: string[] }>>({});
   const precomputeStarted = useRef<Set<string>>(new Set());
 
+  // Photo + links from info profile
+  const [photo, setPhoto] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+  const [portfolio, setPortfolio] = useState('');
+
   useEffect(() => {
     if (!user || user.role !== 'candidate') { router.push('/login'); return; }
     setName(user.name);
     setEmail(user.email);
+    // Load info profile (photo, linkedin, portfolio, phone, address)
+    try {
+      const stored = localStorage.getItem(`tm_info_${user.idNumber}`);
+      if (stored) {
+        const info = JSON.parse(stored);
+        if (info.photo) setPhoto(info.photo);
+        if (info.linkedin) setLinkedin(info.linkedin);
+        if (info.portfolio) setPortfolio(info.portfolio);
+        if (info.phone && !phone) setPhone(info.phone);
+        if (info.city && !address) setAddress(info.city);
+        if (info.firstName || info.lastName) setName(`${info.firstName || ''} ${info.lastName || ''}`.trim() || user.name);
+        if (info.sector) setSector(info.sector.split('/')[0].trim());
+        if (info.languages?.length) setLanguages(info.languages);
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, router]);
 
   // Load jobs from Redis for matching
@@ -278,9 +305,9 @@ export default function CandidateUpload() {
   // Live CV HTML
   const cvHtml = useMemo(() => {
     if (!user) return '';
-    return generateCVHtml({ name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications });
+    return generateCVHtml({ name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications]);
+  }, [name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio]);
 
   if (!user || user.role !== 'candidate') return null;
 
