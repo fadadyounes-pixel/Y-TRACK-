@@ -1393,10 +1393,11 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
       ax:      eAr?"محور المبادرة":eEn?"INDH Pillar":"Axe INDH",
       yr:      eAr?"السنة":eEn?"Year":"An",
     };
+    const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
     const sec = (heading: string, body: string, accent = "#2A5CE0") => body ? `
       <div class="section">
         <h3 style="color:${accent};border-bottom:2px solid ${accent};padding-bottom:6px;margin:24px 0 10px">${heading}</h3>
-        <p>${body.replace(/\n/g,"<br>")}</p>
+        <p>${esc(body).replace(/\n/g,"<br>")}</p>
       </div>` : "";
     const html = `<!DOCTYPE html><html lang="${exportLang}" dir="${dir2}">
 <head>
@@ -1463,7 +1464,7 @@ ${sec(T.biz, plan.businessModel)}
 ${sec(T.impact, plan.socialImpact)}
 ${sec(T.ops, plan.operationalPlan)}
 ${sec(T.indh, plan.indh_alignment)}
-${plan.risks?.length ? `<div class="section"><h3 style="color:#C0632F;border-bottom:2px solid #C0632F;padding-bottom:6px;margin:24px 0 10px">⚠️ ${T.risks}</h3><ul>${plan.risks.map((r: string)=>`<li>${r}</li>`).join("")}</ul></div>` : ""}
+${plan.risks?.length ? `<div class="section"><h3 style="color:#C0632F;border-bottom:2px solid #C0632F;padding-bottom:6px;margin:24px 0 10px">⚠️ ${T.risks}</h3><ul>${plan.risks.map((r: string)=>`<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
 ${plan.projections ? `<div class="section"><h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">📈 ${T.proj}</h3><div class="proj-grid">${Object.entries(plan.projections).map(([y,v])=>`<div class="proj-card"><div class="proj-year">${T.yr} ${y.replace("year","")}</div><div class="proj-val">${Number(v).toLocaleString()}</div><div style="font-size:9px;color:#5B6178;margin-top:2px">MAD</div></div>`).join("")}</div></div>` : ""}
 ` : ""}
 ${budget?.items?.length ? `
@@ -1473,7 +1474,7 @@ ${budget?.items?.length ? `
   <th>${T.cat}</th><th>${T.item}</th><th style="text-align:center">${T.qty}</th>
   <th style="text-align:center">${T.pu}</th><th style="text-align:center">${T.tot}</th>
 </tr></thead><tbody>
-${budget.items.map((x: any,i: number)=>`<tr><td>${x.category}</td><td>${x.item}</td><td style="text-align:center">${x.quantity}</td><td style="text-align:center">${Number(x.unitPrice||0).toLocaleString()}</td><td style="text-align:center;font-weight:700">${Number(x.total||0).toLocaleString()}</td></tr>`).join("")}
+${budget.items.map((x: any,i: number)=>`<tr><td>${esc(x.category||"")}</td><td>${esc(x.item||"")}</td><td style="text-align:center">${x.quantity}</td><td style="text-align:center">${Number(x.unitPrice||0).toLocaleString()}</td><td style="text-align:center;font-weight:700">${Number(x.total||0).toLocaleString()}</td></tr>`).join("")}
 <tr class="tfoot"><td colspan="4">${T.tot}</td><td style="text-align:center">${total.toLocaleString()} MAD</td></tr>
 </tbody></table>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
@@ -1495,10 +1496,10 @@ ${comp ? `
   <div style="font-size:11px;color:${comp.eligible?"rgba(255,255,255,.6)":"#C0632F"};margin-top:2px">/100</div>
   <div style="font-size:12px;font-weight:700;color:${comp.eligible?"#2A5CE0":"#C0632F"};margin-top:4px">${comp.eligible?T.elig:T.notEl}</div>
 </div>
-${comp.pillar ? `<p style="margin-bottom:10px">📌 ${T.ax}: <strong>${comp.pillar}</strong></p>` : ""}
+${comp.pillar ? `<p style="margin-bottom:10px">📌 ${T.ax}: <strong>${esc(comp.pillar)}</strong></p>` : ""}
 ${comp.juryScore ? `<table><thead><tr><th>${eAr?"المعيار":eEn?"Criterion":"Critère"}</th><th style="text-align:center">${eAr?"الوزن":eEn?"Weight":"Poids"}</th><th style="text-align:center">${eAr?"النقطة":eEn?"Score":"Score"}</th></tr></thead><tbody>${[{k:"impact",l:"Impact social",w:25},{k:"viability",l:"Viabilité",w:20},{k:"relevance",l:"Pertinence territoriale",w:20},{k:"management",l:"Capacité de gestion",w:15},{k:"sustainability",l:"Durabilité",w:10},{k:"innovation",l:"Innovation",w:10}].map(j=>{const sc=comp.juryScore[j.k]||0;const p=Math.round((sc/j.w)*100);return`<tr><td>${j.l}</td><td style="text-align:center">/${j.w}</td><td style="text-align:center"><strong style="color:${p>=70?"#2A5CE0":p>=50?"#F59E0B":"#C0632F"}">${sc}</strong></td></tr>`;}).join("")}</tbody></table>` : ""}
-${comp.strengths?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#1C7A62;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💪 ${T.str}</h4><ul>${comp.strengths.map((s: string)=>`<li>${s}</li>`).join("")}</ul></div>` : ""}
-${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#2A5CE0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💡 ${T.recs}</h4><ul>${comp.recommendations.map((r: string)=>`<li>${r}</li>`).join("")}</ul></div>` : ""}
+${comp.strengths?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#1C7A62;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💪 ${T.str}</h4><ul>${comp.strengths.map((s: string)=>`<li>${esc(s)}</li>`).join("")}</ul></div>` : ""}
+${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#2A5CE0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💡 ${T.recs}</h4><ul>${comp.recommendations.map((r: string)=>`<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
 </div>` : ""}
 <div class="footer">
   <p>© IdeaMap 2026 · ideamaponline.org · ${new Date().toLocaleDateString(exportLang==="ar"?"ar-MA":exportLang==="fr"?"fr-FR":"en-GB")}</p>
@@ -3004,8 +3005,28 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               {/* CIN + WhatsApp row */}
               <div style={{display:"flex", gap:"8px", marginTop:"16px", flexWrap:"wrap", justifyContent:"center"}}>
                 <button onClick={() => {
-                  navigator.clipboard?.writeText(user.id).catch(() => {});
-                  showToast(lang==="ar"?"تم نسخ رقم البطاقة":lang==="fr"?"CIN copié !":"CIN copied!", "success");
+                  const copied = (() => {
+                    if (navigator.clipboard) {
+                      navigator.clipboard.writeText(user.id).catch(() => {});
+                      return true;
+                    }
+                    try {
+                      const ta = document.createElement("textarea");
+                      ta.value = user.id;
+                      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+                      document.body.appendChild(ta);
+                      ta.select();
+                      const ok = document.execCommand("copy");
+                      document.body.removeChild(ta);
+                      return ok;
+                    } catch { return false; }
+                  })();
+                  showToast(
+                    copied
+                      ? (lang==="ar"?"تم نسخ رقم البطاقة":lang==="fr"?"CIN copié !":"CIN copied!")
+                      : (lang==="ar"?"انسخ يدوياً: "+user.id:lang==="fr"?"Copiez manuellement: "+user.id:"Copy manually: "+user.id),
+                    copied ? "success" : "error"
+                  );
                 }} style={{display:"flex", alignItems:"center", gap:"6px",
                   padding:"10px 16px", borderRadius:"10px",
                   background:"rgba(255,255,255,.1)", border:"1px solid rgba(255,255,255,.2)",
