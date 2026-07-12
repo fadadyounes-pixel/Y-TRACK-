@@ -72,12 +72,16 @@ export default function CoordinatorUpload() {
     if (!user || user.role !== 'coordinator') router.push('/login');
   }, [user, router]);
 
-  // Persist done CVs to localStorage for matching
+  // Persist done CVs to Redis (+ localStorage cache)
   useEffect(() => {
     const done = cvList.filter(c => c.status === 'done');
-    if (done.length > 0) {
-      try { localStorage.setItem('coordinator_cvs', JSON.stringify(done)); } catch {}
-    }
+    if (done.length === 0) return;
+    try { localStorage.setItem('coordinator_cvs', JSON.stringify(done)); } catch {}
+    fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'save_cvs', cvs: done }),
+    }).catch(() => {});
   }, [cvList]);
 
   if (!user || user.role !== 'coordinator') return null;

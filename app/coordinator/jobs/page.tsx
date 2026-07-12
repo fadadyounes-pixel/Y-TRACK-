@@ -76,30 +76,41 @@ export default function CoordinatorJobs() {
     if (!user || user.role !== 'coordinator') router.push('/login');
   }, [user, router]);
 
-  // Load imported CVs from localStorage (uploaded by coordinator)
+  // Load jobs + CVs from Redis on mount
   useEffect(() => {
     if (!user) return;
-    try {
-      const stored = localStorage.getItem('coordinator_cvs');
-      if (stored) setCoordCvs(JSON.parse(stored));
-    } catch {}
+    fetch('/api/sheets')
+      .then(r => r.json())
+      .then(data => {
+        setJobs(data.jobs?.length ? data.jobs : INITIAL_JOBS);
+        setCoordCvs(data.cvs || []);
+        setLoaded(true);
+      })
+      .catch(() => {
+        // Fallback to localStorage cache
+        try {
+          const stored = localStorage.getItem('coordinator_jobs');
+          setJobs(stored ? JSON.parse(stored) : INITIAL_JOBS);
+        } catch { setJobs(INITIAL_JOBS); }
+        try {
+          const stored = localStorage.getItem('coordinator_cvs');
+          if (stored) setCoordCvs(JSON.parse(stored));
+        } catch {}
+        setLoaded(true);
+      });
   }, [user]);
 
-  // Load from localStorage
+  // Persist jobs to Redis (debounced via useEffect dependency)
   useEffect(() => {
-    if (!user) return;
-    try {
-      const stored = localStorage.getItem('coordinator_jobs');
-      setJobs(stored ? JSON.parse(stored) : INITIAL_JOBS);
-    } catch {
-      setJobs(INITIAL_JOBS);
-    }
-    setLoaded(true);
-  }, [user]);
-
-  // Persist to localStorage
-  useEffect(() => {
-    if (loaded) localStorage.setItem('coordinator_jobs', JSON.stringify(jobs));
+    if (!loaded) return;
+    // Update localStorage cache immediately
+    try { localStorage.setItem('coordinator_jobs', JSON.stringify(jobs)); } catch {}
+    // Persist to Redis
+    fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'save_jobs', jobs }),
+    }).catch(() => {});
   }, [jobs, loaded]);
 
   if (!user || user.role !== 'coordinator') return null;

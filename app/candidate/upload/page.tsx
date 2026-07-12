@@ -272,12 +272,17 @@ export default function CandidateUpload() {
     setEmail(user.email);
   }, [user, router]);
 
-  // Load coordinator jobs for matching
+  // Load coordinator jobs from Redis for matching
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('coordinator_jobs');
-      if (stored) setCoordJobs(JSON.parse(stored));
-    } catch {}
+    fetch('/api/sheets')
+      .then(r => r.json())
+      .then(data => { if (data.jobs?.length) setCoordJobs(data.jobs); })
+      .catch(() => {
+        try {
+          const stored = localStorage.getItem('coordinator_jobs');
+          if (stored) setCoordJobs(JSON.parse(stored));
+        } catch {}
+      });
   }, []);
 
   // Pre-compute adaptations in background as soon as profile + jobs are ready

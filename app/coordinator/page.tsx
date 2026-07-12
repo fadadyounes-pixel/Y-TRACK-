@@ -41,13 +41,22 @@ export default function CoordinatorDashboard() {
   }, [user, initialized, router]);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('coordinator_jobs');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setJobOffers(parsed.map((j: any) => ({ ...j, matches: j.matches ?? 0 })));
-      }
-    } catch {}
+    fetch('/api/sheets')
+      .then(r => r.json())
+      .then(data => {
+        if (data.jobs?.length) {
+          setJobOffers(data.jobs.map((j: any) => ({ ...j, matches: j.matches ?? 0 })));
+        }
+      })
+      .catch(() => {
+        try {
+          const stored = localStorage.getItem('coordinator_jobs');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            setJobOffers(parsed.map((j: any) => ({ ...j, matches: j.matches ?? 0 })));
+          }
+        } catch {}
+      });
   }, []);
 
   if (!initialized || !user || user.role !== 'coordinator') return null;
