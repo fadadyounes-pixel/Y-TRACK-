@@ -2,7 +2,7 @@
   "name": "IdeaMap — INDH Phase 3",
   "short_name": "IdeaMap",
   "description": "De l'idée au projet financé — plateforme INDH Phase 3 Maroc",
-  "start_url": "/",
+  "start_url": "/ideamap",
   "display": "standalone",
   "background_color": "#0A0F2C",
   "theme_color": "#0A0F2C",
@@ -27,7 +27,7 @@
   "shortcuts": [
     {
       "name": "Mon Dossier",
-      "url": "/",
+      "url": "/ideamap",
       "description": "Continuer mon dossier INDH"
     }
   ],

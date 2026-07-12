@@ -71,7 +71,8 @@ const CEREBRAS_MODELS_FAST = [
   "qwen3-32b",
 ];
 
-// SambaNova: RDU hardware — ~700 tok/s, free tier with $5 starter credit.
+// SambaNova: RDU hardware — ~700 tok/s, permanently free inference tier.
+// Sign up gets a $5 welcome credit at no cost (no card required ever).
 // Excellent for long document analysis (128k context on Llama 4 Maverick).
 // Sign up free (no card): https://cloud.sambanova.ai
 // Set env var: SAMBANOVA_API_KEY

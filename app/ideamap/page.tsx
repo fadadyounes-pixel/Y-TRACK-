@@ -53,12 +53,6 @@ function injectCSS() {
     "@media(max-width:520px){.prog-fut{visibility:hidden}}",
   ].join("");
   document.head.appendChild(el);
-  // Register service worker for offline-first PWA support
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    });
-  }
 }
 
 /* ── BRAND ──────────────────────────────────────────── */
@@ -1326,6 +1320,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({messages, system, task}),
+          signal: AbortSignal.timeout(65_000),
         });
         const d = await r.json();
         if (d.error) {
