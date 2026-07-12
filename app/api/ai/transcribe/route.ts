@@ -15,6 +15,10 @@ export async function POST(request: NextRequest) {
     if (!audio) {
       return NextResponse.json({ error: "no audio" }, { status: 400 });
     }
+    // Groq hard-limits audio at 25 MB; reject early to avoid a confusing upstream error.
+    if (audio.size > 25 * 1024 * 1024) {
+      return NextResponse.json({ error: "audio too large (max 25 MB)" }, { status: 413 });
+    }
 
     const key = process.env.GROQ_API_KEY || "";
     if (!key) {
