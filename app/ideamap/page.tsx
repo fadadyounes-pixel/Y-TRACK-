@@ -445,6 +445,14 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
     mrRef.current?.stop(); mrRef.current = null; setRec(false);
   };
 
+  // Cleanup on unmount: stop any active recording and cancel timer
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      try { mrRef.current?.stop(); } catch {}
+    };
+  }, []);
+
   const recLabel = rec
     ? `${lang==="ar"?"⏹ إيقاف":lang==="fr"?"⏹ Arrêter":"⏹ Stop"} ${MAX_SECS - secs}s`
     : (lang==="ar"?"تحدث عن فكرتك 🎤":lang==="fr"?"Parlez votre idée 🎤":"Speak your idea 🎤");
@@ -1334,11 +1342,10 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   };
 
   const dlText = (content: string, name: string) => {
-    const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"})),
-      download: name,
-    });
+    const url = URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"}));
+    const a = Object.assign(document.createElement("a"), {href: url, download: name});
     a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   // Opens a print-ready HTML window — browser converts to PDF via Ctrl+P / Save as PDF.
@@ -1499,6 +1506,7 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
 </body></html>`;
     const w = window.open("", "_blank", "width=900,height=700");
     if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 600); }
+    else { showToast(lang==="ar"?"يُرجى السماح بالنوافذ المنبثقة في المتصفح للتحميل":lang==="fr"?"Autorisez les popups dans votre navigateur pour générer le PDF":"Allow popups in your browser to download the PDF", "error"); }
   };
 
   const dlPPTX = async (type: "pitch" | "jury", exportLang: string = dlLang) => {
@@ -1652,7 +1660,7 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
         s.addText(T.submissionText, {x:0.5,y:1.2,w:9,h:4.5,fontSize:14,color:WHITE,fontFace:"Arial",align:isAr?"right":"left"});
         await prs.writeFile({fileName: `DossierJury_${proj?.projectName || "IdeaMap"}.pptx`});
       }
-    } catch (e) { console.error("PPTX error:", e); }
+    } catch (e) { console.error("PPTX error:", e); showToast(lang==="ar"?"فشل إنشاء ملف PowerPoint":lang==="fr"?"Erreur lors de la création du fichier PowerPoint":"PowerPoint generation failed", "error"); }
   };
 
   const [logoStyle, setLogoStyle] = useState(0); // 0=circle, 1=badge, 2=shield
@@ -1755,12 +1763,13 @@ JSON UNIQUEMENT sans markdown:
 </svg>`,
     ];
     const svg = svgs[logoStyle];
-    const blob = new Blob([svg], {type:"image/svg+xml"});
+    const url = URL.createObjectURL(new Blob([svg], {type:"image/svg+xml"}));
     const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(blob),
+      href: url,
       download: `Logo_${(proj?.projectName||"IdeaMap").replace(/\s+/g,"_")}.svg`,
     });
     a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC — DONNÉES TERRAIN RÉELLES:
@@ -1806,7 +1815,11 @@ QUESTION: [question directe en ${LL} — max 12 mots]
 SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}]`,
       "dialogue");
     const { brief: b, question, suggs } = parseQS(r);
-    setBrief(b || ideaPreview); // keep idea preview as fallback if AI doesn't return a brief
+    if (!question) {
+      // AI failed entirely — bounce back to idea step (toast already shown by ai())
+      setStep("idea"); setBusy(false); setBrief(""); setCurrentQ(""); return;
+    }
+    setBrief(b || ideaPreview);
     setCurrentQ(question);
     setMsgs([{role: "user", content: idea}, {role: "assistant", content: question}]);
     setSuggestions(suggs);
@@ -1847,6 +1860,7 @@ SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL
       setTimeout(() => setStep("profile"), 1000);
     } else {
       const { brief: b, question, suggs } = parseQS(r);
+      if (!question) { setBusy(false); return; } // AI failed — keep current question visible, let user retry
       setBrief(b);
       setCurrentQ(question);
       setMsgs((p: any[]) => [...p, {role: "assistant", content: question}]);
@@ -3208,11 +3222,9 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
       h.proj?.projectName||"", h.comp?.score||"", h.comp?.eligible?"OUI":"NON", h.step||"idea",
     ].map(v => `"${String(v).replace(/"/g,'""')}"`));
     const csv = [cols.join(";"), ...rows.map(r => r.join(";"))].join("\n");
-    const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"})),
-      download: "IdeaMap_Porteurs_Coord.csv",
-    });
-    a.click();
+    const url = URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"}));
+    Object.assign(document.createElement("a"), {href: url, download: "IdeaMap_Porteurs_Coord.csv"}).click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const getStatus = (h: any) => {
@@ -3689,11 +3701,9 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
       h.comp?.score||"", h.comp?.eligible?"OUI":"NON", h.step||"idea",
     ].map(v => `"${String(v).replace(/"/g,'""')}"`));
     const csv = [cols.join(";"), ...rows.map(r => r.join(";"))].join("\n");
-    const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"})),
-      download: "IdeaMap_Porteurs.csv",
-    });
-    a.click();
+    const url = URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"}));
+    Object.assign(document.createElement("a"), {href: url, download: "IdeaMap_Porteurs.csv"}).click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const BarRow = ({label, n, total, col}: {label: string; n: number; total: number; col: string}) => (
@@ -3858,11 +3868,9 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                    h2.profile?.phone||"", h2.profile?.region||"", h2.proj?.sector||"",
                    h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
                 ].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(";")).join("\n");
-                const a = Object.assign(document.createElement("a"), {
-                  href: URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"})),
-                  download: `Porteur_${h2.id}.csv`,
-                });
-                a.click();
+                const url = URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"}));
+                Object.assign(document.createElement("a"), {href: url, download: `Porteur_${h2.id}.csv`}).click();
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
               }} style={{padding:"8px 16px", borderRadius:"8px", border:`1.5px solid ${Y}`,
                 background:"transparent", color:Y, fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
                 ⬇ CSV
