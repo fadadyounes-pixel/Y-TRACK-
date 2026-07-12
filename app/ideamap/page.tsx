@@ -42,6 +42,13 @@ function injectCSS() {
     // Hover micro-interactions for cards and list rows
     ".im-card-row:hover{background:#F0F1F5!important}",
     ".im-holder-row:hover{background:#EFF6FF!important}",
+    // Dashboard sidebar — mobile drawer (slides in from left, fixed overlay)
+    "@media(max-width:768px){",
+    ".dash-sidebar{position:fixed!important;z-index:300!important;top:0;left:0;height:100vh!important;transform:translateX(-260px);transition:transform .28s cubic-bezier(.4,0,.2,1)}",
+    ".dash-sidebar.dsb-open{transform:translateX(0)!important;box-shadow:4px 0 32px rgba(10,15,44,.25)!important}",
+    ".dash-topbar{display:flex!important}",
+    "}",
+    "@media(min-width:769px){.dash-topbar{display:none!important}}",
   ].join("");
   document.head.appendChild(el);
   // Register service worker for offline-first PWA support
@@ -797,14 +804,17 @@ const ProgRow = ({t, si, steps, onStepClick}: { lang: string; t: any; si: number
 );
 
 /* ── DASHBOARD SIDEBAR ─────────────────────────────── */
-const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, setLang, t}: {
+const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, setLang, t, open, onClose}: {
   user: any; navItems: {id:string; label:string}[]; activeTab: string;
   onTabChange: (id:string)=>void; onLogout:()=>void; lang:string; setLang:(l:string)=>void; t:any;
+  open?: boolean; onClose?: () => void;
 }) => (
-  <div style={{width:240, flexShrink:0, background:WH, borderRight:`1px solid ${CD}`,
+  <div className={`dash-sidebar${open ? " dsb-open" : ""}`}
+    style={{width:240, flexShrink:0, background:WH, borderRight:`1px solid ${CD}`,
     position:"sticky", top:0, height:"100vh", display:"flex", flexDirection:"column", zIndex:50}}>
-    {/* Logo area */}
-    <div style={{padding:"20px 18px 16px", borderBottom:`1px solid ${CD}`}}>
+    {/* Logo area + close button (mobile) */}
+    <div style={{padding:"20px 18px 16px", borderBottom:`1px solid ${CD}`,
+      display:"flex", alignItems:"center", justifyContent:"space-between"}}>
       <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
         <div style={{width:34, height:34, borderRadius:"9px", background:ND, flexShrink:0,
           display:"flex", alignItems:"center", justifyContent:"center", fontSize:"15px", fontWeight:"900", color:WH}}>I</div>
@@ -815,13 +825,18 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, se
           </div>
         </div>
       </div>
+      {onClose && (
+        <button onClick={onClose} className="dash-topbar"
+          style={{background:"transparent", border:"none", fontSize:"18px", color:GR,
+            cursor:"pointer", lineHeight:1, padding:"2px 4px"}}>✕</button>
+      )}
     </div>
     {/* Nav items */}
     <nav style={{padding:"10px 10px", flex:1, overflowY:"auto"}}>
       {navItems.map(item => {
         const active = activeTab === item.id;
         return (
-          <button key={item.id} onClick={() => onTabChange(item.id)}
+          <button key={item.id} onClick={() => { onTabChange(item.id); onClose?.(); }}
             style={{width:"100%", display:"flex", alignItems:"center", gap:"11px",
               padding:"9px 12px", borderRadius:"8px", border:"none", cursor:"pointer", marginBottom:"2px",
               background: active ? "#F0F1F5" : "transparent", textAlign:"left", fontFamily:ff(lang)}}>
@@ -3153,9 +3168,10 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
   onLogout: () => void; t: any; holders: any[];
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
-  const [tab, setTab]       = useState("holders");
-  const [search, setSearch] = useState("");
-  const [detail, setDetail] = useState<any>(null);
+  const [tab, setTab]           = useState("holders");
+  const [search, setSearch]     = useState("");
+  const [detail, setDetail]     = useState<any>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const COORD_NAV = [
     {id:"overview", label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
@@ -3202,10 +3218,22 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
     const h = detail;
     return (
       <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+        {sidebarOpen && <div onClick={() => setSidebarOpen(false)}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:299}}/>}
         <DashSidebar user={user} navItems={COORD_NAV} activeTab={tab}
-          onTabChange={id => { setTab(id); setDetail(null); }}
-          onLogout={onLogout} lang={lang} setLang={setLang} t={t}/>
+          onTabChange={id => { setTab(id); setDetail(null); setSidebarOpen(false); }}
+          onLogout={onLogout} lang={lang} setLang={setLang} t={t}
+          open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
         <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+          {/* Mobile top bar — hamburger + title */}
+          <div className="dash-topbar" style={{background:WH, borderBottom:`1px solid ${CD}`,
+            padding:"12px 16px", alignItems:"center", gap:"12px",
+            position:"sticky", top:0, zIndex:100}}>
+            <button onClick={() => setSidebarOpen(true)}
+              style={{background:"transparent", border:`1px solid ${CD}`, borderRadius:"8px",
+                padding:"6px 10px", fontSize:"16px", cursor:"pointer", color:ND}}>☰</button>
+            <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
+          </div>
           <div style={{maxWidth:860, padding:"32px 40px 48px"}}>
             <button onClick={() => setDetail(null)} style={{marginBottom:"20px", padding:"8px 16px",
               borderRadius:"8px", border:`1px solid ${CD}`, background:WH,
@@ -3283,9 +3311,21 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
 
   return (
     <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+      {sidebarOpen && <div onClick={() => setSidebarOpen(false)}
+        style={{position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:299}}/>}
       <DashSidebar user={user} navItems={COORD_NAV} activeTab={tab}
-        onTabChange={setTab} onLogout={onLogout} lang={lang} setLang={setLang} t={t}/>
+        onTabChange={setTab} onLogout={onLogout} lang={lang} setLang={setLang} t={t}
+        open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
       <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+        {/* Mobile top bar */}
+        <div className="dash-topbar" style={{background:WH, borderBottom:`1px solid ${CD}`,
+          padding:"12px 16px", alignItems:"center", gap:"12px",
+          position:"sticky", top:0, zIndex:100}}>
+          <button onClick={() => setSidebarOpen(true)}
+            style={{background:"transparent", border:`1px solid ${CD}`, borderRadius:"8px",
+              padding:"6px 10px", fontSize:"16px", cursor:"pointer", color:ND}}>☰</button>
+          <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
+        </div>
         <div style={{padding:"32px 40px 48px", maxWidth:860}}>
 
           {/* ── Overview ── */}
@@ -3602,6 +3642,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   const [filterSector, setFilterSector] = useState("");
   const [filterStep, setFilterStep]     = useState("");
   const [detailH, setDetailH]   = useState<any>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const ADMIN_NAV = [
     {id:"overview",  label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
@@ -3672,10 +3713,22 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
     const h = detailH;
     return (
       <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+        {sidebarOpen && <div onClick={() => setSidebarOpen(false)}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:299}}/>}
         <DashSidebar user={user} navItems={ADMIN_NAV} activeTab={tab}
-          onTabChange={id => { setTab(id); setDetailH(null); }}
-          onLogout={onLogout} lang={lang} setLang={setLang} t={t}/>
+          onTabChange={id => { setTab(id); setDetailH(null); setSidebarOpen(false); }}
+          onLogout={onLogout} lang={lang} setLang={setLang} t={t}
+          open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
         <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+          {/* Mobile top bar */}
+          <div className="dash-topbar" style={{background:WH, borderBottom:`1px solid ${CD}`,
+            padding:"12px 16px", alignItems:"center", gap:"12px",
+            position:"sticky", top:0, zIndex:100}}>
+            <button onClick={() => setSidebarOpen(true)}
+              style={{background:"transparent", border:`1px solid ${CD}`, borderRadius:"8px",
+                padding:"6px 10px", fontSize:"16px", cursor:"pointer", color:ND}}>☰</button>
+            <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
+          </div>
           <div style={{padding:"32px 40px 48px", maxWidth:860}}>
             <button onClick={() => setDetailH(null)} style={{marginBottom:"20px", padding:"8px 16px",
               borderRadius:"8px", border:`1px solid ${CD}`, background:WH,
@@ -3815,9 +3868,21 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
 
   return (
     <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+      {sidebarOpen && <div onClick={() => setSidebarOpen(false)}
+        style={{position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:299}}/>}
       <DashSidebar user={user} navItems={ADMIN_NAV} activeTab={tab}
-        onTabChange={setTab} onLogout={onLogout} lang={lang} setLang={setLang} t={t}/>
+        onTabChange={setTab} onLogout={onLogout} lang={lang} setLang={setLang} t={t}
+        open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
       <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+        {/* Mobile top bar */}
+        <div className="dash-topbar" style={{background:WH, borderBottom:`1px solid ${CD}`,
+          padding:"12px 16px", alignItems:"center", gap:"12px",
+          position:"sticky", top:0, zIndex:100}}>
+          <button onClick={() => setSidebarOpen(true)}
+            style={{background:"transparent", border:`1px solid ${CD}`, borderRadius:"8px",
+              padding:"6px 10px", fontSize:"16px", cursor:"pointer", color:ND}}>☰</button>
+          <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
+        </div>
         <div style={{padding:"32px 40px 48px", maxWidth:900}}>
 
           {/* ── Overview ── */}
