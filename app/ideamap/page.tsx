@@ -679,15 +679,23 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
             flexDirection:"column", gap:"9px", maxHeight:250}}>
             <div style={{padding:"10px 13px", background:YL, borderRadius:"12px 12px 12px 4px",
               fontSize:"12px", color:ND, lineHeight:1.65}}>{greet}</div>
-            {msgs.map((m, i) => (
-              <div key={i} style={{padding:"10px 13px", maxWidth:"88%",
-                borderRadius: m.role==="user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-                background: m.role==="user" ? `linear-gradient(135deg,${N},${ND})` : YL,
-                color: m.role==="user" ? WH : ND, fontSize:"12px", lineHeight:1.65,
-                alignSelf: m.role==="user" ? (dir==="rtl"?"flex-start":"flex-end") : (dir==="rtl"?"flex-end":"flex-start")}}>
-                {m.content}
-              </div>
-            ))}
+            {msgs.map((m, i) => {
+              const isUser = m.role === "user";
+              const isRtl = dir === "rtl";
+              // Tail (4px corner) points toward the edge the bubble is anchored to
+              const br = isUser
+                ? (isRtl ? "12px 12px 12px 4px" : "12px 12px 4px 12px")
+                : (isRtl ? "12px 12px 4px 12px" : "12px 12px 12px 4px");
+              return (
+                <div key={i} style={{padding:"10px 13px", maxWidth:"88%",
+                  borderRadius: br,
+                  background: isUser ? `linear-gradient(135deg,${N},${ND})` : YL,
+                  color: isUser ? WH : ND, fontSize:"12px", lineHeight:1.65,
+                  alignSelf: isUser ? (isRtl?"flex-start":"flex-end") : (isRtl?"flex-end":"flex-start")}}>
+                  {m.content}
+                </div>
+              );
+            })}
             {busy && <div style={{display:"flex", gap:"4px", padding:"4px 0"}}>
               {[0,1,2].map(i => <div key={i} style={{width:7, height:7, borderRadius:"50%",
                 background:Y, animation:`bounce 1s ease ${i*.2}s infinite`}}/>)}
