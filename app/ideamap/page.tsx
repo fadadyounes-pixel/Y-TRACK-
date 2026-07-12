@@ -1198,6 +1198,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
             placeholder={t.codePh as string}
             maxLength={30}
             autoFocus
+            autoComplete="off"
             className={err ? "shake" : ""}
             style={{width:"100%", padding:"13px 14px",
               background:IF, border:`1px solid ${DV}`,
@@ -1709,6 +1710,13 @@ JSON UNIQUEMENT sans markdown:
       concept.icon       = concept.icon       || "💡";
       concept.initials   = concept.initials   || (proj?.projectName||"").slice(0,2).toUpperCase() || "IM";
       setLogo({type:"generated", concept}); setLogoStyle(0);
+    } else {
+      showToast(
+        lang === "ar" ? "فشل إنشاء الشعار — حاول مجدداً" :
+        lang === "fr" ? "Génération du logo échouée — réessayez" :
+        "Logo generation failed — try again",
+        "error"
+      );
     }
     setLogoGenerating(false);
   };
@@ -1872,9 +1880,21 @@ QUESTION: [question directe en ${LL} — max 12 mots]
 SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}]`}`,
       last ? "json" : "dialogue");
     if (last) {
+      const p = parseJ(r);
+      if (!p) {
+        // All providers failed to return valid JSON on the final question — stay on dialogue.
+        setBusy(false);
+        showToast(
+          lang === "ar" ? "فشل تحليل مشروعك — أعد المحاولة" :
+          lang === "fr" ? "Analyse du projet échouée — réessayez" :
+          "Project analysis failed — please try again",
+          "error"
+        );
+        return;
+      }
       setBrief(""); setCurrentQ(""); setSuggestions([]);
-      setMsgs((p: any[]) => [...p, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
-      const p = parseJ(r); if (p) setProj(p);
+      setMsgs((prev: any[]) => [...prev, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
+      setProj(p);
       setTimeout(() => setStep("profile"), 1000);
     } else {
       const { brief: b, question, suggs } = parseQS(r);
