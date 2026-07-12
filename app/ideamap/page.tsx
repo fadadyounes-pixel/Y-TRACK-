@@ -929,9 +929,9 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   const showPrefecture = form.region === "Casablanca-Settat";
 
   useEffect(() => {
-    if (showPrefecture && prefRef.current) {
-      setTimeout(() => prefRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
-    }
+    if (!showPrefecture || !prefRef.current) return;
+    const id = setTimeout(() => prefRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
+    return () => clearTimeout(id);
   }, [showPrefecture]);
 
   const REQUIRED_FIELDS: Array<{key: keyof typeof form; label: Record<string,string>}> = [
@@ -1261,6 +1261,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [comp, setComp]    = useState<any>(initialState?.comp || null);
   const [docs, setDocs]    = useState<Record<number, boolean>>(initialState?.docs || {});
   const [logo, setLogo]    = useState<any>(initialState?.logo || null);
+  const [logoStyle, setLogoStyle] = useState(initialState?.logoStyle ?? 0); // 0=gradient burst, 1=moroccan star, 2=diagonal split
   const [docFiles, setDocFiles] = useState<Record<number, string>>(initialState?.docFiles || {});
   const [logoGenerating, setLogoGenerating] = useState(false);
   const [pendingAttach, setPendingAttach]   = useState<number | null>(null);
@@ -1281,8 +1282,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
 
   useEffect(() => {
-    if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, docFiles, brief, currentQ, suggestions});
-  }, [proj, plan, comp, step, logo, docs, msgs, budget, brief, currentQ]);
+    if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, logoStyle, docFiles, brief, currentQ, suggestions});
+  }, [proj, plan, comp, step, logo, logoStyle, docs, msgs, budget, brief, currentQ]);
 
   // Auto-check Business Plan doc (#8) when plan is generated — matches its "Généré automatiquement ✓" label
   useEffect(() => {
@@ -1675,8 +1676,6 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
       }
     } catch (e) { console.error("PPTX error:", e); showToast(lang==="ar"?"فشل إنشاء ملف PowerPoint":lang==="fr"?"Erreur lors de la création du fichier PowerPoint":"PowerPoint generation failed", "error"); }
   };
-
-  const [logoStyle, setLogoStyle] = useState(0); // 0=circle, 1=badge, 2=shield
 
   const genLogo = async () => {
     setLogoGenerating(true);
@@ -2928,7 +2927,12 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <p style={{fontSize: "10px", fontWeight: "700", textTransform: "uppercase", letterSpacing: ".6px",
                   color: type === "req" ? N : GR, margin: "16px 0 8px"}}>{type === "req" ? `⭐ ${t.req}` : `📎 ${t.opt}`}</p>
                 {DOCS.filter(d => type === "req" ? d.req : !d.req).map(doc => (
-                  <div key={doc.id} onClick={() => setDocs(p => ({...p, [doc.id]: !p[doc.id]}))}
+                  <div key={doc.id}
+                    role="checkbox"
+                    aria-checked={!!docs[doc.id]}
+                    tabIndex={0}
+                    onClick={() => setDocs(p => ({...p, [doc.id]: !p[doc.id]}))}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDocs(p => ({...p, [doc.id]: !p[doc.id]})); } }}
                     style={{display: "flex", alignItems: "flex-start", gap: "10px", padding: "12px",
                       borderRadius: "13px", marginBottom: "7px", cursor: "pointer",
                       background: docs[doc.id] ? (type === "req" ? ND : YL) : WH,
@@ -3240,6 +3244,13 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
   const [search, setSearch]     = useState("");
   const [detail, setDetail]     = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
 
   const COORD_NAV = [
     {id:"overview", label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
@@ -3709,6 +3720,13 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   const [filterStep, setFilterStep]     = useState("");
   const [detailH, setDetailH]   = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
 
   const ADMIN_NAV = [
     {id:"overview",  label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
