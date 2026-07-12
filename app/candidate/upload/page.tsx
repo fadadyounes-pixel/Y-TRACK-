@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PageHeader from '../../../components/PageHeader';
@@ -37,14 +37,32 @@ interface AnalyzedFile {
   targetRoles?: string[]; certifications?: string[];
 }
 
+const LANG_FLAGS: Record<string, string> = {
+  'Français': '🇫🇷', 'Anglais': '🇬🇧', 'Arabe': '🇲🇦', 'Espagnol': '🇪🇸',
+  'Allemand': '🇩🇪', 'Néerlandais': '🇳🇱', 'Italien': '🇮🇹', 'Portugais': '🇵🇹',
+};
+
+function descToBullets(text: string): string {
+  if (!text.trim()) return '';
+  const lines = text.split(/\n|•|·/).map(l => l.trim()).filter(Boolean);
+  if (lines.length <= 1) {
+    // Try splitting on '. ' for single-line paragraph
+    const sents = text.split(/\.\s+/).map(l => l.trim()).filter(l => l.length > 10);
+    if (sents.length > 1) return sents.map(s => `<li>${s.replace(/\.$/, '')}.</li>`).join('');
+    return `<li>${text}</li>`;
+  }
+  return lines.map(l => `<li>${l}</li>`).join('');
+}
+
 function generateCVHtml(data: {
   name: string; email: string; phone: string; address: string; idNumber: string;
   summary: string; skills: string[]; languages: string[];
   experience: string; sector: string;
   work: WorkEntry[]; education: { degree: string; institution: string; year: string };
-  targetRoles?: string[];
+  targetRoles?: string[]; certifications?: string[];
 }) {
   const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -52,96 +70,130 @@ function generateCVHtml(data: {
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${data.name} — CV</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#f1f5f9;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{max-width:820px;margin:2rem auto;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.12);overflow:hidden}
-.hdr{background:linear-gradient(135deg,#0a1f5c 0%,#1e40af 60%,#2563eb 100%);padding:2.75rem 2.5rem 2.25rem;color:#fff;position:relative;overflow:hidden}
-.hdr::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.07)}
-.hdr::after{content:'';position:absolute;bottom:-30px;left:40%;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.05)}
-.hdr-name{font-size:2.1rem;font-weight:800;letter-spacing:-.03em;position:relative}
-.hdr-sub{margin-top:.5rem;opacity:.7;font-size:1rem;position:relative}
-.hdr-contacts{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;margin-top:1.25rem;position:relative}
-.hdr-contacts span{font-size:.875rem;opacity:.85}
-.body{display:grid;grid-template-columns:1fr 280px;gap:0}
-.main{padding:2.25rem 2rem 2.25rem 2.5rem;border-right:1px solid #f1f5f9}
-.side{padding:2.25rem 2rem;background:#f8fafc}
-.sec-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#2563eb;margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
-.sec-title::after{content:'';flex:1;height:2px;background:#dbeafe;border-radius:1px}
-.sec{margin-bottom:2rem}
-.item label{font-size:.7rem;color:#94a3b8;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
-.item p{font-size:.9rem;color:#1e293b;margin-top:.2rem;font-weight:500}
+body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:840px;margin:2rem auto;background:#fff;border-radius:0;box-shadow:0 12px 48px rgba(0,0,0,.14);overflow:hidden}
+.hdr{background:linear-gradient(135deg,#0a1631 0%,#1a3a6b 50%,#2563eb 100%);padding:2.5rem 2.75rem 2rem;color:#fff;position:relative;overflow:hidden;display:flex;align-items:center;gap:2rem}
+.hdr::before{content:'';position:absolute;top:-80px;right:-80px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.06)}
+.hdr::after{content:'';position:absolute;bottom:-50px;left:30%;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.04)}
+.hdr-avatar{width:80px;height:80px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.9rem;font-weight:900;color:#fff;letter-spacing:-.03em;flex-shrink:0;position:relative;z-index:1}
+.hdr-info{flex:1;position:relative;z-index:1}
+.hdr-name{font-size:1.95rem;font-weight:900;letter-spacing:-.03em;line-height:1.1}
+.hdr-role{margin-top:.4rem;font-size:1rem;font-weight:600;opacity:.75;letter-spacing:.01em}
+.hdr-contacts{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1rem}
+.hdr-contacts span{font-size:.82rem;opacity:.8;display:flex;align-items:center;gap:.3rem}
+.body{display:grid;grid-template-columns:1fr 270px;gap:0}
+.main{padding:2rem 2rem 2rem 2.75rem;border-right:1px solid #f0f4f8}
+.side{padding:2rem 1.75rem;background:#f8fafc}
+.sec-title{font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#2563eb;margin-bottom:.85rem;padding-bottom:.45rem;border-bottom:2px solid #dbeafe;display:flex;align-items:center;gap:.5rem}
+.sec{margin-bottom:1.75rem}
 .pills{display:flex;flex-wrap:wrap;gap:.4rem}
-.pill{background:#eff6ff;color:#1d4ed8;border-radius:9999px;padding:.28rem .85rem;font-size:.78rem;font-weight:600;border:1px solid #bfdbfe}
-.pill.lang{background:#f0fdf4;color:#065f46;border-color:#bbf7d0}
-.pill.role{background:#fefce8;color:#854d0e;border-color:#fef08a}
-.badge{display:inline-flex;align-items:center;background:#f8fafc;color:#475569;border-radius:9999px;padding:.35rem 1rem;font-size:.85rem;font-weight:600;border:1px solid #e2e8f0}
-.entry{padding:.9rem 1rem;background:#fff;border-radius:10px;margin-bottom:.85rem;border-left:3px solid #2563eb;box-shadow:0 1px 4px rgba(30,64,175,.07)}
-.entry h4{font-size:.95rem;font-weight:700;color:#0f172a}
-.entry .meta{font-size:.78rem;color:#64748b;margin:.3rem 0 .5rem;font-weight:500}
-.entry p{font-size:.85rem;color:#475569;line-height:1.65}
-.summary-text{font-size:.9rem;color:#334155;line-height:1.75}
-.footer{text-align:center;padding:1.1rem;font-size:.72rem;color:#94a3b8;border-top:1px solid #f1f5f9;letter-spacing:.03em}
-@media print{body{background:#fff}.page{margin:0;border-radius:0;box-shadow:none}}
+.pill{background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:.3rem .75rem;font-size:.76rem;font-weight:700;border:1px solid #bfdbfe}
+.pill.lang{background:#f0fdf4;color:#065f46;border-color:#bbf7d0;display:flex;align-items:center;gap:.3rem}
+.pill.cert{background:#fefce8;color:#713f12;border-color:#fde68a;display:flex;align-items:center;gap:.3rem}
+.pill.role{background:#fdf4ff;color:#6b21a8;border-color:#e9d5ff}
+.badge{display:inline-flex;align-items:center;gap:.35rem;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border-radius:6px;padding:.4rem 1rem;font-size:.82rem;font-weight:700}
+.entry{padding:1rem 1.1rem;background:#fff;border-radius:8px;margin-bottom:.8rem;border-left:3px solid #2563eb;box-shadow:0 1px 6px rgba(30,64,175,.08)}
+.entry h4{font-size:.95rem;font-weight:800;color:#0f172a;line-height:1.3}
+.entry .co{font-size:.85rem;font-weight:700;color:#2563eb;margin-top:.15rem}
+.entry .meta{font-size:.75rem;color:#64748b;margin:.25rem 0 .6rem;font-weight:500;display:flex;align-items:center;gap:.4rem}
+.entry ul{list-style:none;padding:0;margin:0}
+.entry ul li{font-size:.83rem;color:#374151;line-height:1.65;padding-left:1rem;position:relative;margin-bottom:.25rem}
+.entry ul li::before{content:"›";position:absolute;left:0;color:#2563eb;font-weight:800}
+.summary-text{font-size:.88rem;color:#334155;line-height:1.8;border-left:3px solid #2563eb;padding-left:1rem;font-style:italic}
+.edu-entry{background:#f8fafc;border-radius:8px;padding:.85rem 1rem;border:1px solid #e2e8f0}
+.edu-entry h4{font-size:.92rem;font-weight:700;color:#0f172a}
+.edu-entry .meta{font-size:.75rem;color:#64748b;margin-top:.2rem}
+.divider{height:1px;background:#f0f4f8;margin:1.5rem 0}
+.footer{text-align:center;padding:.9rem;font-size:.68rem;color:#94a3b8;border-top:1px solid #f0f4f8;letter-spacing:.04em;background:#f8fafc}
+.score-bar{height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-top:.25rem}
+.score-fill{height:100%;background:linear-gradient(90deg,#2563eb,#1d4ed8);border-radius:3px}
+@media print{body{background:#fff}.page{margin:0;box-shadow:none}}
 </style>
 </head>
 <body>
 <div class="page">
   <div class="hdr">
-    <div class="hdr-name">${data.name}</div>
-    <div class="hdr-sub">${data.experience} &bull; ${data.sector}</div>
-    <div class="hdr-contacts">
-      ${data.email ? `<span>✉ ${data.email}</span>` : ''}
-      ${data.phone ? `<span>📞 ${data.phone}</span>` : ''}
-      ${data.address ? `<span>📍 ${data.address}</span>` : ''}
-      ${data.idNumber ? `<span>🪪 CIN: ${data.idNumber}</span>` : ''}
+    <div class="hdr-avatar">${initials || '?'}</div>
+    <div class="hdr-info">
+      <div class="hdr-name">${data.name || 'Nom Prénom'}</div>
+      <div class="hdr-role">${data.experience} · ${data.sector}</div>
+      <div class="hdr-contacts">
+        ${data.email ? `<span>✉ ${data.email}</span>` : ''}
+        ${data.phone ? `<span>📞 ${data.phone}</span>` : ''}
+        ${data.address ? `<span>📍 ${data.address}</span>` : ''}
+        ${data.idNumber ? `<span>🪪 CIN ${data.idNumber}</span>` : ''}
+      </div>
     </div>
   </div>
+
   <div class="body">
     <div class="main">
-      ${data.summary ? `<div class="sec"><div class="sec-title">Profil Professionnel</div><p class="summary-text">${data.summary}</p></div>` : ''}
+      ${data.summary ? `<div class="sec"><div class="sec-title">✦ Profil Professionnel</div><p class="summary-text">${data.summary}</p></div>` : ''}
+
       ${data.work.some(w => w.company) ? `
       <div class="sec">
-        <div class="sec-title">Expériences Professionnelles</div>
+        <div class="sec-title">✦ Expériences Professionnelles</div>
         ${data.work.filter(w => w.company).map(w => `
         <div class="entry">
           <h4>${w.title || 'Poste'}</h4>
-          <div class="meta">${w.company}${w.startDate ? ' &bull; ' + w.startDate : ''}${w.endDate ? ' – ' + w.endDate : w.startDate ? ' – Présent' : ''}</div>
-          ${w.description ? `<p>${w.description}</p>` : ''}
+          <div class="co">${w.company}</div>
+          <div class="meta">
+            <span>📅</span>
+            <span>${w.startDate || ''}${w.startDate && (w.endDate || 'Présent') ? ' – ' + (w.endDate || 'Présent') : w.endDate || ''}</span>
+          </div>
+          ${w.description ? `<ul>${descToBullets(w.description)}</ul>` : ''}
         </div>`).join('')}
       </div>` : ''}
+
       ${data.education.degree ? `
       <div class="sec">
-        <div class="sec-title">Formation</div>
-        <div class="entry">
+        <div class="sec-title">✦ Formation</div>
+        <div class="edu-entry">
           <h4>${data.education.degree}</h4>
-          <div class="meta">${data.education.institution}${data.education.year ? ' &bull; ' + data.education.year : ''}</div>
+          <div class="meta">${data.education.institution || ''}${data.education.year ? ' · ' + data.education.year : ''}</div>
         </div>
       </div>` : ''}
+
       ${data.targetRoles?.length ? `
       <div class="sec">
-        <div class="sec-title">Postes Recherchés</div>
-        <div class="pills">${data.targetRoles.map(r => `<span class="pill role">${r}</span>`).join('')}</div>
+        <div class="sec-title">✦ Postes Recherchés</div>
+        <div class="pills">${data.targetRoles.map(r => `<span class="pill role">🎯 ${r}</span>`).join('')}</div>
       </div>` : ''}
     </div>
+
     <div class="side">
+      <div class="sec">
+        <div class="sec-title">Niveau</div>
+        <span class="badge">⭐ ${data.experience}</span>
+      </div>
+
       ${data.skills.length ? `
       <div class="sec">
         <div class="sec-title">Compétences</div>
         <div class="pills">${data.skills.map(s => `<span class="pill">${s}</span>`).join('')}</div>
       </div>` : ''}
+
       ${data.languages.length ? `
       <div class="sec">
         <div class="sec-title">Langues</div>
-        <div class="pills">${data.languages.map(l => `<span class="pill lang">${l}</span>`).join('')}</div>
+        <div style="display:flex;flex-direction:column;gap:.4rem">
+          ${data.languages.map(l => `<span class="pill lang">${LANG_FLAGS[l] || '🌐'} ${l}</span>`).join('')}
+        </div>
       </div>` : ''}
+
+      ${data.certifications?.length ? `
       <div class="sec">
-        <div class="sec-title">Niveau d'Expérience</div>
-        <span class="badge">${data.experience}</span>
-      </div>
+        <div class="sec-title">Certifications</div>
+        <div style="display:flex;flex-direction:column;gap:.4rem">
+          ${data.certifications.map(c => `<span class="pill cert">🏅 ${c}</span>`).join('')}
+        </div>
+      </div>` : ''}
     </div>
   </div>
-  <div class="footer">Optimisé par l'Expert RH TalentMap — Marché marocain &bull; ${today}</div>
+
+  <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
 </div>
 </body>
 </html>`;
@@ -164,7 +216,8 @@ function computeMatchCandidate(cv: { skills: string[]; sector: string; experienc
   return Math.min(skillScore + sectorScore + expScore, 100);
 }
 
-async function callAI(messages: { role: string; content: string }[], system: string, task = 'fast', maxTokens = 900) {
+type AIMsgContent = string | Array<{ type: string; [key: string]: unknown }>;
+async function callAI(messages: { role: string; content: AIMsgContent }[], system: string, task = 'fast', maxTokens = 900) {
   const r = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -197,6 +250,8 @@ export default function CandidateUpload() {
   const [work, setWork] = useState<WorkEntry[]>([{ company: '', title: '', startDate: '', endDate: '', description: '' }]);
   const [education, setEducation] = useState({ degree: '', institution: '', year: '' });
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
+  const [certifications, setCertifications] = useState<string[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
 
   // AI state
   const [enhancing, setEnhancing] = useState(false);
@@ -262,6 +317,17 @@ export default function CandidateUpload() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coordJobs, name, skillsKey]);
+
+  // Live CV preview computed from form state
+  const previewHtml = useMemo(() => {
+    if (!user) return '';
+    return generateCVHtml({
+      name, email, phone, address, idNumber: user.idNumber ?? '',
+      summary, skills, languages, experience, sector, work, education,
+      targetRoles, certifications,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications]);
 
   if (!user || user.role !== 'candidate') return null;
 
@@ -360,25 +426,61 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
     const entry: AnalyzedFile = { name: file.name, skills: [], experience: '', summary: '', sector: '', status: 'analyzing' };
     setAnalyzedFiles(prev => [...prev, entry]);
 
-    // Read content (text files only; binary files pass filename + size)
-    let rawContent = '';
+    // Build the AI message content based on file type
+    const isImage = file.type.startsWith('image/');
+    const isPdf   = file.type === 'application/pdf';
+    let msgContent: AIMsgContent;
+
     try {
-      if (file.type === 'text/plain') {
-        rawContent = await file.text();
+      if (isImage) {
+        // Vision: encode image as base64 and send to Claude vision API
+        const dataUrl: string = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = e => res(e.target?.result as string);
+          reader.onerror = rej;
+          reader.readAsDataURL(file);
+        });
+        const base64 = dataUrl.split(',')[1];
+        const mediaType = (file.type || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/webp';
+        msgContent = [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: `Analyse ce CV (image). Extrait toutes les informations visibles: nom, email, téléphone, adresse, expériences professionnelles (entreprise, poste, dates, description), formation, compétences, langues. Retourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"secteur principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[]}` },
+        ];
+      } else if (isPdf) {
+        // PDF document: encode as base64 and send as Anthropic document
+        const arrayBuffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
+        msgContent = [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+          { type: 'text', text: `Analyse ce CV (PDF). Extrait toutes les informations: nom, email, téléphone, adresse, expériences (entreprise, poste, dates, description), formation, compétences, langues. Retourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"secteur principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[]}` },
+        ];
       } else {
-        rawContent = `Fichier: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        // Text file or other: read as text
+        let rawText = '';
+        try { rawText = await file.text(); } catch { rawText = file.name; }
+        msgContent = `Analyse ce CV et extrait les informations:\nFichier: ${file.name}\n${rawText.slice(0, 3000)}`;
       }
     } catch {
-      rawContent = file.name;
+      msgContent = `Fichier: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
     }
 
-    // Step 1 — Extract basic info
-    let extracted: { sector: string; experience: string; skills: string[]; summary: string } | null = null;
+    // Step 1 — Extract full info from CV
+    let extracted: {
+      name?: string; email?: string; phone?: string; address?: string;
+      sector: string; experience: string; skills: string[]; summary: string;
+      work?: WorkEntry[]; education?: { degree: string; institution: string; year: string };
+      languages?: string[];
+    } | null = null;
+
     try {
       const text = await callAI(
-        [{ role: 'user', content: `Analyse ce CV et extrait les informations:\nFichier: ${file.name}\n${rawContent.slice(0, 2000)}` }],
-        `Tu es un expert RH. Extrait les informations du CV et retourne UNIQUEMENT ce JSON (sans markdown):\n{"sector":"secteur professionnel principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases"}\nSi le fichier est binaire ou illisible, fais des estimations intelligentes basées sur le nom du fichier.`,
-        'json'
+        [{ role: 'user', content: msgContent }],
+        `Tu es un expert RH spécialisé dans l'analyse de CV. Extrait les informations du CV et retourne UNIQUEMENT ce JSON (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"secteur professionnel principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[]}`,
+        'json',
+        1200
       );
       const m = text.match(/\{[\s\S]*\}/);
       if (m) extracted = JSON.parse(m[0]);
@@ -389,13 +491,27 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
       return;
     }
 
+    // Auto-fill personal info from vision extraction
+    if (extracted.name && !name) setName(extracted.name);
+    if (extracted.email && !email) setEmail(extracted.email);
+    if (extracted.phone && !phone) setPhone(extracted.phone);
+    if (extracted.address && !address) setAddress(extracted.address);
+    if (extracted.work?.length) setWork(extracted.work.filter(w => w.company || w.title));
+    if (extracted.education?.degree) setEducation(extracted.education);
+    if (extracted.languages?.length) setLanguages(extracted.languages.filter(l => LANGUAGES.includes(l)));
+
     // Update UI: extraction done, now enhancing
     setAnalyzedFiles(prev => prev.map(f =>
-      f.name === file.name ? { ...f, ...extracted, status: 'enhancing' } : f
+      f.name === file.name ? { ...f, sector: extracted!.sector, experience: extracted!.experience, skills: extracted!.skills, summary: extracted!.summary, status: 'enhancing' } : f
     ));
 
     // Step 2 — Enhance for Moroccan market
-    const enhanced = await enhanceCVForMorocco(extracted, rawContent, file.name);
+    const rawContent = typeof msgContent === 'string' ? msgContent : `CV: ${file.name} (analyse visuelle)`;
+    const enhanced = await enhanceCVForMorocco(
+      { sector: extracted.sector, experience: extracted.experience, skills: extracted.skills, summary: extracted.summary },
+      rawContent,
+      file.name
+    );
 
     const finalSkills   = enhanced?.skills?.length   ? enhanced.skills   : extracted.skills;
     const finalSummary  = enhanced?.summary           ? enhanced.summary  : extracted.summary;
@@ -404,7 +520,7 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
     const finalRoles    = enhanced?.targetRoles       || [];
     const finalCerts    = enhanced?.certifications    || [];
 
-    // Mark file as done with full enhanced data
+    // Mark file as done
     setAnalyzedFiles(prev => prev.map(f =>
       f.name === file.name
         ? { ...f, skills: finalSkills, summary: finalSummary, experience: finalExperience, sector: finalSector, targetRoles: finalRoles, certifications: finalCerts, status: 'done' }
@@ -417,6 +533,7 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
     setExperience(capitalize(finalExperience));
     setSector(mapSector(finalSector));
     if (finalRoles.length) setTargetRoles(finalRoles);
+    if (finalCerts.length) setCertifications(finalCerts);
     setAutoEnhanced(true);
     setMode('template');
   }
@@ -521,7 +638,7 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
   function handleDownload() {
     const html = generateCVHtml({
       name, email, phone, address, idNumber: user?.idNumber ?? '',
-      summary, skills, languages, experience, sector, work, education, targetRoles,
+      summary, skills, languages, experience, sector, work, education, targetRoles, certifications,
     });
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -926,29 +1043,100 @@ Analyse et améliore ce CV pour le rendre compétitif sur le marché de l'emploi
                       color: languages.includes(l) ? 'white' : '#065f46',
                       border: `1.5px solid ${languages.includes(l) ? '#065f46' : '#bbf7d0'}`,
                     }}>
-                    {languages.includes(l) ? '✓ ' : ''}{l}
+                    {LANG_FLAGS[l] || ''} {languages.includes(l) ? '✓ ' : ''}{l}
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* Certifications */}
+            <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '0.5rem' }}>
+                🏅 Certifications
+                <span style={{ fontSize: '0.72rem', fontWeight: 400, color: '#6b7280', marginLeft: '0.5rem' }}>recommandées ou obtenues</span>
+              </h2>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.65rem' }}>
+                <input
+                  placeholder="Ex: PMP, CIMA, AWS Solutions Architect…"
+                  id="certInput"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      if (val && !certifications.includes(val)) setCertifications(p => [...p, val]);
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }}
+                  style={{ ...inp, flex: 1 }}
+                />
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('certInput') as HTMLInputElement;
+                    const val = el?.value.trim();
+                    if (val && !certifications.includes(val)) { setCertifications(p => [...p, val]); el.value = ''; }
+                  }}
+                  style={{ padding: '0.6rem 1.1rem', borderRadius: '8px', background: '#2563eb', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
+                  Ajouter
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                {certifications.map(c => (
+                  <span key={c} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fefce8', color: '#713f12', borderRadius: '9999px', padding: '0.28rem 0.75rem', fontSize: '0.8rem', fontWeight: 600, border: '1px solid #fde68a' }}>
+                    🏅 {c}
+                    <button onClick={() => setCertifications(p => p.filter(x => x !== c))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: '0.9rem', lineHeight: 1 }}>×</button>
+                  </span>
+                ))}
+                {certifications.length === 0 && (
+                  <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>Aucune certification ajoutée. Tapez et appuyez sur Entrée pour en ajouter.</span>
+                )}
+              </div>
+            </div>
+
             {/* Actions */}
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', padding: '1.25rem 1.5rem', background: 'white', borderRadius: '14px', border: '1.5px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', padding: '1.25rem 1.5rem', background: 'white', borderRadius: '14px', border: '1.5px solid #e5e7eb' }}>
               <button
                 onClick={handleDownload}
                 style={{ padding: '0.75rem 1.75rem', borderRadius: '9px', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: 'white', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 ⬇ Télécharger le CV (HTML)
               </button>
               <button
+                onClick={() => setShowPreview(p => !p)}
+                style={{ padding: '0.75rem 1.4rem', borderRadius: '9px', border: `1.5px solid ${showPreview ? '#2563eb' : '#e5e7eb'}`, background: showPreview ? '#eff6ff' : 'white', color: showPreview ? '#1d4ed8' : '#374151', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                👁 {showPreview ? 'Masquer l\'aperçu' : 'Aperçu CV'}
+              </button>
+              <button
                 onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 3000); }}
-                style={{ padding: '0.75rem 1.5rem', borderRadius: '9px', border: '1.5px solid #2563eb', background: 'white', color: '#2563eb', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer' }}>
+                style={{ padding: '0.75rem 1.4rem', borderRadius: '9px', border: '1.5px solid #10b981', background: 'white', color: '#059669', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer' }}>
                 💾 Sauvegarder
               </button>
               {saved && <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.875rem' }}>✓ Profil sauvegardé !</span>}
-              <span style={{ marginLeft: 'auto', fontSize: '0.78rem', color: '#9ca3af' }}>
-                Ouvrez le fichier .html dans votre navigateur, puis Ctrl+P → Enregistrer en PDF
+              <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#9ca3af' }}>
+                Ctrl+P → Enregistrer en PDF
               </span>
             </div>
+
+            {/* Live CV Preview */}
+            {showPreview && (
+              <div style={{ borderRadius: '14px', border: '1.5px solid #bfdbfe', overflow: 'hidden', background: 'white' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.25rem', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: 'white' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>👁 Aperçu CV en direct</span>
+                  <button
+                    onClick={() => {
+                      const w = window.open('', '_blank');
+                      if (w) { w.document.write(previewHtml); w.document.close(); }
+                    }}
+                    style={{ padding: '0.35rem 0.9rem', borderRadius: '7px', border: '1.5px solid rgba(255,255,255,.35)', background: 'transparent', color: 'white', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
+                    ↗ Plein écran
+                  </button>
+                </div>
+                <iframe
+                  srcDoc={previewHtml}
+                  title="Aperçu CV"
+                  style={{ width: '100%', height: '900px', border: 'none', display: 'block' }}
+                  sandbox="allow-same-origin"
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
