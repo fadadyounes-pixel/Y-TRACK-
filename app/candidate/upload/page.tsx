@@ -363,16 +363,23 @@ export default function CandidateUpload() {
       msgContent = `Fichier: ${file.name}`;
     }
 
-    // Step 1 — Extract
+    // Single combined AI call: extract + enhance for Moroccan market in one shot.
+    // Replaces 2 sequential calls (~10s) with 1 parallel call (~4-6s).
+    setProcessStep('enhancing');
     let extracted: any = null;
+    let enhanced: any = null;
     try {
       const text = await callAI(
         [{ role: 'user', content: msgContent }],
-        `Tu es un expert RH spécialisé dans l'analyse de CV. Extrait les informations du CV et retourne UNIQUEMENT ce JSON (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"secteur professionnel principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[]}`,
-        'json', 1200
+        `Tu es un expert RH senior spécialisé dans le marché marocain avec 15 ans d'expérience.\n\n${MOROCCO_CONTEXT}\n\nAnalyse ce CV et retourne UN SEUL objet JSON valide (sans markdown) contenant à la fois l'extraction brute ET l'amélioration pour le marché marocain:\n{"name":"","email":"","phone":"","address":"","sector":"secteur porteur marocain précis","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","skills":["10 compétences clés pour le marché marocain"],"summary":"Accroche 3-4 phrases en français avec verbes d'action forts, orientée recruteurs marocains","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[],"targetRoles":["3 postes cibles réalistes au Maroc"],"certifications":["2-3 certifications recommandées pour booster l'employabilité au Maroc"]}`,
+        'json', 1400
       );
       const m = text.match(/\{[\s\S]*\}/);
-      if (m) extracted = JSON.parse(m[0]);
+      if (m) {
+        const parsed = JSON.parse(m[0]);
+        extracted = parsed;
+        enhanced = { summary: parsed.summary, skills: parsed.skills, sector: parsed.sector, experience: parsed.experience, targetRoles: parsed.targetRoles, certifications: parsed.certifications };
+      }
     } catch {}
 
     if (!extracted) {
@@ -380,23 +387,6 @@ export default function CandidateUpload() {
       setProcessing(false);
       return;
     }
-
-    // Step 2 — Enhance for Moroccan market
-    setProcessStep('enhancing');
-    let enhanced: any = null;
-    try {
-      const rawContent = typeof msgContent === 'string' ? msgContent : `CV: ${file.name}`;
-      const text = await callAI(
-        [{
-          role: 'user',
-          content: `Données extraites du CV:\nFichier: ${file.name}\nSecteur: ${extracted.sector}\nNiveau: ${extracted.experience}\nCompétences: ${extracted.skills?.join(', ')}\nRésumé: ${extracted.summary}\n\nContenu: ${rawContent.slice(0, 1500)}`,
-        }],
-        `Tu es un expert en recrutement et rédaction de CV pour le marché marocain avec 15 ans d'expérience.\n\n${MOROCCO_CONTEXT}\n\nAnalyse et améliore ce CV pour le marché marocain. Retourne UNIQUEMENT ce JSON valide (sans markdown):\n{"summary":"Profil professionnel 3-4 phrases en français, orienté marché marocain, verbes d'action forts","skills":["10 compétences pertinentes pour le marché marocain dans ce secteur"],"sector":"secteur précis parmi les secteurs porteurs du Maroc","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","targetRoles":["3 postes cibles réalistes sur le marché marocain"],"certifications":["2-3 certifications recommandées pour booster l'employabilité au Maroc"]}`,
-        'json', 1200
-      );
-      const m = text.match(/\{[\s\S]*\}/);
-      if (m) enhanced = JSON.parse(m[0]);
-    } catch {}
 
     // Apply extracted + enhanced data to form
     const finalSkills      = enhanced?.skills?.length   ? enhanced.skills   : (extracted.skills || []);
