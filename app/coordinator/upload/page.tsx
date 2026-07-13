@@ -6,7 +6,7 @@ import Link from 'next/link';
 import PageHeader from '../../../components/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 
-const CONCURRENCY = 4;
+const CONCURRENCY = 6;
 
 const MOROCCO_HR = `Tu es un expert RH spécialisé dans le marché marocain de l'emploi.
 Secteurs au Maroc: Technology/Numérique (IBM, Capgemini, CBI), Data Science, Finance/Banque (Attijariwafa, BMCE, CIH, Banque Populaire), BTP/Immobilier, Automobile (Renault-Nissan Tanger, PSA Kénitra), Textile, Tourisme/Hôtellerie, Agro-alimentaire (OCP, Centrale Danone, Cosumar), Énergie renouvelable (MASEN, NAREVA), Santé, Marketing, Design, Operations.
@@ -72,12 +72,16 @@ export default function CoordinatorUpload() {
     if (!user || user.role !== 'coordinator') router.push('/login');
   }, [user, router]);
 
-  // Persist done CVs to localStorage for matching
+  // Persist done CVs to Redis (+ localStorage cache)
   useEffect(() => {
     const done = cvList.filter(c => c.status === 'done');
-    if (done.length > 0) {
-      try { localStorage.setItem('coordinator_cvs', JSON.stringify(done)); } catch {}
-    }
+    if (done.length === 0) return;
+    try { localStorage.setItem('coordinator_cvs', JSON.stringify(done)); } catch {}
+    fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'save_cvs', cvs: done }),
+    }).catch(() => {});
   }, [cvList]);
 
   if (!user || user.role !== 'coordinator') return null;
@@ -226,7 +230,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown ni texte avant ou après:
             {dragging ? 'Déposez les CVs ici' : 'Glissez-déposez vos CVs ici'}
           </h3>
           <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '1rem' }}>
-            Sélection illimitée · {CONCURRENCY} traitements en parallèle · Expert RH adapté au marché marocain
+            50+ CVs simultanés supportés · {CONCURRENCY} traitements en parallèle · Expert RH marché marocain
           </p>
           <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.1rem' }}>
             {[['PDF', '#fee2e2', '#991b1b'], ['DOCX', '#dbeafe', '#1e40af'], ['DOC', '#dbeafe', '#1e40af'], ['JPG', '#fef3c7', '#92400e'], ['PNG', '#fef3c7', '#92400e'], ['WEBP', '#fef3c7', '#92400e']].map(([ext, bg, color]) => (

@@ -42,7 +42,6 @@ const TX = {
   fr: {
     tagline: 'Votre carrière, cartographiée.',
     label: 'Code d\'accès',
-    hint: 'Admin: ADMIN001 · Conseiller: COORD001 · Candidat: CAN001',
     error: 'Code non reconnu. Vérifiez et réessayez.',
     cont: 'Continuer →',
     loading: 'Connexion…',
@@ -50,7 +49,6 @@ const TX = {
   en: {
     tagline: 'Your career, mapped.',
     label: 'Access Code',
-    hint: 'Admin: ADMIN001 · Advisor: COORD001 · Candidate: CAN001',
     error: 'Unrecognized code. Please check and try again.',
     cont: 'Continue →',
     loading: 'Signing in…',
@@ -259,9 +257,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Hint */}
+        {/* Contact hint */}
         <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center', lineHeight: 1.6 }}>
-          {t.hint}
+          {lang === 'fr' ? 'Contactez votre conseiller pour obtenir votre code.' : 'Contact your advisor to get your access code.'}
         </p>
       </div>
     </div>

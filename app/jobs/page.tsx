@@ -39,24 +39,31 @@ export default function JobsPage() {
   const [sectorFilter, setSectorFilter] = useState('All');
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('coordinator_jobs');
-      if (!stored) return;
-      const parsed: any[] = JSON.parse(stored);
-      if (!parsed.length) return;
-      setJobs(parsed.map(j => ({
-        id: j.id ?? Date.now(),
-        title: j.title ?? '',
-        company: j.company ?? '',
-        sector: j.sector ?? 'Other',
-        experience: j.experience ?? 'Mid-Level',
-        skills: Array.isArray(j.skills) ? j.skills : [],
-        candidates: 0,
-        topScore: 0,
-        posted: j.createdAt ?? 'Récemment',
-        status: j.status === 'Open' ? 'active' : 'closed',
-      })));
-    } catch {}
+    const mapJob = (j: any) => ({
+      id: j.id ?? Date.now(),
+      title: j.title ?? '',
+      company: j.company ?? '',
+      sector: j.sector ?? 'Other',
+      experience: j.experience ?? 'Mid-Level',
+      skills: Array.isArray(j.skills) ? j.skills : [],
+      candidates: 0,
+      topScore: 0,
+      posted: j.createdAt ?? 'Récemment',
+      status: j.status === 'Open' ? 'active' : 'closed',
+    });
+    fetch('/api/sheets')
+      .then(r => r.json())
+      .then(data => {
+        if (data.jobs?.length) setJobs(data.jobs.map(mapJob));
+      })
+      .catch(() => {
+        try {
+          const stored = localStorage.getItem('coordinator_jobs');
+          if (!stored) return;
+          const parsed: any[] = JSON.parse(stored);
+          if (parsed.length) setJobs(parsed.map(mapJob));
+        } catch {}
+      });
   }, []);
   const [expFilter, setExpFilter] = useState('All');
   const [showForm, setShowForm] = useState(false);

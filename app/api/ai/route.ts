@@ -4,7 +4,8 @@ import { rafiq } from "./providers";
 export async function POST(request: NextRequest) {
   try {
     const { messages, system, max_tokens = 1200, task = "dialogue" } = await request.json() as {
-      messages: { role: string; content: string }[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      messages: any[];
       system?: string;
       max_tokens?: number;
       task?: "json" | "dialogue" | "fast";

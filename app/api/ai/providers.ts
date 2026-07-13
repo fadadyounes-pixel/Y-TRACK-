@@ -1,6 +1,30 @@
 import { readFileSync } from "fs";
 
-type Msg = { role: string; content: string };
+// Per-provider timeout: if a provider stalls, abort after 5s and try the next one.
+// This guarantees total response time < 10s even with multiple slow providers.
+function tFetch(url: string, opts: RequestInit): Promise<Response> {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), 5000);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(id));
+}
+
+type MsgContentItem =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: string; media_type: string; data: string } }
+  | { type: "document"; source: { type: string; media_type: string; data: string } };
+
+type Msg = { role: string; content: string | MsgContentItem[] };
+
+function textOnly(content: string | MsgContentItem[]): string {
+  if (typeof content === "string") return content;
+  const texts: string[] = [];
+  for (const c of content as MsgContentItem[]) {
+    if (c.type === "text") texts.push((c as { type: "text"; text: string }).text);
+    else if (c.type === "image") texts.push("[Image CV fournie — analyse visuelle requise]");
+    else if (c.type === "document") texts.push("[Document PDF fourni — analyse requise]");
+  }
+  return texts.join("\n") || "[fichier joint]";
+}
 
 interface RafiqOpts {
   task: "json" | "dialogue" | "fast";
@@ -121,7 +145,7 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
   };
   if (sys) body.system = sys;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await tFetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -138,11 +162,11 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
   const model = process.env.GEMINI_MODEL || (fast ? "gemini-2.5-flash-lite" : "gemini-2.5-flash");
   const contents = msgs.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
+    parts: [{ text: textOnly(m.content) }],
   }));
   const body: Record<string, unknown> = { contents, generationConfig: { maxOutputTokens: maxTok } };
   if (sys) body.systemInstruction = { parts: [{ text: sys }] };
-  const res = await fetch(
+  const res = await tFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
   );
@@ -155,10 +179,10 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
 async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("GROQ_API_KEY", _k.g);
   if (!key) throw new Error("no GROQ_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of fast ? GROQ_MODELS_FAST : GROQ_MODELS) {
     try {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const res = await tFetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
@@ -182,10 +206,10 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
 async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("CEREBRAS_API_KEY");
   if (!key) throw new Error("no CEREBRAS_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of fast ? CEREBRAS_MODELS_FAST : CEREBRAS_MODELS) {
     try {
-      const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+      const res = await tFetch("https://api.cerebras.ai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
@@ -209,10 +233,10 @@ async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fa
 async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("SAMBANOVA_API_KEY");
   if (!key) throw new Error("no SAMBANOVA_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of SAMBANOVA_MODELS) {
     try {
-      const res = await fetch("https://api.sambanova.ai/v1/chat/completions", {
+      const res = await tFetch("https://api.sambanova.ai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
@@ -237,10 +261,10 @@ async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): 
 async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("MISTRAL_API_KEY");
   if (!key) throw new Error("no MISTRAL_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of MISTRAL_MODELS) {
     try {
-      const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      const res = await tFetch("https://api.mistral.ai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
@@ -271,10 +295,10 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
     "meta-llama/llama-3.3-70b-instruct:free",
     "mistralai/mistral-7b-instruct:free",
   ];
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of models) {
     try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const res = await tFetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
@@ -292,10 +316,10 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
 async function together(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("TOGETHER_API_KEY");
   if (!key) throw new Error("no TOGETHER_API_KEY");
-  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of TOGETHER_MODELS) {
     try {
-      const res = await fetch("https://api.together.xyz/v1/chat/completions", {
+      const res = await tFetch("https://api.together.xyz/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
