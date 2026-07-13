@@ -70,7 +70,7 @@ function getScoreColors(score: number): { bg: string; color: string; label: stri
   return { bg: '#fee2e2', color: '#991b1b', label: 'Poor' };
 }
 
-function downloadCV(
+function downloadCVasPDF(
   name: string,
   email: string,
   phone: string,
@@ -80,81 +80,78 @@ function downloadCV(
   sector: string,
   summary: string,
 ) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials2 = name.split(' ').map((w: string) => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
+  const skillsHtml = skills.map(s =>
+    `<span style="display:inline-block;padding:4px 12px;margin:3px 3px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:600;border:1px solid #bfdbfe;">${s}</span>`
+  ).join('');
+
   const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${name} — CV</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f9fafb; color: #1f2937; }
-    .wrapper { max-width: 800px; margin: 2rem auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
-    .header { background: linear-gradient(135deg, #0a1f5c, #2563eb); padding: 2.5rem 2rem; color: white; }
-    .header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; }
-    .header p { margin-top: 0.35rem; opacity: 0.75; font-size: 0.95rem; }
-    .body { padding: 2rem; }
-    .section { margin-bottom: 1.75rem; }
-    .section-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #2563eb; border-bottom: 2px solid #dbeafe; padding-bottom: 0.4rem; margin-bottom: 1rem; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-    .info-item label { font-size: 0.75rem; color: #6b7280; font-weight: 600; }
-    .info-item p { font-size: 0.95rem; color: #111827; margin-top: 0.15rem; }
-    .summary-text { color: #374151; line-height: 1.7; font-size: 0.95rem; }
-    .skills-wrap { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .skill-pill { background: #eff6ff; color: #1d4ed8; border-radius: 9999px; padding: 0.3rem 0.9rem; font-size: 0.82rem; font-weight: 600; }
-    .exp-badge { display: inline-block; background: #f3f4f6; color: #374151; border-radius: 9999px; padding: 0.35rem 1rem; font-size: 0.85rem; font-weight: 600; }
-    .footer { text-align: center; padding: 1rem; font-size: 0.75rem; color: #9ca3af; border-top: 1px solid #f3f4f6; }
-  </style>
+<meta charset="UTF-8"/>
+<title>${name} — CV</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:760px;margin:0 auto;background:#fff}
+.hdr{background:linear-gradient(135deg,#0a1631 0%,#1a3a6b 50%,#2563eb 100%);padding:2.5rem 2.75rem 2rem;color:#fff;display:flex;align-items:center;gap:2rem}
+.avatar{width:80px;height:80px;border-radius:50%;border:3px solid rgba(255,255,255,.45);background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:900;color:#fff;flex-shrink:0}
+.hdr-info{flex:1}
+.hdr-name{font-size:1.85rem;font-weight:900;letter-spacing:-.03em;line-height:1.1}
+.hdr-role{margin-top:.4rem;font-size:.95rem;font-weight:600;opacity:.75}
+.contacts{display:flex;flex-wrap:wrap;gap:.4rem 1.5rem;margin-top:1rem}
+.contacts span{font-size:.8rem;opacity:.8}
+.body{padding:2rem 2.75rem}
+.section{margin-bottom:1.75rem}
+.sec-title{font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#2563eb;margin-bottom:.75rem;padding-bottom:.4rem;border-bottom:2px solid #dbeafe}
+.summary-text{font-size:.9rem;color:#334155;line-height:1.8;border-left:3px solid #2563eb;padding-left:1rem;font-style:italic;background:#f8faff;padding:12px 12px 12px 16px;border-radius:0 8px 8px 0}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.info-box{background:#f9fafb;border:1px solid #f0f4f8;border-radius:8px;padding:10px 12px}
+.info-box .lbl{font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:2px}
+.info-box .val{font-size:13px;color:#111;font-weight:500}
+.footer{text-align:center;padding:.9rem;font-size:.68rem;color:#94a3b8;border-top:1px solid #f0f4f8;background:#f8fafc;letter-spacing:.04em}
+@media print{body{background:#fff}.page{margin:0;box-shadow:none}@page{margin:1cm}}
+</style>
 </head>
 <body>
-  <div class="wrapper">
-    <div class="header">
-      <h1>${name}</h1>
-      <p>${experience} &bull; ${sector}</p>
-    </div>
-    <div class="body">
-      <div class="section">
-        <div class="section-title">Personal Information</div>
-        <div class="info-grid">
-          <div class="info-item"><label>Full Name</label><p>${name}</p></div>
-          <div class="info-item"><label>ID Number</label><p>${idNumber}</p></div>
-          <div class="info-item"><label>Email</label><p>${email}</p></div>
-          <div class="info-item"><label>Phone</label><p>${phone}</p></div>
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-title">Professional Summary</div>
-        <p class="summary-text">${summary}</p>
-      </div>
-      <div class="section">
-        <div class="section-title">Skills</div>
-        <div class="skills-wrap">
-          ${skills.map(s => `<span class="skill-pill">${s}</span>`).join('')}
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-title">Experience Level</div>
-        <span class="exp-badge">${experience}</span>
-      </div>
-      <div class="section">
-        <div class="section-title">Sector</div>
-        <span class="exp-badge">${sector}</span>
+<div class="page">
+  <div class="hdr">
+    <div class="avatar">${initials2}</div>
+    <div class="hdr-info">
+      <div class="hdr-name">${name}</div>
+      <div class="hdr-role">${experience} · ${sector}</div>
+      <div class="contacts">
+        ${email ? `<span>✉ ${email}</span>` : ''}
+        ${phone ? `<span>📞 ${phone}</span>` : ''}
+        ${idNumber ? `<span>🪪 CIN ${idNumber}</span>` : ''}
       </div>
     </div>
-    <div class="footer">Generated by TalentMap &bull; ${new Date().toLocaleDateString('en-GB')}</div>
   </div>
+  <div class="body">
+    ${summary ? `<div class="section"><div class="sec-title">✦ Profil Professionnel</div><div class="summary-text">${summary}</div></div>` : ''}
+    ${(email || phone) ? `
+    <div class="section">
+      <div class="sec-title">✦ Contact</div>
+      <div class="info-grid">
+        ${email ? `<div class="info-box"><div class="lbl">Email</div><div class="val">${email}</div></div>` : ''}
+        ${phone ? `<div class="info-box"><div class="lbl">Téléphone</div><div class="val">${phone}</div></div>` : ''}
+        ${idNumber ? `<div class="info-box"><div class="lbl">CIN</div><div class="val">${idNumber}</div></div>` : ''}
+      </div>
+    </div>` : ''}
+    ${skills.length ? `<div class="section"><div class="sec-title">✦ Compétences</div><div style="margin-top:4px">${skillsHtml}</div></div>` : ''}
+  </div>
+  <div class="footer">Généré par TalentMap · ${today}</div>
+</div>
 </body>
 </html>`;
 
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${name.replace(/\s+/g, '_')}_CV.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const win = window.open('', '_blank');
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 500);
 }
 
 export default function CandidateDashboard() {
@@ -434,7 +431,7 @@ export default function CandidateDashboard() {
             className="btn-primary"
             style={{ background: '#2563eb' }}
             onClick={() =>
-              downloadCV(
+              downloadCVasPDF(
                 user.name,
                 user.email,
                 profile.phone,
