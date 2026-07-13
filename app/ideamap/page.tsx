@@ -3464,10 +3464,10 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                         ``,
                         eAr?"★ أسئلة اللجنة المتوقعة + إجاباتك المقترحة":eEn?"★ EXPECTED JURY QUESTIONS + SUGGESTED ANSWERS":"★ QUESTIONS JURY PROBABLES + RÉPONSES SUGGÉRÉES",
                         `${"─".repeat(40)}`,
-                        ...q5.flatMap(([q,a]: [string,string]) => [``,q,``,a,``]),
+                        ...q5.flatMap((pair) => { const [q,a] = pair as [string,string]; return [``,q,``,a,``]; }),
                         `${"═".repeat(60)}`,
                         eAr?"💡 نصيحة أخيرة: تحدث بثقة، استشهد بالأرقام الدقيقة، وأظهر شغفك بمشروعك.":eEn?"💡 Final tip: Speak confidently, cite exact numbers, and show your passion for the project.":"💡 Conseil final: Parlez avec confiance, citez vos chiffres précis, et montrez votre passion.",
-                        eAr?"منصة IdeaMap — مبادرة وطنية للتنمية البشرية المرحلة 3":"IdeaMap Platform — INDH Phase 3 Morocco":"Plateforme IdeaMap — INDH Phase 3 Maroc",
+                        eAr?"منصة IdeaMap — مبادرة وطنية للتنمية البشرية المرحلة 3":eEn?"IdeaMap Platform — INDH Phase 3 Morocco":"Plateforme IdeaMap — INDH Phase 3 Maroc",
                       ];
                       dlText(lines.join("\n"), `FicheJury_${proj?.projectName||"IdeaMap"}.txt`);
                     }},
