@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 
-const _d = (s: string) => Buffer.from(s, "base64").toString("utf8");
-const _ru = _d("aHR0cHM6Ly9raW5kLXJvYmluLTE1Nzg3My51cHN0YXNoLmlv");
-const _rt = _d([
-  "Z1FBQUFBQUFBbWl4QUFJZ2NERXdaak",
-  "k0WlRaak1HTmlPVFEwTkdFeFlqUmtO",
-  "bVk1TmpFek9UQmlaV1ZtTUE=",
-].join(""));
-
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || _ru,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || _rt,
+  url: process.env.UPSTASH_REDIS_REST_URL || "",
+  token: process.env.UPSTASH_REDIS_REST_TOKEN || "",
 });
+
+const RE_HOLDER = /^[A-Z]{2}\d{3,}$/;
+const RE_COORD  = /^@[A-Za-z]{2,}COD$/i;
 
 /* ── GET — read all collections ─────────────────────── */
 export async function GET() {
@@ -42,6 +37,9 @@ export async function POST(req: NextRequest) {
     /* IdeaMap: upsert single holder */
     if (body.type === "save_holder") {
       const holder = body.holder;
+      if (!holder || typeof holder.id !== "string" || !RE_HOLDER.test(holder.id)) {
+        return NextResponse.json({ ok: false, error: "Invalid holder" }, { status: 400 });
+      }
       const existing = await redis.get<any[]>("idm_holders") || [];
       const idx = existing.findIndex((h: any) => h.id === holder.id);
       const updated = idx >= 0
@@ -53,7 +51,11 @@ export async function POST(req: NextRequest) {
 
     /* IdeaMap: replace coordinator list */
     if (body.type === "save_coords") {
-      await redis.set("idm_coords", body.coords);
+      const coords = body.coords;
+      if (!Array.isArray(coords) || coords.some((c: unknown) => typeof c !== "string" || !RE_COORD.test(c))) {
+        return NextResponse.json({ ok: false, error: "Invalid coords" }, { status: 400 });
+      }
+      await redis.set("idm_coords", coords);
       return NextResponse.json({ ok: true });
     }
 

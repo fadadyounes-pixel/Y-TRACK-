@@ -33,17 +33,6 @@ interface RafiqOpts {
   max_tokens?: number;
 }
 
-// Server-side bootstrap: env vars take priority; fallback activates only when unset.
-// TODO: set GROQ_API_KEY in Vercel environment variables, then remove _d/_k below.
-const _d = (s: string) => Buffer.from(s, "base64").toString("utf8");
-const _k = {
-  g: _d([
-    "Z3NrX0VKUUFsYWNrcWsx",
-    "WVhMaExTcjJqV0dkeWIz",
-    "Rlkzb3I1aWI3U3ZvVUQ3",
-    "YUlCQ29FcVJlRWQ=",
-  ].join("")),
-};
 const ev = (k: string, fb = "") => process.env[k] || fb;
 
 // Groq free-tier models — each has INDEPENDENT rate limits (30 RPM each).
@@ -82,7 +71,8 @@ const CEREBRAS_MODELS_FAST = [
   "qwen3-32b",
 ];
 
-// SambaNova: RDU hardware — ~700 tok/s, free tier with $5 starter credit.
+// SambaNova: RDU hardware — ~700 tok/s, permanently free inference tier.
+// Sign up gets a $5 welcome credit at no cost (no card required ever).
 // Excellent for long document analysis (128k context on Llama 4 Maverick).
 // Sign up free (no card): https://cloud.sambanova.ai
 // Set env var: SAMBANOVA_API_KEY
@@ -103,6 +93,17 @@ const MISTRAL_MODELS = [
   "open-mixtral-8x7b",        // reliable fallback
 ];
 
+// SiliconFlow: best free Arabic/French inference in 2026.
+// Qwen3-8B is top-3 Arabic LLM; permanently free with no credit card.
+// 3 models are free forever (no rate-limit concern): Qwen3-8B, DeepSeek-R1-Distill-Qwen-7B.
+// Sign up free (no card): https://cloud.siliconflow.cn/en/sign_up
+// Set env var: SILICONFLOW_API_KEY
+const SILICONFLOW_MODELS = [
+  "Qwen/Qwen3-8B",                                // #1 free Arabic/French — 128k ctx
+  "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",      // strong reasoning, free forever
+  "Qwen/Qwen2.5-7B-Instruct",                     // reliable multilingual fallback
+];
+
 // Together AI free models (no key required for free tier variants)
 const TOGETHER_MODELS = [
   "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
@@ -110,6 +111,20 @@ const TOGETHER_MODELS = [
 ];
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// Strip chain-of-thought blocks emitted by some models (Qwen3, DeepSeek-R1).
+// <think>...</think> tags and ```thinking fences confuse the BRIEF/QUESTION parser.
+function stripThinking(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/```thinking[\s\S]*?```/gi, "")
+    .trim();
+}
+
+// Per-request fetch timeout: prevents a stalled TCP connection from blocking
+// the entire cascade indefinitely. AbortError is caught by each provider's
+// try/catch which continues to the next model.
+const PROVIDER_TIMEOUT_MS = 28_000;
 
 // Anthropic Claude — reads ANTHROPIC_API_KEY env var, then falls back to the
 // Claude Code session bearer token (available in remote execution environments).
@@ -149,6 +164,7 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
     method: "POST",
     headers,
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   if (res.status === 401) throw new Error("Anthropic 401");
   if (!res.ok) throw new Error(`Anthropic ${res.status}`);
@@ -168,7 +184,7 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
   if (sys) body.systemInstruction = { parts: [{ text: sys }] };
   const res = await tFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) }
   );
   if (!res.ok) throw new Error(`Gemini ${res.status}`);
   const d = await res.json();
@@ -177,7 +193,7 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
 
 // Groq: tries every free model in sequence until one succeeds.
 async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
-  const key = ev("GROQ_API_KEY", _k.g);
+  const key = ev("GROQ_API_KEY");
   if (!key) throw new Error("no GROQ_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   for (const model of fast ? GROQ_MODELS_FAST : GROQ_MODELS) {
@@ -186,6 +202,7 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Groq 401");
@@ -213,6 +230,7 @@ async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fa
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Cerebras 401");
@@ -240,6 +258,7 @@ async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): 
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("SambaNova 401");
@@ -268,6 +287,7 @@ async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Pr
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Mistral 401");
@@ -302,6 +322,7 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (!res.ok) continue;
@@ -323,6 +344,7 @@ async function together(msgs: Msg[], sys: string | undefined, maxTok: number): P
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       });
       if (res.status === 429) continue;
       if (!res.ok) continue;
@@ -334,9 +356,38 @@ async function together(msgs: Msg[], sys: string | undefined, maxTok: number): P
   throw new Error("Together exhausted");
 }
 
+// SiliconFlow: permanently free Qwen3-8B (top-3 Arabic LLM) + DeepSeek, no credit card.
+// Best free option for Arabic/French/Darija INDH content in 2026.
+async function siliconflow(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = ev("SILICONFLOW_API_KEY");
+  if (!key) throw new Error("no SILICONFLOW_API_KEY");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs];
+  for (const model of SILICONFLOW_MODELS) {
+    try {
+      const res = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("SiliconFlow 401");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401")) throw e;
+      continue;
+    }
+  }
+  throw new Error("SiliconFlow all models exhausted");
+}
+
 async function tryOnce(fn: typeof groq, msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string | null> {
   try {
-    const text = await fn(msgs, sys, maxTok);
+    const raw = await fn(msgs, sys, maxTok);
+    const text = raw ? stripThinking(raw) : null;
     return text || null;
   } catch {
     return null;
@@ -356,6 +407,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
         (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, true),
         (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
         sambanova,
+        siliconflow,
         (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, true),
         anthropic,
       ]) {
@@ -367,11 +419,13 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
   }
 
   // Standard path — Anthropic first for quality, then Cerebras (speed),
-  // then Groq, SambaNova, Mistral (best French/Arabic), Together, Gemini, OpenRouter.
+  // then Groq, SambaNova, Mistral + SiliconFlow (best French/Arabic/Darija),
+  // Together, Gemini, OpenRouter.
   // JSON tasks put Gemini second (reliable structured output).
+  // SiliconFlow has free Qwen3-8B — top-3 Arabic LLM, permanently free, no card.
   const order = task === "json"
-    ? [anthropic, gemini, cerebras, sambanova, mistral, groq, together, openrouter]
-    : [anthropic, cerebras, groq, sambanova, mistral, together, gemini, openrouter];
+    ? [anthropic, gemini, cerebras, sambanova, mistral, siliconflow, groq, together, openrouter]
+    : [anthropic, cerebras, groq, sambanova, mistral, siliconflow, together, gemini, openrouter];
 
   // Two full sweeps: first sweep is instant, second sweep waits 1.2s
   for (let sweep = 0; sweep < 2; sweep++) {
