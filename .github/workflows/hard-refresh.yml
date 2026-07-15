@@ -1,6 +1,9 @@
 name: Hard Refresh Production
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -17,9 +20,9 @@ jobs:
             "https://www.talentmaponline.org")
           echo "HTTP status: $STATUS"
           if [ "$STATUS" = "200" ]; then
-            echo "✅ Hard refresh successful — production is live and serving fresh content"
+            echo "Hard refresh successful — production is live and serving fresh content"
           else
-            echo "❌ Unexpected status: $STATUS"
+            echo "Unexpected status: $STATUS"
             exit 1
           fi
 
@@ -33,7 +36,7 @@ jobs:
             "https://www.ideamaponline.org/ideamap")
           echo "HTTP status: $STATUS"
           if [ "$STATUS" = "200" ]; then
-            echo "✅ Hard refresh successful — ideamap production is live"
+            echo "Hard refresh successful — ideamap production is live"
           else
-            echo "⚠️  Status: $STATUS"
+            echo "Status: $STATUS"
           fi
