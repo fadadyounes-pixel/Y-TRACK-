@@ -444,19 +444,16 @@ export default function CoordinatorDashboard() {
   /* ── Top matches for overview ── */
   const topMatches = useMemo(() => {
     const openJobs = jobs.filter(j => j.status === 'Open' || j.status === 'open');
-    return cvs
-      .filter(c => c.status === 'done')
-      .map(cv => {
-        let bestScore = 0, bestJob: Job | null = null, bestMatch: MatchResult | null = null;
-        openJobs.forEach(job => {
-          const m = computeMatch(cv, job);
-          if (m.total > bestScore) { bestScore = m.total; bestJob = job; bestMatch = m; }
-        });
-        return { cv, bestJob, bestMatch, bestScore };
-      })
-      .filter(x => x.bestJob !== null)
-      .sort((a, b) => b.bestScore - a.bestScore)
-      .slice(0, 8);
+    const result: { cv: CV; bestJob: Job; bestMatch: MatchResult; bestScore: number }[] = [];
+    cvs.filter(c => c.status === 'done').forEach(cv => {
+      let bestScore = 0, bestJob: Job | null = null, bestMatch: MatchResult | null = null;
+      openJobs.forEach(job => {
+        const m = computeMatch(cv, job);
+        if (m.total > bestScore) { bestScore = m.total; bestJob = job; bestMatch = m; }
+      });
+      if (bestJob && bestMatch) result.push({ cv, bestJob, bestMatch, bestScore });
+    });
+    return result.sort((a, b) => b.bestScore - a.bestScore).slice(0, 8);
   }, [cvs, jobs]);
 
   /* ── Candidates filters ── */
