@@ -2086,7 +2086,7 @@ SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}]`,
     const questionArc: Record<number, string> = {
       2: `Q${qN} — PROBLÈME LOCAL: Pose une question TRÈS courte sur le problème concret dans cette zone (chômage, manque de service, produit introuvable). MAX 12 mots. BRIEF: rappelle ce que tu as compris des bénéficiaires. 3 SUGGESTIONS: problèmes locaux précis au Maroc (ex: "Pas de salon dans le douar", "40% jeunes sans emploi", "Aucun atelier à 30km").`,
       3: `Q${qN} — REVENU: Pose une question TRÈS courte sur le canal de vente et les prix. MAX 12 mots. BRIEF: synthèse bénéficiaires + problème. 3 SUGGESTIONS: canaux concrets marocains (ex: "Souk hebdomadaire + WhatsApp", "Commandes livraison quartier", "Épiceries en dépôt-vente").`,
-      4: `Q${qN} — EXPÉRIENCE: Pose une question TRÈS courte sur la compétence/expérience du porteur. MAX 12 mots. BRIEF: synthèse projet jusqu'ici. 3 SUGGESTIONS: savoir-faire locaux valorisants (ex: "5 ans couture à domicile", "Appris avec ma mère artisane", "Formation OFPPT 6 mois").`,
+      4: `Q${qN} — EXPÉRIENCE: Pose une question TRÈS courte sur la compétence/expérience du porteur. MAX 12 mots. BRIEF: synthèse projet jusqu'ici. 3 SUGGESTIONS: savoir-faire locaux valorisants (ex: "5 ans couture à domicile", "Appris avec ma mère artisane", "Expérience autodidacte dans ce domaine").`,
     };
     const arcInstruction = questionArc[qN] || `Q${qN}: Pose une question courte sur pertinence territoriale ou durabilité après INDH. MAX 12 mots. BRIEF: ce que tu as compris. 3 SUGGESTIONS réalistes maroc.`;
 
@@ -2163,7 +2163,7 @@ ${INDH_CTX}
 Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ. Total MAXIMUM 100 000 MAD.${arQuality}
 
 RÈGLES IMPÉRATIVES:
-1. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix (ex: machine à coudre industrielle Singer 5 500 MAD, four à pain professionnel 18 000 MAD, tablette Samsung 1 200 MAD, location local aménagement 15 000 MAD, formation OFPPT 3 500 MAD).
+1. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix (ex: machine à coudre industrielle Singer 5 500 MAD, four à pain professionnel 18 000 MAD, tablette Samsung 1 200 MAD, location local aménagement 15 000 MAD, atelier de formation professionnel 3 000–4 000 MAD).
 2. DÉSIGNATIONS PRÉCISES: jamais "équipement divers" — toujours la désignation exacte (ex: "Machine à coudre industrielle Brother DB2-B737" ou "Réfrigérateur vitrine 200L Beko").
 3. CATÉGORIES COMPLÈTES: inclure TOUTES les catégories nécessaires selon le secteur — Équipements, Aménagement/Mobilier, Matières premières initiales, Formation/Apprentissage, Frais d'immatriculation, Fonds de roulement (3 mois), Communication (enseigne, réseaux sociaux).
 4. QUANTITÉS RÉALISTES: basées sur un démarrage réel — pas en sous-estimant ni en gonflant.
@@ -2208,7 +2208,7 @@ RÈGLES DE SCORING RÉALISTES:
 - Ne jamais mettre 100/100 — le jury est rigoureux.
 
 Les FORCES doivent citer des éléments SPÉCIFIQUES du dossier (pas génériques).
-Les RECOMMANDATIONS doivent être des ACTIONS IMMÉDIATES que le porteur peut faire avant de déposer (ex: "Obtenir une lettre de soutien de la commune", "Préciser le nombre exact de clientes par semaine", "Ajouter une formation OFPPT de 3 jours au budget").
+Les RECOMMANDATIONS doivent être des ACTIONS IMMÉDIATES que le porteur peut faire avant de déposer (ex: "Obtenir une lettre de soutien de la commune", "Préciser le nombre exact de clientes par semaine", "Renforcer le plan de formation pratique dans le dossier").
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"eligible":true/false,"score":N,"pillar":"axe INDH Phase 3 exact en ${LL}","strengths":["force SPÉCIFIQUE tirée du dossier 1","force SPÉCIFIQUE 2","force SPÉCIFIQUE 3"],"weaknesses":["faiblesse précise qui coûte des points jury 1","faiblesse 2"],"recommendations":["action immédiate et concrète 1 en ${LL}","action 2","action 3"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
