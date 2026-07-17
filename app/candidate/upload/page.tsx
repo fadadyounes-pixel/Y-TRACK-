@@ -320,6 +320,40 @@ export default function CandidateUpload() {
     setTimeout(() => { win.focus(); win.print(); }, 700);
   }
 
+  // ── Extract readable text from a PDF binary (no external library needed) ──
+  async function extractPdfText(file: File): Promise<string> {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+
+      // Extract text from BT...ET blocks (standard PDF text encoding)
+      const btBlocks = binary.match(/BT[\s\S]*?ET/g) || [];
+      const texts: string[] = [];
+      for (const block of btBlocks) {
+        const parens = block.match(/\(([^)\\]*(?:\\.[^)\\]*)*)\)/g) || [];
+        for (const p of parens) {
+          const inner = p.slice(1, -1).replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\\\/g, '\\').replace(/\\\(/g, '(').replace(/\\\)/g, ')');
+          const clean = inner.replace(/[^\x20-\x7E\n\rÀ-ɏ]/g, ' ').trim();
+          if (clean.length > 1) texts.push(clean);
+        }
+      }
+
+      // Also try stream content for newer PDFs
+      const streamTexts = binary.match(/stream[\s\S]*?endstream/g) || [];
+      for (const s of streamTexts) {
+        const readable = s.replace(/[^\x20-\x7E\n\r]/g, ' ').replace(/\s{3,}/g, ' ').trim();
+        const words = readable.match(/[A-Za-zÀ-ÿ]{3,}/g) || [];
+        if (words.length > 5) texts.push(words.join(' '));
+      }
+
+      return texts.join(' ').replace(/\s{2,}/g, ' ').trim();
+    } catch {
+      return '';
+    }
+  }
+
   // ── AI analysis of uploaded file ─────────────────────────────────────────
   async function analyzeUpload(file: File) {
     setProcessing(true);
@@ -345,15 +379,23 @@ export default function CandidateUpload() {
           { type: 'text', text: `Analyse ce CV (image). Extrait toutes les informations visibles: nom, email, téléphone, adresse, expériences professionnelles (entreprise, poste, dates, description), formation, compétences, langues. Retourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"secteur principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[]}` },
         ];
       } else if (isPdf) {
-        const arrayBuffer = await file.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
-        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-        const base64 = btoa(binary);
-        msgContent = [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-          { type: 'text', text: `Analyse ce CV (PDF). Extrait toutes les informations: nom, email, téléphone, adresse, expériences (entreprise, poste, dates, description), formation, compétences, langues. Retourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"secteur principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[]}` },
-        ];
+        // Try client-side text extraction first — works with all AI providers
+        const pdfText = await extractPdfText(file);
+        if (pdfText.length > 100) {
+          // Use plain text — compatible with every provider in the cascade
+          msgContent = `Analyse ce CV (PDF, contenu extrait):\n\nFichier: ${file.name}\n\n${pdfText.slice(0, 6000)}`;
+        } else {
+          // Fallback: send as base64 binary (requires Anthropic)
+          const arrayBuffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = '';
+          for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+          const base64 = btoa(binary);
+          msgContent = [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: `Analyse ce CV (PDF). Extrait toutes les informations: nom, email, téléphone, adresse, expériences (entreprise, poste, dates, description), formation, compétences, langues. Retourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"secteur principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[]}` },
+          ];
+        }
       } else {
         let rawText = '';
         try { rawText = await file.text(); } catch { rawText = file.name; }
@@ -665,9 +707,15 @@ export default function CandidateUpload() {
                   <div style={{ background: '#fef2f2', borderRadius: '16px', padding: '2rem', border: '1.5px solid #fecaca', textAlign: 'center' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>❌</div>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#dc2626', marginBottom: '0.5rem' }}>Impossible d'analyser ce fichier</h3>
-                    <button onClick={() => setProcessStep('idle')} style={{ padding: '0.6rem 1.5rem', borderRadius: '8px', background: '#2563eb', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
-                      Réessayer
-                    </button>
+                    <p style={{ color: '#7f1d1d', fontSize: '0.85rem', marginBottom: '1rem' }}>Le fichier n'a pas pu être lu automatiquement.</p>
+                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                      <button onClick={() => setProcessStep('idle')} style={{ padding: '0.6rem 1.5rem', borderRadius: '8px', background: '#2563eb', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
+                        Réessayer
+                      </button>
+                      <button onClick={() => { setCvSource('template'); setProcessStep('idle'); }} style={{ padding: '0.6rem 1.5rem', borderRadius: '8px', background: 'white', color: '#374151', border: '1.5px solid #d1d5db', fontWeight: 600, cursor: 'pointer' }}>
+                        Remplir manuellement →
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

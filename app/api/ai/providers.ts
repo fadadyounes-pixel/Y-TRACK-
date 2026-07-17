@@ -1,10 +1,9 @@
 import { readFileSync } from "fs";
 
-// Per-provider timeout: if a provider stalls, abort after 5s and try the next one.
-// This guarantees total response time < 10s even with multiple slow providers.
-function tFetch(url: string, opts: RequestInit): Promise<Response> {
+// Per-provider timeout: 20s for long-form JSON tasks (CV analysis), 5s otherwise.
+function tFetch(url: string, opts: RequestInit, ms = 20000): Promise<Response> {
   const ctrl = new AbortController();
-  const id = setTimeout(() => ctrl.abort(), 5000);
+  const id = setTimeout(() => ctrl.abort(), ms);
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(id));
 }
 
