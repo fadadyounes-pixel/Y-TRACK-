@@ -2088,6 +2088,364 @@ function buildReportHTML(profile, scores, role, reportLang) {
     '</body></html>';
 }
 
+/* ─── INDH ORIENTATION REPORT (3 pages: cover + why + tests) ─────────────── */
+function buildINDHReportHTML(c, lang) {
+  lang = lang || 'fr';
+  var isEn = lang === 'en';
+  var isAr = lang === 'ar';
+  var dir  = isAr ? 'rtl' : 'ltr';
+  var profile = c.profile || {};
+  var sc      = c.scores  || {};
+  var h       = sc.h      || {};
+  var b5      = sc.b      || {};
+  var s       = sc.s      || {};
+  var eq      = sc.eq     || {};
+  var entre   = sc.entre  || {};
+  var resi    = sc.resimap|| {};
+  var name    = c.name || profile.name || c.id || '—';
+  var candId  = c.id || '—';
+  var dateStr = new Date().toLocaleDateString(isAr ? 'ar-MA' : isEn ? 'en-GB' : 'fr-MA');
+  var indh    = calcINDH(h, s, eq, entre, profile);
+  var pJob    = indh.pJob;
+  var pProj   = indh.pProj;
+  var pCoop   = indh.pCoop;
+  var winner  = 'job';
+  if (pProj > pJob && pProj >= pCoop) winner = 'proj';
+  else if (pCoop > pJob && pCoop > pProj) winner = 'coop';
+  var hS = h.S||0; var hE = h.E||0; var hC = h.C||0;
+  var bC2 = b5.C2||0; var bA2 = b5.A2||0;
+  var sA = s.A||0; var sC = s.C||0; var sR = s.R||0;
+  var eqOEA = eq.OEA||0;
+  var eESE = entre.ESE||0; var eSN = entre.SN||0; var eEA = entre.EA||0;
+  var rT = resi.total||0;
+  var flags = computeFlags(h, b5, s, eq, entre, resi);
+  var PC = { job:{g1:'#0369a1',g2:'#0284c7'}, proj:{g1:'#92400e',g2:'#d97706'}, coop:{g1:'#14532d',g2:'#16a34a'} };
+  var pc = PC[winner];
+  var PL = {
+    job:  { fr:{code:'01',name:'Insertion Professionnelle',sub:'Emploi salarié',icon:'💼'},
+            en:{code:'01',name:'Professional Insertion',sub:'Salaried employment',icon:'💼'},
+            ar:{code:'01',name:'الإدماج المهني',sub:'التوظيف المأجور',icon:'💼'} },
+    proj: { fr:{code:'02',name:'Auto-Emploi & Micro-Entreprise',sub:'Entrepreneuriat',icon:'🚀'},
+            en:{code:'02',name:'Self-Employment & Micro-Business',sub:'Entrepreneurship',icon:'🚀'},
+            ar:{code:'02',name:'العمل الذاتي والمقاولة',sub:'ريادة الأعمال',icon:'🚀'} },
+    coop: { fr:{code:'03',name:'Économie Sociale & Coopérative',sub:'Coopérative',icon:'🤝'},
+            en:{code:'03',name:'Social & Cooperative Economy',sub:'Cooperative',icon:'🤝'},
+            ar:{code:'03',name:'الاقتصاد الاجتماعي والتعاوني',sub:'التعاوني',icon:'🤝'} }
+  };
+  var pL = isEn ? PL[winner].en : (isAr ? PL[winner].ar : PL[winner].fr);
+
+  /* ── REASONS ─────────────────────────────────────────────────────── */
+  var reasons = [];
+  if (winner === 'proj') {
+    if (hE >= 50) reasons.push({ icon:'🎯',
+      title:isEn?'Enterprising Holland Type (E)':isAr?'النمط المقاولاتي هولاند (E)':'Profil Holland Entrepreneur (E)',
+      score:'E = '+hE+'/100',
+      text:isEn?'Dominant enterprising orientation — natural drive toward leadership and business creation.'
+          :isAr?'التوجه المقاولاتي المسيطر — دافع طبيعي نحو القيادة وإنشاء الأعمال.'
+          :'Orientation Entrepreneur dominante — inclinaison naturelle vers le leadership et la création d\'activité.'});
+    if (eESE >= 10) reasons.push({ icon:'💡',
+      title:isEn?'Entrepreneurial Self-Efficacy (EntreMap)':isAr?'الكفاءة الريادية الذاتية':'Auto-efficacité entrepreneuriale (EntreMap)',
+      score:'ESE = '+eESE+'/25',
+      text:isEn?'Strong belief in own ability to start, manage and grow a business.'
+          :isAr?'ثقة قوية بالقدرة على إطلاق مشروع وإدارته وتنميته.'
+          :'Forte croyance en sa capacité à créer et développer un projet entrepreneurial.'});
+    if (eEA >= 8) reasons.push({ icon:'🔥',
+      title:isEn?'Entrepreneurial Attitude (EntreMap)':isAr?'الموقف الريادي':'Attitude entrepreneuriale (EntreMap)',
+      score:'EA = '+eEA+'/25',
+      text:isEn?'Positive attitude toward risk-taking, autonomy and new ventures.'
+          :isAr?'موقف إيجابي من المخاطرة والاستقلالية والمشاريع الجديدة.'
+          :'Attitude positive face au risque, à l\'autonomie et aux nouvelles activités économiques.'});
+    if (rT >= 28) reasons.push({ icon:'💪',
+      title:isEn?'Resilience (ResiMap)':isAr?'المرونة النفسية (ResiMap)':'Résilience face à l\'échec (ResiMap)',
+      score:rT+'/60',
+      text:isEn?'Sufficient resilience to recover from setbacks on the entrepreneurial path.'
+          :isAr?'مرونة كافية للتعافي من العقبات في مسار المقاولة.'
+          :'Résilience suffisante pour surmonter les aléas inévitables du parcours entrepreneurial.'});
+    if (sA >= 45) reasons.push({ icon:'⚡',
+      title:isEn?'Autonomy & Initiative (Skill Up)':isAr?'الاستقلالية والمبادرة (Skill Up)':'Autonomie & Initiative (Skill Up)',
+      score:'A = '+sA+'/100',
+      text:isEn?'High autonomy — capable of self-directed work without hierarchical supervision.'
+          :isAr?'استقلالية عالية — قادر على العمل المستقل دون إشراف هرمي.'
+          :'Fort niveau d\'autonomie — capable de travailler sans encadrement hiérarchique.'});
+  } else if (winner === 'job') {
+    if (hS >= 40) reasons.push({ icon:'🤝',
+      title:isEn?'Social Holland Type (S)':isAr?'النمط الاجتماعي هولاند (S)':'Profil Holland Social (S)',
+      score:'S = '+hS+'/100',
+      text:isEn?'Social orientation — suited to teamwork and service roles in structured organisations.'
+          :isAr?'التوجه الاجتماعي — مناسب لأدوار العمل الجماعي والخدمة في المنظمات.'
+          :'Orientation Sociale — adapté au travail en équipe et aux métiers de service au sein d\'organisations structurées.'});
+    if (eqOEA >= 10) reasons.push({ icon:'🧠',
+      title:isEn?'Empathy — Others\' Emotions (EQ-Map)':isAr?'التعاطف — EQ-Map':'Empathie — Émotions d\'autrui (EQ-Map)',
+      score:'OEA = '+eqOEA+'/30',
+      text:isEn?'Strong capacity to read others — essential for professional integration and teamwork.'
+          :isAr?'قدرة قوية على قراءة الآخرين — ضرورية للاندماج المهني والعمل الجماعي.'
+          :'Forte capacité à comprendre autrui — qualité essentielle pour l\'intégration et le travail en équipe.'});
+    if (sR >= 45) reasons.push({ icon:'📋',
+      title:isEn?'Employability Readiness (Skill Up)':isAr?'الاستعداد للتوظيف (Skill Up)':'Préparation à l\'emploi (Skill Up)',
+      score:'R = '+sR+'/100',
+      text:isEn?'Good readiness for the job market — adapted to salaried employment requirements.'
+          :isAr?'استعداد جيد لسوق العمل — متكيف مع متطلبات التوظيف المأجور.'
+          :'Bonne préparation au marché de l\'emploi salarié — adapté aux exigences des recruteurs.'});
+    if (bC2 >= 50) reasons.push({ icon:'✅',
+      title:isEn?'Conscientiousness (Big Five)':isAr?'الضمير المهني (Big Five)':'Conscience professionnelle (Big Five)',
+      score:'C = '+bC2+'/100',
+      text:isEn?'High conscientiousness — reliable and organised, qualities sought by employers.'
+          :isAr?'ضمير مهني عالٍ — موثوق ومنظم، صفات يبحث عنها أصحاب العمل.'
+          :'Forte conscience professionnelle — fiable et organisé, qualités très recherchées par les employeurs.'});
+    if (rT >= 25) reasons.push({ icon:'💪',
+      title:isEn?'Resilience (ResiMap)':isAr?'المرونة النفسية (ResiMap)':'Résilience (ResiMap)',
+      score:rT+'/60',
+      text:isEn?'Sufficient resilience to maintain motivation in professional environments.'
+          :isAr?'مرونة كافية للحفاظ على الدافعية في البيئات المهنية.'
+          :'Résilience suffisante pour maintenir la motivation dans les environnements professionnels.'});
+  } else {
+    if (hC >= 40) reasons.push({ icon:'🏛',
+      title:isEn?'Conventional Holland Type (C)':isAr?'النمط التقليدي هولاند (C)':'Profil Holland Conventionnel (C)',
+      score:'C = '+hC+'/100',
+      text:isEn?'Conventional type — thrives in structured, rule-based environments like cooperatives.'
+          :isAr?'النمط التقليدي — يزدهر في البيئات المنظمة القائمة على القواعد كالتعاونيات.'
+          :'Type Conventionnel — à l\'aise dans les environnements structurés des coopératives.'});
+    if (bA2 >= 50) reasons.push({ icon:'🤲',
+      title:isEn?'Agreeableness (Big Five)':isAr?'الوفاق (Big Five)':'Agréabilité — Coopération (Big Five)',
+      score:'A = '+bA2+'/100',
+      text:isEn?'High agreeableness — predisposed to collaboration and collective decision-making.'
+          :isAr?'وفاق عالٍ — استعداد للتعاون واتخاذ القرارات الجماعية.'
+          :'Forte agréabilité — prédisposition naturelle à la coopération et à la gouvernance collective.'});
+    if (eSN >= 10) reasons.push({ icon:'🌍',
+      title:isEn?'Social Norms (EntreMap)':isAr?'الأعراف الاجتماعية (EntreMap)':'Normes sociales — Intention collective (EntreMap)',
+      score:'SN = '+eSN+'/25',
+      text:isEn?'Strong social motivation and sensitivity to collective economic projects.'
+          :isAr?'دافعية اجتماعية قوية وحساسية للمشاريع الاقتصادية الجماعية.'
+          :'Forte motivation sociale et sensibilité aux projets économiques à impact collectif.'});
+    if (eqOEA >= 10) reasons.push({ icon:'💬',
+      title:isEn?'Group Dynamics (EQ-Map)':isAr?'ديناميكيات المجموعة (EQ-Map)':'Dynamiques de groupe (EQ-Map)',
+      score:'OEA = '+eqOEA+'/30',
+      text:isEn?'Good understanding of group emotions — key for cooperative governance.'
+          :isAr?'فهم جيد لمشاعر المجموعة — أساسي لحوكمة التعاوني.'
+          :'Bonne compréhension des dynamiques de groupe — essentielle pour la gouvernance coopérative.'});
+    if (sC >= 45) reasons.push({ icon:'👥',
+      title:isEn?'Collaboration (Skill Up)':isAr?'التعاون (Skill Up)':'Collaboration (Skill Up)',
+      score:'C = '+sC+'/100',
+      text:isEn?'Strong teamwork skills — effective in collective work structures.'
+          :isAr?'مهارات عمل جماعي قوية — فعال في هياكل العمل الجماعي.'
+          :'Fortes compétences collaboratives — efficace au sein des structures de travail collectif.'});
+  }
+  if (reasons.length > 4) reasons = reasons.slice(0, 4);
+  if (reasons.length === 0) reasons.push({ icon:'📊',
+    title:isEn?'Overall Profile Analysis':isAr?'التحليل الإجمالي للملف':'Analyse globale du profil',
+    score:pJob+'% / '+pProj+'% / '+pCoop+'%',
+    text:isEn?'The combined analysis of all assessments points to this programme as the best match.'
+        :isAr?'يشير التحليل الجمعي لجميع التقييمات إلى أن هذا البرنامج هو الأنسب.'
+        :'L\'analyse combinée de l\'ensemble des évaluations désigne ce programme comme le plus adapté au profil.'});
+
+  /* ── HELPERS ─────────────────────────────────────────────────────── */
+  function bBar(v, col, max) {
+    max = max || 100;
+    var w = Math.min(100, Math.round(v / max * 100));
+    return '<div style="height:5px;border-radius:999px;background:#e8f0f8;overflow:hidden;margin-top:3px">' +
+      '<div style="height:100%;width:'+w+'%;background:'+col+';border-radius:999px"></div></div>';
+  }
+  function sRow(label, val, max, col) {
+    return '<div style="margin-bottom:7px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">' +
+      '<span style="font-size:10px;color:#4a6070">'+label+'</span>' +
+      '<span style="font-size:10px;font-weight:800;color:'+col+';font-family:monospace">'+val+(max?'/'+max:'')+'</span>' +
+      '</div>'+bBar(val,col,max)+'</div>';
+  }
+  function tCard(title, icon, c1, c2, inner) {
+    return '<div style="border:1px solid #dce8f0;border-radius:11px;overflow:hidden;margin-bottom:10px">' +
+      '<div style="background:linear-gradient(90deg,'+c1+','+c2+');padding:9px 13px;display:flex;align-items:center;gap:7px">' +
+      '<span style="font-size:13px">'+icon+'</span>' +
+      '<span style="font-family:Archivo,Arial,sans-serif;font-size:10px;font-weight:800;color:#fff;letter-spacing:.04em">'+title+'</span>' +
+      '</div><div style="padding:11px 13px;background:#fff">'+inner+'</div></div>';
+  }
+  function pgFtr() {
+    return '<div style="padding:9px 36px;border-top:1px solid #dce8f0;display:flex;justify-content:space-between;flex-shrink:0">' +
+      '<span style="font-size:8px;color:#8295a7;letter-spacing:.07em;text-transform:uppercase">' +
+      (isEn?'Confidential — Internal Use Only':isAr?'سري — للاستخدام الداخلي فقط':'Confidentiel — Usage Interne INDH') +
+      '</span><span style="font-size:8px;color:#8295a7">CareerMap Assessment Platform · '+dateStr+'</span></div>';
+  }
+  function pgHdr2(lbl) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 36px;background:#0d1f33;flex-shrink:0">' +
+      '<span style="font-family:Archivo,Arial,sans-serif;font-size:13px;font-weight:900;color:#fff">Career<span style="color:#1aabaa">Map</span></span>' +
+      '<span style="font-size:9px;color:rgba(255,255,255,.35);letter-spacing:.05em">'+name.toUpperCase()+' · '+candId+'</span>' +
+      '<span style="font-size:9px;font-weight:700;color:#1aabaa;letter-spacing:.07em;text-transform:uppercase">'+lbl+'</span></div>';
+  }
+
+  /* ── PAGE 1: COVER ───────────────────────────────────────────────── */
+  var pg1 = '<div class="pdf-page" style="width:794px;height:1122px;background:linear-gradient(155deg,#071422 0%,#0d1f33 50%,#0f2640 100%);display:flex;flex-direction:column;position:relative;overflow:hidden">';
+  pg1 += '<div style="position:absolute;top:-100px;right:-100px;width:450px;height:450px;border-radius:50%;background:radial-gradient(circle,#1aabaa0c,transparent 65%);pointer-events:none"></div>';
+  pg1 += '<div style="position:absolute;bottom:-80px;left:-60px;width:350px;height:350px;border-radius:50%;background:radial-gradient(circle,'+pc.g1+'09,transparent 65%);pointer-events:none"></div>';
+  pg1 += '<div style="height:3px;background:linear-gradient(90deg,#1aabaa,'+pc.g2+',#1aabaa);flex-shrink:0"></div>';
+  pg1 += '<div style="padding:28px 48px 0;display:flex;align-items:center;flex-shrink:0">';
+  pg1 += '<span style="font-family:Archivo,Arial,sans-serif;font-size:17px;font-weight:900;color:#fff">Career<span style="color:#1aabaa">Map</span></span>';
+  pg1 += '<span style="margin-left:auto;font-size:9px;color:rgba(255,255,255,.25);letter-spacing:.1em;text-transform:uppercase">'+(isEn?'Assessment Platform':isAr?'منصة التقييم':'Plateforme d\'Évaluation')+'</span>';
+  pg1 += '</div>';
+  pg1 += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 52px;text-align:center">';
+  pg1 += '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.2em;text-transform:uppercase;margin-bottom:14px">'+(isEn?'INDH Orientation Report':isAr?'تقرير التوجيه · INDH':'Rapport d\'Orientation · INDH')+'</div>';
+  pg1 += '<div style="background:linear-gradient(145deg,'+pc.g1+','+pc.g2+');border-radius:22px;padding:28px 44px;margin-bottom:28px;position:relative;overflow:hidden;min-width:340px">';
+  pg1 += '<div style="position:absolute;top:-15px;right:-15px;font-size:70px;opacity:.1">'+pL.icon+'</div>';
+  pg1 += '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.15em;text-transform:uppercase;margin-bottom:7px">PROGRAMME '+pL.code+'</div>';
+  pg1 += '<div style="font-family:Archivo,Arial,sans-serif;font-size:24px;font-weight:900;color:#fff;letter-spacing:-.5px;margin-bottom:5px">'+pL.icon+'  '+pL.name+'</div>';
+  pg1 += '<div style="font-size:12px;color:rgba(255,255,255,.6)">'+pL.sub+'</div>';
+  pg1 += '</div>';
+  pg1 += '<div style="display:flex;gap:22px;margin-bottom:32px">';
+  var bars3 = [
+    {lbl:isEn?'Insertion':isAr?'الإدماج':'Insertion', pct:pJob,  c:'#0284c7', w:winner==='job'},
+    {lbl:isEn?'Auto-Emploi':isAr?'العمل الذاتي':'Auto-Emploi', pct:pProj, c:'#d97706', w:winner==='proj'},
+    {lbl:isEn?'Coopérative':isAr?'التعاوني':'Coopérative', pct:pCoop, c:'#16a34a', w:winner==='coop'}
+  ];
+  for (var bi = 0; bi < bars3.length; bi++) {
+    var bitem = bars3[bi];
+    pg1 += '<div style="text-align:center;opacity:'+(bitem.w?'1':'.4')+'">';
+    pg1 += '<div style="font-size:20px;font-weight:900;color:'+bitem.c+';font-family:Archivo,Arial,sans-serif">'+bitem.pct+'%</div>';
+    pg1 += '<div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:2px">'+bitem.lbl+'</div></div>';
+  }
+  pg1 += '</div>';
+  pg1 += '<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:18px 32px;min-width:320px">';
+  pg1 += '<div style="font-family:Archivo,Arial,sans-serif;font-size:21px;font-weight:900;color:#fff;margin-bottom:3px">'+name+'</div>';
+  pg1 += '<div style="font-family:monospace;font-size:12px;color:#1aabaa;letter-spacing:.1em;margin-bottom:5px">'+candId+'</div>';
+  var pInfo = (profile.region||'') + (profile.age ? (profile.region?' · ':'')+profile.age : '') + (profile.gender ? ' · '+profile.gender : '');
+  if (pInfo) pg1 += '<div style="font-size:10px;color:rgba(255,255,255,.3)">'+pInfo+'</div>';
+  pg1 += '</div></div>';
+  pg1 += '<div style="padding:18px 48px 24px;display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0">';
+  pg1 += '<span style="font-size:9px;color:rgba(255,255,255,.2);letter-spacing:.07em;text-transform:uppercase">'+(isEn?'Confidential — Internal Use Only':isAr?'سري — للاستخدام الداخلي فقط':'Confidentiel — Usage Interne INDH')+'</span>';
+  pg1 += '<span style="font-size:9px;color:rgba(255,255,255,.2)">'+dateStr+'</span></div>';
+  pg1 += '</div>';
+
+  /* ── PAGE 2: WHY THIS PROGRAMME? ────────────────────────────────── */
+  var pg2 = '<div class="pdf-page" style="width:794px;height:1122px;background:#fff;display:flex;flex-direction:column;overflow:hidden">';
+  pg2 += pgHdr2(isEn?'ORIENTATION DECISION':isAr?'قرار التوجيه':'DÉCISION D\'ORIENTATION');
+  pg2 += '<div style="flex:1;overflow:hidden;padding:20px 36px">';
+  pg2 += '<div style="margin-bottom:16px">';
+  pg2 += '<div style="font-size:9px;font-weight:700;color:#1aabaa;letter-spacing:.13em;text-transform:uppercase;margin-bottom:4px">'+(isEn?'INDH Programme Analysis':isAr?'تحليل برامج INDH':'Analyse des Programmes INDH')+'</div>';
+  pg2 += '<div style="font-family:Archivo,Arial,sans-serif;font-size:19px;font-weight:900;color:#0d1f33;letter-spacing:-.3px">'+(isEn?'Why this programme?':isAr?'لماذا هذا البرنامج؟':'Pourquoi ce programme ?')+'</div>';
+  pg2 += '</div>';
+  // 3-column comparison
+  pg2 += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">';
+  var comps = [
+    {key:'job', pct:pJob, lbl:isEn?'Professional Insertion':isAr?'الإدماج المهني':'Insertion Professionnelle', code:'01', c:'#0284c7', sub:isEn?'Salaried employee':isAr?'موظف مأجور':'Emploi salarié'},
+    {key:'proj',pct:pProj,lbl:isEn?'Self-Employment':isAr?'العمل الذاتي':'Auto-Emploi',                        code:'02', c:'#d97706', sub:isEn?'Entrepreneur':isAr?'مقاول':'Entrepreneuriat'},
+    {key:'coop',pct:pCoop,lbl:isEn?'Cooperative':isAr?'التعاوني':'Coopérative',                                code:'03', c:'#16a34a', sub:isEn?'Collective economy':isAr?'اقتصاد تعاوني':'Économie sociale'}
+  ];
+  for (var ci = 0; ci < comps.length; ci++) {
+    var cm = comps[ci]; var isW = cm.key === winner;
+    pg2 += '<div style="border-radius:11px;padding:14px;border:'+(isW?'2px solid '+cm.c:'1px solid #dce8f0')+';background:'+(isW?cm.c+'09':'#f8fafc')+';position:relative">';
+    if (isW) pg2 += '<div style="position:absolute;top:-9px;right:8px;background:'+cm.c+';color:#fff;font-size:8px;font-weight:800;padding:2px 8px;border-radius:999px">'+(isEn?'✓ SELECTED':isAr?'✓ المختار':'✓ SÉLECTIONNÉ')+'</div>';
+    pg2 += '<div style="font-size:9px;font-weight:700;color:#8295a7;letter-spacing:.08em;margin-bottom:3px">PROG. '+cm.code+'</div>';
+    pg2 += '<div style="font-size:11px;font-weight:800;color:'+(isW?cm.c:'#1a2e44')+';margin-bottom:2px">'+cm.lbl+'</div>';
+    pg2 += '<div style="font-size:9px;color:#6b7f8f;margin-bottom:9px">'+cm.sub+'</div>';
+    pg2 += '<div style="font-size:22px;font-weight:900;color:'+cm.c+';font-family:Archivo,Arial,sans-serif;letter-spacing:-.5px">'+cm.pct+'%</div>';
+    pg2 += '<div style="height:5px;border-radius:999px;background:#e8f0f8;overflow:hidden;margin-top:5px"><div style="height:100%;width:'+cm.pct+'%;background:'+cm.c+';border-radius:999px"></div></div></div>';
+  }
+  pg2 += '</div>';
+  // Key reasons
+  pg2 += '<div style="display:flex;align-items:center;gap:7px;margin-bottom:12px">';
+  pg2 += '<div style="width:3px;height:18px;border-radius:2px;background:'+pc.g2+'"></div>';
+  pg2 += '<div style="font-family:Archivo,Arial,sans-serif;font-size:14px;font-weight:900;color:#0d1f33">'+(isEn?'Key factors driving this decision':isAr?'العوامل الرئيسية المحددة لهذا القرار':'Facteurs clés de cette décision')+'</div></div>';
+  for (var ri = 0; ri < reasons.length; ri++) {
+    var rr = reasons[ri];
+    pg2 += '<div style="display:flex;gap:12px;padding:13px 14px;background:'+(ri%2===0?'#f8fafc':'#fff')+';border-radius:9px;border:1px solid #dce8f0;margin-bottom:7px">';
+    pg2 += '<div style="font-size:20px;flex-shrink:0;margin-top:1px">'+rr.icon+'</div>';
+    pg2 += '<div style="flex:1">';
+    pg2 += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">';
+    pg2 += '<div style="font-family:Archivo,Arial,sans-serif;font-size:11px;font-weight:800;color:#0d1f33">'+rr.title+'</div>';
+    pg2 += '<div style="font-family:monospace;font-size:10px;font-weight:700;color:'+pc.g2+';white-space:nowrap;margin-left:8px;background:'+pc.g1+'10;padding:2px 7px;border-radius:4px">'+rr.score+'</div>';
+    pg2 += '</div><div style="font-size:10px;color:#4a6070;line-height:1.55">'+rr.text+'</div></div></div>';
+  }
+  // Clinical flags
+  var redF = flags ? flags.filter(function(f){return f.level==='red'||f.level==='orange';}) : [];
+  if (redF.length > 0) {
+    pg2 += '<div style="border:1px solid #fecaca;border-radius:9px;padding:12px 14px;background:#fff5f5;margin-top:10px">';
+    pg2 += '<div style="font-size:10px;font-weight:800;color:#dc2626;letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px">⚠ '+(isEn?'Clinical Alert — Advisor Intervention Required':isAr?'تنبيه سريري — تدخل المستشار مطلوب':'Alerte Clinique — Intervention Conseiller Requise')+'</div>';
+    var FT = {TRIPLE_RISK:{fr:'Risque triple — ResiMap < 30, névrosisme élevé, régulation émotionnelle faible.',en:'Triple risk — ResiMap < 30, high neuroticism, low emotional regulation.',ar:'خطر مثلث — مرونة منخفضة، عصابية مرتفعة.'},
+              MENTAL_HEALTH:{fr:'Indicateurs de fragilité psychologique — suivi recommandé.',en:'Psychological fragility indicators — monitoring recommended.',ar:'مؤشرات هشاشة نفسية — المتابعة موصى بها.'},
+              DROPOUT_RISK:{fr:'Risque d\'abandon — résilience et auto-efficacité faibles.',en:'Dropout risk — low resilience and self-efficacy.',ar:'خطر الانسحاب — مرونة وكفاءة ذاتية منخفضتان.'},
+              REDIRECT_INSERTION:{fr:'Faible intention entrepreneuriale — envisager Insertion Professionnelle.',en:'Low entrepreneurial intent — consider redirecting to Insertion.',ar:'نية ريادية ضعيفة — النظر في إعادة التوجيه نحو الإدماج.'}};
+    for (var fi = 0; fi < redF.length; fi++) {
+      var fl = redF[fi]; var ft = FT[fl.code];
+      pg2 += '<div style="font-size:10px;color:#7f1d1d;line-height:1.5;margin-bottom:3px">• '+(ft?(isEn?ft.en:isAr?ft.ar:ft.fr):fl.code)+'</div>';
+    }
+    pg2 += '</div>';
+  }
+  pg2 += '</div>';
+  pg2 += pgFtr();
+  pg2 += '</div>';
+
+  /* ── PAGE 3: ALL TEST RESULTS ────────────────────────────────────── */
+  var pg3 = '<div class="pdf-page" style="width:794px;height:1122px;background:#fff;display:flex;flex-direction:column;overflow:hidden">';
+  pg3 += pgHdr2(isEn?'ASSESSMENT RESULTS':isAr?'نتائج التقييمات':'RÉSULTATS DES ÉVALUATIONS');
+  pg3 += '<div style="flex:1;overflow:hidden;padding:16px 36px">';
+  pg3 += '<div style="margin-bottom:12px">';
+  pg3 += '<div style="font-size:9px;font-weight:700;color:#1aabaa;letter-spacing:.13em;text-transform:uppercase;margin-bottom:3px">'+(isEn?'Complete psychometric profile':isAr?'الملف النفسي الكامل':'Profil psychométrique complet')+'</div>';
+  pg3 += '<div style="font-family:Archivo,Arial,sans-serif;font-size:17px;font-weight:900;color:#0d1f33;letter-spacing:-.3px">'+(isEn?'Summary of all assessments':isAr?'ملخص جميع التقييمات':'Synthèse de toutes les évaluations')+'</div>';
+  pg3 += '</div>';
+  pg3 += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+  // Holland
+  var rHL = isEn?{R:'Realistic',I:'Investigative',A:'Artistic',S:'Social',E:'Enterprising',C:'Conventional'}:isAr?{R:'واقعي',I:'استطلاعي',A:'فني',S:'اجتماعي',E:'مقاولاتي',C:'تقليدي'}:{R:'Réaliste',I:'Investigateur',A:'Artistique',S:'Social',E:'Entrepreneur',C:'Conventionnel'};
+  var rCOLS = {R:'#78716c',I:'#6366f1',A:'#ec4899',S:'#1aabaa',E:'#f59e0b',C:'#6b7280'};
+  var riC = ''; var rkeys = ['R','I','A','S','E','C'];
+  for (var rk = 0; rk < rkeys.length; rk++) { var rkey=rkeys[rk]; riC += sRow(rHL[rkey]+' ('+rkey+')', h[rkey]||0, 100, rCOLS[rkey]); }
+  var topT = ranked(h)[0]||'—';
+  riC += '<div style="margin-top:5px;font-size:9px;font-weight:700;color:#0d1f33">'+(isEn?'Dominant: ':isAr?'المسيطر: ':'Dominant : ')+'<span style="color:'+(rCOLS[topT]||'#1aabaa')+'">'+((rHL[topT])||topT)+'</span></div>';
+  pg3 += tCard('Holland RIASEC','🎯','#4338ca','#6366f1',riC);
+  // OCEAN
+  var oHL = isEn?{O:'Openness',C2:'Conscientiousness',E2:'Extraversion',A2:'Agreeableness',N:'Emotional Stability'}:isAr?{O:'الانفتاح',C2:'الضمير',E2:'الانبساط',A2:'الوفاق',N:'الاستقرار'}:{O:'Ouverture',C2:'Conscience',E2:'Extraversion',A2:'Agréabilité',N:'Stabilité émotionnelle'};
+  var oCOLS = {O:'#8b5cf6',C2:'#0ea5e9',E2:'#f97316',A2:'#22c55e',N:'#ec4899'};
+  var ocC = ''; var okeys = ['O','C2','E2','A2','N'];
+  for (var ok = 0; ok < okeys.length; ok++) { var okey=okeys[ok]; ocC += sRow(oHL[okey], b5[okey]||0, 100, oCOLS[okey]); }
+  pg3 += tCard('Big Five OCEAN','🧠','#6d28d9','#8b5cf6',ocC);
+  // EQ-Map
+  var eHL = isEn?{OEA:"Others' Emotions",ROE:'Using Emotions',UOE:'Emotional Regulation',SEA:'Self-Awareness'}:isAr?{OEA:'مشاعر الآخرين',ROE:'استخدام المشاعر',UOE:'التنظيم العاطفي',SEA:'الوعي بالذات'}:{OEA:'Émotions d\'autrui',ROE:'Usage des émotions',UOE:'Régulation émotionnelle',SEA:'Auto-conscience'};
+  var eqC = ''; var ekeys = ['OEA','ROE','UOE','SEA'];
+  for (var ek = 0; ek < ekeys.length; ek++) { var ekey=ekeys[ek]; eqC += sRow(eHL[ekey], eq[ekey]||0, 30, '#0f7e7d'); }
+  var eqTot = (eq.OEA||0)+(eq.ROE||0)+(eq.UOE||0)+(eq.SEA||0);
+  eqC += '<div style="margin-top:5px;font-size:9px;font-weight:700;color:#0f7e7d">Total EQ : '+eqTot+'/120</div>';
+  pg3 += tCard('EQ-Map','💬','#0f5e5e','#0f7e7d',eqC);
+  // EntreMap
+  var enHL = isEn?{ESE:'Entrepreneurial Self-Efficacy',SN:'Social Norms',EA:'Entrepreneurial Attitude'}:isAr?{ESE:'الكفاءة الريادية الذاتية',SN:'الأعراف الاجتماعية',EA:'الموقف الريادي'}:{ESE:'Auto-efficacité entrepreneuriale',SN:'Normes sociales',EA:'Attitude entrepreneuriale'};
+  var enC = ''; var enkeys = ['ESE','SN','EA'];
+  for (var enk = 0; enk < enkeys.length; enk++) { var enkey=enkeys[enk]; enC += sRow(enHL[enkey], entre[enkey]||0, 25, '#d97706'); }
+  var enTot = (entre.ESE||0)+(entre.SN||0)+(entre.EA||0);
+  var enLvl = enTot>=50?(isEn?'Strong':isAr?'قوية':'Forte'):enTot>=30?(isEn?'Moderate':isAr?'معتدلة':'Modérée'):(isEn?'Low':isAr?'ضعيفة':'Faible');
+  enC += '<div style="margin-top:5px;font-size:9px;font-weight:700;color:#b45309">'+(isEn?'Intent: ':isAr?'النية: ':'Intention : ')+enTot+'/75 — '+enLvl+'</div>';
+  pg3 += tCard('EntreMap','🚀','#78350f','#d97706',enC);
+  // ResiMap
+  var resiCol = rT>=43?'#16a34a':rT>=30?'#ea580c':'#dc2626';
+  var resiLvl = rT>=43?(isEn?'High':isAr?'عالية':'Élevée'):rT>=30?(isEn?'Moderate':isAr?'معتدلة':'Modérée'):(isEn?'Low':isAr?'منخفضة':'Faible');
+  var resiNote = rT>=43?(isEn?'Strong resilience — well prepared for professional setbacks.':isAr?'مرونة عالية — مستعد جيداً لمواجهة العقبات.':'Résilience forte — bien préparé pour les aléas professionnels.')
+    :rT>=30?(isEn?'Moderate resilience — support may help in difficult periods.':isAr?'مرونة معتدلة — الدعم قد يكون مفيداً.':'Résilience modérée — un accompagnement peut être bénéfique.')
+    :(isEn?'Low resilience — psychological support recommended before commitment.':isAr?'مرونة منخفضة — يُنصح بالدعم النفسي.':'Résilience faible — accompagnement psychologique recommandé avant engagement.');
+  var resiC = '<div style="text-align:center;padding:6px 0">' +
+    '<div style="font-size:30px;font-weight:900;color:'+resiCol+';font-family:Archivo,Arial,sans-serif;letter-spacing:-1px">'+rT+'</div>' +
+    '<div style="font-size:9px;color:#6b7f8f;margin-bottom:6px">'+(isEn?'out of 60':isAr?'من 60':'sur 60')+'</div>' +
+    '<div style="height:6px;border-radius:999px;background:#e8f0f8;overflow:hidden;margin-bottom:6px">' +
+    '<div style="height:100%;width:'+Math.round(rT/60*100)+'%;background:'+resiCol+';border-radius:999px"></div></div>' +
+    '<div style="display:inline-block;padding:2px 10px;border-radius:999px;background:'+resiCol+'15;border:1px solid '+resiCol+'40;font-size:10px;font-weight:700;color:'+resiCol+'">'+resiLvl+'</div>' +
+    '</div><div style="font-size:9px;color:#4a6070;text-align:center;line-height:1.5;margin-top:5px">'+resiNote+'</div>';
+  pg3 += tCard('ResiMap','💪','#064e3b','#16a34a',resiC);
+  // Skill Up
+  var suHL = isEn?{A:'Autonomy',E:'Economic Stability',C:'Collaboration',R:'Employability'}:isAr?{A:'الاستقلالية',E:'الاستقرار الاقتصادي',C:'التعاون',R:'الاستعداد للتوظيف'}:{A:'Autonomie',E:'Stabilité Économique',C:'Collaboration',R:'Préparation emploi'};
+  var suCOLS = {A:'#7c3aed',E:'#0369a1',C:'#15803d',R:'#b45309'};
+  var suC = ''; var sukeys = ['A','E','C','R'];
+  for (var sk = 0; sk < sukeys.length; sk++) { var skey=sukeys[sk]; suC += sRow(suHL[skey], s[skey]||0, 100, suCOLS[skey]); }
+  var suTot = Math.round(((s.A||0)+(s.E||0)+(s.C||0)+(s.R||0))/4);
+  suC += '<div style="margin-top:5px;font-size:9px;font-weight:700;color:#1a2e44">'+(isEn?'Employability Index: ':isAr?'مؤشر التوظيف: ':'Indice d\'employabilité : ')+suTot+'%</div>';
+  pg3 += tCard('Skill Up','⚡','#78350f','#f59e0b',suC);
+  pg3 += '</div></div>';
+  pg3 += pgFtr();
+  pg3 += '</div>';
+
+  var body = '<div style="width:794px;margin:0 auto;font-family:Archivo,Arial,sans-serif">'+pg1+pg2+pg3+'</div>';
+  return '<!DOCTYPE html><html dir="'+dir+'" lang="'+(isAr?'ar':isEn?'en':'fr')+'">' +
+    '<head><meta charset="UTF-8"><title>Rapport INDH — '+name+'</title>' +
+    '<link rel="preconnect" href="https://fonts.googleapis.com">' +
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">' +
+    '<style>*{box-sizing:border-box;margin:0;padding:0}body{margin:0;padding:0;background:#fff;font-family:Archivo,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4;margin:0}.pdf-page{page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid}.pdf-page:last-child{page-break-after:auto;break-after:auto}</style>' +
+    '</head><body>'+body+'</body></html>';
+}
+
 function openPDF(profile, scores, role) {
   var html = buildReportHTML(profile, scores, role);
   var w = window.open("", "_blank");
@@ -2309,6 +2667,153 @@ function ReportViewer({ profile, scores, role, onClose }) {
       <iframe ref={iframeRef} srcDoc={html}
         style={{ flex:1, border:"none", background:"#fff" }}
         title="CareerMap Report"/>
+    </div>
+  );
+}
+
+/* ─── INDH REPORT VIEWER ─────────────────────────────────────────────────── */
+function INDHViewer({ c, onClose }) {
+  var [lang, setLang] = useState('fr');
+  var iframeRef = React.useRef(null);
+  var html = useMemo(function() { return buildINDHReportHTML(c, lang); }, [c, lang]);
+
+  function savePDF() {
+    var loadDiv = document.createElement('div');
+    loadDiv.id = 'pdf-loading';
+    loadDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999999;background:#06111f;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:Arial,sans-serif;';
+    loadDiv.innerHTML = '<div style="color:#d97706;font-size:44px;margin-bottom:16px;">&#8987;</div>' +
+      '<div style="color:#f0f4f8;font-size:19px;font-weight:700;margin-bottom:6px;">' +
+      (lang==='ar'?'جاري إنشاء PDF...':lang==='en'?'Generating PDF...':'Génération du PDF...') +
+      '</div><div style="color:#6b8aaa;font-size:13px;margin-top:4px;" id="spdfprog"></div>';
+    document.body.appendChild(loadDiv);
+    var cmapSt = document.getElementById('cmap');
+    var origCmapText = cmapSt ? cmapSt.textContent : null;
+    if (cmapSt) cmapSt.textContent = origCmapText.replace(/@import\s+url\([^)]*\)[^;]*;?\s*/gi, '');
+    var sm = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    var styles = (sm ? sm[1].replace('*{', '.cmrpt *{').replace('body{', '.cmrpt{') : '')
+      .replace(/page-break-[a-z-]+\s*:[^;]+;?\s*/gi, '')
+      .replace(/break-(?:after|before|inside)\s*:[^;]+;?\s*/gi, '')
+      .replace(/@page\s*\{[^}]*\}/gi, '');
+    var styleEl = document.createElement('style');
+    styleEl.id = 'cmrpt-s';
+    styleEl.textContent = styles;
+    document.head.appendChild(styleEl);
+    var b1 = html.indexOf('<body');
+    var b2 = b1 >= 0 ? html.indexOf('>', b1) + 1 : 0;
+    var b3 = html.lastIndexOf('</body>');
+    var bodyContent = (b1 >= 0 && b3 > b2) ? html.substring(b2, b3) : '';
+    bodyContent = bodyContent.replace(/<img\b[^>]*>/gi, '');
+    var container = document.createElement('div');
+    container.className = 'cmrpt';
+    container.style.cssText = 'position:fixed;top:0;left:0;width:794px;overflow:visible;z-index:0;';
+    container.innerHTML = bodyContent;
+    document.body.appendChild(container);
+    function cleanup() {
+      var el = document.getElementById('pdf-loading');
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      if (container.parentNode) container.parentNode.removeChild(container);
+      var se = document.getElementById('cmrpt-s');
+      if (se && se.parentNode) se.parentNode.removeChild(se);
+      if (cmapSt && origCmapText !== null) cmapSt.textContent = origCmapText;
+    }
+    var pdfFn = 'INDH_'+(c.name||c.id||'Rapport').replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+lang+'.pdf';
+    function stripInClone(clonedDoc) {
+      var sts = clonedDoc.querySelectorAll('style');
+      for (var j = 0; j < sts.length; j++) sts[j].textContent = sts[j].textContent.replace(/@import\s+url\([^)]*\)[^;]*;?\s*/gi, '');
+    }
+    var opt = {
+      margin:0, filename:pdfFn,
+      image:{type:'jpeg',quality:0.95},
+      html2canvas:{scale:2,useCORS:false,allowTaint:true,logging:false,backgroundColor:'#ffffff',foreignObjectRendering:false,onclone:stripInClone,windowWidth:794,windowHeight:1122,scrollX:0,scrollY:0},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    };
+    function doRender() {
+      var pgs = container.querySelectorAll('.pdf-page');
+      var pgHtmls = [];
+      for (var k = 0; k < pgs.length; k++) pgHtmls.push(pgs[k].outerHTML);
+      var n = pgHtmls.length;
+      if (container.parentNode) container.parentNode.removeChild(container);
+      var pr = document.getElementById('spdfprog');
+      if (!n) { cleanup(); return; }
+      if (pr) pr.textContent = '1 / '+n;
+      function makeIso(pgHtml) {
+        var d = document.createElement('div');
+        d.className = 'cmrpt';
+        d.style.cssText = 'position:fixed;top:0;left:0;width:794px;overflow:visible;z-index:0;';
+        d.innerHTML = pgHtml;
+        document.body.appendChild(d);
+        return {wrap:d, el:d.querySelector('.pdf-page')||d};
+      }
+      var r0 = makeIso(pgHtmls[0]);
+      html2pdf().set(opt).from(r0.el).toPdf().get('pdf').then(function(pdf) {
+        if (r0.wrap.parentNode) r0.wrap.parentNode.removeChild(r0.wrap);
+        if (pdf.internal.getNumberOfPages() > 1) pdf.deletePage(1);
+        pdf.setPage(pdf.internal.getNumberOfPages());
+        var i = 1;
+        function nx() {
+          if (i >= n) { pdf.save(pdfFn); cleanup(); return; }
+          if (pr) pr.textContent = (i+1)+' / '+n;
+          var ri = makeIso(pgHtmls[i]);
+          html2pdf().set(opt).from(ri.el).toCanvas().get('canvas').then(function(cv) {
+            if (ri.wrap.parentNode) ri.wrap.parentNode.removeChild(ri.wrap);
+            pdf.addPage(); pdf.addImage(cv.toDataURL('image/jpeg',0.95),'JPEG',0,0,210,297);
+            i++; nx();
+          }).catch(function(){ if (ri.wrap.parentNode) ri.wrap.parentNode.removeChild(ri.wrap); i++; nx(); });
+        }
+        nx();
+      }).catch(function(err) {
+        if (r0.wrap.parentNode) r0.wrap.parentNode.removeChild(r0.wrap);
+        var pr2 = document.getElementById('spdfprog');
+        if (pr2) pr2.textContent = 'Erreur — '+(err&&err.message?err.message:String(err));
+        setTimeout(cleanup, 3000);
+      });
+    }
+    document.fonts.ready.then(function(){ setTimeout(doRender, 600); });
+  }
+
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0,
+        background:"rgba(6,17,31,.97)", zIndex:9999, display:"flex", flexDirection:"column" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"10px 18px", background:"#0d1f33", borderBottom:"1px solid #1a3a55",
+          flexShrink:0, flexWrap:"wrap", gap:8 }}>
+        <span style={{ fontWeight:900, fontSize:16, color:"#f0f4f8" }}>
+          Career<span style={{ color:"#1aabaa" }}>Map</span>
+          <span style={{ fontSize:11, color:"#6b8aaa", fontWeight:400, marginLeft:10 }}>
+            Rapport Orientation INDH
+          </span>
+        </span>
+        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+          <div style={{ display:"flex", gap:4 }}>
+            {["fr","en","ar"].map(function(l) {
+              return (
+                <button key={l} onClick={function(){ setLang(l); }}
+                  style={{ padding:"6px 12px", borderRadius:99, fontFamily:"inherit",
+                    fontSize:12, fontWeight:700, cursor:"pointer", transition:"all .2s",
+                    background: lang===l ? "#d97706" : "rgba(255,255,255,.07)",
+                    color: lang===l ? "#fff" : "#6b8aaa",
+                    border: "1.5px solid "+(lang===l ? "#d97706" : "#1a3a55") }}>
+                  {l==="fr"?"FR":l==="en"?"EN":"ع"}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={savePDF}
+            style={{ padding:"8px 16px", background:"#d97706", color:"#fff", border:"none",
+                borderRadius:8, fontFamily:"inherit", fontSize:13, fontWeight:800, cursor:"pointer" }}>
+            ⬇ PDF
+          </button>
+          <button onClick={onClose}
+            style={{ padding:"8px 14px", background:"rgba(255,255,255,.05)",
+                border:"1px solid #1a3a55", color:"#8fadc8",
+                borderRadius:8, fontFamily:"inherit", fontSize:13, cursor:"pointer" }}>
+            ✕
+          </button>
+        </div>
+      </div>
+      <iframe ref={iframeRef} srcDoc={html}
+        style={{ flex:1, border:"none", background:"#fff" }}
+        title="CareerMap INDH Report"/>
     </div>
   );
 }
@@ -3696,6 +4201,7 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
   var [err, setErr] = useState("");
   var [found, setFound] = useState(null);
   var [rpt, setRpt] = useState(null);
+  var [indhRpt, setIndhRpt] = useState(null);
 
   function doEnroll() {
     var v = inp.trim().toUpperCase();
@@ -3781,11 +4287,20 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
                   &#x1F512;<br/>{lang==="fr"?"Rapport Conseiller":"Advisor Report"}
                 </button>
               </div>
+              <button onClick={function(){setIndhRpt(found);}}
+                style={{ marginTop:10, width:"100%", padding:"14px 8px", textAlign:"center",
+                  background:"linear-gradient(135deg,#92400e,#d97706)",
+                  color:"#fff", border:"none", borderRadius:12,
+                  fontFamily:"inherit", fontSize:12, fontWeight:800,
+                  cursor:"pointer", lineHeight:1.6 }}>
+                &#x1F3DB;<br/>{lang==="fr"?"Rapport Orientation INDH":"INDH Orientation Report"}
+              </button>
             </div>
           )}
         </div>
       </div>
       {rpt&&<ReportViewer profile={rpt.profile} scores={rpt.scores} role={rpt.role} onClose={function(){setRpt(null);}}/>}
+      {indhRpt&&<INDHViewer c={indhRpt} onClose={function(){setIndhRpt(null);}}/>}
     </div>
   );
 }
@@ -4137,6 +4652,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   var [copied, setCopied]       = useState(null);
   var [localReport, setLocalReport] = useState(null);
   var [detailCand, setDetailCand]   = useState(null);
+  var [indhCand, setIndhCand]       = useState(null);
 
   var DEMO = [
     { name:"Ahmed Benali", id:"BJ367307", code:"RPT-BJ367307", savedAt: new Date(Date.now()-86400000).toISOString(), profile:{name:"Ahmed Benali",firstName:"Ahmed",lastName:"Benali",age:"21–24",gender:"Male",edu:"Bachelor (Bac+3)",region:"Rabat-Salé-Kénitra",phone:"+212612345678",status:"University Student",email:"ahmed@example.com"}, scores:{h:{R:45,I:78,A:62,S:55,E:40,C:50},b:{O:72,C2:65,E2:48,A2:80,N:35},s:{A:68,E:55,C:72,R:60}} },
@@ -4334,6 +4850,10 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
               🔒 Conseiller
             </button>
           </div>
+          <button onClick={function(){setIndhCand(c);onClose();}}
+            style={{ marginTop:10,width:"100%",padding:"13px",background:"rgba(217,119,6,.12)",color:"#d97706",border:"1px solid rgba(217,119,6,.25)",borderRadius:12,fontSize:11,fontWeight:800,cursor:"pointer" }}>
+            &#x1F3DB; Rapport Orientation INDH
+          </button>
           {cands.length>0 && <button onClick={function(){
             if(!window.confirm('Supprimer "'+c.name+'" définitivement?'))return;
             onDeleteCand(c); onClose();
@@ -4860,6 +5380,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
 
       {detailCand && <CandDetail c={detailCand} onClose={function(){setDetailCand(null);}}/>}
       {localReport && <ReportViewer profile={localReport.profile} scores={localReport.scores} role={localReport.role} onClose={function(){setLocalReport(null);}}/>}
+      {indhCand && <INDHViewer c={indhCand} onClose={function(){setIndhCand(null);}}/>}
     </div>
   );
 }
