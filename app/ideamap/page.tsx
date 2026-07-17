@@ -108,9 +108,9 @@ const SECTORS = [
   "Réparation/Maintenance","Événementiel/Traiteur",
 ];
 const PROJ_TYPES: Record<string, string[]> = {
-  fr:["Individuel","Groupe informel","Association","Coopérative","GIE"],
-  ar:["فردي","مجموعة غير رسمية","جمعية","تعاونية","مجموعة المصلحة الاقتصادية"],
-  en:["Individual","Informal group","Association","Cooperative","Economic Interest Group"],
+  fr:["Individuel","Groupe informel"],
+  ar:["فردي","مجموعة غير رسمية"],
+  en:["Individual","Informal group"],
 };
 const MARITAL: Record<string, string[]> = {
   fr:["Célibataire","Marié(e)","Divorcé(e)","Veuf/Veuve"],
@@ -2024,7 +2024,7 @@ JSON UNIQUEMENT sans markdown:
 
   const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC — DONNÉES TERRAIN RÉELLES:
 FINANCEMENT: Subvention max 100 000 MAD. INDH couvre 85% (max 85 000 MAD), le porteur apporte 15% en espèces ou en nature (matériel, local, travail valorisé). Pas de remboursement — c'est une subvention à fonds perdus.
-NATURE DU FINANCEMENT: L'INDH finance UNIQUEMENT l'investissement (équipements, aménagement, travaux). Il NE finance PAS les coûts d'exploitation: matières premières, fonds de roulement, communication/marketing, loyers courants, salaires. Le budget INDH = ce qu'on achète une seule fois pour lancer le projet, PAS ce qu'on dépense chaque mois pour le faire tourner.
+NATURE DU FINANCEMENT: L'INDH finance UNIQUEMENT les biens d'équipement productifs (machines professionnelles, matériel technique, outillage de production, mobilier de travail). Il NE finance PAS: aménagement/travaux de local (rénovation, électricité, peinture, plomberie — INTERDIT même pour un petit montant), matières premières, fonds de roulement, communication/marketing, loyers courants, salaires, frais d'établissement/immatriculation. Le budget INDH = les équipements qu'on achète une seule fois pour produire, PAS les travaux ni les charges mensuelles.
 AXES PHASE 3 (choisir le plus pertinent):
   • Axe 1 — Développement rural: zones enclavées, agriculture, élevage, produits du terroir, irrigation, pistes rurales.
   • Axe 2 — Réduction des inégalités territoriales: périurbain pauvre, quartiers sous-équipés, services de proximité manquants.
@@ -2044,7 +2044,7 @@ CRITÈRES JURY INDH — PONDÉRATION OFFICIELLE (100 pts):
   • Durabilité: 10 pts — plan de survie après l'INDH: stocks, clients fidèles, partenariats locaux.
   • Innovation & originalité: 10 pts — quelque chose de différent dans le produit, la méthode, ou le public cible.
 CE QUI CONVAINC LE JURY: profil vulnérable du porteur + chiffres précis + ancrage territorial fort + plan de pérennité concret.
-RÈGLE ABSOLUE: entrepreneuriat individuel uniquement. Ne jamais suggérer coopérative ou GIE.`;
+RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais association, coopérative ou GIE — ces structures ne sont pas éligibles au programme INDH Phase 3 porteurs.`;
 
   const startChat = async () => {
     if (!idea.trim()) return;
@@ -2164,9 +2164,9 @@ ${INDH_CTX}
 Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ. Total MAXIMUM 100 000 MAD.${arQuality}
 
 RÈGLES IMPÉRATIVES:
-1. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix d'équipements (ex: machine à coudre industrielle Singer 5 500 MAD, four à pain professionnel 18 000 MAD, tablette Samsung 1 200 MAD, aménagement local/rénovation 8 000–20 000 MAD, réfrigérateur vitrine 3 500 MAD, mobilier atelier 4 000 MAD).
+1. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix d'équipements productifs (ex: machine à coudre industrielle Singer 5 500 MAD, four professionnel 18 000 MAD, tablette Samsung 1 200 MAD, réfrigérateur vitrine 200L 3 500 MAD, mobilier de travail professionnel 4 000 MAD, générateur portable 2kW 5 000 MAD, broyeur professionnel 3 500 MAD).
 2. DÉSIGNATIONS PRÉCISES: jamais "équipement divers" — toujours la désignation exacte (ex: "Machine à coudre industrielle Brother DB2-B737" ou "Réfrigérateur vitrine 200L Beko").
-3. CATÉGORIES ÉLIGIBLES INDH UNIQUEMENT — l'INDH est un programme d'INVESTISSEMENT, PAS de fonctionnement. Inclure SEULEMENT: Équipements (machines, outillage professionnel, mobilier de travail), Aménagement/Travaux (rénovation local, installation électrique, plomberie, peinture), Frais d'établissement (immatriculation, frais notaire — max 2 000 MAD). INTERDIT dans un budget INDH: Matières premières, Fonds de roulement, Communication/Marketing, salaires, loyers — ces postes NE sont PAS pris en charge par l'INDH.
+3. CATÉGORIES ÉLIGIBLES INDH UNIQUEMENT — l'INDH finance UNIQUEMENT les biens d'équipement productifs. Inclure SEULEMENT: Équipements productifs (machines professionnelles, outillage technique, matériel de production, mobilier de travail, équipements de stockage/présentation). FORMELLEMENT INTERDIT dans un budget INDH — ne jamais inclure ces postes: Aménagement/Travaux (rénovation local, électricité, peinture, plomberie, cloisons — JAMAIS même 1 MAD), Frais d'établissement (immatriculation, notaire), Matières premières, Fonds de roulement, Communication/Marketing, salaires, loyers.
 4. QUANTITÉS RÉALISTES: basées sur un démarrage réel — pas en sous-estimant ni en gonflant.
 5. Assure-toi que 85% = contribution INDH et 15% = apport porteur. Total doit être entre 50 000 et 100 000 MAD.
 
