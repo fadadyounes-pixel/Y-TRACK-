@@ -4801,14 +4801,8 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
     var empCol=emp>=65?C.gr:emp>=45?C.am:C.re;
     var initials=((p.firstName||p.name||c.name||"?")[0]||"?").toUpperCase()+((p.lastName||"")[0]||"").toUpperCase();
     return (
-      <div onClick={onClose} style={{ position:"fixed",inset:0,zIndex:9999,
-          background:"rgba(6,17,31,.9)",backdropFilter:"blur(8px)",
-          display:"flex",alignItems:"flex-end",justifyContent:"center" }}>
-        <div onClick={function(e){e.stopPropagation();}}
-          style={{ width:"100%",maxWidth:520,maxHeight:"92vh",
-            background:C.sur,borderRadius:"20px 20px 0 0",border:"1px solid "+C.bdr,
-            display:"flex",flexDirection:"column",overflow:"hidden",
-            boxShadow:"0 -8px 60px rgba(0,0,0,.6)" }}>
+      <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"#060d18",zIndex:9998,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+        <div style={{ display:"flex",flexDirection:"column",height:"100%" }}>
 
           <div style={{ background:"linear-gradient(135deg,"+col+"20,transparent)",
               padding:"20px 18px 14px",borderBottom:"1px solid "+C.bdr,flexShrink:0 }}>
