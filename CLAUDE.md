@@ -343,7 +343,7 @@ public/
 When generating or reviewing AI prompts, keep these facts accurate:
 
 - Maximum INDH grant per project: **100,000 MAD**
-- Typical INDH contribution: **85%** — holder contribution: **15%**
+- Typical INDH contribution: **90%** — holder contribution: **10%**
 - Four INDH Phase 3 pillars: Rural development · Territorial reduction of poverty · Human dignity · Horizontal programs
 - Eligible sectors: Agriculture/Élevage, Artisanat, Commerce/Services, Agro-alimentaire, Tourisme rural, Numérique/TIC, Textile/Couture, BTP, Éducation/Formation, Pêche
 - Jury scoring weights: Impact social 25 · Viabilité 20 · Pertinence territoriale 20 · Capacité de gestion 15 · Durabilité 10 · Innovation 10 = **100 pts**
