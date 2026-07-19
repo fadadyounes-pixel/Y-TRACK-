@@ -4804,31 +4804,56 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
       <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"#060d18",zIndex:9998,display:"flex",flexDirection:"column",overflow:"hidden" }}>
         <div style={{ display:"flex",flexDirection:"column",height:"100%" }}>
 
-          <div style={{ background:"linear-gradient(135deg,"+col+"28,"+C.sur+")",
-              padding:"20px 18px 14px",borderBottom:"2px solid "+col+"40",flexShrink:0 }}>
-            <div style={{ display:"flex",alignItems:"center",gap:14 }}>
-              <div style={{ width:52,height:52,borderRadius:14,background:col+"28",
-                  border:"2px solid "+col+"60",display:"flex",alignItems:"center",
-                  justifyContent:"center",fontSize:18,fontWeight:900,color:col,flexShrink:0 }}>
-                {initials}
-              </div>
+          <div style={{ background:"linear-gradient(160deg,#0d1e38,#071228)",
+              padding:"20px 18px 16px",borderBottom:"1px solid rgba(26,171,170,.15)",flexShrink:0 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
               <div style={{ flex:1,minWidth:0 }}>
-                <div style={{ fontSize:16,fontWeight:800,color:C.wh,marginBottom:2 }}>{p.name||p.firstName||c.name}</div>
-                <div style={{ fontSize:10,color:C.mu,fontFamily:"monospace" }}>{c.id}</div>
-                <div style={{ display:"flex",gap:6,marginTop:5,flexWrap:"wrap" }}>
-                  <span style={{ padding:"2px 8px",borderRadius:99,background:col+"20",
-                      color:col,fontSize:9,fontWeight:700,border:"1px solid "+col+"40" }}>
-                    {ht[0]||"?"}{ht[1]||""} — {HN[ht[0]]||""}
-                  </span>
-                  <span style={{ padding:"2px 8px",borderRadius:99,
-                      background:empCol+"20",color:empCol,fontSize:9,fontWeight:700 }}>
-                    ⚡ {emp}% Employabilité
-                  </span>
+                <div style={{ fontSize:9,fontWeight:900,color:"rgba(26,171,170,.7)",
+                    letterSpacing:"2px",textTransform:"uppercase",marginBottom:3 }}>Bilan d'orientation</div>
+                <div style={{ fontSize:13,fontWeight:800,color:"#fff",marginBottom:5 }}>
+                  Votre rapport d'orientation professionnelle
+                </div>
+                <div style={{ fontSize:9,color:"rgba(255,255,255,.4)",lineHeight:"1.5",marginBottom:0 }}>
+                  Une lecture personnalisée de vos intérêts, de votre personnalité et de votre potentiel, pour éclairer vos prochains choix.
                 </div>
               </div>
               <button onClick={onClose} style={{ background:"rgba(255,255,255,.07)",border:"none",
-                  color:C.mu,fontSize:18,width:32,height:32,borderRadius:8,cursor:"pointer",
-                  display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>×</button>
+                  color:"rgba(255,255,255,.4)",fontSize:16,width:28,height:28,borderRadius:7,
+                  cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+                  flexShrink:0,marginLeft:12,marginTop:-4 }}>×</button>
+            </div>
+            <div style={{ height:1,background:"rgba(255,255,255,.08)",margin:"11px 0" }}/>
+            <div style={{ fontSize:8,fontWeight:700,color:"rgba(255,255,255,.35)",
+                letterSpacing:"1px",textTransform:"uppercase",marginBottom:3 }}>Préparé pour</div>
+            <div style={{ fontSize:16,fontWeight:900,color:"#fff",marginBottom:8 }}>{p.name||p.firstName||c.name}</div>
+            {[
+              ["Code",   c.code||c.id||""],
+              ["Région", p.region||""],
+              ["Profil", [(p.age?""+p.age+" ans":""),(p.edu||"")].filter(Boolean).join(" · ")],
+              ["Date",   c.savedAt?new Date(c.savedAt).toLocaleDateString("fr-FR"):""],
+            ].map(function(row,i){
+              return row[1]?
+                <div key={i} style={{ fontSize:10,color:"rgba(255,255,255,.7)",marginBottom:3 }}>
+                  <span style={{ color:"rgba(26,171,170,.9)" }}>• </span>
+                  <span style={{ fontWeight:700 }}>{row[0]}</span>
+                  <span style={{ color:"rgba(255,255,255,.3)",margin:"0 5px" }}>·</span>
+                  <span>{row[1]}</span>
+                </div>:null;
+            })}
+            <div style={{ height:1,background:"rgba(255,255,255,.08)",margin:"10px 0 9px" }}/>
+            <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+              <div style={{ display:"flex",alignItems:"center",gap:7,flex:1,minWidth:0,overflow:"hidden" }}>
+                <span style={{ padding:"1px 7px",borderRadius:3,background:"rgba(26,171,170,.1)",
+                    color:"#1aabaa",fontSize:8,fontWeight:700,border:"1px solid rgba(26,171,170,.2)",
+                    flexShrink:0,fontFamily:"monospace" }}>Exemplaire candidat</span>
+                <span style={{ fontSize:8,color:"rgba(255,255,255,.3)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
+                  — Une copie de ce rapport est conservée par votre conseiller.
+                </span>
+              </div>
+              <span style={{ fontSize:7,color:"rgba(255,255,255,.15)",fontWeight:700,
+                  letterSpacing:"1px",textTransform:"uppercase",marginLeft:10,flexShrink:0 }}>
+                Bilan d'orientation
+              </span>
             </div>
           </div>
 
