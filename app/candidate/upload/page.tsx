@@ -320,32 +320,74 @@ export default function CandidateUpload() {
     setTimeout(() => { win.focus(); win.print(); }, 700);
   }
 
-  // ── Extract readable text from a PDF binary (no external library needed) ──
+  // ── Extract readable text from a PDF binary (no external library) ──
+  // Handles both uncompressed streams and FlateDecode (zlib/deflate) compressed streams,
+  // which are the standard format produced by Word, LibreOffice, and Acrobat.
   async function extractPdfText(file: File): Promise<string> {
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
+      const rawBytes = new Uint8Array(arrayBuffer);
+      // Build Latin-1 binary string for regex-based stream discovery
       let binary = '';
-      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      for (let i = 0; i < rawBytes.byteLength; i++) binary += String.fromCharCode(rawBytes[i]);
 
-      // Extract text from BT...ET blocks (standard PDF text encoding)
-      const btBlocks = binary.match(/BT[\s\S]*?ET/g) || [];
       const texts: string[] = [];
-      for (const block of btBlocks) {
-        const parens = block.match(/\(([^)\\]*(?:\\.[^)\\]*)*)\)/g) || [];
-        for (const p of parens) {
-          const inner = p.slice(1, -1).replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\\\/g, '\\').replace(/\\\(/g, '(').replace(/\\\)/g, ')');
-          const clean = inner.replace(/[^\x20-\x7E\n\rÀ-ɏ]/g, ' ').trim();
-          if (clean.length > 1) texts.push(clean);
+
+      // Extract text tokens from BT...ET operator blocks in a decoded PDF content stream
+      function extractBtEt(content: string) {
+        const blocks = content.match(/BT[\s\S]*?ET/g) || [];
+        for (const block of blocks) {
+          const parens = block.match(/\(([^)\\]*(?:\\.[^)\\]*)*)\)/g) || [];
+          for (const p of parens) {
+            const inner = p.slice(1, -1)
+              .replace(/\\n/g, '\n').replace(/\\r/g, '\r')
+              .replace(/\\\\/g, '\\').replace(/\\\(/g, '(').replace(/\\\)/g, ')');
+            const clean = inner.replace(/[^\x20-\x7E\n\rÀ-ɏ]/g, ' ').trim();
+            if (clean.length > 1) texts.push(clean);
+          }
         }
       }
 
-      // Also try stream content for newer PDFs
-      const streamTexts = binary.match(/stream[\s\S]*?endstream/g) || [];
-      for (const s of streamTexts) {
-        const readable = s.replace(/[^\x20-\x7E\n\r]/g, ' ').replace(/\s{3,}/g, ' ').trim();
-        const words = readable.match(/[A-Za-zÀ-ÿ]{3,}/g) || [];
-        if (words.length > 5) texts.push(words.join(' '));
+      // Pass 1: uncompressed streams (simple/legacy PDFs)
+      extractBtEt(binary);
+
+      // Pass 2: FlateDecode compressed streams — standard in modern PDFs (Word, LibreOffice, Acrobat)
+      // PDF spec: "stream" keyword → \r\n or \n → compressed bytes → \r?\n → "endstream"
+      const streamRe = /stream\r?\n([\s\S]*?)(?:\r?\n)?endstream/g;
+      let match;
+      while ((match = streamRe.exec(binary)) !== null) {
+        const data = match[1];
+        if (!data || data.length < 20) continue;
+
+        // Convert binary string slice back to Uint8Array (preserve raw byte values)
+        const streamBytes = new Uint8Array(data.length);
+        for (let i = 0; i < data.length; i++) streamBytes[i] = data.charCodeAt(i) & 0xff;
+
+        // Try deflate-raw (PDF default, RFC 1951) then deflate (zlib wrapper, RFC 1950)
+        for (const fmt of ['deflate-raw', 'deflate'] as const) {
+          try {
+            const ds = new DecompressionStream(fmt);
+            const writer = ds.writable.getWriter();
+            const reader = ds.readable.getReader();
+            writer.write(streamBytes);
+            writer.close();
+
+            const chunks: Uint8Array[] = [];
+            for (;;) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              if (value) chunks.push(value);
+            }
+
+            const total = chunks.reduce((a, c) => a + c.length, 0);
+            const combined = new Uint8Array(total);
+            let off = 0;
+            for (const c of chunks) { combined.set(c, off); off += c.length; }
+
+            extractBtEt(new TextDecoder('latin1').decode(combined));
+            break; // decompression succeeded — skip the other format
+          } catch { /* wrong format or non-deflate stream — try next */ }
+        }
       }
 
       return texts.join(' ').replace(/\s{2,}/g, ' ').trim();
@@ -385,16 +427,10 @@ export default function CandidateUpload() {
           // Use plain text — compatible with every provider in the cascade
           msgContent = `Analyse ce CV (PDF, contenu extrait):\n\nFichier: ${file.name}\n\n${pdfText.slice(0, 6000)}`;
         } else {
-          // Fallback: send as base64 binary (requires Anthropic)
-          const arrayBuffer = await file.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuffer);
-          let binary = '';
-          for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-          const base64 = btoa(binary);
-          msgContent = [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: `Analyse ce CV (PDF). Extrait toutes les informations: nom, email, téléphone, adresse, expériences (entreprise, poste, dates, description), formation, compétences, langues. Retourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"secteur principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[]}` },
-          ];
+          // Safe fallback — plain text readable by ALL providers in the cascade.
+          // Never send Anthropic binary format here: non-Anthropic providers strip it
+          // and the AI receives no content, causing JSON parse failure → error screen.
+          msgContent = `Fichier CV reçu: "${file.name}" (PDF — contenu chiffré ou non lisible automatiquement).\n\nGénère un profil vide structuré pour que l'utilisateur puisse le compléter manuellement.\nRetourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"","experience":"Mid-Level","skills":[],"summary":"Profil à compléter","work":[],"education":{"degree":"","institution":"","year":""},"languages":[],"targetRoles":[],"certifications":[]}`;
         }
       } else {
         let rawText = '';
