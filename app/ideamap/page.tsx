@@ -572,7 +572,7 @@ function HelpAgent({lang, context}: {lang: string; context: string}) {
 
   const sys = `Tu es le Superviseur IdeaMap — expert terrain INDH Phase 3 Maroc avec 10 ans d'accompagnement de porteurs.
 CONTEXTE UTILISATEUR: ${context}
-FAITS INDH CLÉS: subvention max 100 000 MAD, INDH paie 90%, porteur apporte 10% (en espèces ou nature). Jury 100pts: Impact social 25pts · Viabilité 20pts · Pertinence territoriale 20pts · Gestion 15pts · Durabilité 10pts · Innovation 10pts. Éligible si ≥60pts.
+FAITS INDH CLÉS: contribution INDH plafonnée à 100 000 MAD maximum. INDH couvre 90% du coût total des équipements (coût total peut atteindre ~111 000 MAD), porteur apporte 10% en espèces ou nature. Jury 100pts: Impact social 25pts · Viabilité 20pts · Pertinence territoriale 20pts · Gestion 15pts · Durabilité 10pts · Innovation 10pts. Éligible si ≥60pts.
 RÉALITÉS MAROC: SMIG 2 828 MAD/mois. Location petit local 800-2500 MAD/mois. Machine à coudre industrielle 3500-8000 MAD. Souk hebdomadaire = canal de vente principal zones rurales.
 Quand quelqu'un demande des documents: cite les 8 documents obligatoires (CIN, statuts, PV AG, récépissé, attestation résidence, devis, photos site, business plan).
 Quand quelqu'un demande comment améliorer son score: cite les critères jury précis avec les points.
@@ -1373,8 +1373,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     const dir2 = eAr ? "rtl" : "ltr";
     const font = eAr ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
     const total = (budget?.items||[]).reduce((s: number, x: any) => s + (x.total||0), 0);
-    const indhAmt = budget?.indhContribution || Math.round(total * 0.90);
-    const holdAmt = budget?.beneficiaryContribution || Math.round(total * 0.10);
+    const indhAmt = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
+    const holdAmt = budget?.beneficiaryContribution || (total - indhAmt);
     const T = {
       title:   eAr?"خطة الأعمال":eEn?"Business Plan":"Plan d'Affaires",
       holder:  eAr?"الحامل":eEn?"Holder":"Porteur",
@@ -1564,8 +1564,8 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
       prs.layout = "LAYOUT_16x9";
       const NAVY = "0F2233"; const YELLOW = "FFB703"; const WHITE = "FFFFFF";
       const total = budget?.items?.reduce((s: number, x: any) => s + (x.total || 0), 0) || 0;
-      const indh = budget?.indhContribution || Math.round(total * 0.90);
-      const bene = budget?.beneficiaryContribution || Math.round(total * 0.10);
+      const indh = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
+      const bene = budget?.beneficiaryContribution || (total - indh);
 
       const isAr = exportLang === "ar";
       const isEn = exportLang === "en";
@@ -1681,7 +1681,7 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
           {l:isAr?"النقطة":isEn?"Score":"Score", v:comp?`${comp.score}/100`:"—", col:comp?.eligible?"22C55E":"EF4444"},
           {l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—", col:YELLOW},
           {l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:proj?.beneficiaries?String(proj.beneficiaries):"—", col:"60A5FA"},
-          {l:isAr?"مساهمة INDH":isEn?"INDH Grant":"Subvention INDH", v:metricTotal?`${Math.round(metricTotal*.90).toLocaleString()} MAD`:"—", col:"A78BFA"},
+          {l:isAr?"مساهمة INDH":isEn?"INDH Grant":"Subvention INDH", v:metricTotal?`${Math.min(Math.round(metricTotal*.90),100000).toLocaleString()} MAD`:"—", col:"A78BFA"},
         ];
         chips.forEach((m, i) => {
           const bx = 0.3 + i * 2.4;
@@ -2023,7 +2023,7 @@ JSON UNIQUEMENT sans markdown:
   };
 
   const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC — DONNÉES TERRAIN RÉELLES:
-FINANCEMENT: Subvention max 100 000 MAD. INDH couvre 90% (max 90 000 MAD), le porteur apporte 10% en espèces ou en nature (matériel, local, travail valorisé). Pas de remboursement — c'est une subvention à fonds perdus.
+FINANCEMENT: L'INDH contribue jusqu'à 100 000 MAD maximum (plafond absolu de la subvention INDH). L'INDH couvre 90% du coût total des équipements, le porteur apporte 10% en espèces ou en nature (matériel, local, travail valorisé). Le coût total du projet peut donc atteindre environ 111 000 MAD (dont INDH = 100 000 MAD). Pas de remboursement — c'est une subvention à fonds perdus.
 NATURE DU FINANCEMENT: L'INDH finance UNIQUEMENT les biens d'équipement productifs (machines professionnelles, matériel technique, outillage de production, mobilier de travail). Il NE finance PAS: aménagement/travaux de local (rénovation, électricité, peinture, plomberie — INTERDIT même pour un petit montant), matières premières, fonds de roulement, communication/marketing, loyers courants, salaires, frais d'établissement/immatriculation. Le budget INDH = les équipements qu'on achète une seule fois pour produire, PAS les travaux ni les charges mensuelles.
 AXES PHASE 3 (choisir le plus pertinent):
   • Axe 1 — Développement rural: zones enclavées, agriculture, élevage, produits du terroir, irrigation, pistes rurales.
@@ -2161,14 +2161,14 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       ai([{role: "user", content: `Projet INDH: ${projCtx}`}],
         `Tu es un expert financier INDH Phase 3 Maroc qui connaît les prix du marché marocain en 2025.
 ${INDH_CTX}
-Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ. Total MAXIMUM 100 000 MAD.${arQuality}
+Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ. Le coût total des équipements peut atteindre ~111 000 MAD (dont 100 000 MAD maximum pris en charge par l'INDH + 10% apport porteur).${arQuality}
 
 RÈGLES IMPÉRATIVES:
 1. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix d'équipements productifs (ex: machine à coudre industrielle Singer 5 500 MAD, four professionnel 18 000 MAD, tablette Samsung 1 200 MAD, réfrigérateur vitrine 200L 3 500 MAD, mobilier de travail professionnel 4 000 MAD, générateur portable 2kW 5 000 MAD, broyeur professionnel 3 500 MAD).
 2. DÉSIGNATIONS PRÉCISES: jamais "équipement divers" — toujours la désignation exacte (ex: "Machine à coudre industrielle Brother DB2-B737" ou "Réfrigérateur vitrine 200L Beko").
 3. CATÉGORIES ÉLIGIBLES INDH UNIQUEMENT — l'INDH finance UNIQUEMENT les biens d'équipement productifs. Inclure SEULEMENT: Équipements productifs (machines professionnelles, outillage technique, matériel de production, mobilier de travail, équipements de stockage/présentation). FORMELLEMENT INTERDIT dans un budget INDH — ne jamais inclure ces postes: Aménagement/Travaux (rénovation local, électricité, peinture, plomberie, cloisons — JAMAIS même 1 MAD), Frais d'établissement (immatriculation, notaire), Matières premières, Fonds de roulement, Communication/Marketing, salaires, loyers.
 4. QUANTITÉS RÉALISTES: basées sur un démarrage réel — pas en sous-estimant ni en gonflant.
-5. Assure-toi que 90% = contribution INDH et 10% = apport porteur. Total doit être entre 50 000 et 100 000 MAD.
+5. Assure-toi que 90% = contribution INDH (plafonnée à 100 000 MAD max) et 10% = apport porteur. Total coût projet doit être entre 55 000 et 111 000 MAD. indhContribution = Math.min(Math.round(total * 0.90), 100000). beneficiaryContribution = total - indhContribution.
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"items":[{"category":"catégorie","item":"désignation exacte avec marque/modèle si pertinent en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`,
@@ -2205,7 +2205,7 @@ RÈGLES DE SCORING RÉALISTES:
 - Un projet très bien monté avec chiffres précis: 75-85 pts.
 - Un projet moyen sans ancrage local fort: 50-65 pts.
 - Un projet flou sans bénéficiaires précis: 35-50 pts.
-- Éligible si score ≥ 60 ET secteur INDH ET budget ≤ 100 000 MAD.
+- Éligible si score ≥ 60 ET secteur INDH ET contribution INDH ≤ 100 000 MAD (coût total projet peut atteindre ~111 000 MAD).
 - Ne jamais mettre 100/100 — le jury est rigoureux.
 
 Les FORCES doivent citer des éléments SPÉCIFIQUES du dossier (pas génériques).
@@ -2626,9 +2626,9 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         {/* ── BUDGET ── */}
         {step === "budget" && (() => {
           const total = budget?.items?.reduce((s: number, x: any) => s + (x.total || 0), 0) || 0;
-          const pct = (total / 100000) * 100;
-          const indh = budget?.indhContribution || Math.round(total * .90);
-          const bene = budget?.beneficiaryContribution || Math.round(total * .10);
+          const indh = budget?.indhContribution || Math.min(Math.round(total * .90), 100000);
+          const bene = budget?.beneficiaryContribution || (total - indh);
+          const pct = (indh / 100000) * 100;
           return (
             <Card>
               <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px"}}>
@@ -3337,8 +3337,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   useful: eAr?"جهات الاتصال المفيدة":eEn?"USEFUL CONTACTS":"CONTACTS UTILES",
                 };
                 const total=(budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
-                const indhAmt = budget?.indhContribution||Math.round(total*.90);
-                const holdAmt = budget?.beneficiaryContribution||Math.round(total*.10);
+                const indhAmt = budget?.indhContribution||Math.min(Math.round(total*.90),100000);
+                const holdAmt = budget?.beneficiaryContribution||(total-indhAmt);
                 const items: {icon:string;l:string;ok:boolean;onDl:()=>void;badge?:string}[] = [
                   {icon:"📄", l:eAr?"تحميل ملف PDF الكامل":eEn?"Download Full PDF Dossier":"Télécharger le Dossier PDF", ok:!!plan,
                     onDl:() => dlPDF(dlLang), badge:"pdf"},
@@ -3440,8 +3440,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                         eAr?"★ الأرقام الأساسية يجب حفظها":eEn?"★ KEY NUMBERS TO MEMORIZE":"★ CHIFFRES CLÉS À MÉMORISER",
                         `${"─".repeat(40)}`,
                         eAr?`• الميزانية الإجمالية: ${budgetTotal.toLocaleString()} درهم`:eEn?`• Total budget: ${budgetTotal.toLocaleString()} MAD`:`• Budget total: ${budgetTotal.toLocaleString()} MAD`,
-                        eAr?`• مساهمة المبادرة (90%): ${(budget?.indhContribution||Math.round(budgetTotal*.90)).toLocaleString()} درهم`:eEn?`• INDH grant (90%): ${(budget?.indhContribution||Math.round(budgetTotal*.90)).toLocaleString()} MAD`:`• Subvention INDH (90%): ${(budget?.indhContribution||Math.round(budgetTotal*.90)).toLocaleString()} MAD`,
-                        eAr?`• مساهمتي (10%): ${(budget?.beneficiaryContribution||Math.round(budgetTotal*.10)).toLocaleString()} درهم`:eEn?`• My contribution (10%): ${(budget?.beneficiaryContribution||Math.round(budgetTotal*.10)).toLocaleString()} MAD`:`• Mon apport (10%): ${(budget?.beneficiaryContribution||Math.round(budgetTotal*.10)).toLocaleString()} MAD`,
+                        eAr?`• مساهمة المبادرة (90%): ${(budget?.indhContribution||Math.min(Math.round(budgetTotal*.90),100000)).toLocaleString()} درهم`:eEn?`• INDH grant (90%, max 100,000): ${(budget?.indhContribution||Math.min(Math.round(budgetTotal*.90),100000)).toLocaleString()} MAD`:`• Subvention INDH (90%, max 100 000): ${(budget?.indhContribution||Math.min(Math.round(budgetTotal*.90),100000)).toLocaleString()} MAD`,
+                        eAr?`• مساهمتي (10%): ${(budget?.beneficiaryContribution||(budgetTotal-Math.min(Math.round(budgetTotal*.90),100000))).toLocaleString()} درهم`:eEn?`• My contribution (10%): ${(budget?.beneficiaryContribution||(budgetTotal-Math.min(Math.round(budgetTotal*.90),100000))).toLocaleString()} MAD`:`• Mon apport (10%): ${(budget?.beneficiaryContribution||(budgetTotal-Math.min(Math.round(budgetTotal*.90),100000))).toLocaleString()} MAD`,
                         eAr?`• نقطتي لدى اللجنة: ${comp?.score||"?"}/100 (${comp?.eligible?"مؤهل ✓":"يحتاج تحسين"})`:eEn?`• Jury score: ${comp?.score||"?"}/100 (${comp?.eligible?"Eligible ✓":"Needs improvement"})`:`• Score jury: ${comp?.score||"?"}/100 (${comp?.eligible?"ÉLIGIBLE ✓":"À améliorer"})`,
                         eAr?`• عدد المستفيدين: ${proj?.beneficiaries||"..."}`:eEn?`• Beneficiaries: ${proj?.beneficiaries||"..."}`:`• Bénéficiaires: ${proj?.beneficiaries||"..."}`,
                         eAr?`• قطاع النشاط: ${proj?.sector||"..."}`:eEn?`• Sector: ${proj?.sector||"..."}`:`• Secteur: ${proj?.sector||"..."}`,
