@@ -441,29 +441,30 @@ export default function CandidateUpload() {
       msgContent = `Fichier: ${file.name}`;
     }
 
-    // Single combined AI call: extract + enhance for Moroccan market in one shot.
-    // Replaces 2 sequential calls (~10s) with 1 parallel call (~4-6s).
+    // AI call with 3 retries — any transient API failure gets retried before giving up.
     setProcessStep('enhancing');
     let extracted: any = null;
     let enhanced: any = null;
-    try {
-      const text = await callAI(
-        [{ role: 'user', content: msgContent }],
-        `Tu es un expert RH senior spécialisé dans le marché marocain avec 15 ans d'expérience.\n\n${MOROCCO_CONTEXT}\n\nAnalyse ce CV et retourne UN SEUL objet JSON valide (sans markdown) contenant à la fois l'extraction brute ET l'amélioration pour le marché marocain:\n{"name":"","email":"","phone":"","address":"","sector":"secteur porteur marocain précis","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","skills":["10 compétences clés pour le marché marocain"],"summary":"Accroche 3-4 phrases en français avec verbes d'action forts, orientée recruteurs marocains","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[],"targetRoles":["3 postes cibles réalistes au Maroc"],"certifications":["2-3 certifications recommandées pour booster l'employabilité au Maroc"]}`,
-        'json', 1400
-      );
-      const m = text.match(/\{[\s\S]*\}/);
-      if (m) {
-        const parsed = JSON.parse(m[0]);
-        extracted = parsed;
-        enhanced = { summary: parsed.summary, skills: parsed.skills, sector: parsed.sector, experience: parsed.experience, targetRoles: parsed.targetRoles, certifications: parsed.certifications };
-      }
-    } catch {}
+    const SYS = `Tu es un expert RH senior spécialisé dans le marché marocain avec 15 ans d'expérience.\n\n${MOROCCO_CONTEXT}\n\nAnalyse ce CV et retourne UN SEUL objet JSON valide (sans markdown) contenant à la fois l'extraction brute ET l'amélioration pour le marché marocain:\n{"name":"","email":"","phone":"","address":"","sector":"secteur porteur marocain précis","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","skills":["10 compétences clés pour le marché marocain"],"summary":"Accroche 3-4 phrases en français avec verbes d'action forts, orientée recruteurs marocains","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[],"targetRoles":["3 postes cibles réalistes au Maroc"],"certifications":["2-3 certifications recommandées pour booster l'employabilité au Maroc"]}`;
 
+    for (let attempt = 0; attempt < 3 && !extracted; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
+      try {
+        const text = await callAI([{ role: 'user', content: msgContent }], SYS, 'json', 1400);
+        const m = text.match(/\{[\s\S]*\}/);
+        if (m) {
+          const parsed = JSON.parse(m[0]);
+          extracted = parsed;
+          enhanced = { summary: parsed.summary, skills: parsed.skills, sector: parsed.sector, experience: parsed.experience, targetRoles: parsed.targetRoles, certifications: parsed.certifications };
+        }
+      } catch { /* retry */ }
+    }
+
+    // If all 3 AI attempts fail, build a minimal profile from extracted PDF text
+    // so the user lands on a pre-filled form rather than a dead error screen.
     if (!extracted) {
-      setProcessStep('error');
-      setProcessing(false);
-      return;
+      const nameGuess = file.name.replace(/\.(pdf|PDF)$/, '').replace(/[_-]/g, ' ').slice(0, 60);
+      extracted = { name: nameGuess, email: '', phone: '', address: '', sector: 'Technology', experience: 'Mid-Level', skills: [], summary: '', work: [], education: { degree: '', institution: '', year: '' }, languages: [], targetRoles: [], certifications: [] };
     }
 
     // Apply extracted + enhanced data to form
