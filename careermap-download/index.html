@@ -4800,6 +4800,10 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
     var col=C.hc[ht[0]]||C.teal;
     var empCol=emp>=65?C.gr:emp>=45?C.am:C.re;
     var initials=((p.firstName||p.name||c.name||"?")[0]||"?").toUpperCase()+((p.lastName||"")[0]||"").toUpperCase();
+    var indhTop=ht[0]||"";
+    var indhProg=indhTop==="R"||indhTop==="S"||indhTop==="C"?"01":indhTop==="E"?"02":"03";
+    var indhLabel=indhProg==="01"?"Insertion Professionnelle Salariée":indhProg==="02"?"Auto-Emploi / Entrepreneuriat":"Coopérative / Économie Sociale";
+    var indhCol=indhProg==="01"?"#1aabaa":indhProg==="02"?"#f97316":"#8b5cf6";
     return (
       <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"#060d18",zIndex:9998,display:"flex",flexDirection:"column",overflow:"hidden" }}>
         <div style={{ display:"flex",flexDirection:"column",height:"100%" }}>
@@ -4840,6 +4844,19 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                   <span>{row[1]}</span>
                 </div>:null;
             })}
+            <div style={{ marginTop:8,padding:"7px 10px",borderRadius:8,
+                background:indhCol+"15",border:"1px solid "+indhCol+"30",
+                display:"flex",alignItems:"center",gap:8 }}>
+              <span style={{ fontSize:8,fontWeight:900,color:indhCol,
+                  textTransform:"uppercase",letterSpacing:"0.5px",flexShrink:0 }}>Score INDH</span>
+              <span style={{ width:1,height:12,background:"rgba(255,255,255,.1)",flexShrink:0 }}/>
+              <span style={{ fontSize:9,fontWeight:800,color:"rgba(255,255,255,.85)",flex:1,minWidth:0 }}>
+                Programme {indhProg} — {indhLabel}
+              </span>
+              <span style={{ fontSize:10,fontWeight:900,color:indhCol,flexShrink:0 }}>
+                {indhTop} : {h[indhTop]||0}%
+              </span>
+            </div>
             <div style={{ height:1,background:"rgba(255,255,255,.08)",margin:"10px 0 9px" }}/>
             <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
               <div style={{ display:"flex",alignItems:"center",gap:7,flex:1,minWidth:0,overflow:"hidden" }}>
