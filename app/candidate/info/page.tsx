@@ -23,6 +23,12 @@ const EXPERIENCE_LEVELS = ['Étudiant(e)', 'Débutant (0–1 an)', 'Junior (1–
 
 const LANGS = ['Français', 'Arabe', 'Anglais', 'Espagnol', 'Allemand', 'Néerlandais', 'Autre'];
 
+const DIPLOMA_LEVELS = [
+  'Bac', 'Bac+2 / DUT / BTS', 'Licence / Bachelor (Bac+3)',
+  'Master / MBA (Bac+5)', 'Doctorat / PhD', 'OFPPT / Technicien Spécialisé',
+  'Formation professionnelle', 'Autodidacte', 'Autre',
+];
+
 interface InfoProfile {
   photo: string;
   firstName: string;
@@ -37,12 +43,16 @@ interface InfoProfile {
   languages: string[];
   linkedin: string;
   portfolio: string;
+  diploma: string;
+  institution: string;
+  graduationYear: string;
 }
 
 const EMPTY: InfoProfile = {
   photo: '', firstName: '', lastName: '', phone: '', birthDate: '',
   city: '', address: '', cin: '', sector: '', experience: '',
   languages: [], linkedin: '', portfolio: '',
+  diploma: '', institution: '', graduationYear: '',
 };
 
 function storageKey(idNumber: string) { return `tm_info_${idNumber}`; }
@@ -69,7 +79,6 @@ export default function CandidateInfoPage() {
         const parsed = JSON.parse(stored);
         setForm({ ...EMPTY, ...parsed });
       } else {
-        // Pre-fill name from auth
         const parts = user.name.split(' ');
         setForm(p => ({
           ...p,
@@ -81,7 +90,20 @@ export default function CandidateInfoPage() {
     } catch {}
   }, [user, initialized, router]);
 
-  if (!initialized || !user || user.role !== 'candidate') return null;
+  /* Show loading spinner while auth hydrates */
+  if (!initialized) {
+    return (
+      <main style={{ minHeight: '100vh', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: '40px', height: '40px', border: '3px solid #e2e8f0', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Chargement…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user || user.role !== 'candidate') return null;
 
   const set = (k: keyof InfoProfile, v: string) => {
     setSaved(false);
@@ -113,7 +135,6 @@ export default function CandidateInfoPage() {
     setSaving(true);
     try {
       localStorage.setItem(storageKey(user.idNumber), JSON.stringify(form));
-      // Also push to Redis
       fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -141,8 +162,9 @@ export default function CandidateInfoPage() {
   const filledCount = [
     form.photo, form.firstName, form.lastName, form.phone, form.city,
     form.sector, form.experience, form.languages.length > 0 ? 'ok' : '',
+    form.diploma,
   ].filter(Boolean).length;
-  const totalFields = 8;
+  const totalFields = 9;
   const pct = Math.round((filledCount / totalFields) * 100);
 
   return (
@@ -179,7 +201,6 @@ export default function CandidateInfoPage() {
         <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e8edf2' }}>
           <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>📷 Photo de profil</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-            {/* Avatar preview */}
             <div
               onClick={() => fileRef.current?.click()}
               style={{ width: '96px', height: '96px', borderRadius: '50%', border: '3px dashed #93c5fd', background: form.photo ? 'transparent' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', flexShrink: 0, transition: 'border-color 0.2s' }}
@@ -265,6 +286,44 @@ export default function CandidateInfoPage() {
               <input style={inputStyle(!!form.address)} value={form.address} onChange={e => set('address', e.target.value)} placeholder="123 Rue Mohammed V, Casablanca" />
             </div>
           </div>
+        </div>
+
+        {/* ── Education card ── */}
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e8edf2' }}>
+          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>🎓 Formation & Diplôme</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ ...fieldBlock, gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Niveau de diplôme *</label>
+              <select style={{ ...inputStyle(!!form.diploma), cursor: 'pointer' }} value={form.diploma} onChange={e => set('diploma', e.target.value)}>
+                <option value="">Sélectionner votre diplôme…</option>
+                {DIPLOMA_LEVELS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div style={fieldBlock}>
+              <label style={labelStyle}>École / Université</label>
+              <input
+                style={inputStyle(!!form.institution)}
+                value={form.institution}
+                onChange={e => set('institution', e.target.value)}
+                placeholder="ENSA, ENCG, FSJES, OFPPT…"
+              />
+            </div>
+            <div style={fieldBlock}>
+              <label style={labelStyle}>Année d'obtention</label>
+              <input
+                style={inputStyle(!!form.graduationYear)}
+                value={form.graduationYear}
+                onChange={e => set('graduationYear', e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="2023"
+                maxLength={4}
+              />
+            </div>
+          </div>
+          {form.diploma && (
+            <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.9rem', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#1d4ed8', fontWeight: 600 }}>
+              ✅ {form.diploma}{form.institution ? ` — ${form.institution}` : ''}{form.graduationYear ? ` (${form.graduationYear})` : ''}
+            </div>
+          )}
         </div>
 
         {/* ── Professional card ── */}

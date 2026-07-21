@@ -438,6 +438,13 @@ export default function CandidateUpload() {
         if (info.firstName || info.lastName) setName(`${info.firstName || ''} ${info.lastName || ''}`.trim() || user.name);
         if (info.sector) setSector(info.sector.split('/')[0].trim());
         if (info.languages?.length) setLanguages(info.languages);
+        if (info.diploma || info.institution || info.graduationYear) {
+          setEducation(p => ({
+            degree: info.diploma || p.degree,
+            institution: info.institution || p.institution,
+            year: info.graduationYear || p.year,
+          }));
+        }
       }
     } catch {}
     // Load previously saved CV data (skills, work, summary, education, certifications, targetRoles)
