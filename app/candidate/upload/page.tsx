@@ -405,6 +405,8 @@ export default function CandidateUpload() {
   // AI template helpers
   const [enhancing, setEnhancing] = useState(false);
   const [suggestingSkills, setSuggestingSkills] = useState(false);
+  const [workImproving, setWorkImproving] = useState<Set<number>>(new Set());
+  const [generatingCV, setGeneratingCV] = useState(false);
 
   // Job matching
   const [coordJobs, setCoordJobs] = useState<any[]>([]);
@@ -769,6 +771,58 @@ export default function CandidateUpload() {
     setSuggestingSkills(false);
   }
 
+  async function improveWorkDescription(index: number) {
+    if (workImproving.has(index)) return;
+    const w = work[index];
+    if (!w.company && !w.title && !w.description) return;
+    setWorkImproving(prev => new Set([...prev, index]));
+    try {
+      const raw = w.description?.trim() || `a travaillé comme ${w.title || 'employé'} chez ${w.company || 'une entreprise'}`;
+      const text = await callAI(
+        [{ role: 'user', content: `Poste: ${w.title || '?'} chez ${w.company || '?'} (secteur: ${sector})\nDescription brute: "${raw}"\nRéécris en 2-3 bullet points professionnels avec verbes d'action forts et résultats mesurables.` }],
+        `Expert RH Maroc. Réécris en 2-3 points courts commençant par un tiret (-) et un verbe d'action fort en français (développé, piloté, optimisé, géré, réalisé, animé, coordonné…). Ajoute des chiffres si possible. Retourne UNIQUEMENT les bullet points, sans titre ni introduction.\n\n${MOROCCO_CONTEXT}`,
+        'fast',
+        280
+      );
+      if (text.trim()) setWork(p => p.map((x, xi) => xi === index ? { ...x, description: text.trim() } : x));
+    } catch {}
+    setWorkImproving(prev => { const n = new Set(prev); n.delete(index); return n; });
+  }
+
+  async function preGenerateAndPreview() {
+    const hasGoodSummary = summary.trim().length > 60;
+    const hasRoles = targetRoles.length > 0;
+    if (hasGoodSummary && hasRoles) { setStep('preview'); return; }
+
+    setGeneratingCV(true);
+    const ctx = [
+      name && `Nom: ${name}`,
+      `Niveau: ${experience}`, `Secteur: ${sector}`,
+      skills.length && `Compétences: ${skills.slice(0, 12).join(', ')}`,
+      work.some(w => w.company) && `Expériences: ${work.filter(w => w.company).map(w => `${w.title || 'Poste'} chez ${w.company}`).join('; ')}`,
+      education.degree && `Formation: ${education.degree}${education.institution ? ' – ' + education.institution : ''}`,
+      languages.length && `Langues: ${languages.join(', ')}`,
+      !hasGoodSummary && summary.trim() && `Brouillon résumé: "${summary.slice(0, 180)}"`,
+    ].filter(Boolean).join('\n');
+    try {
+      const text = await callAI(
+        [{ role: 'user', content: ctx }],
+        `Expert RH senior Maroc. Génère UNIQUEMENT ce JSON valide (sans markdown):\n{"summary":${!hasGoodSummary ? '"accroche 3-4 phrases percutantes verbes action pour recruteur marocain"' : 'null'},"targetRoles":${!hasRoles ? '["poste1","poste2","poste3"]' : 'null'},"certifications":${certifications.length === 0 ? '["certification1","certification2"]' : 'null'}}\n\n${MOROCCO_CONTEXT}`,
+        'fast',
+        450
+      );
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) {
+        const p = JSON.parse(m[0]);
+        if (p.summary && !hasGoodSummary) setSummary(p.summary);
+        if (p.targetRoles?.length && !hasRoles) setTargetRoles(p.targetRoles.slice(0, 3));
+        if (p.certifications?.length && certifications.length === 0) setCertifications(p.certifications.slice(0, 3));
+      }
+    } catch {}
+    setGeneratingCV(false);
+    setStep('preview');
+  }
+
   function instantAdapt(job: any): { summary: string; skills: string[] } {
     const jobSkills: string[] = Array.isArray(job.skills) ? job.skills : [];
     const matching = skills.filter(s => jobSkills.some(js => js.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(js.toLowerCase())));
@@ -950,8 +1004,9 @@ export default function CandidateUpload() {
                 {processStep === 'done' && (
                   <div style={{ background: '#f0fdf4', borderRadius: '16px', padding: '2rem', border: '1.5px solid #86efac', textAlign: 'center' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>✅</div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#15803d', marginBottom: '0.25rem' }}>CV analysé et optimisé !</h3>
-                    <p style={{ color: '#166534', fontSize: '0.875rem' }}>Redirection vers le téléchargement…</p>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#15803d', marginBottom: '0.25rem' }}>CV analysé et boosté pour le marché marocain !</h3>
+                    <p style={{ color: '#166534', fontSize: '0.875rem' }}>Résumé rédigé · Compétences optimisées · Postes cibles suggérés</p>
+                    <p style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.4rem' }}>Redirection vers l'aperçu…</p>
                   </div>
                 )}
 
@@ -1037,7 +1092,16 @@ export default function CandidateUpload() {
                           <div><label style={lbl}>Début</label><input value={w.startDate} onChange={e => setWork(p => p.map((x, xi) => xi === i ? { ...x, startDate: e.target.value } : x))} placeholder="Jan 2022" style={inp} /></div>
                           <div><label style={lbl}>Fin</label><input value={w.endDate} onChange={e => setWork(p => p.map((x, xi) => xi === i ? { ...x, endDate: e.target.value } : x))} placeholder="Présent" style={inp} /></div>
                         </div>
-                        <div><label style={lbl}>Réalisations</label><textarea value={w.description} onChange={e => setWork(p => p.map((x, xi) => xi === i ? { ...x, description: e.target.value } : x))} placeholder="Vos principales réalisations avec des verbes d'action et des chiffres…" rows={2} style={{ ...inp, resize: 'vertical' }} /></div>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                            <label style={lbl}>Réalisations</label>
+                            <button onClick={() => improveWorkDescription(i)} disabled={workImproving.has(i)}
+                              style={{ padding: '0.25rem 0.7rem', borderRadius: '7px', background: workImproving.has(i) ? '#f3f4f6' : '#eff6ff', color: workImproving.has(i) ? '#9ca3af' : '#1d4ed8', border: '1.5px solid #bfdbfe', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                              {workImproving.has(i) ? '⟳ Rédaction…' : '✨ Réécrire (IA)'}
+                            </button>
+                          </div>
+                          <textarea value={w.description} onChange={e => setWork(p => p.map((x, xi) => xi === i ? { ...x, description: e.target.value } : x))} placeholder="Décrivez vos tâches ou réalisations — l'IA les transformera en bullet points professionnels." rows={3} style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1108,11 +1172,23 @@ export default function CandidateUpload() {
                 </div>
 
                 {/* CTA */}
-                <button
-                  onClick={() => setStep('preview')}
-                  style={{ width: '100%', padding: '1rem', borderRadius: '12px', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: 'white', border: 'none', fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  Générer mon CV optimisé →
-                </button>
+                {generatingCV ? (
+                  <div style={{ background: 'white', borderRadius: '14px', padding: '2rem', border: '1.5px solid #bfdbfe', textAlign: 'center' }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🇲🇦</div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '0.4rem' }}>Finalisation de votre CV…</h3>
+                    <p style={{ color: '#6b7280', fontSize: '0.84rem', marginBottom: '1rem' }}>L'Expert RH complète votre profil, génère une accroche et suggère des postes cibles.</p>
+                    <div style={{ maxWidth: 380, margin: '0 auto', background: '#e5e7eb', borderRadius: 4, height: 5, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', background: 'linear-gradient(90deg,#0a1f5c,#2563eb)', borderRadius: 4, animation: 'cvBarFill 5s linear forwards' }} />
+                    </div>
+                    <style>{`@keyframes cvBarFill{from{width:0%}to{width:90%}}`}</style>
+                  </div>
+                ) : (
+                  <button
+                    onClick={preGenerateAndPreview}
+                    style={{ width: '100%', padding: '1.1rem', borderRadius: '12px', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: 'white', border: 'none', fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', boxShadow: '0 4px 16px rgba(37,99,235,.35)' }}>
+                    🇲🇦 Générer mon CV optimisé →
+                  </button>
+                )}
               </div>
             )}
           </div>
