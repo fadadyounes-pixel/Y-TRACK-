@@ -192,7 +192,7 @@ async function callAI(messages: { role: string; content: AIMsgContent }[], syste
 }
 
 export default function CandidateUpload() {
-  const { user } = useAuth();
+  const { user, initialized } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -237,10 +237,11 @@ export default function CandidateUpload() {
   const [portfolio, setPortfolio] = useState('');
 
   useEffect(() => {
+    if (!initialized) return;
     if (!user || user.role !== 'candidate') { router.push('/login'); return; }
     setName(user.name);
     setEmail(user.email);
-    // Load info profile (photo, linkedin, portfolio, phone, address)
+    // Load info profile (photo, linkedin, portfolio, phone, address, sector, languages)
     try {
       const stored = localStorage.getItem(`tm_info_${user.idNumber}`);
       if (stored) {
@@ -248,15 +249,37 @@ export default function CandidateUpload() {
         if (info.photo) setPhoto(info.photo);
         if (info.linkedin) setLinkedin(info.linkedin);
         if (info.portfolio) setPortfolio(info.portfolio);
-        if (info.phone && !phone) setPhone(info.phone);
-        if (info.city && !address) setAddress(info.city);
+        if (info.phone) setPhone(info.phone);
+        if (info.city) setAddress(info.city);
         if (info.firstName || info.lastName) setName(`${info.firstName || ''} ${info.lastName || ''}`.trim() || user.name);
         if (info.sector) setSector(info.sector.split('/')[0].trim());
         if (info.languages?.length) setLanguages(info.languages);
       }
     } catch {}
+    // Load previously saved CV data (skills, work, summary, education, certifications, targetRoles)
+    try {
+      const cvStored = localStorage.getItem(`tm_cv_${user.idNumber}`);
+      if (cvStored) {
+        const cv = JSON.parse(cvStored);
+        if (cv.summary) setSummary(cv.summary);
+        if (cv.skills?.length) setSkills(cv.skills);
+        if (cv.work?.length) setWork(cv.work);
+        if (cv.education?.degree || cv.education?.institution) setEducation(cv.education);
+        if (cv.targetRoles?.length) setTargetRoles(cv.targetRoles);
+        if (cv.certifications?.length) setCertifications(cv.certifications);
+        if (cv.experience) setExperience(cv.experience);
+      }
+    } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, router]);
+  }, [initialized, user, router]);
+
+  // Persist CV-specific fields to localStorage so they survive navigation
+  useEffect(() => {
+    if (!user) return;
+    try {
+      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience }));
+    } catch {}
+  }, [user, summary, skills, work, education, targetRoles, certifications, experience]);
 
   // Load jobs from Redis for matching
   useEffect(() => {
@@ -306,18 +329,30 @@ export default function CandidateUpload() {
   const cvHtml = useMemo(() => {
     if (!user) return '';
     return generateCVHtml({ name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio]);
+  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio]);
 
   if (!user || user.role !== 'candidate') return null;
 
   // ── PDF download via browser print dialog ────────────────────────────────
   function downloadPDF() {
+    if (!cvHtml) return;
     const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(cvHtml);
-    win.document.close();
-    setTimeout(() => { win.focus(); win.print(); }, 700);
+    if (win) {
+      win.document.write(cvHtml);
+      win.document.close();
+      setTimeout(() => { win.focus(); win.print(); }, 700);
+    } else {
+      // Popup blocked — fall back to downloading the HTML file directly
+      const blob = new Blob([cvHtml], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CV_${name || 'TalentMap'}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
   }
 
   // ── Extract readable text from a PDF binary (no external library) ──
