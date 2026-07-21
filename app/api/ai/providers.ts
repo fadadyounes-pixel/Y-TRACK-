@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 
-// Per-provider timeout: 20s for long-form JSON tasks (CV analysis), 5s otherwise.
-function tFetch(url: string, opts: RequestInit, ms = 20000): Promise<Response> {
+// Per-provider timeout: 18s for long-form JSON tasks (CV analysis), 5s otherwise.
+function tFetch(url: string, opts: RequestInit, ms = 18000): Promise<Response> {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), ms);
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(id));
@@ -144,11 +144,12 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
   };
   if (sys) body.system = sys;
 
+  const timeout = maxTok <= 500 ? 5000 : 18000;
   const res = await tFetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers,
     body: JSON.stringify(body),
-  });
+  }, timeout);
   if (res.status === 401) throw new Error("Anthropic 401");
   if (!res.ok) throw new Error(`Anthropic ${res.status}`);
   const d = await res.json();
@@ -165,9 +166,11 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
   }));
   const body: Record<string, unknown> = { contents, generationConfig: { maxOutputTokens: maxTok } };
   if (sys) body.systemInstruction = { parts: [{ text: sys }] };
+  const gTimeout = maxTok <= 500 ? 5000 : 18000;
   const res = await tFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    gTimeout
   );
   if (!res.ok) throw new Error(`Gemini ${res.status}`);
   const d = await res.json();
@@ -179,13 +182,14 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
   const key = ev("GROQ_API_KEY", _k.g);
   if (!key) throw new Error("no GROQ_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const groqTimeout = maxTok <= 500 ? 5000 : 18000;
   for (const model of fast ? GROQ_MODELS_FAST : GROQ_MODELS) {
     try {
       const res = await tFetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      }, groqTimeout);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Groq 401");
       if (!res.ok) continue;
@@ -206,13 +210,14 @@ async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fa
   const key = ev("CEREBRAS_API_KEY");
   if (!key) throw new Error("no CEREBRAS_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const cbTimeout = maxTok <= 500 ? 5000 : 18000;
   for (const model of fast ? CEREBRAS_MODELS_FAST : CEREBRAS_MODELS) {
     try {
       const res = await tFetch("https://api.cerebras.ai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      }, cbTimeout);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Cerebras 401");
       if (!res.ok) continue;

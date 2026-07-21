@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -72,14 +72,38 @@ const QA = [
   },
 ];
 
-async function callAI(messages: { role: string; content: string }[], system: string): Promise<string> {
+async function callAI(
+  messages: { role: string; content: string }[],
+  system: string,
+  signal?: AbortSignal,
+): Promise<string> {
   const r = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, system, task: 'dialogue', max_tokens: 800 }),
+    body: JSON.stringify({ messages, system, task: 'fast', max_tokens: 350 }),
+    signal,
   });
   const d = await r.json();
   return d.content?.[0]?.text || '';
+}
+
+function buildFallback(ans: Record<string, string>, name: string, phone: string, email: string): string {
+  const company = ans.company ? `votre entreprise ${ans.company}` : 'votre entreprise';
+  const expLine = !ans.experience || ans.experience.toLowerCase().includes('premier') || ans.experience.toLowerCase().includes('débu')
+    ? "Bien que débutant(e) dans ce domaine, je suis motivé(e), sérieux(se) et prêt(e) à apprendre rapidement."
+    : `Fort(e) de mon expérience — ${ans.experience} — je suis en mesure d'apporter une contribution immédiate.`;
+  const motLine = ans.motivation || "Je suis convaincu(e) que ma motivation et mon sérieux constituent des atouts précieux.";
+  return `Madame, Monsieur,
+
+J'ai l'honneur de vous adresser ma candidature pour le poste de ${ans.job || 'collaborateur(trice)'}. ${expLine}
+
+Votre annonce a retenu toute mon attention car ${motLine.charAt(0).toLowerCase() + motLine.slice(1)}. Je souhaite vivement rejoindre ${company} et y contribuer pleinement à vos objectifs.
+
+Disponible immédiatement et ouvert(e) à tout entretien à votre convenance, je reste à votre disposition pour tout complément d'information. Je vous remercie de l'attention que vous porterez à ma candidature.
+
+Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées.
+
+${name}${phone ? '\n' + phone : ''}${email ? '\n' + email : ''}`;
 }
 
 export default function EmailGenerator() {
@@ -94,7 +118,10 @@ export default function EmailGenerator() {
   const [copied, setCopied] = useState(false);
   const [info, setInfo] = useState<Record<string, any> | null>(null);
   const [error, setError] = useState('');
+  const [elapsed, setElapsed] = useState(0);
+  const [usedFallback, setUsedFallback] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (initialized && (!user || user.role !== 'candidate')) router.push('/login');
@@ -131,50 +158,66 @@ export default function EmailGenerator() {
     }
   };
 
-  const generateEmail = async (ans: Record<string, string>) => {
+  const generateEmail = useCallback(async (ans: Record<string, string>) => {
     setFlow('generating');
     setError('');
+    setElapsed(0);
+    setUsedFallback(false);
+
+    // Live elapsed-second counter
+    timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
+    const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
+
     const name = `${info?.firstName || ''} ${info?.lastName || ''}`.trim() || user.name;
-    const system = `Tu es un expert en rédaction de lettres de candidature formelles au Maroc.
-Rédige une lettre de candidature professionnelle et formelle en français pour la personne ci-dessous.
+    const phone = info?.phone || '';
+    const email = user.email || '';
 
-RÈGLES IMPORTANTES:
-- La lettre doit être prête à envoyer par email (sans [crochets] ni champs à remplir)
-- Exactement 3 paragraphes bien structurés, clairs et concis
-- Commencer TOUJOURS par: "Madame, Monsieur,"
-- Terminer TOUJOURS par la formule: "Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées."
-- Puis la signature avec le nom complet
-- Adapter le ton au niveau d'expérience indiqué
-- Si l'entreprise est inconnue ou vide, écrire "votre entreprise" à la place
-- Utiliser le vrai prénom et nom du candidat pour la signature
-- Être positif, motivé et professionnel même si peu d'expérience
-- Maximum 180 mots au total
-- Retourner UNIQUEMENT la lettre, sans aucun commentaire ni explication`;
+    const system = `Rédige une lettre de candidature formelle en français. RÈGLES STRICTES:
+- 3 paragraphes. Commencer par "Madame, Monsieur,". Terminer par "Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées."
+- Signature: nom complet, téléphone, email. Si entreprise vide, écrire "votre entreprise".
+- Maximum 160 mots. Prête à envoyer. Aucun commentaire ni explication.`;
 
-    const content = `Poste visé: ${ans.job || 'Non précisé'}
-Entreprise: ${ans.company || 'Non précisée'}
-Expérience du candidat: ${ans.experience || 'Débutant'}
+    const content = `Poste: ${ans.job || 'Non précisé'}
+Entreprise: ${ans.company || ''}
+Expérience: ${ans.experience || 'Débutant'}
 Motivation: ${ans.motivation || 'Motivé à travailler'}
-Nom complet du candidat: ${name}
-Téléphone: ${info?.phone || ''}
-Email: ${user.email || ''}`;
+Nom: ${name}
+Tél: ${phone}
+Email: ${email}`;
+
+    // Hard 8-second deadline — if AI takes longer, use local fallback
+    const ctrl = new AbortController();
+    const hardDeadline = setTimeout(() => ctrl.abort(), 8000);
 
     try {
       let text = '';
-      for (let attempt = 0; attempt < 3 && !text; attempt++) {
-        if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
-        text = await callAI([{ role: 'user', content }], system);
+      // Try twice with no delay between attempts (abort signal stops them both)
+      for (let attempt = 0; attempt < 2 && !text; attempt++) {
+        try {
+          text = await callAI([{ role: 'user', content }], system, ctrl.signal);
+        } catch {
+          // continue to next attempt or fallback
+        }
       }
-      if (!text) throw new Error('no response');
+      clearTimeout(hardDeadline);
+      clearTimer();
+      if (!text) {
+        // Deadline hit or all attempts failed — use instant local fallback
+        setUsedFallback(true);
+        text = buildFallback(ans, name, phone, email);
+      }
       setGeneratedEmail(text);
       setFlow('result');
     } catch {
-      setError('Une erreur est survenue. Veuillez réessayer.');
-      setFlow('qa');
-      setQaIndex(QA.length - 1);
-      setCurrentInput(ans.motivation || '');
+      clearTimeout(hardDeadline);
+      clearTimer();
+      // Always show something — never leave user waiting
+      setUsedFallback(true);
+      setGeneratedEmail(buildFallback(ans, name, phone, email));
+      setFlow('result');
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [info, user]);
 
   const handleCopy = async () => {
     try {
@@ -493,36 +536,44 @@ Email: ${user.email || ''}`;
   // ─── GENERATING SCREEN ────────────────────────────────────────────────────
   if (flow === 'generating') return (
     <Wrap>
+      <style>{`
+        @keyframes spin2 { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+        @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-10px)}}
+        @keyframes barFill { from{width:0%} to{width:90%} }
+      `}</style>
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '5rem 1.25rem', textAlign: 'center' }}>
-        {/* Animated gradient orb */}
-        <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto 2rem' }}>
-          <div style={{
-            width: 100, height: 100, borderRadius: '50%',
-            background: 'linear-gradient(135deg,#7c3aed,#2563eb)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 48,
-            animation: 'spin 2s linear infinite',
-            boxShadow: '0 8px 40px rgba(124,58,237,.45)',
-          }}>✉️</div>
-        </div>
-        <style>{`@keyframes spin { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }`}</style>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', marginBottom: '0.75rem' }}>
+        <div style={{ width: 100, height: 100, borderRadius: '50%', margin: '0 auto 2rem',
+          background: 'linear-gradient(135deg,#7c3aed,#2563eb)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 48, animation: 'spin2 2s ease infinite',
+          boxShadow: '0 8px 40px rgba(124,58,237,.45)' }}>✉️</div>
+
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', marginBottom: '0.5rem' }}>
           L'IA rédige votre lettre…
         </h2>
-        <p style={{ fontSize: '0.9rem', color: '#6b7280', lineHeight: 1.7, maxWidth: 360, margin: '0 auto' }}>
-          Notre IA analyse vos réponses et rédige une lettre professionnelle adaptée à votre profil.
+        <p style={{ fontSize: '0.9rem', color: '#6b7280', lineHeight: 1.7, maxWidth: 360, margin: '0 auto 1.5rem' }}>
+          Analyse de vos réponses en cours — prête dans quelques secondes.
         </p>
-        {/* Animated dots */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem', marginTop: '2rem' }}>
+
+        {/* Progress bar (pseudo-animation to 90% over 8s) */}
+        <div style={{ height: 6, background: '#e5e7eb', borderRadius: 9999, overflow: 'hidden', margin: '0 auto 1rem', maxWidth: 280 }}>
+          <div style={{ height: '100%', borderRadius: 9999,
+            background: 'linear-gradient(90deg,#7c3aed,#2563eb)',
+            animation: 'barFill 8s linear forwards' }} />
+        </div>
+
+        {/* Live elapsed counter */}
+        <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1.5rem' }}>
+          {elapsed < 3 ? '⚡ Connexion à l\'IA…' : elapsed < 6 ? '✍️ Rédaction en cours…' : '🔄 Finalisation…'}
+          <span style={{ marginLeft: '0.4rem', fontWeight: 700, color: '#7c3aed' }}>{elapsed}s</span>
+        </p>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
           {[0, 1, 2].map(i => (
-            <div key={i} style={{
-              width: 9, height: 9, borderRadius: '50%',
-              background: '#7c3aed',
-              animation: `bounce 1s ease ${i * 0.2}s infinite`,
-            }} />
+            <div key={i} style={{ width: 9, height: 9, borderRadius: '50%',
+              background: '#7c3aed', animation: `bounce 1s ease ${i * 0.2}s infinite` }} />
           ))}
         </div>
-        <style>{`@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-10px)}}`}</style>
       </div>
     </Wrap>
   );
@@ -572,9 +623,11 @@ Email: ${user.email || ''}`;
             </span>
             <span style={{
               marginLeft: 'auto', padding: '0.15rem 0.55rem', borderRadius: 9999,
-              background: '#f0fdf4', color: '#15803d', fontSize: '0.68rem', fontWeight: 700,
+              background: usedFallback ? '#fff7ed' : '#f0fdf4',
+              color: usedFallback ? '#c2410c' : '#15803d',
+              fontSize: '0.68rem', fontWeight: 700,
             }}>
-              Prête à copier
+              {usedFallback ? '✏️ À personnaliser' : 'Prête à copier'}
             </span>
           </div>
           {/* Email body */}
