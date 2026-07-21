@@ -191,6 +191,188 @@ async function callAI(messages: { role: string; content: AIMsgContent }[], syste
   return (d.content?.[0]?.text || '') as string;
 }
 
+/* ── CV Advisor floating chat agent ──────────────────────────────────────── */
+function CVAdvisor({ sector, experience, summary, skills, step: cvStep }: {
+  sector: string; experience: string; summary: string; skills: string[]; step: Step;
+}) {
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState<{ role: string; content: string }[]>([]);
+  const [inp, setInp] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [unread, setUnread] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, busy]);
+
+  const ctx = [
+    `Étape: ${cvStep}`,
+    `Niveau: ${experience}`,
+    `Secteur: ${sector}`,
+    skills.length && `Compétences: ${skills.slice(0, 10).join(', ')}`,
+    summary && `Résumé: "${summary.slice(0, 180)}"`,
+  ].filter(Boolean).join('\n');
+
+  const sys = `Tu es l'Expert RH TalentMap — conseiller carrière senior spécialisé dans le marché de l'emploi marocain, 15 ans d'expérience.
+PROFIL DU CANDIDAT:\n${ctx}
+RÈGLES: Réponds en français uniquement. Sois direct et concret — donne des exemples copiables immédiatement dans le CV. 2-4 phrases max (sauf si tu réécris un résumé complet). Utilise des verbes d'action forts: développé, piloté, optimisé, géré, coordonné, animé, réalisé. Adapte au marché marocain (BTP, tourisme, agro-alimentaire, tech, finance offshore). Si on demande un résumé: 3 phrases max, percutantes.`;
+
+  const quickActions = [
+    {
+      label: '✨ Améliore mon résumé',
+      q: `Réécris mon résumé professionnel en 3 phrases percutantes pour le marché marocain. Secteur: ${sector}, Niveau: ${experience}${summary ? `. Brouillon: "${summary.slice(0, 150)}"` : ''}. Verbes d'action forts, orienté recruteurs marocains.`,
+    },
+    {
+      label: '⚡ Compétences manquantes',
+      q: `Liste 5 compétences clés que je devrais ajouter pour un profil ${experience} en ${sector} au Maroc. Format: une compétence par ligne, sans explication.`,
+    },
+    {
+      label: '📝 Exemple de réalisation',
+      q: `Donne-moi un exemple concret de bullet point pour décrire une réalisation professionnelle en ${sector}. Utilise des chiffres, un verbe d'action et un résultat mesurable.`,
+    },
+    {
+      label: '🇲🇦 Optimisé pour le Maroc ?',
+      q: `Mon CV est-il bien positionné pour le marché marocain ? Secteur: ${sector}, Niveau: ${experience}${skills.length ? `, Compétences: ${skills.slice(0, 5).join(', ')}` : ''}. Donne 2 conseils concrets d'amélioration.`,
+    },
+  ];
+
+  const send = async (override?: string) => {
+    const msg = override ?? inp;
+    if (!msg.trim() || busy) return;
+    const history = [...msgs, { role: 'user', content: msg }];
+    setMsgs(history);
+    if (!override) setInp('');
+    setBusy(true);
+
+    const ctrl = new AbortController();
+    const deadline = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const r = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history, system: sys, task: 'fast', max_tokens: 400 }),
+        signal: ctrl.signal,
+      });
+      clearTimeout(deadline);
+      const d = await r.json();
+      const text = (d.content?.[0]?.text || '').trim();
+      setMsgs(p => [...p, { role: 'assistant', content: text || 'Désolé, réessayez dans un instant.' }]);
+      if (!open) setUnread(true);
+    } catch {
+      clearTimeout(deadline);
+      setMsgs(p => [...p, { role: 'assistant', content: 'Conseiller momentanément indisponible. Réessayez dans quelques secondes.' }]);
+    }
+    setBusy(false);
+  };
+
+  return (
+    <>
+      {/* Floating button */}
+      <button
+        onClick={() => { setOpen(p => !p); setUnread(false); }}
+        title="Expert RH TalentMap — Conseiller CV"
+        style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 1000,
+          width: 52, height: 52, borderRadius: '50%',
+          background: 'linear-gradient(135deg,#0a1f5c,#2563eb)',
+          border: 'none', cursor: 'pointer',
+          boxShadow: '0 4px 20px rgba(37,99,235,.5)',
+          fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'transform .2s, box-shadow .2s',
+        }}>
+        {open ? '✕' : '💡'}
+        {unread && !open && (
+          <div style={{ position: 'absolute', top: 1, right: 1, width: 12, height: 12, borderRadius: '50%', background: '#ef4444', border: '2px solid white' }} />
+        )}
+      </button>
+
+      {/* Chat panel */}
+      {open && (
+        <div style={{
+          position: 'fixed', bottom: 88, right: 24, zIndex: 999,
+          width: 320, background: 'white', borderRadius: 18,
+          boxShadow: '0 8px 48px rgba(10,31,92,.22)', border: '1px solid #e5e7eb',
+          display: 'flex', flexDirection: 'column',
+          animation: 'advisorFadeUp .25s ease both',
+        }}>
+          {/* Header */}
+          <div style={{ background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', borderRadius: '18px 18px 0 0', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>👔</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>Expert RH TalentMap</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,.55)' }}>Conseiller CV · Marché marocain</div>
+            </div>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+          </div>
+
+          {/* Context chips */}
+          <div style={{ padding: '8px 12px 4px', display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>{experience}</span>
+            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac' }}>{sector}</span>
+          </div>
+
+          {/* Messages */}
+          <div style={{ overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260 }}>
+            <div style={{ padding: '10px 13px', background: '#eff6ff', borderRadius: '12px 12px 12px 4px', fontSize: 12, color: '#111827', lineHeight: 1.65 }}>
+              Bonjour ! Je suis votre Expert RH. Je peux améliorer votre résumé, suggérer des compétences clés pour <strong>{sector}</strong>, ou vous montrer comment décrire vos expériences. Que puis-je faire pour vous ?
+            </div>
+            {msgs.map((m, i) => (
+              <div key={i} style={{
+                padding: '10px 13px', maxWidth: '90%',
+                borderRadius: m.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                background: m.role === 'user' ? 'linear-gradient(135deg,#0a1f5c,#1d4ed8)' : '#eff6ff',
+                color: m.role === 'user' ? 'white' : '#111827',
+                fontSize: 12, lineHeight: 1.65,
+                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                whiteSpace: 'pre-wrap',
+              }}>
+                {m.content}
+              </div>
+            ))}
+            {busy && (
+              <div style={{ display: 'flex', gap: 4, padding: '8px 12px', background: '#eff6ff', borderRadius: 12, width: 'fit-content' }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#2563eb', animation: `advisorBounce 1s ease ${i * .2}s infinite` }} />
+                ))}
+              </div>
+            )}
+            <div ref={endRef} />
+          </div>
+
+          {/* Quick actions — only shown before first message */}
+          {msgs.length === 0 && (
+            <div style={{ padding: '4px 12px 8px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {quickActions.map((qa, i) => (
+                <button key={i} onClick={() => send(qa.q)} disabled={busy}
+                  style={{ padding: '7px 11px', borderRadius: 10, border: '1.5px solid #bfdbfe', background: '#f8faff', color: '#1d4ed8', fontSize: 11, fontWeight: 600, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background .15s' }}>
+                  {qa.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input */}
+          <div style={{ padding: '10px 12px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              value={inp}
+              onChange={e => setInp(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && send()}
+              placeholder="Votre question…"
+              disabled={busy}
+              style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 12, fontFamily: 'inherit', color: '#111827', background: '#f9fafb' }}
+            />
+            <button onClick={() => send()} disabled={busy || !inp.trim()}
+              style={{ width: 36, height: 36, borderRadius: 10, border: 'none', flexShrink: 0, background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: 'white', fontSize: 16, cursor: 'pointer', opacity: busy || !inp.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              →
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes advisorFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes advisorBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}`}</style>
+    </>
+  );
+}
+
 export default function CandidateUpload() {
   const { user, initialized } = useAuth();
   const router = useRouter();
@@ -1097,6 +1279,7 @@ export default function CandidateUpload() {
       </div>
 
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+      <CVAdvisor sector={sector} experience={experience} summary={summary} skills={skills} step={step} />
     </main>
   );
 }
