@@ -347,6 +347,26 @@ async function tryOnce(fn: typeof groq, msgs: Msg[], sys: string | undefined, ma
   }
 }
 
+// Race providers in parallel — resolves with the first valid response within timeoutMs,
+// or null if all fail / none responds in time. Orphaned requests complete but are discarded.
+async function raceFirst(
+  fns: Array<(m: Msg[], s: string | undefined, t: number) => Promise<string>>,
+  msgs: Msg[], sys: string | undefined, maxTok: number, timeoutMs: number
+): Promise<string | null> {
+  return new Promise(resolve => {
+    let done = false;
+    let pending = fns.length;
+    const guard = setTimeout(() => { if (!done) { done = true; resolve(null); } }, timeoutMs);
+    const settle = (text: string | null) => {
+      if (!done && text) { done = true; clearTimeout(guard); resolve(text); return; }
+      if (--pending === 0 && !done) { done = true; clearTimeout(guard); resolve(null); }
+    };
+    for (const fn of fns) {
+      fn(msgs, sys, maxTok).then(t => settle(t || null)).catch(() => settle(null));
+    }
+  });
+}
+
 export async function rafiq({ task, messages, system, max_tokens = 1200 }: RafiqOpts): Promise<string> {
   const fast = task === "fast";
 
@@ -370,20 +390,31 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     throw new Error("Fast AI providers busy. Please try again.");
   }
 
-  // Standard path — Anthropic first for quality, then Cerebras (speed),
-  // then Groq, SambaNova, Mistral (best French/Arabic), Together, Gemini, OpenRouter.
-  // JSON tasks put Gemini second (reliable structured output).
-  const order = task === "json"
-    ? [anthropic, gemini, cerebras, sambanova, mistral, groq, together, openrouter]
-    : [anthropic, cerebras, groq, sambanova, mistral, together, gemini, openrouter];
+  // For JSON/dialogue tasks: first race the 3 fastest providers simultaneously (6s window).
+  // This eliminates worst-case 18s×N sequential timeout chains — Groq has a guaranteed
+  // fallback key so this race almost always resolves within 1-4s.
+  const racers: Array<(m: Msg[], s: string | undefined, t: number) => Promise<string>> = [
+    (m, s, t) => anthropic(m, s, t),
+    (m, s, t) => cerebras(m, s, t, false),
+    (m, s, t) => groq(m, s, t, false),
+  ];
+  const raceText = await raceFirst(racers, messages, system, max_tokens, 6000);
+  if (raceText) return raceText;
 
-  // Two full sweeps: first sweep is instant, second sweep waits 1.2s
+  // Sequential fallback — covers Gemini, SambaNova, Mistral, Together, OpenRouter.
+  // Skips the already-raced providers (anthropic/cerebras/groq) on the first sweep.
+  const fallbackOrder = task === "json"
+    ? [gemini, sambanova, mistral, together, openrouter]
+    : [gemini, sambanova, mistral, together, openrouter];
+
   for (let sweep = 0; sweep < 2; sweep++) {
     if (sweep > 0) await sleep(1200);
-    for (const fn of order) {
+    for (const fn of fallbackOrder) {
       const text = await tryOnce(fn, messages, system, max_tokens);
       if (text) return text;
     }
+    // Second sweep re-includes all providers (the race providers may succeed on retry)
+    if (sweep === 0) fallbackOrder.push(anthropic, cerebras, groq);
   }
 
   throw new Error("All AI providers temporarily busy. Please try again in a few seconds.");
