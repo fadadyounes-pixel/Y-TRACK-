@@ -524,26 +524,33 @@ export default function CandidateUpload() {
 
   if (!user || user.role !== 'candidate') return null;
 
-  // ── PDF download via browser print dialog ────────────────────────────────
+  // ── PDF download — opens browser print dialog directly (no popup) ──────────
   function downloadPDF() {
     if (!cvHtml) return;
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(cvHtml);
-      win.document.close();
-      setTimeout(() => { win.focus(); win.print(); }, 700);
-    } else {
-      // Popup blocked — fall back to downloading the HTML file directly
-      const blob = new Blob([cvHtml], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `CV_${name || 'TalentMap'}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    }
+    // Inject a hidden iframe so the print dialog opens on the current page
+    // instead of a new popup tab (avoids popup blockers, feels instant).
+    const blob = new Blob([cvHtml], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    const cleanup = () => {
+      if (document.body.contains(iframe)) document.body.removeChild(iframe);
+      URL.revokeObjectURL(url);
+    };
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch { cleanup(); }
+      setTimeout(cleanup, 60000);
+    };
+    // Safety fallback if onload never fires
+    setTimeout(() => {
+      try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch {}
+      setTimeout(cleanup, 60000);
+    }, 1500);
   }
 
   // ── Extract readable text from a PDF binary (no external library) ──
@@ -1277,7 +1284,7 @@ export default function CandidateUpload() {
             </div>
 
             <p style={{ fontSize: '0.78rem', color: '#9ca3af', marginBottom: '1.5rem' }}>
-              💡 Dans la boîte de dialogue d'impression, sélectionnez <strong>"Enregistrer en PDF"</strong> comme imprimante pour obtenir le fichier PDF.
+              💡 La fenêtre d'impression s'ouvre directement. Choisissez <strong>"Enregistrer en PDF"</strong> pour télécharger votre CV.
             </p>
 
             {/* CV Preview */}
