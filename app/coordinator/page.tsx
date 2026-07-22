@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import PageHeader from '../../components/PageHeader';
+import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 
 /* ── Types ─────────────────────────────────────────── */
@@ -539,59 +539,107 @@ export default function CoordinatorDashboard() {
     background: active ? '#2563eb' : 'white', color: active ? 'white' : '#6b7280', transition: 'all 0.15s',
   });
 
+  /* ── Sidebar nav items ── */
+  const NAV: { key: typeof tab; icon: string; label: string }[] = [
+    { key: 'overview',   icon: '⊞',  label: 'Vue d\'ensemble' },
+    { key: 'candidates', icon: '👥', label: `Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}` },
+    { key: 'jobs',       icon: '💼', label: `Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}` },
+    { key: 'matching',   icon: '✦',  label: 'Matching IA' },
+  ];
+
   return (
-    <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      {/* Header */}
-      <div style={{ position: 'relative' }}>
-        <PageHeader title="TalentMap" subtitle="Coordinator Portal" />
-        <div style={{ position: 'absolute', top: '50%', right: '1.5rem', transform: 'translateY(-50%)', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem' }}>{user.name}</span>
-          <button onClick={logout} style={{ background: 'rgba(255,255,255,0.15)', color: 'white', border: '1.5px solid rgba(255,255,255,0.4)', borderRadius: '8px', padding: '0.45rem 1rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Logout</button>
-        </div>
-      </div>
-
-      {/* CV Panel */}
-      {selectedCV && <CVPanel cv={selectedCV} jobs={jobs} onClose={() => setSelectedCV(null)} />}
-
-      <div className="container" style={{ padding: '2rem 1.5rem' }}>
-
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
-          {[
-            { label: 'CVs importés', value: loading ? '…' : stats.totalCvs, color: '#2563eb', bg: '#eff6ff' },
-            { label: 'Offres ouvertes', value: loading ? '…' : stats.openJobs, color: '#0284c7', bg: '#f0f9ff' },
-            { label: 'Profils excellents', value: loading ? '…' : stats.excellentMatches, color: '#16a34a', bg: '#f0fdf4' },
-            { label: 'Score moy. matching', value: loading ? '…' : (stats.avgScore > 0 ? stats.avgScore + '%' : '—'), color: '#7c3aed', bg: '#f5f3ff' },
-          ].map(s => (
-            <div key={s.label} className="card">
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: s.color }}>{s.value}</div>
-              <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '0.25rem' }}>{s.label}</div>
-            </div>
-          ))}
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif' }}>
+      {/* Dark sidebar */}
+      <aside style={{
+        width: '220px', flexShrink: 0, background: '#0B1629',
+        display: 'flex', flexDirection: 'column',
+        position: 'sticky', top: 0, height: '100vh',
+      }}>
+        {/* Logo area */}
+        <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+          <Logo size="md" variant="light" />
         </div>
 
-        {/* Action bar */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <Link href="/coordinator/upload" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-            📁 Importer des CVs
+        {/* User pill */}
+        <div style={{ margin: '0.75rem 0.875rem', padding: '0.6rem 0.875rem', borderRadius: '8px', background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '2px' }}>Coordinateur</div>
+          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.id}</div>
+        </div>
+
+        {/* Nav items */}
+        <nav style={{ flex: 1, padding: '0.5rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {NAV.map(n => {
+            const active = tab === n.key;
+            return (
+              <button key={n.key} onClick={() => setTab(n.key)}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: '0.6rem',
+                  padding: '0.6rem 0.75rem', borderRadius: '7px', border: 'none',
+                  background: active ? 'rgba(27,79,216,.85)' : 'transparent',
+                  color: active ? '#FFFFFF' : 'rgba(255,255,255,.5)',
+                  fontSize: '0.82rem', fontWeight: active ? 700 : 500,
+                  cursor: 'pointer', textAlign: 'left', transition: 'all .18s',
+                  fontFamily: 'inherit',
+                }}>
+                <span style={{ fontSize: '0.9rem', width: '18px', flexShrink: 0, textAlign: 'center' }}>{n.icon}</span>
+                {n.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Action buttons */}
+        <div style={{ padding: '0.75rem', borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <Link href="/coordinator/upload" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.55rem 0.75rem', borderRadius: '7px', background: '#1B4FD8', color: '#fff', fontSize: '0.78rem', fontWeight: 700, textDecoration: 'none' }}>
+            📁 Importer CVs
           </Link>
-          <Link href="/coordinator/jobs" className="btn-primary" style={{ background: '#0284c7', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Link href="/coordinator/jobs" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.55rem 0.75rem', borderRadius: '7px', background: 'rgba(255,255,255,.07)', color: 'rgba(255,255,255,.7)', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(255,255,255,.1)' }}>
             ➕ Nouvelle offre
           </Link>
-          {!loading && cvs.length === 0 && (
-            <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Aucun CV — commencez par en importer</span>
-          )}
+          <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.75rem', borderRadius: '7px', background: 'transparent', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.35)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', marginTop: '2px' }}>
+            ↩ Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main style={{ flex: 1, minWidth: 0, background: '#F6F8FC', overflowY: 'auto' }}>
+        {/* Top bar */}
+        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '0.875rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
+          <div>
+            <h1 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0B1629', margin: 0 }}>
+              { NAV.find(n => n.key === tab)?.label ?? 'Dashboard' }
+            </h1>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {!loading && cvs.length === 0 && (
+              <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginRight: '0.5rem' }}>Aucun CV — commencez par en importer</span>
+            )}
+          </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, marginBottom: '1.5rem', border: '1.5px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', width: 'fit-content' }}>
-          {([
-            ['overview', '📊 Vue d\'ensemble'],
-            ['candidates', `👥 Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}`],
-            ['jobs', `💼 Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}`],
-            ['matching', '🎯 Matching IA'],
-          ] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key as any)} style={tabBtn(tab === key)}>{label}</button>
+        {/* CV Panel */}
+        {selectedCV && <CVPanel cv={selectedCV} jobs={jobs} onClose={() => setSelectedCV(null)} />}
+
+        <div style={{ padding: '1.75rem 2rem' }}>
+
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
+          {[
+            { label: 'CVs importés',        value: loading ? '…' : stats.totalCvs,         accent: '#1B4FD8' },
+            { label: 'Offres ouvertes',      value: loading ? '…' : stats.openJobs,         accent: '#0284C7' },
+            { label: 'Profils excellents',   value: loading ? '…' : stats.excellentMatches, accent: '#059669' },
+            { label: 'Score moy. matching',  value: loading ? '…' : (stats.avgScore > 0 ? stats.avgScore + '%' : '—'), accent: '#7C3AED' },
+          ].map(s => (
+            <div key={s.label} style={{
+              background: '#FFFFFF', borderRadius: '10px',
+              border: '1px solid #E2E8F0', padding: '1.25rem 1.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,.04)',
+              borderLeft: `3px solid ${s.accent}`,
+            }}>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0B1629', lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: '0.73rem', color: '#64748B', marginTop: '0.4rem', fontWeight: 500 }}>{s.label}</div>
+            </div>
           ))}
         </div>
 
@@ -1087,7 +1135,8 @@ export default function CoordinatorDashboard() {
           </div>
         )}
 
-      </div>
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }

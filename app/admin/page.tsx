@@ -3,23 +3,35 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
+import Logo from '../../components/Logo';
 
 /* ── Design tokens ── */
-const NAVY   = '#0a1f5c';
+const INK    = '#0B1629';
+const COBALT = '#1B4FD8';
+const NAVY   = '#0F172A';
 const BLUE   = '#2563eb';
-const LBLUE  = '#eff6ff';
-const BG     = '#f4f6fa';
+const LBLUE  = '#EFF6FF';
+const MIST   = '#DBEAFE';
+const BG     = '#F6F8FC';
 const WHITE  = '#ffffff';
-const BORDER = '#e5e7eb';
-const TEXT   = '#111827';
-const MUTED  = '#6b7280';
-const GREEN  = '#16a34a';
-const LGREEN = '#dcfce7';
-const RED    = '#dc2626';
-const LRED   = '#fee2e2';
-const AMBER  = '#d97706';
-const LAMBER = '#fef3c7';
-const PURPLE = '#7c3aed';
+const BORDER = '#E2E8F0';
+const BORDER2= '#CBD5E1';
+const TEXT   = '#0F172A';
+const TEXT2  = '#334155';
+const MUTED  = '#64748B';
+const FAINT  = '#94A3B8';
+const GREEN  = '#059669';
+const LGREEN = '#D1FAE5';
+const GTEXT  = '#065F46';
+const RED    = '#DC2626';
+const LRED   = '#FEE2E2';
+const RTEXT  = '#991B1B';
+const AMBER  = '#D97706';
+const LAMBER = '#FEF3C7';
+const ATEXT  = '#92400E';
+const PURPLE = '#7C3AED';
+const LPURP  = '#EDE9FE';
+const PTEXT  = '#4C1D95';
 
 /* ── Helpers ── */
 function genCode(name: string): string {
@@ -68,21 +80,16 @@ interface CV {
 }
 
 /* ── Sub-components ── */
-function StatCard({ label, value, color, icon }: { label: string; value: string | number; color: string; icon: string }) {
+function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
   return (
     <div style={{
-      background: WHITE, borderRadius: 12, padding: '1.25rem 1.5rem',
-      border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.05)',
-      display: 'flex', alignItems: 'center', gap: '1rem',
+      background: WHITE, borderRadius: 10,
+      border: `1px solid ${BORDER}`, padding: '1.25rem 1.5rem',
+      boxShadow: '0 1px 3px rgba(0,0,0,.04)',
+      borderLeft: `3px solid ${accent}`,
     }}>
-      <div style={{
-        width: 44, height: 44, borderRadius: 10, background: color + '18',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0,
-      }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: NAVY, lineHeight: 1 }}>{value}</div>
-        <div style={{ fontSize: '0.78rem', color: MUTED, marginTop: 3, fontWeight: 500 }}>{label}</div>
-      </div>
+      <div style={{ fontSize: '1.65rem', fontWeight: 800, color: NAVY, lineHeight: 1, marginBottom: 4 }}>{value}</div>
+      <div style={{ fontSize: '0.75rem', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em' }}>{label}</div>
     </div>
   );
 }
@@ -296,44 +303,41 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
 
   /* ── Render ── */
   return (
-    <div style={{ minHeight: '100vh', background: BG, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: BG, fontFamily: 'Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', display: 'flex' }}>
 
-      {/* ── Sidebar ── */}
+      {/* ── Dark Sidebar ── */}
       <aside style={{
-        width: 240, flexShrink: 0, background: WHITE, borderRight: `1px solid ${BORDER}`,
-        position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column', zIndex: 50,
+        width: 220, flexShrink: 0, background: INK,
+        position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column',
       }}>
         {/* Logo */}
-        <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: `1px solid ${BORDER}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 9, background: NAVY, flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 900, color: WHITE,
-            }}>T</div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, lineHeight: 1.2 }}>TalentMap</div>
-              <div style={{ fontSize: 10, color: MUTED, fontWeight: 500 }}>Administration</div>
-            </div>
-          </div>
+        <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+          <Logo size="md" variant="light" />
+        </div>
+
+        {/* User pill */}
+        <div style={{ margin: '0.75rem 0.875rem', padding: '0.6rem 0.875rem', borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>Administrateur</div>
+          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: WHITE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.id}</div>
         </div>
 
         {/* Nav */}
-        <nav style={{ padding: '0.75rem 0.75rem', flex: 1, overflowY: 'auto' }}>
+        <nav style={{ flex: 1, padding: '0.5rem 0.75rem', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {NAV.map(item => {
             const active = tab === item.id;
             return (
               <button key={item.id} onClick={() => setTab(item.id)} style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                padding: '0.6rem 0.85rem', borderRadius: 8, border: 'none', cursor: 'pointer',
-                marginBottom: 2, background: active ? LBLUE : 'transparent', textAlign: 'left',
-                fontFamily: 'inherit', transition: 'background .15s',
+                width: '100%', display: 'flex', alignItems: 'center', gap: '0.6rem',
+                padding: '0.6rem 0.75rem', borderRadius: 7, border: 'none', cursor: 'pointer',
+                background: active ? 'rgba(27,79,216,.85)' : 'transparent',
+                color: active ? WHITE : 'rgba(255,255,255,.5)',
+                fontSize: '0.82rem', fontWeight: active ? 700 : 500,
+                textAlign: 'left', fontFamily: 'inherit', transition: 'all .18s',
               }}>
-                <span style={{ fontSize: 15 }}>{item.icon}</span>
-                <span style={{ fontSize: '0.875rem', fontWeight: active ? 700 : 500, color: active ? NAVY : MUTED }}>
-                  {item.label}
-                </span>
+                <span style={{ fontSize: '0.9rem', width: 18, flexShrink: 0, textAlign: 'center' }}>{item.icon}</span>
+                <span style={{ flex: 1 }}>{item.label}</span>
                 {item.id === 'coordinators' && coordinators.length > 0 && (
-                  <span style={{ marginLeft: 'auto', background: NAVY, color: WHITE, borderRadius: 12, padding: '1px 7px', fontSize: '0.65rem', fontWeight: 700 }}>
+                  <span style={{ background: 'rgba(255,255,255,.15)', color: WHITE, borderRadius: 10, padding: '1px 6px', fontSize: '0.65rem', fontWeight: 700, flexShrink: 0 }}>
                     {coordinators.length}
                   </span>
                 )}
@@ -343,26 +347,24 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
         </nav>
 
         {/* Footer */}
-        <div style={{ padding: '1rem 1.25rem', borderTop: `1px solid ${BORDER}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: '50%', background: NAVY, flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: WHITE,
-            }}>A</div>
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>
-              <div style={{ fontSize: '0.7rem', color: MUTED }}>Administrateur</div>
-            </div>
-          </div>
-          <button onClick={logout} style={{
-            background: 'transparent', border: 'none', padding: 0,
-            fontSize: '0.75rem', fontWeight: 500, color: RED, cursor: 'pointer', fontFamily: 'inherit',
-          }}>→ Déconnexion</button>
+        <div style={{ padding: '0.75rem', borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.5rem 0.75rem', borderRadius: 7, background: 'transparent', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.35)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+            ↩ Déconnexion
+          </button>
         </div>
       </aside>
 
       {/* ── Main content ── */}
-      <main style={{ flex: 1, overflowY: 'auto', padding: '2rem 2.5rem 3rem' }}>
+      <main style={{ flex: 1, minWidth: 0, background: BG, overflowY: 'auto' }}>
+        {/* Top bar */}
+        <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0.875rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
+          <h1 style={{ fontSize: '0.95rem', fontWeight: 700, color: INK, margin: 0 }}>
+            {NAV.find(n => n.id === tab)?.label ?? 'Administration'}
+          </h1>
+          <button onClick={fetchData} style={{ fontSize: '0.78rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>⟳ Actualiser</button>
+        </div>
+
+        <div style={{ padding: '1.75rem 2rem 3rem' }}>
 
         {loading && tab !== 'overview' ? (
           <div style={{ textAlign: 'center', paddingTop: '6rem', color: MUTED }}>
@@ -375,45 +377,45 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ OVERVIEW ════════ */}
             {tab === 'overview' && (
               <div>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Vue d'ensemble</h1>
-                <p style={{ fontSize: '0.85rem', color: MUTED, marginBottom: '1.5rem' }}>Tableau de bord administrateur — données en temps réel</p>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Vue d'ensemble</h2>
+                <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>Données en temps réel · Administration TalentMap</p>
 
                 {/* KPI grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
-                  <StatCard label="Coordinateurs" value={coordinators.length} color={PURPLE} icon="👥" />
-                  <StatCard label="Offres d'emploi" value={jobs.length} color={AMBER} icon="💼" />
-                  <StatCard label="Candidats" value={cvs.length} color={BLUE} icon="🎯" />
-                  <StatCard label="Score moyen" value={avgMatch ? avgMatch + '%' : '—'} color={GREEN} icon="⭐" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
+                  <StatCard label="Coordinateurs" value={coordinators.length} accent={PURPLE} />
+                  <StatCard label="Offres d'emploi" value={jobs.length} accent={AMBER} />
+                  <StatCard label="Candidats" value={cvs.length} accent={COBALT} />
+                  <StatCard label="Score moyen" value={avgMatch ? avgMatch + '%' : '—'} accent={GREEN} />
                 </div>
 
                 {/* Charts row */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                  <div style={{ background: WHITE, borderRadius: 12, padding: '1.25rem', border: `1px solid ${BORDER}` }}>
-                    <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, marginBottom: '1rem' }}>💼 Offres par secteur</h2>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Offres par secteur</h2>
                     <SectorBars items={jobs} key_="sector" />
                   </div>
-                  <div style={{ background: WHITE, borderRadius: 12, padding: '1.25rem', border: `1px solid ${BORDER}` }}>
-                    <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, marginBottom: '1rem' }}>🎯 Candidats par secteur</h2>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Candidats par secteur</h2>
                     <SectorBars items={cvs} key_="sector" />
                   </div>
                 </div>
 
                 {/* Recent coordinators + activity */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div style={{ background: WHITE, borderRadius: 12, padding: '1.25rem', border: `1px solid ${BORDER}` }}>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                      <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY }}>👥 Coordinateurs récents</h2>
-                      <button onClick={() => setTab('coordinators')} style={{ fontSize: '0.75rem', color: BLUE, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Gérer →</button>
+                      <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, textTransform: 'uppercase', letterSpacing: '.04em' }}>Coordinateurs récents</h2>
+                      <button onClick={() => setTab('coordinators')} style={{ fontSize: '0.75rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>Gérer →</button>
                     </div>
                     {coordinators.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '2rem', color: MUTED }}>
                         <div style={{ fontSize: 32, marginBottom: 8 }}>👤</div>
-                        <div style={{ fontSize: '0.8rem' }}>Aucun coordinateur créé</div>
-                        <button onClick={() => setTab('coordinators')} style={{ marginTop: 10, padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${BLUE}`, background: LBLUE, color: NAVY, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>+ Ajouter</button>
+                        <div style={{ fontSize: '0.82rem' }}>Aucun coordinateur créé</div>
+                        <button onClick={() => setTab('coordinators')} style={{ marginTop: 10, padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${COBALT}`, background: LBLUE, color: INK, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>+ Ajouter</button>
                       </div>
                     ) : coordinators.slice(-5).reverse().map(c => (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.55rem 0', borderBottom: `1px solid #f9fafb` }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: NAVY, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: WHITE }}>
+                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.6rem 0', borderBottom: `1px solid ${BORDER}` }}>
+                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: INK, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: WHITE }}>
                           {c.name[0]}
                         </div>
                         <div style={{ flex: 1 }}>
@@ -424,8 +426,8 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     ))}
                   </div>
 
-                  <div style={{ background: WHITE, borderRadius: 12, padding: '1.25rem', border: `1px solid ${BORDER}` }}>
-                    <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, marginBottom: '1rem' }}>⚡ Activité récente</h2>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Activité récente</h2>
                     {activity.length === 0 ? (
                       <p style={{ fontSize: '0.8rem', color: MUTED }}>Aucune activité enregistrée.</p>
                     ) : activity.slice(0, 8).map((a, i) => (
@@ -443,38 +445,38 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ COORDINATORS ════════ */}
             {tab === 'coordinators' && (
               <div>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Coordinateurs</h1>
-                <p style={{ fontSize: '0.85rem', color: MUTED, marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Coordinateurs</h2>
+                <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
                   Créez des comptes coordinateurs — le code généré leur permet de se connecter.
                 </p>
 
                 {/* Add form */}
-                <div style={{ background: WHITE, borderRadius: 12, padding: '1.5rem', border: `1px solid ${BORDER}`, marginBottom: '1.5rem' }}>
-                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: NAVY, marginBottom: '1rem' }}>➕ Ajouter un coordinateur</h2>
+                <div style={{ background: WHITE, borderRadius: 10, padding: '1.5rem', border: `1px solid ${BORDER}`, marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                  <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Ajouter un coordinateur</h2>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.75rem', alignItems: 'end' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: NAVY, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Nom complet *</label>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: INK, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Nom complet *</label>
                       <input
                         value={newName} onChange={e => { setNewName(e.target.value); setSavedCode(''); }}
                         placeholder="ex: Khalid Benali"
-                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 9, border: `1.5px solid ${newName ? BLUE : BORDER}`, fontSize: '0.88rem', fontFamily: 'inherit', color: TEXT, background: newName ? LBLUE : '#f9fafb', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
+                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${newName ? COBALT : BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: newName ? LBLUE : '#F9FAFB', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: NAVY, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Email (optionnel)</label>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: INK, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Email (optionnel)</label>
                       <input
                         value={newEmail} onChange={e => setNewEmail(e.target.value)}
                         placeholder="khalid@entreprise.ma"
                         type="email"
-                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 9, border: `1.5px solid ${BORDER}`, fontSize: '0.88rem', fontFamily: 'inherit', color: TEXT, background: '#f9fafb', boxSizing: 'border-box', outline: 'none' }}
+                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: '#F9FAFB', boxSizing: 'border-box', outline: 'none' }}
                       />
                     </div>
                     <button
                       onClick={addCoordinator}
                       disabled={saving || !newName.trim()}
                       style={{
-                        padding: '0.7rem 1.5rem', borderRadius: 9, border: 'none', cursor: saving || !newName.trim() ? 'not-allowed' : 'pointer',
-                        background: saving || !newName.trim() ? '#9ca3af' : NAVY, color: WHITE,
+                        padding: '0.7rem 1.5rem', borderRadius: 8, border: 'none', cursor: saving || !newName.trim() ? 'not-allowed' : 'pointer',
+                        background: saving || !newName.trim() ? FAINT : INK, color: WHITE,
                         fontSize: '0.875rem', fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap',
                         transition: 'background .15s',
                       }}
@@ -499,8 +501,8 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                 {/* Coordinators table */}
                 <div style={{ background: WHITE, borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
                   <div style={{ padding: '1.1rem 1.4rem', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY }}>Comptes coordinateurs ({coordinators.length})</h2>
-                    <button onClick={fetchData} style={{ fontSize: '0.78rem', color: BLUE, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>⟳ Actualiser</button>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, textTransform: 'uppercase', letterSpacing: '.04em' }}>Comptes coordinateurs ({coordinators.length})</h2>
+                    <button onClick={fetchData} style={{ fontSize: '0.78rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>⟳ Actualiser</button>
                   </div>
                   {coordinators.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '3rem', color: MUTED }}>
@@ -565,8 +567,8 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ JOB OFFERS ════════ */}
             {tab === 'jobs' && (
               <div>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Offres d'emploi</h1>
-                <p style={{ fontSize: '0.85rem', color: MUTED, marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Offres d'emploi</h2>
+                <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
                   {jobs.length} offre{jobs.length > 1 ? 's' : ''} publiée{jobs.length > 1 ? 's' : ''} par les coordinateurs
                 </p>
 
@@ -575,10 +577,10 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                   <input
                     value={jobSearch} onChange={e => setJobSearch(e.target.value)}
                     placeholder="Rechercher titre, entreprise…"
-                    style={{ flex: '1 1 220px', padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: TEXT, background: WHITE, outline: 'none' }}
+                    style={{ flex: '1 1 220px', padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: TEXT, background: WHITE, outline: 'none', transition: 'border-color .15s' }}
                   />
                   <select value={jobSectorFilter} onChange={e => setJobSector(e.target.value)}
-                    style={{ padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${jobSectorFilter ? BLUE : BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: jobSectorFilter ? NAVY : MUTED, background: jobSectorFilter ? LBLUE : WHITE, appearance: 'none', cursor: 'pointer' }}>
+                    style={{ padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${jobSectorFilter ? COBALT : BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: jobSectorFilter ? INK : MUTED, background: jobSectorFilter ? LBLUE : WHITE, appearance: 'none', cursor: 'pointer' }}>
                     <option value="">Tous les secteurs</option>
                     {jobSectors.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -649,8 +651,8 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ CANDIDATES ════════ */}
             {tab === 'candidates' && (
               <div>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Candidats</h1>
-                <p style={{ fontSize: '0.85rem', color: MUTED, marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Candidats</h2>
+                <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
                   {cvs.length} CV{cvs.length > 1 ? 's' : ''} dans la base de données
                 </p>
 
@@ -659,10 +661,10 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                   <input
                     value={cvSearch} onChange={e => setCvSearch(e.target.value)}
                     placeholder="Rechercher nom, secteur…"
-                    style={{ flex: '1 1 220px', padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: TEXT, background: WHITE, outline: 'none' }}
+                    style={{ flex: '1 1 220px', padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: TEXT, background: WHITE, outline: 'none', transition: 'border-color .15s' }}
                   />
                   <select value={cvSectorFilter} onChange={e => setCvSector(e.target.value)}
-                    style={{ padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${cvSectorFilter ? BLUE : BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: cvSectorFilter ? NAVY : MUTED, background: cvSectorFilter ? LBLUE : WHITE, appearance: 'none', cursor: 'pointer' }}>
+                    style={{ padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${cvSectorFilter ? COBALT : BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: cvSectorFilter ? INK : MUTED, background: cvSectorFilter ? LBLUE : WHITE, appearance: 'none', cursor: 'pointer' }}>
                     <option value="">Tous les secteurs</option>
                     {cvSectors.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -722,8 +724,8 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ REPORTS ════════ */}
             {tab === 'reports' && (
               <div>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Rapports</h1>
-                <p style={{ fontSize: '0.85rem', color: MUTED, marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Rapports</h2>
+                <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
                   Exportez les données de la plateforme en HTML téléchargeable.
                 </p>
 
@@ -749,7 +751,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
 
                 {/* Platform summary */}
                 <div style={{ background: WHITE, borderRadius: 12, padding: '1.5rem', border: `1px solid ${BORDER}`, marginTop: '1.5rem' }}>
-                  <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, marginBottom: '1rem' }}>📊 Résumé de la plateforme</h2>
+                  <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>📊 Résumé de la plateforme</h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem' }}>
                     {[
                       { label: 'Coordinateurs', value: coordinators.length },
@@ -771,6 +773,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
 
           </>
         )}
+        </div>
       </main>
     </div>
   );

@@ -24,34 +24,31 @@ function detectRole(val: string): DetectedRole {
   return null;
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: '#7c3aed',
-  coordinator: '#059669',
-  candidate: '#2563eb',
-  unknown: '#dc2626',
-};
-
-const ROLE_LABELS: Record<string, { fr: string; en: string }> = {
-  admin: { fr: 'Administrateur', en: 'Administrator' },
-  coordinator: { fr: 'Conseiller RH', en: 'HR Advisor' },
-  candidate: { fr: 'Candidat', en: 'Candidate' },
-  unknown: { fr: 'Code non reconnu', en: 'Unrecognized code' },
+const ROLE_CONFIG: Record<string, { color: string; bg: string; label: { fr: string; en: string }; icon: string }> = {
+  admin:       { color: '#7C3AED', bg: '#EDE9FE', label: { fr: 'Administrateur',  en: 'Administrator' }, icon: '⚙' },
+  coordinator: { color: '#059669', bg: '#D1FAE5', label: { fr: 'Conseiller RH',   en: 'HR Advisor'    }, icon: '👔' },
+  candidate:   { color: '#1B4FD8', bg: '#DBEAFE', label: { fr: 'Candidat',        en: 'Candidate'     }, icon: '🎓' },
+  unknown:     { color: '#DC2626', bg: '#FEE2E2', label: { fr: 'Code non reconnu', en: 'Unrecognized'  }, icon: '✕' },
 };
 
 const TX = {
   fr: {
     tagline: 'Votre carrière, cartographiée.',
-    label: 'Code d\'accès',
-    error: 'Code non reconnu. Vérifiez et réessayez.',
-    cont: 'Continuer →',
-    loading: 'Connexion…',
+    sub:     'Entrez votre code d\'accès pour continuer.',
+    label:   'Code d\'accès',
+    ph:      'ex: CAN001 ou COORD...',
+    error:   'Code non reconnu. Vérifiez et réessayez.',
+    cont:    'Continuer',
+    hint:    'Contactez votre conseiller pour obtenir votre code.',
   },
   en: {
     tagline: 'Your career, mapped.',
-    label: 'Access Code',
-    error: 'Unrecognized code. Please check and try again.',
-    cont: 'Continue →',
-    loading: 'Signing in…',
+    sub:     'Enter your access code to continue.',
+    label:   'Access Code',
+    ph:      'e.g. CAN001 or COORD...',
+    error:   'Unrecognized code. Please check and try again.',
+    cont:    'Continue',
+    hint:    'Contact your advisor to get your access code.',
   },
 };
 
@@ -65,7 +62,7 @@ export default function LoginPage() {
 
   const t = TX[lang];
   const liveRole = detectRole(code);
-  const roleColor = liveRole && liveRole !== 'unknown' ? ROLE_COLORS[liveRole] : undefined;
+  const cfg = liveRole ? ROLE_CONFIG[liveRole] : null;
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -88,125 +85,118 @@ export default function LoginPage() {
     setIsLoading(false);
   };
 
+  const borderColor = error ? '#DC2626' : cfg && cfg.color !== ROLE_CONFIG.unknown.color ? cfg.color : '#E2E8F0';
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0a1f5c 0%, #1a3a8f 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        position: 'relative',
-      }}
-    >
-      {/* Language toggle — top right */}
-      <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 4 }}>
+    <div style={{
+      minHeight: '100vh',
+      background: '#0B1629',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1.5rem',
+      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Subtle grid background */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        backgroundImage: `linear-gradient(rgba(27,79,216,.06) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(27,79,216,.06) 1px, transparent 1px)`,
+        backgroundSize: '40px 40px',
+      }} />
+
+      {/* Glow orbs */}
+      <div style={{ position: 'absolute', top: '-120px', right: '-80px', width: '480px', height: '480px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(27,79,216,.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-100px', left: '-60px', width: '360px', height: '360px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(59,130,246,.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+      {/* Lang toggle */}
+      <div style={{ position: 'absolute', top: 16, right: 20, display: 'flex', gap: 4 }}>
         {(['fr', 'en'] as const).map(k => (
-          <button
-            key={k}
-            onClick={() => setLang(k)}
-            style={{
-              padding: '4px 10px', borderRadius: 7,
-              border: `1px solid ${lang === k ? '#ffffff88' : 'rgba(255,255,255,.25)'}`,
-              background: lang === k ? 'rgba(255,255,255,.2)' : 'transparent',
-              color: lang === k ? '#fff' : 'rgba(255,255,255,.55)',
-              fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-              cursor: 'pointer', transition: 'all .18s',
-            }}
-          >{k}</button>
+          <button key={k} onClick={() => setLang(k)} style={{
+            padding: '4px 11px', borderRadius: 6,
+            border: `1px solid ${lang === k ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.1)'}`,
+            background: lang === k ? 'rgba(255,255,255,.12)' : 'transparent',
+            color: lang === k ? '#fff' : 'rgba(255,255,255,.4)',
+            fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+            cursor: 'pointer', transition: 'all .18s', letterSpacing: '.04em',
+          }}>{k}</button>
         ))}
       </div>
 
       {/* Card */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '16px',
-          padding: '2.5rem 2rem',
-          width: '100%',
-          maxWidth: '420px',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.35)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '1.25rem',
-        }}
-      >
+      <div className="animate-fade-up" style={{
+        background: '#FFFFFF',
+        borderRadius: '16px',
+        padding: '2.5rem 2.25rem',
+        width: '100%',
+        maxWidth: '400px',
+        boxShadow: '0 32px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06)',
+        position: 'relative',
+        zIndex: 1,
+      }}>
         {/* Logo */}
-        <div style={{ marginBottom: '0.25rem' }}>
-          <Logo size="lg" showText variant="dark" />
+        <div style={{ marginBottom: '1.75rem' }}>
+          <Logo size="lg" variant="dark" />
         </div>
 
         {/* Heading */}
-        <div style={{ textAlign: 'center' }}>
-          <h1
-            style={{
-              margin: '0 0 0.35rem',
-              fontSize: '1.5rem',
-              fontWeight: 700,
-              color: '#0a1f5c',
-              letterSpacing: '-0.02em',
-            }}
-          >
+        <div style={{ marginBottom: '1.75rem' }}>
+          <h1 style={{
+            fontSize: '1.35rem', fontWeight: 800, color: '#0B1629',
+            letterSpacing: '-0.03em', margin: '0 0 0.35rem',
+          }}>
             {t.tagline}
           </h1>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
-            {lang === 'fr' ? 'Entrez votre code d\'accès pour continuer.' : 'Enter your access code to continue.'}
+          <p style={{ fontSize: '0.875rem', color: '#64748B', margin: 0, lineHeight: 1.55 }}>
+            {t.sub}
           </p>
         </div>
 
         {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}
-        >
-          {/* Access Code field */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <label
-              htmlFor="code"
-              style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0a1f5c' }}
-            >
+            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', letterSpacing: '.02em' }}>
               {t.label}
             </label>
             <input
-              id="code"
               type="text"
               value={code}
-              onChange={(e) => { setCode(e.target.value.toUpperCase()); if (error) setError(''); }}
-              placeholder="e.g. CAN001"
+              onChange={e => { setCode(e.target.value.toUpperCase()); if (error) setError(''); }}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              placeholder={t.ph}
               autoComplete="off"
               autoFocus
               maxLength={30}
               style={{
-                padding: '0.85rem 1rem',
-                fontSize: '1.05rem',
-                border: `2px solid ${error ? '#ef4444' : roleColor ?? '#e2e8f0'}`,
-                borderRadius: '10px',
-                outline: 'none',
-                color: '#0f172a',
-                background: '#f8fafc',
-                transition: 'border-color 0.15s',
+                padding: '0.8rem 1rem',
+                fontSize: '1rem',
+                border: `2px solid ${borderColor}`,
+                borderRadius: '9px',
+                color: '#0F172A',
+                background: error ? '#FEF2F2' : '#F8FAFC',
+                transition: 'border-color 0.15s, background 0.15s',
                 width: '100%',
-                boxSizing: 'border-box',
-                letterSpacing: '0.06em',
-                fontFamily: 'monospace',
+                letterSpacing: '0.08em',
+                fontFamily: "'SF Mono', 'Fira Code', monospace",
+                fontWeight: 600,
               }}
             />
 
-            {/* Live role badge */}
-            {liveRole && !error && (
+            {/* Live role indicator */}
+            {cfg && !error && (
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '5px 10px', borderRadius: 8,
-                background: (roleColor ?? '#dc2626') + '12',
-                border: `1px solid ${(roleColor ?? '#dc2626')}30`,
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '4px 10px', borderRadius: '6px',
+                background: cfg.bg,
+                border: `1px solid ${cfg.color}22`,
                 width: 'fit-content',
               }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: roleColor ?? '#dc2626' }}>
-                  {liveRole === 'unknown' ? '✗' : '✓'}{' '}
-                  {ROLE_LABELS[liveRole]?.[lang]}
+                <span style={{ fontSize: '12px' }}>{cfg.icon}</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: cfg.color }}>
+                  {cfg.label[lang]}
                 </span>
               </div>
             )}
@@ -214,21 +204,16 @@ export default function LoginPage() {
 
           {/* Error */}
           {error && (
-            <div
-              role="alert"
-              style={{
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: '8px',
-                padding: '0.65rem 0.9rem',
-                fontSize: '0.875rem',
-                color: '#dc2626',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-              }}
-            >
-              <span aria-hidden>&#9888;</span>
+            <div style={{
+              background: '#FEF2F2', border: '1px solid #FECACA',
+              borderRadius: '8px', padding: '0.6rem 0.875rem',
+              fontSize: '0.8rem', color: '#DC2626',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="6.5" stroke="#DC2626"/>
+                <path d="M7 4v3.5M7 9.5v.5" stroke="#DC2626" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
               {error}
             </div>
           )}
@@ -239,29 +224,57 @@ export default function LoginPage() {
             disabled={isLoading || !code.trim()}
             style={{
               width: '100%',
-              padding: '0.9rem',
-              fontSize: '1rem',
+              padding: '0.85rem',
+              fontSize: '0.9rem',
               fontWeight: 700,
               color: '#ffffff',
               background: isLoading || !code.trim()
-                ? '#93c5fd'
-                : roleColor ?? '#2563eb',
+                ? '#94A3B8'
+                : cfg && cfg.color !== ROLE_CONFIG.unknown.color
+                  ? cfg.color
+                  : '#1B4FD8',
               border: 'none',
-              borderRadius: '10px',
+              borderRadius: '9px',
               cursor: isLoading || !code.trim() ? 'not-allowed' : 'pointer',
-              transition: 'background 0.15s',
-              letterSpacing: '0.01em',
+              transition: 'all 0.18s',
+              letterSpacing: '0.02em',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
             }}
           >
-            {isLoading ? t.loading : t.cont}
+            {isLoading ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 1s linear infinite' }}>
+                  <circle cx="7" cy="7" r="5.5" stroke="rgba(255,255,255,.35)" strokeWidth="2" fill="none"/>
+                  <path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                </svg>
+                {lang === 'fr' ? 'Connexion…' : 'Signing in…'}
+              </>
+            ) : (
+              <>{t.cont} →</>
+            )}
           </button>
         </form>
 
-        {/* Contact hint */}
-        <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center', lineHeight: 1.6 }}>
-          {lang === 'fr' ? 'Contactez votre conseiller pour obtenir votre code.' : 'Contact your advisor to get your access code.'}
+        {/* Hint */}
+        <p style={{
+          margin: '1.25rem 0 0', fontSize: '0.75rem',
+          color: '#94A3B8', textAlign: 'center', lineHeight: 1.6,
+        }}>
+          {t.hint}
         </p>
       </div>
+
+      {/* Footer */}
+      <p style={{
+        position: 'absolute', bottom: 16,
+        fontSize: '0.7rem', color: 'rgba(255,255,255,.2)',
+        letterSpacing: '.04em',
+      }}>
+        © 2026 TalentMap
+      </p>
     </div>
   );
 }
