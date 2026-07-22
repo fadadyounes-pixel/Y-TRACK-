@@ -47,9 +47,12 @@ const ev = (k: string, fb = "") => process.env[k] || fb;
 
 // Groq free-tier models — each has INDEPENDENT rate limits (30 RPM each).
 // Ordered best-quality first so raceGroqModels() returns the strongest response.
+// Reasoning models (deepseek-r1, qwen-qwq) added for structured analysis tasks.
 const GROQ_MODELS = [
   "meta-llama/llama-4-maverick-17b-128e-instruct",  // Best quality on Groq
   "llama-3.3-70b-versatile",                          // Excellent, reliable
+  "deepseek-r1-distill-llama-70b",                    // Reasoning model — best for JSON analysis
+  "qwen-qwq-32b",                                     // Strong reasoning + structured output
   "meta-llama/llama-4-scout-17b-16e-instruct",        // Fast, good quality
   "gemma2-9b-it",                                     // Reliable fallback
   "mixtral-8x7b-32768",                               // Wide knowledge base
@@ -381,6 +384,7 @@ async function raceGroqModels(msgs: Msg[], sys: string | undefined, maxTok: numb
   const topModels = [
     "meta-llama/llama-4-maverick-17b-128e-instruct",
     "llama-3.3-70b-versatile",
+    "deepseek-r1-distill-llama-70b",           // reasoning model — superior JSON analysis
     "meta-llama/llama-4-scout-17b-16e-instruct",
   ];
   const perTok = maxTok <= 500 ? 5000 : 10000;
@@ -438,15 +442,16 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
   const raceText = await raceFirst([
     anthropic,                                          // Best quality when key is set
     (m, s, t) => gemini(m, s, t, false),               // Gemini 2.5 Flash — excellent quality
-    raceGroqModels,                                     // Always available — top 3 Groq models in parallel
+    raceGroqModels,                                     // Always available — 4 Groq models in parallel
     (m, s, t) => cerebras(m, s, t, false),             // LPU hardware — fastest inference
     sambanova,                                          // Llama-4-Maverick 128k — best for long docs
     mistral,                                            // Best French + Arabic bilingual
+    openrouter,                                         // Qwen3-235B + DeepSeek-V3 — highest free quality
   ], messages, system, max_tokens, raceWindow);
   if (raceText) return raceText;
 
-  // Sequential fallback — Together and OpenRouter not yet tried
-  for (const fn of [together, openrouter]) {
+  // Sequential fallback — Together not yet tried
+  for (const fn of [together]) {
     const text = await tryOnce(fn, messages, system, max_tokens);
     if (text) return text;
   }
