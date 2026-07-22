@@ -174,7 +174,7 @@ export default function CoordinatorJobs() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Poste: ${title || 'Non précisé'}\nSecteur: ${sector}\nNiveau: ${experience}\nVille: ${location}${skills.length ? '\nCompétences: ' + skills.join(', ') : ''}` }],
-          system: 'Tu es un expert RH marocain. Rédige une description de poste professionnelle et concise (3-4 phrases) en français, directement utilisable dans une offre d\'emploi. Pas de titre, pas de bullet points, juste le texte de description. Maximum 120 mots.',
+          system: 'Rédige une description de poste professionnelle et concise (3-4 phrases) en français, directement utilisable dans une offre d\'emploi. Pas de titre, pas de bullet points, juste le texte de description. Maximum 120 mots.',
           task: 'dialogue',
           max_tokens: 250,
         }),

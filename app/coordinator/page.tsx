@@ -515,7 +515,7 @@ export default function CoordinatorDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Offre: ${activeMatchJob.title} chez ${activeMatchJob.company}\nSecteur: ${activeMatchJob.sector} | Expérience: ${activeMatchJob.experience}\nCompétences requises: ${activeMatchJob.skills.join(', ')}\n\nTop candidats (par score):\n${top5.map((c, i) => `${i + 1}. ${c.name} — ${c.sector} / ${c.experience} — Score: ${c.score}% — Skills correspondantes: ${c.matchedSkills.join(', ') || 'aucune'}`).join('\n')}` }],
-          system: 'Tu es un recruteur RH expert. Analyse ces candidats pour ce poste. Réponds UNIQUEMENT avec ce JSON valide sans markdown:\n{"topPick":"nom du meilleur candidat + 1 phrase courte expliquant pourquoi il est le meilleur fit","rationale":"2-3 phrases synthétisant le classement global et les forces communes","gaps":["lacune ou besoin de formation identifié 1","lacune 2","lacune 3"],"questions":["Question entretien ciblée au poste 1","Question 2","Question 3"]}',
+          system: 'Analyse ces candidats pour ce poste. Réponds UNIQUEMENT avec ce JSON valide sans markdown:\n{"topPick":"nom du meilleur candidat + 1 phrase courte expliquant pourquoi il est le meilleur fit","rationale":"2-3 phrases synthétisant le classement global et les forces communes","gaps":["lacune ou besoin de formation identifié 1","lacune 2","lacune 3"],"questions":["Question entretien ciblée au poste 1","Question 2","Question 3"]}',
           task: 'json',
           max_tokens: 700,
         }),
