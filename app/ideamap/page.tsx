@@ -1318,7 +1318,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   // Auto-retries up to 3× with exponential back-off before surfacing any error.
   // The server-side cascade (providers.ts) already tries 4 Groq models + Together
   // + Gemini + OpenRouter × 2 sweeps, so the client retry is a last safety net.
-  const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue"): Promise<string> => {
+  const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue", maxTokens?: number): Promise<string> => {
     const MAX_RETRIES = 3;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
@@ -1326,7 +1326,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         const r = await fetch("/api/ai", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({messages, system, task}),
+          body: JSON.stringify({messages, system, task, ...(maxTokens ? {max_tokens: maxTokens} : {})}),
           signal: AbortSignal.timeout(65_000),
         });
         const d = await r.json();
@@ -2121,12 +2121,110 @@ ${comp?.juryScore ? `<div class="section">
 - جمل قصيرة وواضحة، مباشرة وقابلة للحفظ.
 - أضف علامات مثل [توقف قصير] و[انظر إلى اللجنة] لمساعدة الحامل.
 - اكتب فقط نص الخطاب، بدون شرح أو تعليقات إضافية.`,
-      "dialogue"
+      "dialogue",
+      2500
     );
     setPitchBusy(false);
     if (r) {
       const pName = (proj?.projectName||"مشروع").replace(/\s+/g, "_");
-      dlText(r, `خطاب_تقديمي_${pName}.txt`);
+      // Parse the 5 sections from الجزء markers
+      const sectionColors = ["#1C7A62","#2A5CE0","#7C3AED","#D97706","#C0632F"];
+      const sectionLabels = ["التقديم الشخصي","إشكالية المشروع","الحل والمشروع","التمويل والتوقعات","الأثر والختام"];
+      const sectionDurations = ["30 ثانية","60 ثانية","90 ثانية","60 ثانية","30 ثانية"];
+      const splitBySection = r.split(/الجزء\s*\d+\s*[—–-]/);
+      const sections = splitBySection.slice(1).map((s: string) => s.trim());
+      // If AI didn't use section markers, split by double-newline as fallback
+      const finalSections = sections.length >= 3 ? sections : r.split(/\n{2,}/).filter((s: string) => s.trim().length > 30);
+      const escH = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      const totalBudget = (budget?.items||[]).reduce((s: number, x: any)=>s+(x.total||0),0);
+      const indhAmt = budget?.indhContribution||Math.min(Math.round(totalBudget*.90),100000);
+      const holdAmt = budget?.beneficiaryContribution||(totalBudget-indhAmt);
+      const html = `<!DOCTYPE html><html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<title>خطاب تقديمي — ${escH(proj?.projectName||"مشروع")}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Tajawal',sans-serif;font-size:14px;color:#10132A;background:#fff;direction:rtl}
+@page{size:A4;margin:16mm 14mm}
+@media print{body{padding:0}.no-print{display:none!important}}
+.page{max-width:800px;margin:0 auto;padding:20px}
+.hdr{background:#0A0F2C;color:#fff;padding:24px 28px;border-radius:12px 12px 0 0}
+.hdr h1{font-size:22px;font-weight:800;color:#2A5CE0;margin-bottom:5px}
+.hdr p{font-size:12px;color:rgba(255,255,255,.6);margin-bottom:3px}
+.meta-strip{background:#141B45;padding:12px 28px;border-radius:0 0 12px 12px;margin-bottom:20px;display:flex;gap:24px;flex-wrap:wrap}
+.meta-item{display:flex;flex-direction:column}
+.meta-label{font-size:8px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.4);letter-spacing:.5px;margin-bottom:3px}
+.meta-value{font-size:13px;font-weight:700;color:#2A5CE0}
+.section{margin-bottom:20px;page-break-inside:avoid;border-radius:10px;overflow:hidden}
+.section-hdr{display:flex;align-items:center;gap:10px;padding:11px 18px}
+.section-num{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0}
+.section-title{font-size:14px;font-weight:800;color:#fff;flex:1}
+.section-dur{font-size:10px;font-weight:600;color:rgba(255,255,255,.65);white-space:nowrap}
+.section-body{padding:16px 18px;background:#F7F8FA;border:1px solid #E4E7ED;border-top:none;border-radius:0 0 10px 10px;font-size:14px;line-height:2;color:#10132A;white-space:pre-wrap}
+.tip{display:inline-block;background:#FEF3C7;border:1px solid #F59E0B;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;color:#92400E;margin:2px}
+.score-bar{background:#EFF6FF;border:1px solid #2A5CE0;border-radius:10px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.score-val{font-size:28px;font-weight:800;color:${comp?.eligible?"#1C7A62":"#C0632F"}}
+.budget-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
+.budget-card{background:#0A0F2C;border-radius:10px;padding:14px;text-align:center}
+.budget-lbl{font-size:8px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.4);letter-spacing:.5px;margin-bottom:5px}
+.budget-val{font-size:16px;font-weight:800;color:#2A5CE0}
+.footer{margin-top:24px;padding-top:12px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;font-size:10px;color:#5B6178}
+.indh-pill{background:#0A0F2C;color:#2A5CE0;padding:3px 10px;border-radius:5px;font-weight:700}
+.btn-print{display:block;margin:16px auto 0;padding:11px 32px;background:#0A0F2C;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="hdr">
+  <h1>${escH(proj?.projectName||"")}</h1>
+  <p>الحامل: ${escH(user.name||"")} ${escH(user.profile?.lastName||"")} · ${escH(proj?.location||user.profile?.region||"")}</p>
+  <p>${escH(proj?.sector||"")} · المبادرة الوطنية للتنمية البشرية — المرحلة 3</p>
+</div>
+<div class="meta-strip">
+  <div class="meta-item"><div class="meta-label">النقطة</div><div class="meta-value" style="color:${comp?.eligible?"#22C55E":"#EF4444"}">${comp?.score||"—"}/100 ${comp?.eligible?"✅":"⚠️"}</div></div>
+  <div class="meta-item"><div class="meta-label">الميزانية</div><div class="meta-value">${totalBudget?totalBudget.toLocaleString():"—"} درهم</div></div>
+  <div class="meta-item"><div class="meta-label">مساهمة INDH</div><div class="meta-value">${indhAmt?indhAmt.toLocaleString():"—"} درهم</div></div>
+  <div class="meta-item"><div class="meta-label">مساهمة الحامل</div><div class="meta-value">${holdAmt?holdAmt.toLocaleString():"—"} درهم</div></div>
+  <div class="meta-item"><div class="meta-label">المستفيدون</div><div class="meta-value">${proj?.beneficiaries||"—"}</div></div>
+  <div class="meta-item"><div class="meta-label">المدة</div><div class="meta-value">5–7 دقائق</div></div>
+</div>
+${finalSections.slice(0,5).map((sec: string, idx: number) => {
+  const col = sectionColors[idx] || "#2A5CE0";
+  const label = sectionLabels[idx] || `الجزء ${idx+1}`;
+  const dur = sectionDurations[idx] || "";
+  const bodyHtml = escH(sec.replace(/\n/g," \n")).replace(/\[([^\]]+)\]/g, (_m: string, p: string) => `<span class="tip">[${p}]</span>`);
+  return `<div class="section">
+  <div class="section-hdr" style="background:${col}">
+    <div class="section-num">${idx+1}</div>
+    <div class="section-title">${label}</div>
+    <div class="section-dur">${dur}</div>
+  </div>
+  <div class="section-body">${bodyHtml}</div>
+</div>`;
+}).join("")}
+${finalSections.length < 3 ? `<div class="section"><div class="section-hdr" style="background:#2A5CE0"><div class="section-num">📝</div><div class="section-title">نص الخطاب الكامل</div></div><div class="section-body">${escH(r).replace(/\[([^\]]+)\]/g, (_m: string, p: string) => `<span class="tip">[${p}]</span>`)}</div></div>` : ""}
+<div class="footer">
+  <span>© IdeaMap 2026 · ideamaponline.org</span>
+  <span class="indh-pill">INDH Phase 3</span>
+  <span>${new Date().toLocaleDateString("ar-MA")}</span>
+</div>
+</div>
+<button class="btn-print no-print" onclick="window.print()">🖨️ طباعة / حفظ كـ PDF</button>
+</body></html>`;
+      const w = window.open("", "_blank", "width=860,height=750");
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+        const printWhenReady = () => { try { w.print(); } catch {} };
+        let fallback: ReturnType<typeof setTimeout>;
+        w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 300); }, {once:true});
+        fallback = setTimeout(printWhenReady, 3000);
+      } else {
+        showToast(lang==="ar"?"اسمح بالنوافذ المنبثقة في المتصفح":lang==="fr"?"Autorisez les popups dans votre navigateur":"Allow popups to open the pitch", "error");
+      }
     } else {
       showToast(lang==="ar"?"فشل إنشاء الخطاب — حاول مجدداً":lang==="fr"?"Génération échouée — réessayez":"Pitch generation failed — retry", "error");
     }
@@ -2154,29 +2252,156 @@ ${comp?.juryScore ? `<div class="section">
       [{role:"user", content:`بيانات المشروع: ${ctx}`}],
       `أنت خبير في تحضير حاملي مشاريع INDH للمثول أمام لجنة التحكيم. اكتب بنك أسئلة وأجوبة شامل يتضمن 30 سؤالاً وجواباً باللغة العربية الفصحى البسيطة مُخصصة لهذا المشروع تحديداً.
 
-قسّم الأسئلة على 5 محاور:
+قسّم الأسئلة على 5 محاور بالضبط:
 
-المحور 1 — الخبرة والكفاءة (6 أسئلة) — يتعلق بالحامل ومؤهلاته
-المحور 2 — المشروع والسوق (6 أسئلة) — يتعلق بالفكرة والمنافسة
-المحور 3 — المالي (6 أسئلة) — يتعلق بالميزانية والأرقام والربحية
-المحور 4 — التشغيلي (6 أسئلة) — يتعلق بالتنفيذ والإدارة
-المحور 5 — الاستدامة بعد INDH (6 أسئلة) — يتعلق بمستقبل المشروع
+المحور 1 — الخبرة والكفاءة (6 أسئلة) — يتعلق بالحامل ومؤهلاته وتجاربه السابقة
+المحور 2 — المشروع والسوق (6 أسئلة) — يتعلق بالفكرة والمنافسة والزبائن المستهدفين
+المحور 3 — المالي (6 أسئلة) — يتعلق بالميزانية والأرقام والمردودية والتوقعات
+المحور 4 — التشغيلي (6 أسئلة) — يتعلق بالتنفيذ اليومي والإدارة والتجهيزات
+المحور 5 — الاستدامة بعد INDH (6 أسئلة) — يتعلق بمستقبل المشروع وضمان استمراريته
 
-لكل سؤال:
-- اكتب السؤال بين [س] و[/س]
-- اكتب الجواب الكامل بين [ج] و[/ج]
-- الجواب يجب أن يستخدم أرقاماً حقيقية من بيانات المشروع المذكور.
-- الجواب يجب أن يكون من 2 إلى 4 جمل واضحة قابلة للحفظ.
+لكل سؤال اتبع هذا التنسيق بالضبط:
+[س]نص السؤال الكامل[/س]
+[ج]نص الجواب الكامل من 2 إلى 4 جمل مع أرقام حقيقية من بيانات المشروع[/ج]
 
-اكتب فقط المحاور والأسئلة والأجوبة، بدون مقدمات أو تعليقات.`,
-      "dialogue"
+قواعد مهمة:
+- استخدم أرقاماً حقيقية من بيانات المشروع المذكور (الميزانية، المستفيدون، التوقعات).
+- الأجوبة يجب أن تكون محددة، مقنعة، وقابلة للحفظ والتقديم أمام اللجنة.
+- لا تكتب أي شيء خارج تنسيق [س]...[/س] و[ج]...[/ج].
+- ابدأ مباشرة بـ "المحور 1" بدون مقدمات.`,
+      "dialogue",
+      4000
     );
     setQABusy(false);
-    if (r) {
-      const pName = (proj?.projectName||"مشروع").replace(/\s+/g, "_");
-      dlText(r, `بنك_الأسئلة_${pName}.txt`);
-    } else {
+    if (!r) {
       showToast(lang==="ar"?"فشل إنشاء بنك الأسئلة — حاول مجدداً":lang==="fr"?"Génération échouée — réessayez":"Q&A generation failed — retry", "error");
+      return;
+    }
+
+    // Parse the AI response into axis sections → Q&A pairs
+    const esc = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const totalBudget2 = (budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
+    const indhAmt2 = budget?.indhContribution || Math.min(Math.round(totalBudget2 * 0.90), 100000);
+
+    // Split response by axis headings — support Arabic numerals and patterns
+    const axisPattern = /المحور\s*[\d١٢٣٤٥]+\s*[—–-]/g;
+    const axisMatches: {title: string; start: number}[] = [];
+    let m;
+    while ((m = axisPattern.exec(r)) !== null) {
+      const lineEnd = r.indexOf("\n", m.index);
+      axisMatches.push({ title: r.slice(m.index, lineEnd > m.index ? lineEnd : m.index + 80).trim(), start: m.index });
+    }
+
+    const axisColors = ["#1C7A62","#2A5CE0","#7C3AED","#D97706","#C0632F"];
+
+    const renderAxis = (axisText: string, axisIdx: number): string => {
+      const col = axisColors[axisIdx % 5];
+      // Extract all Q&A pairs
+      const qPairs: {q: string; a: string}[] = [];
+      const pairRe = /\[س\]([\s\S]*?)\[\/س\]\s*\[ج\]([\s\S]*?)\[\/ج\]/g;
+      let pm;
+      while ((pm = pairRe.exec(axisText)) !== null) {
+        qPairs.push({ q: pm[1].trim(), a: pm[2].trim() });
+      }
+      if (qPairs.length === 0) return "";
+      const pairs = qPairs.map((p, i) => `
+        <div style="margin-bottom:14px;page-break-inside:avoid">
+          <div style="background:${col};color:#fff;padding:11px 16px;border-radius:10px 10px 0 0;font-size:13px;font-weight:700;line-height:1.55">
+            <span style="opacity:.65;font-size:11px;margin-left:8px">${i+1}.</span> ${esc(p.q)}
+          </div>
+          <div style="background:#F0F4FF;border:2px solid ${col}33;border-top:none;padding:12px 16px;border-radius:0 0 10px 10px;font-size:12.5px;line-height:1.75;color:#0A0F2C">
+            ${esc(p.a).replace(/\n/g,"<br>")}
+          </div>
+        </div>`).join("");
+      return `<div style="margin-bottom:28px;page-break-inside:avoid">
+        <div style="background:${col};color:#fff;padding:14px 20px;border-radius:12px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0">${axisIdx+1}</div>
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.7;margin-bottom:2px">المحور ${axisIdx+1}</div>
+            <div style="font-size:14px;font-weight:800">${esc(axisMatches[axisIdx]?.title?.replace(/المحور\s*[\d١٢٣٤٥]+\s*[—–-]\s*/,"") || "")}</div>
+          </div>
+          <div style="margin-right:auto;background:rgba(255,255,255,.2);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">${qPairs.length} أسئلة</div>
+        </div>
+        ${pairs}
+      </div>`;
+    };
+
+    // Build per-axis HTML blocks
+    let axisHTML = "";
+    if (axisMatches.length >= 2) {
+      for (let ai2 = 0; ai2 < axisMatches.length; ai2++) {
+        const start = axisMatches[ai2].start;
+        const end   = ai2 + 1 < axisMatches.length ? axisMatches[ai2+1].start : r.length;
+        axisHTML += renderAxis(r.slice(start, end), ai2);
+      }
+    } else {
+      // Fallback: render full text as single block
+      axisHTML = `<div style="white-space:pre-wrap;font-size:13px;line-height:1.8;color:#0A0F2C">${esc(r)}</div>`;
+    }
+
+    const html = `<!DOCTYPE html><html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<title>بنك الأسئلة — ${esc(proj?.projectName||"المشروع")}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Tajawal',sans-serif;font-size:13px;color:#0A0F2C;background:#fff}
+@page{size:A4;margin:15mm 13mm}
+@media print{body{padding:0}.no-print{display:none!important}.page-break{page-break-before:always}}
+.page{max-width:800px;margin:0 auto;padding:20px}
+.header{background:#0A0F2C;color:#fff;padding:22px 28px;border-radius:12px;margin-bottom:16px}
+.header-title{font-size:20px;font-weight:800;color:#2A5CE0;margin-bottom:6px}
+.header-sub{font-size:11.5px;color:rgba(255,255,255,.55);line-height:1.55}
+.meta-strip{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.meta-chip{background:#F7F8FA;border:1px solid #E4E7ED;border-radius:9px;padding:8px 13px;flex:1;min-width:130px}
+.meta-chip .lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5B6178;margin-bottom:3px}
+.meta-chip .val{font-size:13px;font-weight:700;color:#0A0F2C}
+.intro-box{background:#EFF6FF;border:2px solid #2A5CE055;border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:12.5px;color:#1C3A5C;line-height:1.7}
+.btn-print{display:block;margin:20px auto 0;padding:12px 32px;background:#0A0F2C;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif}
+.footer{margin-top:28px;padding-top:10px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;font-size:9.5px;color:#5B6178}
+.indh-pill{background:#0A0F2C;color:#2A5CE0;padding:3px 10px;border-radius:5px;font-weight:700;font-size:9px}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="header">
+  <div class="header-title">بنك الأسئلة والأجوبة للجنة التحكيم</div>
+  <div class="header-sub">
+    مشروع: ${esc(proj?.projectName||"")} · ${esc(proj?.sector||"")} · ${esc(proj?.location||user.profile?.region||"")}
+    <br/>الحامل: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · المبادرة الوطنية للتنمية البشرية — المرحلة 3
+  </div>
+</div>
+<div class="meta-strip">
+  <div class="meta-chip"><div class="lbl">عدد الأسئلة</div><div class="val">30 سؤالاً</div></div>
+  <div class="meta-chip"><div class="lbl">النقطة الإجمالية</div><div class="val" style="color:${comp?.eligible?"#1C7A62":"#C0632F"}">${comp?.score||"—"}/100${comp?.eligible?" ✓":""}</div></div>
+  <div class="meta-chip"><div class="lbl">الميزانية الإجمالية</div><div class="val">${totalBudget2.toLocaleString()} درهم</div></div>
+  <div class="meta-chip"><div class="lbl">مساهمة المبادرة (90%)</div><div class="val" style="color:#2A5CE0">${indhAmt2.toLocaleString()} درهم</div></div>
+</div>
+<div class="intro-box">
+  💡 <strong>كيف تستخدم هذا البنك:</strong> اقرأ كل سؤال بصوت عالٍ وأجب عنه بكلامك الخاص مع الحفاظ على الأرقام الدقيقة. تدرّب أمام المرآة أو مع شخص من عائلتك على الأقل 3 مرات قبل يوم اللجنة. الجواب المقنع = رقم دقيق + حقيقة محلية + ثقة في التقديم.
+</div>
+${axisHTML}
+<div class="footer">
+  <span>© IdeaMap 2026 · ideamaponline.org · المبادرة الوطنية للتنمية البشرية</span>
+  <span class="indh-pill">INDH Phase 3</span>
+  <span>${new Date().toLocaleDateString("ar-MA")}</span>
+</div>
+</div>
+<button class="btn-print no-print" onclick="window.print()">🖨️ طباعة / حفظ كـ PDF</button>
+</body></html>`;
+
+    const w = window.open("", "_blank", "width=880,height=750");
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      const printWhenReady = () => { try { w.print(); } catch {} };
+      let fallback: ReturnType<typeof setTimeout>;
+      w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 300); }, {once:true});
+      fallback = setTimeout(printWhenReady, 3000);
+    } else {
+      showToast(lang==="ar"?"اسمح بالنوافذ المنبثقة لعرض بنك الأسئلة":lang==="fr"?"Autorisez les popups pour générer le Q&R":"Allow popups to generate the Q&A bank", "error");
     }
   };
 
@@ -3645,8 +3870,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   {icon:"📄", l:eAr?"تحميل ملف PDF الكامل":eEn?"Download Full PDF Dossier":"Télécharger le Dossier PDF", ok:!!plan,
                     onDl:() => dlPDF(dlLang), badge:"pdf"},
                   {icon:"📋", l:TXT.fiche, ok:!!proj, onDl:() => dlFicheSynthetique(dlLang), badge:"pdf"},
-                  {icon:"🎤", l:TXT.pitch, ok:!!proj&&!!plan, onDl:genAndDlPitchArabe, badge:pitchBusy?"...":"txt"},
-                  {icon:"❓", l:TXT.qa, ok:!!proj, onDl:genAndDlQA, badge:qaBusy?"...":"txt"},
+                  {icon:"🎤", l:TXT.pitch, ok:!!proj&&!!plan, onDl:genAndDlPitchArabe, badge:pitchBusy?"...":"pdf"},
+                  {icon:"❓", l:TXT.qa, ok:!!proj, onDl:genAndDlQA, badge:qaBusy?"...":"pdf"},
                   {icon:"📊", l:TXT.bp, ok:!!plan,
                     onDl:() => dlText([
                       `${proj?.projectName||"Projet"} — ${TXT.bp}`,``,
