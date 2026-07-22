@@ -16,51 +16,11 @@ export interface User {
 interface AuthContextValue {
   user: User | null;
   initialized: boolean;
-  login: (idNumber: string) => boolean;
+  login: (idNumber: string) => Promise<boolean>;
   logout: () => void;
 }
 
-const MOCK_USERS: User[] = [
-  {
-    id: '1',
-    idNumber: 'ADMIN001',
-    name: 'Admin User',
-    email: 'admin@talentmap.ma',
-    role: 'admin',
-  },
-  {
-    id: '2',
-    idNumber: 'COORD001',
-    name: 'Sara Coordinator',
-    email: 'sara@talentmap.ma',
-    role: 'coordinator',
-  },
-  {
-    id: '3',
-    idNumber: 'CAN001',
-    name: 'Mohammed Ait Aissa',
-    email: 'mohammed@email.com',
-    role: 'candidate',
-  },
-  {
-    id: '4',
-    idNumber: 'CAN002',
-    name: 'Sarah Benali',
-    email: 'sarah@email.com',
-    role: 'candidate',
-  },
-  {
-    id: '5',
-    idNumber: 'CAN003',
-    name: 'Karim Djebbar',
-    email: 'karim@email.com',
-    role: 'candidate',
-  },
-];
-
 const STORAGE_KEY = 'talentmap_user';
-
-const RE_CANDIDATE = /^[A-Z]{2,3}\d{3,}$/;
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -69,7 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initialized, setInitialized] = useState(false);
   const router = useRouter();
 
-  // Initialize user from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -84,34 +43,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = (idNumber: string): boolean => {
-    const normalised = idNumber.trim().toUpperCase();
-
-    // Check hardcoded users first (admin, coordinator, known candidates)
-    const found = MOCK_USERS.find(
-      (u) => u.idNumber.toLowerCase() === normalised.toLowerCase()
-    );
-    if (found) {
-      setUser(found);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(found));
-      return true;
+  const login = async (idNumber: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: idNumber }),
+      });
+      const data = await res.json();
+      if (data.ok && data.user) {
+        setUser(data.user);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.user));
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
-
-    // Accept any valid candidate code: 2–3 uppercase letters + 3+ digits (e.g. AB12345)
-    if (RE_CANDIDATE.test(normalised)) {
-      const dynamic: User = {
-        id: normalised,
-        idNumber: normalised,
-        name: `Candidat ${normalised}`,
-        email: `${normalised.toLowerCase()}@talentmap.ma`,
-        role: 'candidate',
-      };
-      setUser(dynamic);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dynamic));
-      return true;
-    }
-
-    return false;
   };
 
   const logout = () => {
@@ -129,8 +77,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used inside an AuthProvider');
-  }
+  if (!ctx) throw new Error('useAuth must be used inside an AuthProvider');
   return ctx;
 }

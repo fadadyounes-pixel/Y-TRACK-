@@ -17,20 +17,22 @@ const redis = new Redis({
 /* ── GET — read all collections ─────────────────────── */
 export async function GET() {
   try {
-    const [holders, coords, jobs, cvs] = await Promise.all([
+    const [holders, coords, jobs, cvs, coordinators] = await Promise.all([
       redis.get<any[]>("idm_holders"),
       redis.get<string[]>("idm_coords"),
       redis.get<any[]>("tm_jobs"),
       redis.get<any[]>("tm_cvs"),
+      redis.get<any[]>("tm_coordinators"),
     ]);
     return NextResponse.json({
       holders: holders || [],
       coords: coords || [],
       jobs: jobs || [],
       cvs: cvs || [],
+      coordinators: coordinators || [],
     });
   } catch (err: any) {
-    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], error: err.message });
+    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], coordinators: [], error: err.message });
   }
 }
 
@@ -97,6 +99,25 @@ export async function POST(req: NextRequest) {
         ? existing.map((c: any, i: number) => i === idx ? { ...c, ...cv } : c)
         : [...existing, cv];
       await redis.set("tm_cvs", updated);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* TalentMap: upsert coordinator account */
+    if (body.type === "save_coordinator") {
+      const coord = body.coordinator;
+      const existing = await redis.get<any[]>("tm_coordinators") || [];
+      const idx = existing.findIndex((c: any) => c.id === coord.id);
+      const updated = idx >= 0
+        ? existing.map((c: any, i: number) => i === idx ? { ...c, ...coord } : c)
+        : [...existing, coord];
+      await redis.set("tm_coordinators", updated);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* TalentMap: delete coordinator account */
+    if (body.type === "delete_coordinator") {
+      const existing = await redis.get<any[]>("tm_coordinators") || [];
+      await redis.set("tm_coordinators", existing.filter((c: any) => c.id !== body.id));
       return NextResponse.json({ ok: true });
     }
 

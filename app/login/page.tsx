@@ -67,11 +67,11 @@ export default function LoginPage() {
   const liveRole = detectRole(code);
   const roleColor = liveRole && liveRole !== 'unknown' ? ROLE_COLORS[liveRole] : undefined;
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setError('');
     setIsLoading(true);
-    const success = login(code);
+    const success = await login(code);
     if (!success) {
       setError(t.error);
       setIsLoading(false);
