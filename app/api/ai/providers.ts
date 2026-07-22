@@ -46,14 +46,14 @@ const _k = {
 const ev = (k: string, fb = "") => process.env[k] || fb;
 
 // Groq free-tier models — each has INDEPENDENT rate limits (30 RPM each).
-// Cycling through them multiplies effective throughput ~6×.
+// Ordered best-quality first so raceGroqModels() returns the strongest response.
 const GROQ_MODELS = [
-  "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama-3.3-70b-versatile",
-  "meta-llama/llama-4-maverick-17b-128e-instruct",
-  "llama-3.1-8b-instant",
-  "gemma2-9b-it",
-  "mixtral-8x7b-32768",
+  "meta-llama/llama-4-maverick-17b-128e-instruct",  // Best quality on Groq
+  "llama-3.3-70b-versatile",                          // Excellent, reliable
+  "meta-llama/llama-4-scout-17b-16e-instruct",        // Fast, good quality
+  "gemma2-9b-it",                                     // Reliable fallback
+  "mixtral-8x7b-32768",                               // Wide knowledge base
+  "llama-3.1-8b-instant",                             // Speed over quality (last resort)
 ];
 
 const GROQ_MODELS_FAST = [
@@ -290,11 +290,12 @@ async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Pr
 async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("OPENROUTER_API_KEY");
   if (!key) throw new Error("no OPENROUTER_API_KEY");
+  // Best free models first — quality order matters for fallback position
   const models = [
+    "qwen/qwen3-235b-a22b:free",              // 235B params — best free quality
+    "deepseek/deepseek-v3-0324:free",          // Excellent structured + reasoning
+    "meta-llama/llama-4-maverick:free",        // Strong quality
     process.env.OPENROUTER_MODEL || "meta-llama/llama-4-scout:free",
-    "meta-llama/llama-4-maverick:free",
-    "deepseek/deepseek-v3-0324:free",
-    "qwen/qwen3-235b-a22b:free",
     "microsoft/phi-4:free",
     "meta-llama/llama-3.3-70b-instruct:free",
     "mistralai/mistral-7b-instruct:free",
@@ -338,7 +339,7 @@ async function together(msgs: Msg[], sys: string | undefined, maxTok: number): P
   throw new Error("Together exhausted");
 }
 
-async function tryOnce(fn: typeof groq, msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string | null> {
+async function tryOnce(fn: (m: Msg[], s: string | undefined, t: number) => Promise<string>, msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string | null> {
   try {
     const text = await fn(msgs, sys, maxTok);
     return text || null;
@@ -367,54 +368,100 @@ async function raceFirst(
   });
 }
 
+// Race top 3 Groq models in parallel — each has an independent 30 RPM rate limit,
+// so firing them simultaneously triples effective throughput vs cycling sequentially.
+// Always available via hardcoded key. Returns the highest-quality fastest response.
+async function raceGroqModels(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = ev("GROQ_API_KEY", _k.g);
+  if (!key) throw new Error("no GROQ_API_KEY");
+  const all = [
+    ...(sys ? [{ role: "system", content: sys }] : []),
+    ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) })),
+  ];
+  const topModels = [
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "llama-3.3-70b-versatile",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+  ];
+  const perTok = maxTok <= 500 ? 5000 : 10000;
+  const result = await raceFirst(
+    topModels.map(model => async (_m: Msg[], _s: string | undefined, _t: number): Promise<string> => {
+      const res = await tFetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      }, perTok);
+      if (res.status === 429) throw new Error("429");
+      if (res.status === 401) throw new Error("Groq 401");
+      if (!res.ok) throw new Error(`Groq ${res.status}`);
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (!text) throw new Error("empty");
+      return text;
+    }),
+    msgs, sys, maxTok, perTok + 2000
+  );
+  if (result) return result;
+  // Cycle through remaining Groq models sequentially as last resort
+  return groq(msgs, sys, maxTok, false);
+}
+
 export async function rafiq({ task, messages, system, max_tokens = 1200 }: RafiqOpts): Promise<string> {
   const fast = task === "fast";
 
   if (fast) {
-    // Fast path: Cerebras first (1000–2000 tok/s), then Groq, then SambaNova.
-    // Skips Anthropic & Gemini (higher latency). Max 800 tokens.
+    // Fast path: race Cerebras + Groq-fast + Gemini-flash in parallel (4s window).
+    // Cerebras LPU hits 1000–2000 tok/s; Groq is always available via hardcoded key.
     const fastTok = Math.min(max_tokens, 800);
-    for (let sweep = 0; sweep < 2; sweep++) {
-      if (sweep > 0) await sleep(800);
-      for (const fn of [
-        (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, true),
-        (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
-        sambanova,
-        (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, true),
-        anthropic,
-      ]) {
-        const text = await tryOnce(fn, messages, system, fastTok);
-        if (text) return text;
-      }
+    const fastResult = await raceFirst([
+      (m, s, t) => cerebras(m, s, t, true),
+      (m, s, t) => groq(m, s, t, true),
+      (m, s, t) => gemini(m, s, t, true),
+    ], messages, system, fastTok, 4000);
+    if (fastResult) return fastResult;
+    // Sequential fallback for the rare case the race times out
+    for (const fn of [
+      sambanova, anthropic, mistral, together,
+      (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
+    ]) {
+      const text = await tryOnce(fn, messages, system, fastTok);
+      if (text) return text;
     }
     throw new Error("Fast AI providers busy. Please try again.");
   }
 
-  // For JSON/dialogue tasks: first race the 3 fastest providers simultaneously (6s window).
-  // This eliminates worst-case 18s×N sequential timeout chains — Groq has a guaranteed
-  // fallback key so this race almost always resolves within 1-4s.
-  const racers: Array<(m: Msg[], s: string | undefined, t: number) => Promise<string>> = [
-    (m, s, t) => anthropic(m, s, t),
-    (m, s, t) => cerebras(m, s, t, false),
-    (m, s, t) => groq(m, s, t, false),
-  ];
-  const raceText = await raceFirst(racers, messages, system, max_tokens, 6000);
+  // JSON / dialogue: race ALL top-tier providers simultaneously.
+  // Every provider that has a key set will fire in parallel — first valid response wins.
+  // Groq (raceGroqModels) is always included because it has a guaranteed hardcoded key.
+  // JSON needs quality → 9s window. Dialogue needs speed → 6s window.
+  const raceWindow = task === "json" ? 9000 : 6000;
+  const raceText = await raceFirst([
+    anthropic,                                          // Best quality when key is set
+    (m, s, t) => gemini(m, s, t, false),               // Gemini 2.5 Flash — excellent quality
+    raceGroqModels,                                     // Always available — top 3 Groq models in parallel
+    (m, s, t) => cerebras(m, s, t, false),             // LPU hardware — fastest inference
+    sambanova,                                          // Llama-4-Maverick 128k — best for long docs
+    mistral,                                            // Best French + Arabic bilingual
+  ], messages, system, max_tokens, raceWindow);
   if (raceText) return raceText;
 
-  // Sequential fallback — covers Gemini, SambaNova, Mistral, Together, OpenRouter.
-  // Skips the already-raced providers (anthropic/cerebras/groq) on the first sweep.
-  const fallbackOrder = task === "json"
-    ? [gemini, sambanova, mistral, together, openrouter]
-    : [gemini, sambanova, mistral, together, openrouter];
+  // Sequential fallback — Together and OpenRouter not yet tried
+  for (const fn of [together, openrouter]) {
+    const text = await tryOnce(fn, messages, system, max_tokens);
+    if (text) return text;
+  }
 
-  for (let sweep = 0; sweep < 2; sweep++) {
-    if (sweep > 0) await sleep(1200);
-    for (const fn of fallbackOrder) {
-      const text = await tryOnce(fn, messages, system, max_tokens);
-      if (text) return text;
-    }
-    // Second sweep re-includes all providers (the race providers may succeed on retry)
-    if (sweep === 0) fallbackOrder.push(anthropic, cerebras, groq);
+  // Second sweep: all providers retried — rate limits may have cleared
+  await sleep(1200);
+  for (const fn of [
+    raceGroqModels,
+    (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
+    anthropic,
+    (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
+    sambanova, mistral, together, openrouter,
+  ]) {
+    const text = await tryOnce(fn, messages, system, max_tokens);
+    if (text) return text;
   }
 
   throw new Error("All AI providers temporarily busy. Please try again in a few seconds.");
