@@ -151,12 +151,24 @@ function downloadCvPDF(cv: CV) {
 </body>
 </html>`;
 
-  const win = window.open('', '_blank');
-  if (!win) return;
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(() => { win.print(); }, 400);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
+  iframe.src = url;
+  document.body.appendChild(iframe);
+  const cleanup = () => {
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+    URL.revokeObjectURL(url);
+  };
+  iframe.onload = () => {
+    try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch { cleanup(); }
+    setTimeout(cleanup, 60000);
+  };
+  setTimeout(() => {
+    try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch {}
+    setTimeout(cleanup, 60000);
+  }, 1500);
 }
 
 /* ── CV Panel (slide-in drawer) ─────────────────────── */
@@ -379,6 +391,8 @@ export default function CoordinatorDashboard() {
 
   // Matching tab state
   const [matchJob, setMatchJob] = useState<string>('');
+  const [aiInsights, setAiInsights] = useState<{ topPick: string; rationale: string; gaps: string[]; questions: string[] } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     if (initialized && (!user || user.role !== 'coordinator')) router.push('/login');
@@ -481,6 +495,38 @@ export default function CoordinatorDashboard() {
       .map(cv => ({ cv, match: computeMatch(cv, activeMatchJob) }))
       .sort((a, b) => b.match.total - a.match.total);
   }, [cvs, activeMatchJob]);
+
+  /* ── AI Insights generator ── */
+  const generateAiInsights = async () => {
+    if (!activeMatchJob) return;
+    setAiLoading(true);
+    setAiInsights(null);
+    const top5 = matchRanked.slice(0, 5).map(({ cv, match }) => ({
+      name: cv.name || cv.fileName,
+      sector: cv.sector,
+      experience: cv.experience,
+      skills: cv.skills,
+      score: match.total,
+      matchedSkills: match.matchedSkills,
+    }));
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Offre: ${activeMatchJob.title} chez ${activeMatchJob.company}\nSecteur: ${activeMatchJob.sector} | Expérience: ${activeMatchJob.experience}\nCompétences requises: ${activeMatchJob.skills.join(', ')}\n\nTop candidats (par score):\n${top5.map((c, i) => `${i + 1}. ${c.name} — ${c.sector} / ${c.experience} — Score: ${c.score}% — Skills correspondantes: ${c.matchedSkills.join(', ') || 'aucune'}`).join('\n')}` }],
+          system: 'Tu es un recruteur RH expert. Analyse ces candidats pour ce poste. Réponds UNIQUEMENT avec ce JSON valide sans markdown:\n{"topPick":"nom du meilleur candidat + 1 phrase courte expliquant pourquoi il est le meilleur fit","rationale":"2-3 phrases synthétisant le classement global et les forces communes","gaps":["lacune ou besoin de formation identifié 1","lacune 2","lacune 3"],"questions":["Question entretien ciblée au poste 1","Question 2","Question 3"]}',
+          task: 'json',
+          max_tokens: 700,
+        }),
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text || '';
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) setAiInsights(JSON.parse(m[0]));
+    } catch {}
+    setAiLoading(false);
+  };
 
   const excellent = matchRanked.filter(x => x.match.total >= 70);
   const good = matchRanked.filter(x => x.match.total >= 50 && x.match.total < 70);
@@ -817,7 +863,7 @@ export default function CoordinatorDashboard() {
                 <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sélectionner une offre</label>
                 <select
                   value={matchJob || (jobs[0]?.id ?? '')}
-                  onChange={e => setMatchJob(e.target.value)}
+                  onChange={e => { setMatchJob(e.target.value); setAiInsights(null); }}
                   style={{ ...inp, minWidth: '300px', fontWeight: 600, color: '#111827' }}>
                   {jobs.map(j => (
                     <option key={j.id} value={j.id}>{j.title} — {j.company}</option>
@@ -878,6 +924,55 @@ export default function CoordinatorDashboard() {
                     </div>
                   </div>
                 )}
+
+                {/* AI Insights */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: aiInsights ? '1rem' : '0' }}>
+                    <button
+                      onClick={generateAiInsights}
+                      disabled={aiLoading || matchRanked.length === 0}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', borderRadius: '8px', border: 'none', background: aiLoading ? '#e5e7eb' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: aiLoading ? '#9ca3af' : 'white', fontSize: '0.85rem', fontWeight: 700, cursor: aiLoading || matchRanked.length === 0 ? 'not-allowed' : 'pointer', transition: 'all 0.15s', opacity: matchRanked.length === 0 ? 0.5 : 1 }}>
+                      {aiLoading ? '⏳ Analyse en cours…' : '🤖 Générer analyse IA'}
+                    </button>
+                    {aiInsights && !aiLoading && (
+                      <button onClick={() => setAiInsights(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.8rem', cursor: 'pointer' }}>✕ Effacer</button>
+                    )}
+                  </div>
+                  {aiInsights && (
+                    <div style={{ background: 'white', borderRadius: '12px', border: '1.5px solid #dbeafe', overflow: 'hidden' }}>
+                      <div style={{ padding: '0.85rem 1.1rem', background: 'linear-gradient(135deg,#eff6ff,#dbeafe)', borderBottom: '1px solid #dbeafe', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>🤖</span>
+                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#1e40af' }}>Analyse IA — {activeMatchJob?.title}</span>
+                      </div>
+                      <div style={{ padding: '1rem 1.1rem', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1rem' }}>
+                        <div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>⭐ Meilleur candidat</div>
+                          <div style={{ fontSize: '0.875rem', color: '#111827', lineHeight: 1.55 }}>{aiInsights.topPick}</div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.85rem', marginBottom: '0.4rem' }}>📋 Synthèse du classement</div>
+                          <div style={{ fontSize: '0.82rem', color: '#374151', lineHeight: 1.6 }}>{aiInsights.rationale}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>⚠️ Lacunes identifiées</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '1rem' }}>
+                            {(aiInsights.gaps || []).map((g, i) => (
+                              <div key={i} style={{ display: 'flex', gap: '0.4rem', fontSize: '0.8rem', color: '#374151' }}>
+                                <span style={{ color: '#dc2626', fontWeight: 700, flexShrink: 0 }}>•</span>{g}
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>💬 Questions d'entretien suggérées</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {(aiInsights.questions || []).map((q, i) => (
+                              <div key={i} style={{ padding: '0.45rem 0.75rem', background: '#f5f3ff', borderRadius: '6px', fontSize: '0.78rem', color: '#4c1d95', borderLeft: '2px solid #7c3aed' }}>
+                                {i + 1}. {q}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Two-column candidate grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1rem' }}>

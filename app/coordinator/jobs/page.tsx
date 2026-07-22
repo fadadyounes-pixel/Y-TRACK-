@@ -71,6 +71,7 @@ export default function CoordinatorJobs() {
   const [search, setSearch] = useState('');
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [coordCvs, setCoordCvs] = useState<any[]>([]);
+  const [descLoading, setDescLoading] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== 'coordinator') router.push('/login');
@@ -164,6 +165,27 @@ export default function CoordinatorJobs() {
   const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.9rem', color: '#111827', background: 'white', fontFamily: 'inherit' };
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' };
 
+  async function generateDescription() {
+    if (!title && !sector) return;
+    setDescLoading(true);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Poste: ${title || 'Non précisé'}\nSecteur: ${sector}\nNiveau: ${experience}\nVille: ${location}${skills.length ? '\nCompétences: ' + skills.join(', ') : ''}` }],
+          system: 'Tu es un expert RH marocain. Rédige une description de poste professionnelle et concise (3-4 phrases) en français, directement utilisable dans une offre d\'emploi. Pas de titre, pas de bullet points, juste le texte de description. Maximum 120 mots.',
+          task: 'dialogue',
+          max_tokens: 250,
+        }),
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text?.trim();
+      if (text) setDescription(text);
+    } catch {}
+    setDescLoading(false);
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
       <div style={{ position: 'relative' }}>
@@ -235,8 +257,17 @@ export default function CoordinatorJobs() {
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
-              <label style={labelStyle}>Description du poste</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Missions, responsabilités, environnement de travail…" style={{ ...inputStyle, resize: 'vertical' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Description du poste</label>
+                <button
+                  type="button"
+                  onClick={generateDescription}
+                  disabled={descLoading || (!title && !sector)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', background: descLoading ? '#e5e7eb' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: descLoading ? '#9ca3af' : 'white', fontSize: '0.75rem', fontWeight: 700, cursor: descLoading || (!title && !sector) ? 'not-allowed' : 'pointer', opacity: (!title && !sector) ? 0.5 : 1 }}>
+                  {descLoading ? '⏳ Génération…' : '🤖 Générer avec IA'}
+                </button>
+              </div>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Missions, responsabilités, environnement de travail… ou cliquez « Générer avec IA »" style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
 
             <div style={{ marginBottom: '1.25rem' }}>
