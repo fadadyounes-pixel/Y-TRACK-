@@ -2537,7 +2537,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
   var ar = lang === "ar";
   var [pf, setPf] = useState({ firstName:"", lastName:"", email:"", phone:"", age:"", gender:"", edu:"", region:"", prefecture:"", status:"", photo:"" });
   var isCasa = pf.region === "Casablanca-Settat";
-  var ok = pf.firstName && pf.lastName && pf.email && pf.phone && pf.age && pf.gender && pf.edu && pf.region && pf.status && (!isCasa || pf.prefecture);
+  var ok = pf.firstName && pf.lastName && pf.age && pf.gender && pf.edu && pf.region && pf.status && (!isCasa || pf.prefecture);
 
   /* scroll refs */
   var scrollRef    = useRef(null);   // the scrollable container
@@ -2586,12 +2586,6 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
     var missing = [];
     if (!pf.firstName) missing.push(ar ? "الاسم الشخصي" : lang==="fr" ? "Prénom" : "First Name");
     if (!pf.lastName)  missing.push(ar ? "اسم العائلة" : lang==="fr" ? "Nom de famille" : "Last Name");
-    var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email);
-    if (!pf.email)     missing.push(ar ? "البريد الإلكتروني" : lang==="fr" ? "Email" : "Email");
-    else if (!emailOk) missing.push(ar ? "صيغة البريد غير صحيحة" : lang==="fr" ? "Format email invalide (ex: nom@email.com)" : "Invalid email (e.g. name@email.com)");
-    var phoneOk = /^[+]?[\d\s\-().]{8,15}$/.test(pf.phone);
-    if (!pf.phone)     missing.push(ar ? "رقم الهاتف" : lang==="fr" ? "Téléphone" : "Phone");
-    else if (!phoneOk) missing.push(ar ? "رقم الهاتف غير صحيح" : lang==="fr" ? "Numéro invalide" : "Invalid phone number");
     if (!pf.age)       missing.push(ar ? "الفئة العمرية" : lang==="fr" ? "Tranche d'âge" : "Age Group");
     if (!pf.gender)    missing.push(ar ? "الجنس" : lang==="fr" ? "Genre" : "Gender");
     if (!pf.edu)       missing.push(ar ? "المستوى الدراسي" : lang==="fr" ? "Niveau d'études" : "Education Level");
@@ -2606,8 +2600,8 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
     onNext(pf);
   }
 
-  var pfTotal  = isCasa ? 10 : 9;
-  var pfFilled = [pf.firstName,pf.lastName,pf.email,pf.phone,pf.age,pf.gender,pf.edu,pf.status,pf.region].concat(isCasa?[pf.prefecture]:[]).filter(Boolean).length;
+  var pfTotal  = isCasa ? 8 : 7;
+  var pfFilled = [pf.firstName,pf.lastName,pf.age,pf.gender,pf.edu,pf.status,pf.region].concat(isCasa?[pf.prefecture]:[]).filter(Boolean).length;
   var pfPct    = Math.round(pfFilled / pfTotal * 100);
 
   return (
@@ -2637,7 +2631,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
               transition:"all .2s", boxShadow: ok ? "0 4px 18px "+C.goldG : "none"
             }}>
               {ok && <span>✓</span>}
-              <span>{ar?"التالي →":lang==="fr"?"Suivant →":"Next →"}</span>
+              <span>{ar?"← بدء التقييم":lang==="fr"?"Commencer l'évaluation →":"Start Assessment →"}</span>
             </button>
           </div>
 
@@ -2703,17 +2697,16 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
               onChange={function(v){ setField("lastName")(v); setSubmitErr(""); }}/>
           </div>
 
-          {/* ── Contact ── */}
-          <SectionHead icon="📬" title={ar?"التواصل":lang==="fr"?"Contact":"Contact"}/>
+          {/* ── Contact (optional) ── */}
+          <SectionHead icon="📬" title={ar?"التواصل (اختياري)":lang==="fr"?"Contact (optionnel)":"Contact (optional)"}/>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
-            <FloatInput label="Email" value={pf.email} type="email" placeholder="name@email.com"
+            <FloatInput label={"Email"} value={pf.email} type="email" placeholder="name@email.com"
               ok={!!pf.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email)}
               err={!!pf.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pf.email)}
               onChange={function(v){ setField("email")(v); setSubmitErr(""); }}/>
             <FloatInput label={ar?"الهاتف":lang==="fr"?"Téléphone":"Phone"} value={pf.phone} type="tel"
               placeholder="+212 6XX..."
               ok={!!pf.phone && /^[+]?[\d\s\-().]{8,15}$/.test(pf.phone)}
-              err={!!pf.phone && !/^[+]?[\d\s\-().]{8,15}$/.test(pf.phone)}
               onChange={function(v){ setField("phone")(v); setSubmitErr(""); }}/>
           </div>
 
@@ -2849,7 +2842,7 @@ function ProfileForm({ lang, setLang, user, onNext, onLogout }) {
             transition:"all .25s", display:"flex", alignItems:"center", justifyContent:"center", gap:10
           }}>
             {ok && <span>✓</span>}
-            <span>{ar?"التالي →":lang==="fr"?"Suivant →":"Next →"}</span>
+            <span>{ar?"← بدء التقييم":lang==="fr"?"Commencer l'évaluation →":"Start Assessment →"}</span>
           </button>
         </div>
       </div>
