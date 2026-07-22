@@ -715,6 +715,28 @@ export default function CandidateUpload() {
 
     setProcessStep('done');
     setProcessing(false);
+    // Sync candidate CV to Redis so coordinators can match against it
+    fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'save_cv',
+        cv: {
+          id: user!.idNumber,
+          status: 'done',
+          name: extracted.name || name,
+          email: extracted.email || email,
+          phone: extracted.phone || phone,
+          sector: finalSector,
+          experience: finalExperience,
+          skills: finalSkills,
+          summary: finalSummary,
+          targetRoles: finalRoles,
+          fileName: file.name,
+          fileSize: `${Math.round(file.size / 1024)} KB`,
+        },
+      }),
+    }).catch(() => {});
     // Auto-advance to preview
     setTimeout(() => setStep('preview'), 800);
   }
@@ -799,7 +821,15 @@ export default function CandidateUpload() {
   async function preGenerateAndPreview() {
     const hasGoodSummary = summary.trim().length > 60;
     const hasRoles = targetRoles.length > 0;
-    if (hasGoodSummary && hasRoles) { setStep('preview'); return; }
+    if (hasGoodSummary && hasRoles) {
+      fetch('/api/sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, fileName: 'Template CV', fileSize: 'N/A' } }),
+      }).catch(() => {});
+      setStep('preview');
+      return;
+    }
 
     setGeneratingCV(true);
     const ctx = [
@@ -811,6 +841,8 @@ export default function CandidateUpload() {
       languages.length && `Langues: ${languages.join(', ')}`,
       !hasGoodSummary && summary.trim() && `Brouillon résumé: "${summary.slice(0, 180)}"`,
     ].filter(Boolean).join('\n');
+    let resolvedSummary = summary;
+    let resolvedRoles = targetRoles;
     try {
       const text = await callAI(
         [{ role: 'user', content: ctx }],
@@ -821,11 +853,17 @@ export default function CandidateUpload() {
       const m = text.match(/\{[\s\S]*\}/);
       if (m) {
         const p = JSON.parse(m[0]);
-        if (p.summary && !hasGoodSummary) setSummary(p.summary);
-        if (p.targetRoles?.length && !hasRoles) setTargetRoles(p.targetRoles.slice(0, 3));
+        if (p.summary && !hasGoodSummary) { setSummary(p.summary); resolvedSummary = p.summary; }
+        if (p.targetRoles?.length && !hasRoles) { setTargetRoles(p.targetRoles.slice(0, 3)); resolvedRoles = p.targetRoles.slice(0, 3); }
         if (p.certifications?.length && certifications.length === 0) setCertifications(p.certifications.slice(0, 3));
       }
     } catch {}
+    // Sync to Redis for coordinator matching
+    fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, fileName: 'Template CV', fileSize: 'N/A' } }),
+    }).catch(() => {});
     setGeneratingCV(false);
     setStep('preview');
   }
