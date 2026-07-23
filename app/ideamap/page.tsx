@@ -108,9 +108,9 @@ const SECTORS = [
   "Réparation/Maintenance","Événementiel/Traiteur",
 ];
 const PROJ_TYPES: Record<string, string[]> = {
-  fr:["Individuel","Groupe informel","Association","Coopérative","GIE"],
-  ar:["فردي","مجموعة غير رسمية","جمعية","تعاونية","مجموعة المصلحة الاقتصادية"],
-  en:["Individual","Informal group","Association","Cooperative","Economic Interest Group"],
+  fr:["Individuel","Groupe informel"],
+  ar:["فردي","مجموعة غير رسمية"],
+  en:["Individual","Informal group"],
 };
 const MARITAL: Record<string, string[]> = {
   fr:["Célibataire","Marié(e)","Divorcé(e)","Veuf/Veuve"],
@@ -572,7 +572,7 @@ function HelpAgent({lang, context}: {lang: string; context: string}) {
 
   const sys = `Tu es le Superviseur IdeaMap — expert terrain INDH Phase 3 Maroc avec 10 ans d'accompagnement de porteurs.
 CONTEXTE UTILISATEUR: ${context}
-FAITS INDH CLÉS: subvention max 100 000 MAD, INDH paie 85%, porteur apporte 15% (en espèces ou nature). Jury 100pts: Impact social 25pts · Viabilité 20pts · Pertinence territoriale 20pts · Gestion 15pts · Durabilité 10pts · Innovation 10pts. Éligible si ≥60pts.
+FAITS INDH CLÉS: contribution INDH plafonnée à 100 000 MAD maximum. INDH couvre 90% du coût total des équipements (coût total peut atteindre ~111 000 MAD), porteur apporte 10% en espèces ou nature. Jury 100pts: Impact social 25pts · Viabilité 20pts · Pertinence territoriale 20pts · Gestion 15pts · Durabilité 10pts · Innovation 10pts. Éligible si ≥60pts.
 RÉALITÉS MAROC: SMIG 2 828 MAD/mois. Location petit local 800-2500 MAD/mois. Machine à coudre industrielle 3500-8000 MAD. Souk hebdomadaire = canal de vente principal zones rurales.
 Quand quelqu'un demande des documents: cite les 8 documents obligatoires (CIN, statuts, PV AG, récépissé, attestation résidence, devis, photos site, business plan).
 Quand quelqu'un demande comment améliorer son score: cite les critères jury précis avec les points.
@@ -1276,6 +1276,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [brief, setBrief]                   = useState(initialState?.brief || "");
   const [currentQ, setCurrentQ]             = useState(initialState?.currentQ || "");
   const [dlLang, setDlLang]                 = useState(lang);
+  const [pitchBusy, setPitchBusy]           = useState(false);
+  const [qaBusy, setQABusy]                 = useState(false);
   const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
   // Keep download language in sync with the UI language unless the user has explicitly overridden it
   useEffect(() => { setDlLang(lang); }, [lang]);
@@ -1316,7 +1318,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   // Auto-retries up to 3× with exponential back-off before surfacing any error.
   // The server-side cascade (providers.ts) already tries 4 Groq models + Together
   // + Gemini + OpenRouter × 2 sweeps, so the client retry is a last safety net.
-  const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue"): Promise<string> => {
+  const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue", maxTokens?: number): Promise<string> => {
     const MAX_RETRIES = 3;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
@@ -1324,7 +1326,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         const r = await fetch("/api/ai", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({messages, system, task}),
+          body: JSON.stringify({messages, system, task, ...(maxTokens ? {max_tokens: maxTokens} : {})}),
           signal: AbortSignal.timeout(65_000),
         });
         const d = await r.json();
@@ -1373,8 +1375,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     const dir2 = eAr ? "rtl" : "ltr";
     const font = eAr ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
     const total = (budget?.items||[]).reduce((s: number, x: any) => s + (x.total||0), 0);
-    const indhAmt = budget?.indhContribution || Math.round(total * 0.85);
-    const holdAmt = budget?.beneficiaryContribution || Math.round(total * 0.15);
+    const indhAmt = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
+    const holdAmt = budget?.beneficiaryContribution || (total - indhAmt);
     const T = {
       title:   eAr?"خطة الأعمال":eEn?"Business Plan":"Plan d'Affaires",
       holder:  eAr?"الحامل":eEn?"Holder":"Porteur",
@@ -1394,8 +1396,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
       qty:     eAr?"الكمية":eEn?"Qty":"Qté",
       pu:      eAr?"السعر الوحدوي":eEn?"Unit Price":"Prix unit.",
       tot:     eAr?"المجموع":eEn?"Total":"Total",
-      indhC:   eAr?"مساهمة المبادرة الوطنية (85%)":eEn?"INDH Contribution (85%)":"Contribution INDH (85%)",
-      holdC:   eAr?"مساهمة الحامل (15%)":eEn?"Holder Contribution (15%)":"Apport porteur (15%)",
+      indhC:   eAr?"مساهمة المبادرة الوطنية (90%)":eEn?"INDH Contribution (90%)":"Contribution INDH (90%)",
+      holdC:   eAr?"مساهمة الحامل (10%)":eEn?"Holder Contribution (10%)":"Apport porteur (10%)",
       compT:   eAr?"تقرير الامتثال":eEn?"Compliance Report":"Rapport de Conformité",
       score:   eAr?"النقطة الإجمالية":eEn?"Overall Score":"Score global",
       elig:    eAr?`مؤهل للتمويل ✓`:eEn?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
@@ -1564,8 +1566,8 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
       prs.layout = "LAYOUT_16x9";
       const NAVY = "0F2233"; const YELLOW = "FFB703"; const WHITE = "FFFFFF";
       const total = budget?.items?.reduce((s: number, x: any) => s + (x.total || 0), 0) || 0;
-      const indh = budget?.indhContribution || Math.round(total * 0.85);
-      const bene = budget?.beneficiaryContribution || Math.round(total * 0.15);
+      const indh = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
+      const bene = budget?.beneficiaryContribution || (total - indh);
 
       const isAr = exportLang === "ar";
       const isEn = exportLang === "en";
@@ -1585,8 +1587,8 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
         eligible: isAr?"مؤهل للتمويل ✓":isEn?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
         notElig: isAr?"يحتاج تعديلات ✗":isEn?"NOT ELIGIBLE ✗":"NON ÉLIGIBLE ✗",
         totalLabel: isAr?"المجموع":"Total",
-        indhLabel: isAr?"المبادرة (85%)":"INDH (85%)",
-        holdLabel: isAr?"مساهمة الحامل (15%)":isEn?"Holder (15%)":"Apport porteur (15%)",
+        indhLabel: isAr?"المبادرة (90%)":"INDH (90%)",
+        holdLabel: isAr?"مساهمة الحامل (10%)":isEn?"Holder (10%)":"Apport porteur (10%)",
         stepsText: isAr
           ? "1. إعداد الملف الكامل للمبادرة الوطنية\n2. جمع الوثائق المطلوبة\n3. إيداع الملف لدى مديرية العمل الاجتماعي\n4. الاستماع أمام لجنة التحكيم\n5. التوقيع على اتفاقية المبادرة الوطنية"
           : isEn
@@ -1681,7 +1683,7 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
           {l:isAr?"النقطة":isEn?"Score":"Score", v:comp?`${comp.score}/100`:"—", col:comp?.eligible?"22C55E":"EF4444"},
           {l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—", col:YELLOW},
           {l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:proj?.beneficiaries?String(proj.beneficiaries):"—", col:"60A5FA"},
-          {l:isAr?"مساهمة INDH":isEn?"INDH Grant":"Subvention INDH", v:metricTotal?`${Math.round(metricTotal*.85).toLocaleString()} MAD`:"—", col:"A78BFA"},
+          {l:isAr?"مساهمة INDH":isEn?"INDH Grant":"Subvention INDH", v:metricTotal?`${Math.min(Math.round(metricTotal*.90),100000).toLocaleString()} MAD`:"—", col:"A78BFA"},
         ];
         chips.forEach((m, i) => {
           const bx = 0.3 + i * 2.4;
@@ -1779,7 +1781,7 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
         }
         jTalk(s, isAr?"أتوقع رقم معاملات شهري يبلغ [المبلغ] درهماً منذ الشهر [X]. الربحية تُحقَّق خلال [N] أشهر. بعد المبادرة، [الاستدامة].":isEn?"I expect [amount] MAD/month revenue from month [X]. Break-even in [N] months. After INDH: [sustainability].":"Je prévois [montant] MAD/mois dès le mois [X]. Rentabilité en [N] mois. Après l'INDH : [pérennité].", "EDE9FE", "3B007A");
 
-        // ── Slide 6: Budget INDH 85%/15% ──
+        // ── Slide 6: Budget INDH 90%/10% ──
         s = prs.addSlide(); s.background = {color:NAVY};
         s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:"2A5CE0"}});
         s.addText(T.budgetPrev, {x:0.25,y:0,w:9.5,h:0.82,fontSize:20,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
@@ -1879,6 +1881,528 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
         await prs.writeFile({fileName: `DossierJury_${proj?.projectName || "IdeaMap"}.pptx`});
       }
     } catch (e) { console.error("PPTX error:", e); showToast(lang==="ar"?"فشل إنشاء ملف PowerPoint":lang==="fr"?"Erreur lors de la création du fichier PowerPoint":"PowerPoint generation failed", "error"); }
+  };
+
+  // ── Fiche Synthétique — 1-page HTML print-to-PDF ──────────────────────────
+  const dlFicheSynthetique = (exportLang: string = dlLang) => {
+    const eAr = exportLang === "ar"; const eEn = exportLang === "en";
+    const dir2 = eAr ? "rtl" : "ltr";
+    const font = eAr ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
+    const total = (budget?.items||[]).reduce((s: number, x: any) => s + (x.total||0), 0);
+    const indhAmt = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
+    const holdAmt = budget?.beneficiaryContribution || (total - indhAmt);
+    const esc = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const T = {
+      title:   eAr?"فيش تركيبية":eEn?"Synthetic Project Sheet":"Fiche Synthétique",
+      ident:   eAr?"التعريف بالمشروع":eEn?"Project Identification":"Identification du Projet",
+      desc:    eAr?"وصف المشروع":eEn?"Project Description":"Description du Projet",
+      holder:  eAr?"ملف الحامل":eEn?"Holder Profile":"Profil du Porteur",
+      market:  eAr?"دراسة السوق":eEn?"Market Analysis":"Analyse du Marché",
+      finance: eAr?"خطة التمويل":eEn?"Financing Plan":"Plan de Financement",
+      proj:    eAr?"التوقعات المالية (3 سنوات)":eEn?"3-Year Financial Projections":"Projections Financières (3 ans)",
+      jury:    eAr?"تقييم لجنة التحكيم":eEn?"Jury Scoring":"Grille d'Évaluation du Jury",
+      impacts: eAr?"الأثر الاجتماعي والاقتصادي":eEn?"Social & Economic Impact":"Impacts Social & Économique",
+      indh:    eAr?"مساهمة المبادرة الوطنية (90%)":eEn?"INDH Contribution (90%)":"Contribution INDH (90%)",
+      port:    eAr?"مساهمة الحامل (10%)":eEn?"Holder Contribution (10%)":"Apport Porteur (10%)",
+      tot:     eAr?"التكلفة الإجمالية":eEn?"Total Cost":"Coût Total",
+      yr:      eAr?"السنة":eEn?"Year":"An",
+      ca:      eAr?"رقم المعاملات":eEn?"Revenue":"Chiffre d'Affaires",
+      charges: eAr?"التكاليف الثابتة (تقدير)":eEn?"Fixed Costs (est.)":"Charges Fixes (est.)",
+      net:     eAr?"صافي النتيجة":eEn?"Net Result":"Résultat Net",
+      emplois: eAr?"مناصب الشغل المحدثة":eEn?"Jobs Created":"Emplois Créés",
+      benef:   eAr?"المستفيدون المباشرون":eEn?"Direct Beneficiaries":"Bénéficiaires Directs",
+      sector:  eAr?"القطاع":eEn?"Sector":"Secteur",
+      pillar:  eAr?"محور المبادرة":eEn?"INDH Pillar":"Axe INDH",
+      loc:     eAr?"الموقع":eEn?"Location":"Localisation",
+      struct:  eAr?"الهيكل القانوني":eEn?"Legal Structure":"Structure Juridique",
+      exp:     eAr?"خبرة الحامل":eEn?"Holder Experience":"Expérience du Porteur",
+      edu:     eAr?"المستوى الدراسي":eEn?"Education":"Formation",
+    };
+    const y1 = plan?.projections?.year1 || 0;
+    const y2 = plan?.projections?.year2 || 0;
+    const y3 = plan?.projections?.year3 || 0;
+    const c1 = Math.round(Number(y1) * 0.40);
+    const c2 = Math.round(Number(y2) * 0.36);
+    const c3 = Math.round(Number(y3) * 0.33);
+    const html = `<!DOCTYPE html><html lang="${exportLang}" dir="${dir2}">
+<head>
+<meta charset="utf-8"/>
+<title>${esc(proj?.projectName||"IdeaMap")} — ${T.title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:${font};font-size:11px;color:#10132A;background:#fff}
+@page{size:A4;margin:14mm 12mm}
+@media print{body{padding:0}.no-print{display:none!important}}
+.page{max-width:780px;margin:0 auto;padding:16px}
+.hdr{background:#0A0F2C;color:#fff;padding:18px 22px;border-radius:10px 10px 0 0;margin-bottom:0}
+.hdr h1{font-size:18px;font-weight:800;color:#2A5CE0;margin-bottom:3px}
+.hdr p{font-size:10.5px;color:rgba(255,255,255,.6);margin-bottom:2px}
+.score-strip{display:flex;align-items:center;justify-content:space-between;background:#141B45;padding:10px 22px;border-radius:0 0 10px 10px;margin-bottom:14px}
+.score-num{font-size:24px;font-weight:800;line-height:1}
+.section{margin-bottom:13px;page-break-inside:avoid}
+.section h3{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:4px;margin-bottom:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.field{background:#F7F8FA;border-radius:7px;padding:8px 11px}
+.field .lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5B6178;margin-bottom:3px}
+.field .val{font-size:12px;font-weight:600;color:#0A0F2C}
+.fin-table{width:100%;border-collapse:collapse;font-size:10.5px}
+.fin-table th{background:#0A0F2C;color:#fff;padding:7px 10px;text-align:${eAr?"right":"left"};font-size:9px;font-weight:700;letter-spacing:.3px}
+.fin-table td{padding:7px 10px;border-bottom:1px solid #E4E7ED}
+.fin-table tr:nth-child(even) td{background:#F7F8FA}
+.fin-table .total-row td{background:#EFF6FF;font-weight:700;color:#0A0F2C}
+.fin-total{background:#0A0F2C;border-radius:8px;margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;padding:10px 0}
+.fin-total .item .lbl2{font-size:8px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px}
+.fin-total .item .val2{font-size:14px;font-weight:800}
+.jury-row{display:grid;grid-template-columns:160px 1fr 40px;gap:6px;align-items:center;margin-bottom:7px}
+.bar-bg{height:6px;background:#E4E7ED;border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px}
+.impact-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.impact-card{background:#EFF6FF;border-radius:8px;padding:10px;border:1px solid #2A5CE055}
+.impact-card .ico{font-size:18px;margin-bottom:4px}
+.impact-card .val{font-size:16px;font-weight:800;color:#0A0F2C}
+.impact-card .lbl{font-size:8px;color:#5B6178;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.exec{background:#F0F4FF;border-radius:8px;padding:11px 14px;font-size:11px;color:#1C3A5C;line-height:1.7;border-left:4px solid #2A5CE0;${eAr?"border-left:none;border-right:4px solid #2A5CE0;":""}}
+.btn-print{display:block;margin:16px auto 0;padding:10px 28px;background:#0A0F2C;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:${font}}
+.footer{margin-top:14px;padding-top:8px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;font-size:9px;color:#5B6178}
+.indh-pill{background:#0A0F2C;color:#2A5CE0;padding:3px 9px;border-radius:5px;font-weight:700;font-size:9px}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="hdr">
+  <h1>${esc(proj?.projectName||"")}</h1>
+  <p>${T.holder}: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · ${esc(proj?.location||user.profile?.region||"")}</p>
+  <p>${esc(proj?.sector||"")} · INDH Phase 3 · ${esc(proj?.pillar||comp?.pillar||"")}</p>
+</div>
+${comp ? `<div class="score-strip">
+  <div>
+    <div style="font-size:8.5px;color:rgba(255,255,255,.5);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">JURY SCORE</div>
+    <div class="score-num" style="color:${comp.eligible?"#2A5CE0":"#C0632F"}">${comp.score}<span style="font-size:13px;font-weight:400;color:rgba(255,255,255,.4)"> /100</span></div>
+  </div>
+  <div style="font-size:11px;font-weight:700;color:${comp.eligible?"#22C55E":"#C0632F"}">${comp.eligible?(eAr?"مؤهل ✅":eEn?"ELIGIBLE ✅":"ÉLIGIBLE ✅"):(eAr?"يحتاج تعديلات ⚠️":eEn?"NEEDS REVISION ⚠️":"MODIFICATIONS REQUISES ⚠️")}</div>
+</div>` : ""}
+
+<!-- IDENTIFICATION -->
+<div class="section">
+  <h3>${T.ident}</h3>
+  <div class="grid2">
+    <div class="field"><div class="lbl">${T.sector}</div><div class="val">${esc(proj?.sector||"")}</div></div>
+    <div class="field"><div class="lbl">${T.pillar}</div><div class="val">${esc(proj?.pillar||comp?.pillar||"")}</div></div>
+    <div class="field"><div class="lbl">${T.loc}</div><div class="val">${esc(proj?.location||user.profile?.region||"")}</div></div>
+    <div class="field"><div class="lbl">${T.struct}</div><div class="val">${esc(proj?.legalStructure||"")}</div></div>
+  </div>
+</div>
+
+<!-- DESCRIPTION -->
+${plan?.executiveSummary ? `<div class="section">
+  <h3>${T.desc}</h3>
+  <div class="exec">${esc(plan.executiveSummary)}</div>
+</div>` : ""}
+
+<!-- HOLDER PROFILE -->
+<div class="section">
+  <h3>${T.holder}</h3>
+  <div class="grid2">
+    <div class="field"><div class="lbl">${eAr?"الاسم الكامل":eEn?"Full Name":"Nom Complet"}</div><div class="val">${esc(user.name||"")} ${esc(user.profile?.lastName||"")}</div></div>
+    <div class="field"><div class="lbl">${T.edu}</div><div class="val">${esc(user.profile?.edu||"")}</div></div>
+    ${proj?.holderExperience ? `<div class="field" style="grid-column:span 2"><div class="lbl">${T.exp}</div><div class="val" style="font-size:11px;font-weight:500;line-height:1.5">${esc((proj.holderExperience||"").slice(0,200))}</div></div>` : ""}
+  </div>
+</div>
+
+<!-- MARKET -->
+${plan?.marketAnalysis ? `<div class="section">
+  <h3>${T.market}</h3>
+  <div class="exec" style="border-color:#1C7A62;">${esc(plan.marketAnalysis.slice(0,350))}</div>
+</div>` : ""}
+
+<!-- FINANCING PLAN -->
+${total > 0 ? `<div class="section">
+  <h3>${T.finance}</h3>
+  <div class="fin-total">
+    <div class="item"><div class="lbl2">🏛️ ${T.indh}</div><div class="val2" style="color:#2A5CE0">${indhAmt.toLocaleString()} MAD</div></div>
+    <div class="item" style="border-left:1px solid rgba(255,255,255,.1);border-right:1px solid rgba(255,255,255,.1)"><div class="lbl2">👤 ${T.port}</div><div class="val2" style="color:#AAAAAA">${holdAmt.toLocaleString()} MAD</div></div>
+    <div class="item"><div class="lbl2">📊 ${T.tot}</div><div class="val2" style="color:#FFB703">${total.toLocaleString()} MAD</div></div>
+  </div>
+</div>` : ""}
+
+<!-- 3-YEAR PROJECTIONS -->
+${y1 || y2 || y3 ? `<div class="section">
+  <h3>${T.proj}</h3>
+  <table class="fin-table">
+    <thead><tr>
+      <th></th>
+      <th style="text-align:center">${T.yr} 1</th>
+      <th style="text-align:center">${T.yr} 2</th>
+      <th style="text-align:center">${T.yr} 3</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>${T.ca}</td><td style="text-align:center;font-weight:700">${Number(y1).toLocaleString()}</td><td style="text-align:center;font-weight:700">${Number(y2).toLocaleString()}</td><td style="text-align:center;font-weight:700">${Number(y3).toLocaleString()}</td></tr>
+      <tr><td>${T.charges}</td><td style="text-align:center">${c1.toLocaleString()}</td><td style="text-align:center">${c2.toLocaleString()}</td><td style="text-align:center">${c3.toLocaleString()}</td></tr>
+      <tr class="total-row"><td>${T.net}</td><td style="text-align:center;color:#1C7A62">${(Number(y1)-c1).toLocaleString()}</td><td style="text-align:center;color:#1C7A62">${(Number(y2)-c2).toLocaleString()}</td><td style="text-align:center;color:#1C7A62">${(Number(y3)-c3).toLocaleString()}</td></tr>
+    </tbody>
+  </table>
+</div>` : ""}
+
+<!-- JURY GRID -->
+${comp?.juryScore ? `<div class="section">
+  <h3>${T.jury}</h3>
+  ${[{k:"impact",l:"Impact social",w:25,c:"#2A5CE0"},{k:"viability",l:"Viabilité économique",w:20,c:"#7C3AED"},{k:"relevance",l:"Pertinence territoriale",w:20,c:"#0891B2"},{k:"management",l:"Capacité de gestion",w:15,c:"#D97706"},{k:"sustainability",l:"Durabilité",w:10,c:"#1C7A62"},{k:"innovation",l:"Innovation",w:10,c:"#DB2777"}].map(j => {
+    const sc = comp.juryScore[j.k]||0; const pct = Math.min((sc/j.w)*100,100);
+    return `<div class="jury-row"><span style="font-size:10px;color:#10132A">${j.l} <span style="color:#5B6178;font-size:9px">(/${j.w})</span></span><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${j.c}"></div></div><span style="font-size:10px;font-weight:700;color:${j.c}">${sc}</span></div>`;
+  }).join("")}
+</div>` : ""}
+
+<!-- IMPACTS -->
+<div class="section">
+  <h3>${T.impacts}</h3>
+  <div class="impact-grid">
+    <div class="impact-card"><div class="ico">👥</div><div class="val">${proj?.beneficiaries||"—"}</div><div class="lbl">${T.benef}</div></div>
+    <div class="impact-card"><div class="ico">💼</div><div class="val">2</div><div class="lbl">${T.emplois}</div></div>
+    <div class="impact-card"><div class="ico">💰</div><div class="val">${total>0?indhAmt.toLocaleString():"—"}</div><div class="lbl">MAD INDH</div></div>
+    <div class="impact-card"><div class="ico">📈</div><div class="val">${y1>0?Number(y1).toLocaleString():"—"}</div><div class="lbl">${eAr?"CA سنة 1":eEn?"CA Year 1":"CA An 1"} MAD</div></div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>© IdeaMap 2026 · ideamaponline.org</span>
+  <span class="indh-pill">INDH Phase 3</span>
+  <span>${new Date().toLocaleDateString(exportLang==="ar"?"ar-MA":exportLang==="fr"?"fr-FR":"en-GB")}</span>
+</div>
+</div>
+<button class="btn-print no-print" onclick="window.print()">🖨️ ${eAr?"طباعة / PDF":eEn?"Print / PDF":"Imprimer / PDF"}</button>
+</body></html>`;
+    const w = window.open("", "_blank", "width=860,height=700");
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      const printWhenReady = () => { try { w.print(); } catch {} };
+      let fallback: ReturnType<typeof setTimeout>;
+      w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 200); }, {once:true});
+      fallback = setTimeout(printWhenReady, 2500);
+    } else {
+      showToast(lang==="ar"?"اسمح بالنوافذ المنبثقة لتنزيل الفيش":lang==="fr"?"Autorisez les popups pour générer la fiche":"Allow popups to generate the sheet", "error");
+    }
+  };
+
+  // ── Arabic Jury Pitch — AI generates 5-part speech ─────────────────────────
+  const genAndDlPitchArabe = async () => {
+    if (pitchBusy) return;
+    setPitchBusy(true);
+    showToast(lang==="ar"?"جاري إنشاء الخطاب...":lang==="fr"?"Génération du discours...":"Generating Arabic pitch...", "success");
+    const ctx = JSON.stringify({
+      projectName: proj?.projectName, sector: proj?.sector, location: proj?.location,
+      beneficiaries: proj?.beneficiaries, targetProfile: proj?.targetProfile,
+      localProblem: proj?.localProblem, revenueModel: proj?.revenueModel,
+      holderExperience: proj?.holderExperience, activities: proj?.activities,
+      estimatedBudget: proj?.estimatedBudget,
+      indhContribution: budget?.indhContribution || Math.min(Math.round(((budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0)) * 0.90), 100000),
+      beneficiaryContribution: budget?.beneficiaryContribution,
+      score: comp?.score, eligible: comp?.eligible,
+      projections: plan?.projections,
+      holderName: `${user.name||""} ${user.profile?.lastName||""}`,
+      holderEdu: user.profile?.edu, holderAge: user.profile?.age,
+    });
+    const r = await ai(
+      [{role:"user", content:`بيانات المشروع: ${ctx}`}],
+      `أنت خبير تدريب على المشاريع INDH المرحلة 3 بالمغرب. اكتب خطاباً تقديمياً احترافياً باللغة العربية الفصحى البسيطة مدته 5 إلى 7 دقائق، موجهاً للجنة التحكيم.
+
+الخطاب يجب أن يتكون من 5 أجزاء واضحة:
+الجزء 1 — التقديم الشخصي (30 ثانية): الاسم، المؤهل، الخبرة.
+الجزء 2 — إشكالية المشروع (60 ثانية): المشكل المحلي الحقيقي الذي يعانيه المجتمع بالأرقام.
+الجزء 3 — الحل والمشروع (90 ثانية): وصف المشروع، التجهيزات، الأنشطة الرئيسية، كيفية البيع.
+الجزء 4 — التمويل والتوقعات (60 ثانية): الميزانية الإجمالية، مساهمة INDH 90%، مساهمة الحامل 10%، التوقعات المالية 3 سنوات.
+الجزء 5 — الأثر والختام (30 ثانية): عدد المستفيدين، مناصب الشغل، طلب الدعم.
+
+قواعد مهمة:
+- استخدم أرقاماً حقيقية من بيانات المشروع المذكور.
+- جمل قصيرة وواضحة، مباشرة وقابلة للحفظ.
+- أضف علامات مثل [توقف قصير] و[انظر إلى اللجنة] لمساعدة الحامل.
+- اكتب فقط نص الخطاب، بدون شرح أو تعليقات إضافية.`,
+      "dialogue",
+      2500
+    );
+    setPitchBusy(false);
+    if (r) {
+      const pName = (proj?.projectName||"مشروع").replace(/\s+/g, "_");
+      // Parse the 5 sections from الجزء markers
+      const sectionColors = ["#1C7A62","#2A5CE0","#7C3AED","#D97706","#C0632F"];
+      const sectionLabels = ["التقديم الشخصي","إشكالية المشروع","الحل والمشروع","التمويل والتوقعات","الأثر والختام"];
+      const sectionDurations = ["30 ثانية","60 ثانية","90 ثانية","60 ثانية","30 ثانية"];
+      const splitBySection = r.split(/الجزء\s*\d+\s*[—–-]/);
+      const sections = splitBySection.slice(1).map((s: string) => s.trim());
+      // If AI didn't use section markers, split by double-newline as fallback
+      const finalSections = sections.length >= 3 ? sections : r.split(/\n{2,}/).filter((s: string) => s.trim().length > 30);
+      const escH = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      const totalBudget = (budget?.items||[]).reduce((s: number, x: any)=>s+(x.total||0),0);
+      const indhAmt = budget?.indhContribution||Math.min(Math.round(totalBudget*.90),100000);
+      const holdAmt = budget?.beneficiaryContribution||(totalBudget-indhAmt);
+      const html = `<!DOCTYPE html><html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<title>خطاب تقديمي — ${escH(proj?.projectName||"مشروع")}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Tajawal',sans-serif;font-size:14px;color:#10132A;background:#fff;direction:rtl}
+@page{size:A4;margin:16mm 14mm}
+@media print{body{padding:0}.no-print{display:none!important}}
+.page{max-width:800px;margin:0 auto;padding:20px}
+.hdr{background:#0A0F2C;color:#fff;padding:24px 28px;border-radius:12px 12px 0 0}
+.hdr h1{font-size:22px;font-weight:800;color:#2A5CE0;margin-bottom:5px}
+.hdr p{font-size:12px;color:rgba(255,255,255,.6);margin-bottom:3px}
+.meta-strip{background:#141B45;padding:12px 28px;border-radius:0 0 12px 12px;margin-bottom:20px;display:flex;gap:24px;flex-wrap:wrap}
+.meta-item{display:flex;flex-direction:column}
+.meta-label{font-size:8px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.4);letter-spacing:.5px;margin-bottom:3px}
+.meta-value{font-size:13px;font-weight:700;color:#2A5CE0}
+.section{margin-bottom:20px;page-break-inside:avoid;border-radius:10px;overflow:hidden}
+.section-hdr{display:flex;align-items:center;gap:10px;padding:11px 18px}
+.section-num{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0}
+.section-title{font-size:14px;font-weight:800;color:#fff;flex:1}
+.section-dur{font-size:10px;font-weight:600;color:rgba(255,255,255,.65);white-space:nowrap}
+.section-body{padding:16px 18px;background:#F7F8FA;border:1px solid #E4E7ED;border-top:none;border-radius:0 0 10px 10px;font-size:14px;line-height:2;color:#10132A;white-space:pre-wrap}
+.tip{display:inline-block;background:#FEF3C7;border:1px solid #F59E0B;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;color:#92400E;margin:2px}
+.score-bar{background:#EFF6FF;border:1px solid #2A5CE0;border-radius:10px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.score-val{font-size:28px;font-weight:800;color:${comp?.eligible?"#1C7A62":"#C0632F"}}
+.budget-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
+.budget-card{background:#0A0F2C;border-radius:10px;padding:14px;text-align:center}
+.budget-lbl{font-size:8px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.4);letter-spacing:.5px;margin-bottom:5px}
+.budget-val{font-size:16px;font-weight:800;color:#2A5CE0}
+.footer{margin-top:24px;padding-top:12px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;font-size:10px;color:#5B6178}
+.indh-pill{background:#0A0F2C;color:#2A5CE0;padding:3px 10px;border-radius:5px;font-weight:700}
+.btn-print{display:block;margin:16px auto 0;padding:11px 32px;background:#0A0F2C;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="hdr">
+  <h1>${escH(proj?.projectName||"")}</h1>
+  <p>الحامل: ${escH(user.name||"")} ${escH(user.profile?.lastName||"")} · ${escH(proj?.location||user.profile?.region||"")}</p>
+  <p>${escH(proj?.sector||"")} · المبادرة الوطنية للتنمية البشرية — المرحلة 3</p>
+</div>
+<div class="meta-strip">
+  <div class="meta-item"><div class="meta-label">النقطة</div><div class="meta-value" style="color:${comp?.eligible?"#22C55E":"#EF4444"}">${comp?.score||"—"}/100 ${comp?.eligible?"✅":"⚠️"}</div></div>
+  <div class="meta-item"><div class="meta-label">الميزانية</div><div class="meta-value">${totalBudget?totalBudget.toLocaleString():"—"} درهم</div></div>
+  <div class="meta-item"><div class="meta-label">مساهمة INDH</div><div class="meta-value">${indhAmt?indhAmt.toLocaleString():"—"} درهم</div></div>
+  <div class="meta-item"><div class="meta-label">مساهمة الحامل</div><div class="meta-value">${holdAmt?holdAmt.toLocaleString():"—"} درهم</div></div>
+  <div class="meta-item"><div class="meta-label">المستفيدون</div><div class="meta-value">${proj?.beneficiaries||"—"}</div></div>
+  <div class="meta-item"><div class="meta-label">المدة</div><div class="meta-value">5–7 دقائق</div></div>
+</div>
+${finalSections.slice(0,5).map((sec: string, idx: number) => {
+  const col = sectionColors[idx] || "#2A5CE0";
+  const label = sectionLabels[idx] || `الجزء ${idx+1}`;
+  const dur = sectionDurations[idx] || "";
+  const bodyHtml = escH(sec.replace(/\n/g," \n")).replace(/\[([^\]]+)\]/g, (_m: string, p: string) => `<span class="tip">[${p}]</span>`);
+  return `<div class="section">
+  <div class="section-hdr" style="background:${col}">
+    <div class="section-num">${idx+1}</div>
+    <div class="section-title">${label}</div>
+    <div class="section-dur">${dur}</div>
+  </div>
+  <div class="section-body">${bodyHtml}</div>
+</div>`;
+}).join("")}
+${finalSections.length < 3 ? `<div class="section"><div class="section-hdr" style="background:#2A5CE0"><div class="section-num">📝</div><div class="section-title">نص الخطاب الكامل</div></div><div class="section-body">${escH(r).replace(/\[([^\]]+)\]/g, (_m: string, p: string) => `<span class="tip">[${p}]</span>`)}</div></div>` : ""}
+<div class="footer">
+  <span>© IdeaMap 2026 · ideamaponline.org</span>
+  <span class="indh-pill">INDH Phase 3</span>
+  <span>${new Date().toLocaleDateString("ar-MA")}</span>
+</div>
+</div>
+<button class="btn-print no-print" onclick="window.print()">🖨️ طباعة / حفظ كـ PDF</button>
+</body></html>`;
+      const w = window.open("", "_blank", "width=860,height=750");
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+        const printWhenReady = () => { try { w.print(); } catch {} };
+        let fallback: ReturnType<typeof setTimeout>;
+        w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 300); }, {once:true});
+        fallback = setTimeout(printWhenReady, 3000);
+      } else {
+        showToast(lang==="ar"?"اسمح بالنوافذ المنبثقة في المتصفح":lang==="fr"?"Autorisez les popups dans votre navigateur":"Allow popups to open the pitch", "error");
+      }
+    } else {
+      showToast(lang==="ar"?"فشل إنشاء الخطاب — حاول مجدداً":lang==="fr"?"Génération échouée — réessayez":"Pitch generation failed — retry", "error");
+    }
+  };
+
+  // ── 30 Q&A Bank — AI generates jury preparation in Arabic ──────────────────
+  const genAndDlQA = async () => {
+    if (qaBusy) return;
+    setQABusy(true);
+    showToast(lang==="ar"?"جاري إنشاء بنك الأسئلة...":lang==="fr"?"Génération des Q&R...":"Generating Q&A bank...", "success");
+    const ctx = JSON.stringify({
+      projectName: proj?.projectName, sector: proj?.sector, location: proj?.location,
+      beneficiaries: proj?.beneficiaries, targetProfile: proj?.targetProfile,
+      localProblem: proj?.localProblem, revenueModel: proj?.revenueModel,
+      holderExperience: proj?.holderExperience,
+      holderName: `${user.name||""} ${user.profile?.lastName||""}`,
+      holderEdu: user.profile?.edu, holderAge: user.profile?.age, holderOccup: user.profile?.occupation,
+      indhAmount: budget?.indhContribution || Math.min(Math.round(((budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0)) * 0.90), 100000),
+      totalBudget: (budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0),
+      score: comp?.score, eligible: comp?.eligible, juryScore: comp?.juryScore,
+      strengths: comp?.strengths, weaknesses: comp?.weaknesses,
+      projections: plan?.projections,
+    });
+    const r = await ai(
+      [{role:"user", content:`بيانات المشروع: ${ctx}`}],
+      `أنت خبير في تحضير حاملي مشاريع INDH للمثول أمام لجنة التحكيم. اكتب بنك أسئلة وأجوبة شامل يتضمن 30 سؤالاً وجواباً باللغة العربية الفصحى البسيطة مُخصصة لهذا المشروع تحديداً.
+
+قسّم الأسئلة على 5 محاور بالضبط:
+
+المحور 1 — الخبرة والكفاءة (6 أسئلة) — يتعلق بالحامل ومؤهلاته وتجاربه السابقة
+المحور 2 — المشروع والسوق (6 أسئلة) — يتعلق بالفكرة والمنافسة والزبائن المستهدفين
+المحور 3 — المالي (6 أسئلة) — يتعلق بالميزانية والأرقام والمردودية والتوقعات
+المحور 4 — التشغيلي (6 أسئلة) — يتعلق بالتنفيذ اليومي والإدارة والتجهيزات
+المحور 5 — الاستدامة بعد INDH (6 أسئلة) — يتعلق بمستقبل المشروع وضمان استمراريته
+
+لكل سؤال اتبع هذا التنسيق بالضبط:
+[س]نص السؤال الكامل[/س]
+[ج]نص الجواب الكامل من 2 إلى 4 جمل مع أرقام حقيقية من بيانات المشروع[/ج]
+
+قواعد مهمة:
+- استخدم أرقاماً حقيقية من بيانات المشروع المذكور (الميزانية، المستفيدون، التوقعات).
+- الأجوبة يجب أن تكون محددة، مقنعة، وقابلة للحفظ والتقديم أمام اللجنة.
+- لا تكتب أي شيء خارج تنسيق [س]...[/س] و[ج]...[/ج].
+- ابدأ مباشرة بـ "المحور 1" بدون مقدمات.`,
+      "dialogue",
+      4000
+    );
+    setQABusy(false);
+    if (!r) {
+      showToast(lang==="ar"?"فشل إنشاء بنك الأسئلة — حاول مجدداً":lang==="fr"?"Génération échouée — réessayez":"Q&A generation failed — retry", "error");
+      return;
+    }
+
+    // Parse the AI response into axis sections → Q&A pairs
+    const esc = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const totalBudget2 = (budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
+    const indhAmt2 = budget?.indhContribution || Math.min(Math.round(totalBudget2 * 0.90), 100000);
+
+    // Split response by axis headings — support Arabic numerals and patterns
+    const axisPattern = /المحور\s*[\d١٢٣٤٥]+\s*[—–-]/g;
+    const axisMatches: {title: string; start: number}[] = [];
+    let m;
+    while ((m = axisPattern.exec(r)) !== null) {
+      const lineEnd = r.indexOf("\n", m.index);
+      axisMatches.push({ title: r.slice(m.index, lineEnd > m.index ? lineEnd : m.index + 80).trim(), start: m.index });
+    }
+
+    const axisColors = ["#1C7A62","#2A5CE0","#7C3AED","#D97706","#C0632F"];
+
+    const renderAxis = (axisText: string, axisIdx: number): string => {
+      const col = axisColors[axisIdx % 5];
+      // Extract all Q&A pairs
+      const qPairs: {q: string; a: string}[] = [];
+      const pairRe = /\[س\]([\s\S]*?)\[\/س\]\s*\[ج\]([\s\S]*?)\[\/ج\]/g;
+      let pm;
+      while ((pm = pairRe.exec(axisText)) !== null) {
+        qPairs.push({ q: pm[1].trim(), a: pm[2].trim() });
+      }
+      if (qPairs.length === 0) return "";
+      const pairs = qPairs.map((p, i) => `
+        <div style="margin-bottom:14px;page-break-inside:avoid">
+          <div style="background:${col};color:#fff;padding:11px 16px;border-radius:10px 10px 0 0;font-size:13px;font-weight:700;line-height:1.55">
+            <span style="opacity:.65;font-size:11px;margin-left:8px">${i+1}.</span> ${esc(p.q)}
+          </div>
+          <div style="background:#F0F4FF;border:2px solid ${col}33;border-top:none;padding:12px 16px;border-radius:0 0 10px 10px;font-size:12.5px;line-height:1.75;color:#0A0F2C">
+            ${esc(p.a).replace(/\n/g,"<br>")}
+          </div>
+        </div>`).join("");
+      return `<div style="margin-bottom:28px;page-break-inside:avoid">
+        <div style="background:${col};color:#fff;padding:14px 20px;border-radius:12px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0">${axisIdx+1}</div>
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.7;margin-bottom:2px">المحور ${axisIdx+1}</div>
+            <div style="font-size:14px;font-weight:800">${esc(axisMatches[axisIdx]?.title?.replace(/المحور\s*[\d١٢٣٤٥]+\s*[—–-]\s*/,"") || "")}</div>
+          </div>
+          <div style="margin-right:auto;background:rgba(255,255,255,.2);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">${qPairs.length} أسئلة</div>
+        </div>
+        ${pairs}
+      </div>`;
+    };
+
+    // Build per-axis HTML blocks
+    let axisHTML = "";
+    if (axisMatches.length >= 2) {
+      for (let ai2 = 0; ai2 < axisMatches.length; ai2++) {
+        const start = axisMatches[ai2].start;
+        const end   = ai2 + 1 < axisMatches.length ? axisMatches[ai2+1].start : r.length;
+        axisHTML += renderAxis(r.slice(start, end), ai2);
+      }
+    } else {
+      // Fallback: render full text as single block
+      axisHTML = `<div style="white-space:pre-wrap;font-size:13px;line-height:1.8;color:#0A0F2C">${esc(r)}</div>`;
+    }
+
+    const html = `<!DOCTYPE html><html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<title>بنك الأسئلة — ${esc(proj?.projectName||"المشروع")}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Tajawal',sans-serif;font-size:13px;color:#0A0F2C;background:#fff}
+@page{size:A4;margin:15mm 13mm}
+@media print{body{padding:0}.no-print{display:none!important}.page-break{page-break-before:always}}
+.page{max-width:800px;margin:0 auto;padding:20px}
+.header{background:#0A0F2C;color:#fff;padding:22px 28px;border-radius:12px;margin-bottom:16px}
+.header-title{font-size:20px;font-weight:800;color:#2A5CE0;margin-bottom:6px}
+.header-sub{font-size:11.5px;color:rgba(255,255,255,.55);line-height:1.55}
+.meta-strip{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.meta-chip{background:#F7F8FA;border:1px solid #E4E7ED;border-radius:9px;padding:8px 13px;flex:1;min-width:130px}
+.meta-chip .lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5B6178;margin-bottom:3px}
+.meta-chip .val{font-size:13px;font-weight:700;color:#0A0F2C}
+.intro-box{background:#EFF6FF;border:2px solid #2A5CE055;border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:12.5px;color:#1C3A5C;line-height:1.7}
+.btn-print{display:block;margin:20px auto 0;padding:12px 32px;background:#0A0F2C;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif}
+.footer{margin-top:28px;padding-top:10px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;font-size:9.5px;color:#5B6178}
+.indh-pill{background:#0A0F2C;color:#2A5CE0;padding:3px 10px;border-radius:5px;font-weight:700;font-size:9px}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="header">
+  <div class="header-title">بنك الأسئلة والأجوبة للجنة التحكيم</div>
+  <div class="header-sub">
+    مشروع: ${esc(proj?.projectName||"")} · ${esc(proj?.sector||"")} · ${esc(proj?.location||user.profile?.region||"")}
+    <br/>الحامل: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · المبادرة الوطنية للتنمية البشرية — المرحلة 3
+  </div>
+</div>
+<div class="meta-strip">
+  <div class="meta-chip"><div class="lbl">عدد الأسئلة</div><div class="val">30 سؤالاً</div></div>
+  <div class="meta-chip"><div class="lbl">النقطة الإجمالية</div><div class="val" style="color:${comp?.eligible?"#1C7A62":"#C0632F"}">${comp?.score||"—"}/100${comp?.eligible?" ✓":""}</div></div>
+  <div class="meta-chip"><div class="lbl">الميزانية الإجمالية</div><div class="val">${totalBudget2.toLocaleString()} درهم</div></div>
+  <div class="meta-chip"><div class="lbl">مساهمة المبادرة (90%)</div><div class="val" style="color:#2A5CE0">${indhAmt2.toLocaleString()} درهم</div></div>
+</div>
+<div class="intro-box">
+  💡 <strong>كيف تستخدم هذا البنك:</strong> اقرأ كل سؤال بصوت عالٍ وأجب عنه بكلامك الخاص مع الحفاظ على الأرقام الدقيقة. تدرّب أمام المرآة أو مع شخص من عائلتك على الأقل 3 مرات قبل يوم اللجنة. الجواب المقنع = رقم دقيق + حقيقة محلية + ثقة في التقديم.
+</div>
+${axisHTML}
+<div class="footer">
+  <span>© IdeaMap 2026 · ideamaponline.org · المبادرة الوطنية للتنمية البشرية</span>
+  <span class="indh-pill">INDH Phase 3</span>
+  <span>${new Date().toLocaleDateString("ar-MA")}</span>
+</div>
+</div>
+<button class="btn-print no-print" onclick="window.print()">🖨️ طباعة / حفظ كـ PDF</button>
+</body></html>`;
+
+    const w = window.open("", "_blank", "width=880,height=750");
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      const printWhenReady = () => { try { w.print(); } catch {} };
+      let fallback: ReturnType<typeof setTimeout>;
+      w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 300); }, {once:true});
+      fallback = setTimeout(printWhenReady, 3000);
+    } else {
+      showToast(lang==="ar"?"اسمح بالنوافذ المنبثقة لعرض بنك الأسئلة":lang==="fr"?"Autorisez les popups pour générer le Q&R":"Allow popups to generate the Q&A bank", "error");
+    }
   };
 
   const genLogo = async () => {
@@ -2023,7 +2547,8 @@ JSON UNIQUEMENT sans markdown:
   };
 
   const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC — DONNÉES TERRAIN RÉELLES:
-FINANCEMENT: Subvention max 100 000 MAD. INDH couvre 85% (max 85 000 MAD), le porteur apporte 15% en espèces ou en nature (matériel, local, travail valorisé). Pas de remboursement — c'est une subvention à fonds perdus.
+FINANCEMENT: L'INDH contribue jusqu'à 100 000 MAD maximum (plafond absolu de la subvention INDH). L'INDH couvre 90% du coût total des équipements, le porteur apporte 10% en espèces ou en nature (matériel, local, travail valorisé). Le coût total du projet peut donc atteindre environ 111 000 MAD (dont INDH = 100 000 MAD). Pas de remboursement — c'est une subvention à fonds perdus.
+NATURE DU FINANCEMENT: L'INDH finance UNIQUEMENT les biens d'équipement productifs (machines professionnelles, matériel technique, outillage de production, mobilier de travail). Il NE finance PAS: aménagement/travaux de local (rénovation, électricité, peinture, plomberie — INTERDIT même pour un petit montant), matières premières, fonds de roulement, communication/marketing, loyers courants, salaires, frais d'établissement/immatriculation. Le budget INDH = les équipements qu'on achète une seule fois pour produire, PAS les travaux ni les charges mensuelles.
 AXES PHASE 3 (choisir le plus pertinent):
   • Axe 1 — Développement rural: zones enclavées, agriculture, élevage, produits du terroir, irrigation, pistes rurales.
   • Axe 2 — Réduction des inégalités territoriales: périurbain pauvre, quartiers sous-équipés, services de proximité manquants.
@@ -2043,7 +2568,7 @@ CRITÈRES JURY INDH — PONDÉRATION OFFICIELLE (100 pts):
   • Durabilité: 10 pts — plan de survie après l'INDH: stocks, clients fidèles, partenariats locaux.
   • Innovation & originalité: 10 pts — quelque chose de différent dans le produit, la méthode, ou le public cible.
 CE QUI CONVAINC LE JURY: profil vulnérable du porteur + chiffres précis + ancrage territorial fort + plan de pérennité concret.
-RÈGLE ABSOLUE: entrepreneuriat individuel uniquement. Ne jamais suggérer coopérative ou GIE.`;
+RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais association, coopérative ou GIE — ces structures ne sont pas éligibles au programme INDH Phase 3 porteurs.`;
 
   const startChat = async () => {
     if (!idea.trim()) return;
@@ -2086,7 +2611,7 @@ SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}]`,
     const questionArc: Record<number, string> = {
       2: `Q${qN} — PROBLÈME LOCAL: Pose une question TRÈS courte sur le problème concret dans cette zone (chômage, manque de service, produit introuvable). MAX 12 mots. BRIEF: rappelle ce que tu as compris des bénéficiaires. 3 SUGGESTIONS: problèmes locaux précis au Maroc (ex: "Pas de salon dans le douar", "40% jeunes sans emploi", "Aucun atelier à 30km").`,
       3: `Q${qN} — REVENU: Pose une question TRÈS courte sur le canal de vente et les prix. MAX 12 mots. BRIEF: synthèse bénéficiaires + problème. 3 SUGGESTIONS: canaux concrets marocains (ex: "Souk hebdomadaire + WhatsApp", "Commandes livraison quartier", "Épiceries en dépôt-vente").`,
-      4: `Q${qN} — EXPÉRIENCE: Pose une question TRÈS courte sur la compétence/expérience du porteur. MAX 12 mots. BRIEF: synthèse projet jusqu'ici. 3 SUGGESTIONS: savoir-faire locaux valorisants (ex: "5 ans couture à domicile", "Appris avec ma mère artisane", "Formation OFPPT 6 mois").`,
+      4: `Q${qN} — EXPÉRIENCE: Pose une question TRÈS courte sur la compétence/expérience du porteur. MAX 12 mots. BRIEF: synthèse projet jusqu'ici. 3 SUGGESTIONS: savoir-faire locaux valorisants (ex: "5 ans couture à domicile", "Appris avec ma mère artisane", "Expérience autodidacte dans ce domaine").`,
     };
     const arcInstruction = questionArc[qN] || `Q${qN}: Pose une question courte sur pertinence territoriale ou durabilité après INDH. MAX 12 mots. BRIEF: ce que tu as compris. 3 SUGGESTIONS réalistes maroc.`;
 
@@ -2160,14 +2685,14 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       ai([{role: "user", content: `Projet INDH: ${projCtx}`}],
         `Tu es un expert financier INDH Phase 3 Maroc qui connaît les prix du marché marocain en 2025.
 ${INDH_CTX}
-Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ. Total MAXIMUM 100 000 MAD.${arQuality}
+Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ. Le coût total des équipements peut atteindre ~111 000 MAD (dont 100 000 MAD maximum pris en charge par l'INDH + 10% apport porteur).${arQuality}
 
 RÈGLES IMPÉRATIVES:
-1. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix (ex: machine à coudre industrielle Singer 5 500 MAD, four à pain professionnel 18 000 MAD, tablette Samsung 1 200 MAD, location local aménagement 15 000 MAD, formation OFPPT 3 500 MAD).
+1. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix d'équipements productifs (ex: machine à coudre industrielle Singer 5 500 MAD, four professionnel 18 000 MAD, tablette Samsung 1 200 MAD, réfrigérateur vitrine 200L 3 500 MAD, mobilier de travail professionnel 4 000 MAD, générateur portable 2kW 5 000 MAD, broyeur professionnel 3 500 MAD).
 2. DÉSIGNATIONS PRÉCISES: jamais "équipement divers" — toujours la désignation exacte (ex: "Machine à coudre industrielle Brother DB2-B737" ou "Réfrigérateur vitrine 200L Beko").
-3. CATÉGORIES COMPLÈTES: inclure TOUTES les catégories nécessaires selon le secteur — Équipements, Aménagement/Mobilier, Matières premières initiales, Formation/Apprentissage, Frais d'immatriculation, Fonds de roulement (3 mois), Communication (enseigne, réseaux sociaux).
+3. CATÉGORIES ÉLIGIBLES INDH UNIQUEMENT — l'INDH finance UNIQUEMENT les biens d'équipement productifs. Inclure SEULEMENT: Équipements productifs (machines professionnelles, outillage technique, matériel de production, mobilier de travail, équipements de stockage/présentation). FORMELLEMENT INTERDIT dans un budget INDH — ne jamais inclure ces postes: Aménagement/Travaux (rénovation local, électricité, peinture, plomberie, cloisons — JAMAIS même 1 MAD), Frais d'établissement (immatriculation, notaire), Matières premières, Fonds de roulement, Communication/Marketing, salaires, loyers.
 4. QUANTITÉS RÉALISTES: basées sur un démarrage réel — pas en sous-estimant ni en gonflant.
-5. Assure-toi que 85% = contribution INDH et 15% = apport porteur. Total doit être entre 50 000 et 100 000 MAD.
+5. Assure-toi que 90% = contribution INDH (plafonnée à 100 000 MAD max) et 10% = apport porteur. Total coût projet doit être entre 55 000 et 111 000 MAD. indhContribution = Math.min(Math.round(total * 0.90), 100000). beneficiaryContribution = total - indhContribution.
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"items":[{"category":"catégorie","item":"désignation exacte avec marque/modèle si pertinent en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`,
@@ -2204,11 +2729,11 @@ RÈGLES DE SCORING RÉALISTES:
 - Un projet très bien monté avec chiffres précis: 75-85 pts.
 - Un projet moyen sans ancrage local fort: 50-65 pts.
 - Un projet flou sans bénéficiaires précis: 35-50 pts.
-- Éligible si score ≥ 60 ET secteur INDH ET budget ≤ 100 000 MAD.
+- Éligible si score ≥ 60 ET secteur INDH ET contribution INDH ≤ 100 000 MAD (coût total projet peut atteindre ~111 000 MAD).
 - Ne jamais mettre 100/100 — le jury est rigoureux.
 
 Les FORCES doivent citer des éléments SPÉCIFIQUES du dossier (pas génériques).
-Les RECOMMANDATIONS doivent être des ACTIONS IMMÉDIATES que le porteur peut faire avant de déposer (ex: "Obtenir une lettre de soutien de la commune", "Préciser le nombre exact de clientes par semaine", "Ajouter une formation OFPPT de 3 jours au budget").
+Les RECOMMANDATIONS doivent être des ACTIONS IMMÉDIATES que le porteur peut faire avant de déposer (ex: "Obtenir une lettre de soutien de la commune", "Préciser le nombre exact de clientes par semaine", "Renforcer le plan de formation pratique dans le dossier").
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"eligible":true/false,"score":N,"pillar":"axe INDH Phase 3 exact en ${LL}","strengths":["force SPÉCIFIQUE tirée du dossier 1","force SPÉCIFIQUE 2","force SPÉCIFIQUE 3"],"weaknesses":["faiblesse précise qui coûte des points jury 1","faiblesse 2"],"recommendations":["action immédiate et concrète 1 en ${LL}","action 2","action 3"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
@@ -2625,9 +3150,9 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         {/* ── BUDGET ── */}
         {step === "budget" && (() => {
           const total = budget?.items?.reduce((s: number, x: any) => s + (x.total || 0), 0) || 0;
-          const pct = (total / 100000) * 100;
-          const indh = budget?.indhContribution || Math.round(total * .85);
-          const bene = budget?.beneficiaryContribution || Math.round(total * .15);
+          const indh = budget?.indhContribution || Math.min(Math.round(total * .90), 100000);
+          const bene = budget?.beneficiaryContribution || (total - indh);
+          const pct = (indh / 100000) * 100;
           return (
             <Card>
               <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px"}}>
@@ -3334,13 +3859,19 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   step6: eAr?"الخطوة 6: الإشعار بالقرار":eEn?"Step 6: Decision notification":"Étape 6: Notification de la décision",
                   step7: eAr?"الخطوة 7: التوقيع على الاتفاقية وانطلاق المشروع":eEn?"Step 7: Sign convention and launch project":"Étape 7: Signature de la convention INDH et démarrage",
                   useful: eAr?"جهات الاتصال المفيدة":eEn?"USEFUL CONTACTS":"CONTACTS UTILES",
+                  fiche: eAr?"الملخص التنفيذي (صفحة واحدة)":eEn?"Executive Summary (1 page)":"Fiche Synthétique (1 page)",
+                  pitch: eAr?"خطاب التقديم بالعربية (5-7 دقائق)":eEn?"Arabic Jury Pitch (5-7 min)":"Discours Jury en Arabe (5-7 min)",
+                  qa: eAr?"بنك الأسئلة (30 سؤال وجواب)":eEn?"30 Q&A Bank":"30 Questions-Réponses Jury",
                 };
                 const total=(budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
-                const indhAmt = budget?.indhContribution||Math.round(total*.85);
-                const holdAmt = budget?.beneficiaryContribution||Math.round(total*.15);
+                const indhAmt = budget?.indhContribution||Math.min(Math.round(total*.90),100000);
+                const holdAmt = budget?.beneficiaryContribution||(total-indhAmt);
                 const items: {icon:string;l:string;ok:boolean;onDl:()=>void;badge?:string}[] = [
                   {icon:"📄", l:eAr?"تحميل ملف PDF الكامل":eEn?"Download Full PDF Dossier":"Télécharger le Dossier PDF", ok:!!plan,
                     onDl:() => dlPDF(dlLang), badge:"pdf"},
+                  {icon:"📋", l:TXT.fiche, ok:!!proj, onDl:() => dlFicheSynthetique(dlLang), badge:"pdf"},
+                  {icon:"🎤", l:TXT.pitch, ok:!!proj&&!!plan, onDl:genAndDlPitchArabe, badge:pitchBusy?"...":"pdf"},
+                  {icon:"❓", l:TXT.qa, ok:!!proj, onDl:genAndDlQA, badge:qaBusy?"...":"pdf"},
                   {icon:"📊", l:TXT.bp, ok:!!plan,
                     onDl:() => dlText([
                       `${proj?.projectName||"Projet"} — ${TXT.bp}`,``,
@@ -3439,8 +3970,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                         eAr?"★ الأرقام الأساسية يجب حفظها":eEn?"★ KEY NUMBERS TO MEMORIZE":"★ CHIFFRES CLÉS À MÉMORISER",
                         `${"─".repeat(40)}`,
                         eAr?`• الميزانية الإجمالية: ${budgetTotal.toLocaleString()} درهم`:eEn?`• Total budget: ${budgetTotal.toLocaleString()} MAD`:`• Budget total: ${budgetTotal.toLocaleString()} MAD`,
-                        eAr?`• مساهمة المبادرة (85%): ${(budget?.indhContribution||Math.round(budgetTotal*.85)).toLocaleString()} درهم`:eEn?`• INDH grant (85%): ${(budget?.indhContribution||Math.round(budgetTotal*.85)).toLocaleString()} MAD`:`• Subvention INDH (85%): ${(budget?.indhContribution||Math.round(budgetTotal*.85)).toLocaleString()} MAD`,
-                        eAr?`• مساهمتي (15%): ${(budget?.beneficiaryContribution||Math.round(budgetTotal*.15)).toLocaleString()} درهم`:eEn?`• My contribution (15%): ${(budget?.beneficiaryContribution||Math.round(budgetTotal*.15)).toLocaleString()} MAD`:`• Mon apport (15%): ${(budget?.beneficiaryContribution||Math.round(budgetTotal*.15)).toLocaleString()} MAD`,
+                        eAr?`• مساهمة المبادرة (90%): ${(budget?.indhContribution||Math.min(Math.round(budgetTotal*.90),100000)).toLocaleString()} درهم`:eEn?`• INDH grant (90%, max 100,000): ${(budget?.indhContribution||Math.min(Math.round(budgetTotal*.90),100000)).toLocaleString()} MAD`:`• Subvention INDH (90%, max 100 000): ${(budget?.indhContribution||Math.min(Math.round(budgetTotal*.90),100000)).toLocaleString()} MAD`,
+                        eAr?`• مساهمتي (10%): ${(budget?.beneficiaryContribution||(budgetTotal-Math.min(Math.round(budgetTotal*.90),100000))).toLocaleString()} درهم`:eEn?`• My contribution (10%): ${(budget?.beneficiaryContribution||(budgetTotal-Math.min(Math.round(budgetTotal*.90),100000))).toLocaleString()} MAD`:`• Mon apport (10%): ${(budget?.beneficiaryContribution||(budgetTotal-Math.min(Math.round(budgetTotal*.90),100000))).toLocaleString()} MAD`,
                         eAr?`• نقطتي لدى اللجنة: ${comp?.score||"?"}/100 (${comp?.eligible?"مؤهل ✓":"يحتاج تحسين"})`:eEn?`• Jury score: ${comp?.score||"?"}/100 (${comp?.eligible?"Eligible ✓":"Needs improvement"})`:`• Score jury: ${comp?.score||"?"}/100 (${comp?.eligible?"ÉLIGIBLE ✓":"À améliorer"})`,
                         eAr?`• عدد المستفيدين: ${proj?.beneficiaries||"..."}`:eEn?`• Beneficiaries: ${proj?.beneficiaries||"..."}`:`• Bénéficiaires: ${proj?.beneficiaries||"..."}`,
                         eAr?`• قطاع النشاط: ${proj?.sector||"..."}`:eEn?`• Sector: ${proj?.sector||"..."}`:`• Secteur: ${proj?.sector||"..."}`,
@@ -3508,7 +4039,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 {n:"2", l:lang==="ar"?"إيداع الملف لدى مديرية العمل الاجتماعي (DAS)":lang==="fr"?"Déposer le dossier à la DAS":"Submit to Division of Social Action (DAS)", d:lang==="ar"?"احصل على وصل الإيداع":lang==="fr"?"Obtenez le récépissé de dépôt":"Obtain deposit receipt"},
                 {n:"3", l:lang==="ar"?"دراسة الملف من طرف اللجنة الإقليمية (CPDH)":lang==="fr"?"Instruction par le CPDH local":"Review by local CPDH committee", d:lang==="ar"?"4 إلى 8 أسابيع":lang==="fr"?"Délai: 4 à 8 semaines":"Timeline: 4 to 8 weeks"},
                 {n:"4", l:lang==="ar"?"المثول أمام لجنة التحكيم":lang==="fr"?"Présentation devant le jury INDH":"Present before INDH selection jury", d:lang==="ar"?"100 نقطة — حد الأهلية 60/100":lang==="fr"?"100 pts — éligible si ≥ 60/100":"100 pts — eligible if ≥ 60/100"},
-                {n:"5", l:lang==="ar"?"التوقيع على اتفاقية المبادرة وانطلاق المشروع":lang==="fr"?"Signature de la convention et démarrage":"Sign INDH convention and launch", d:lang==="ar"?"INDH 85% + مساهمة الحامل 15%":lang==="fr"?"INDH 85% + apport porteur 15%":"INDH 85% + holder 15%"},
+                {n:"5", l:lang==="ar"?"التوقيع على اتفاقية المبادرة وانطلاق المشروع":lang==="fr"?"Signature de la convention et démarrage":"Sign INDH convention and launch", d:lang==="ar"?"INDH 90% + مساهمة الحامل 10%":lang==="fr"?"INDH 90% + apport porteur 10%":"INDH 90% + holder 10%"},
               ].map((s, i, arr) => (
                 <div key={i} style={{display:"flex", gap:"12px", paddingBottom: i < arr.length-1 ? "16px" : 0,
                   marginBottom: i < arr.length-1 ? "16px" : 0,
