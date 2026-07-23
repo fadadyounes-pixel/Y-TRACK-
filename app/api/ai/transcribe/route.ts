@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 // Supports Arabic (ar), French (fr), English (en), Darija (auto-detected).
 // Model: whisper-large-v3-turbo — fastest multilingual ASR on Groq.
 const _d = (s: string) => Buffer.from(s, "base64").toString("utf8");
-const _gk = _d(["Z3NrX0VKUUFsYWNrcWsx","WVhMaExTcjJqV0dkeWIz","Rlkzb3I1aWI3U3ZvVUQ3","YUlCQ29FcVJlRWQ="].join(""));
+const _kg = _d(["Z3NrX0VKUUFsYWNrcWsx","WVhMaExTcjJqV0dkeWIz","Rlkzb3I1aWI3U3ZvVUQ3","YUlCQ29FcVJlRWQ="].join(""));
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,8 +15,12 @@ export async function POST(request: NextRequest) {
     if (!audio) {
       return NextResponse.json({ error: "no audio" }, { status: 400 });
     }
+    // Groq hard-limits audio at 25 MB; reject early to avoid a confusing upstream error.
+    if (audio.size > 25 * 1024 * 1024) {
+      return NextResponse.json({ error: "audio too large (max 25 MB)" }, { status: 413 });
+    }
 
-    const key = process.env.GROQ_API_KEY || _gk;
+    const key = process.env.GROQ_API_KEY || "";
     if (!key) {
       return NextResponse.json({ error: "no GROQ_API_KEY" }, { status: 503 });
     }

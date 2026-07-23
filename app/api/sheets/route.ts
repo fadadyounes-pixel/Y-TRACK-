@@ -1,38 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 
-const _d = (s: string) => Buffer.from(s, "base64").toString("utf8");
-const _ru = _d("aHR0cHM6Ly9raW5kLXJvYmluLTE1Nzg3My51cHN0YXNoLmlv");
-const _rt = _d([
-  "Z1FBQUFBQUFBbWl4QUFJZ2NERXdaak",
-  "k0WlRaak1HTmlPVFEwTkdFeFlqUmtO",
-  "bVk1TmpFek9UQmlaV1ZtTUE=",
-].join(""));
-
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || _ru,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || _rt,
+  url: process.env.UPSTASH_REDIS_REST_URL || "",
+  token: process.env.UPSTASH_REDIS_REST_TOKEN || "",
 });
+
+const RE_HOLDER = /^[A-Z]{2}\d{3,}$/;
+const RE_COORD  = /^@[A-Za-z]{2,}COD$/i;
 
 /* ── GET — read all collections ─────────────────────── */
 export async function GET() {
   try {
-    const [holders, coords, jobs, cvs, coordinators] = await Promise.all([
+    const [holders, coords, jobs, cvs] = await Promise.all([
       redis.get<any[]>("idm_holders"),
       redis.get<string[]>("idm_coords"),
       redis.get<any[]>("tm_jobs"),
       redis.get<any[]>("tm_cvs"),
-      redis.get<any[]>("tm_coordinators"),
     ]);
     return NextResponse.json({
       holders: holders || [],
       coords: coords || [],
       jobs: jobs || [],
       cvs: cvs || [],
-      coordinators: coordinators || [],
     });
   } catch (err: any) {
-    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], coordinators: [], error: err.message });
+    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], error: err.message });
   }
 }
 
@@ -44,6 +37,9 @@ export async function POST(req: NextRequest) {
     /* IdeaMap: upsert single holder */
     if (body.type === "save_holder") {
       const holder = body.holder;
+      if (!holder || typeof holder.id !== "string" || !RE_HOLDER.test(holder.id)) {
+        return NextResponse.json({ ok: false, error: "Invalid holder" }, { status: 400 });
+      }
       const existing = await redis.get<any[]>("idm_holders") || [];
       const idx = existing.findIndex((h: any) => h.id === holder.id);
       const updated = idx >= 0
@@ -55,7 +51,11 @@ export async function POST(req: NextRequest) {
 
     /* IdeaMap: replace coordinator list */
     if (body.type === "save_coords") {
-      await redis.set("idm_coords", body.coords);
+      const coords = body.coords;
+      if (!Array.isArray(coords) || coords.some((c: unknown) => typeof c !== "string" || !RE_COORD.test(c))) {
+        return NextResponse.json({ ok: false, error: "Invalid coords" }, { status: 400 });
+      }
+      await redis.set("idm_coords", coords);
       return NextResponse.json({ ok: true });
     }
 
@@ -99,25 +99,6 @@ export async function POST(req: NextRequest) {
         ? existing.map((c: any, i: number) => i === idx ? { ...c, ...cv } : c)
         : [...existing, cv];
       await redis.set("tm_cvs", updated);
-      return NextResponse.json({ ok: true });
-    }
-
-    /* TalentMap: upsert coordinator account */
-    if (body.type === "save_coordinator") {
-      const coord = body.coordinator;
-      const existing = await redis.get<any[]>("tm_coordinators") || [];
-      const idx = existing.findIndex((c: any) => c.id === coord.id);
-      const updated = idx >= 0
-        ? existing.map((c: any, i: number) => i === idx ? { ...c, ...coord } : c)
-        : [...existing, coord];
-      await redis.set("tm_coordinators", updated);
-      return NextResponse.json({ ok: true });
-    }
-
-    /* TalentMap: delete coordinator account */
-    if (body.type === "delete_coordinator") {
-      const existing = await redis.get<any[]>("tm_coordinators") || [];
-      await redis.set("tm_coordinators", existing.filter((c: any) => c.id !== body.id));
       return NextResponse.json({ ok: true });
     }
 

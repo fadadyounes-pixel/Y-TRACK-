@@ -1,0 +1,43 @@
+{
+  "name": "IdeaMap — INDH Phase 3",
+  "short_name": "IdeaMap",
+  "description": "De l'idée au projet financé — plateforme INDH Phase 3 Maroc",
+  "start_url": "/ideamap",
+  "display": "standalone",
+  "background_color": "#0A0F2C",
+  "theme_color": "#0A0F2C",
+  "orientation": "portrait-primary",
+  "lang": "fr",
+  "dir": "auto",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {
+      "src": "/logo-transparent.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mon Dossier",
+      "url": "/ideamap",
+      "description": "Continuer mon dossier INDH"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/logo-transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "IdeaMap — Accueil"
+    }
+  ]
+}

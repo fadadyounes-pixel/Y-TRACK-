@@ -30,6 +30,27 @@ function injectCSS() {
     "button:active{transform:scale(.96)!important}",
     "input,select,textarea{font-family:inherit}",
     "input:focus,select:focus,textarea:focus{outline:none}",
+    // Print styles — hide chrome, expand content, force white background for PDF output
+    "@media print{",
+    "header,nav,.no-print,[data-noprint]{display:none!important}",
+    "body{background:#fff!important;color:#10132A!important}",
+    ".fadeUp,.im-rise{animation:none!important}",
+    "*{box-shadow:none!important}",
+    "a{text-decoration:none;color:#10132A}",
+    "@page{margin:14mm 12mm}",
+    "}",
+    // Hover micro-interactions for cards and list rows
+    ".im-card-row:hover{background:#F0F1F5!important}",
+    ".im-holder-row:hover{background:#EFF6FF!important}",
+    // Dashboard sidebar — mobile drawer (slides in from left, fixed overlay)
+    "@media(max-width:768px){",
+    ".dash-sidebar{position:fixed!important;z-index:300!important;top:0;left:0;height:100vh!important;transform:translateX(-260px);transition:transform .28s cubic-bezier(.4,0,.2,1)}",
+    ".dash-sidebar.dsb-open{transform:translateX(0)!important;box-shadow:4px 0 32px rgba(10,15,44,.25)!important}",
+    ".dash-topbar{display:flex!important}",
+    "}",
+    "@media(min-width:769px){.dash-topbar{display:none!important}}",
+    // ProgRow — hide future step labels on small screens (keep ✓ + current step name only)
+    "@media(max-width:520px){.prog-fut{visibility:hidden}}",
   ].join("");
   document.head.appendChild(el);
 }
@@ -362,22 +383,31 @@ const AccBar = () => <div style={{width: "4px", height: "20px", background: Y, b
 // Uses Groq Whisper free tier (2 000 req/day) — auto-detects Arabic, French, Darija.
 // Mic button appears next to the idea textarea; tap to record, tap again to stop & transcribe.
 function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) => void; onError: (e: string) => void}) {
-  const [rec, setRec]   = useState(false);
-  const [busy, setBusy] = useState(false);
-  const mrRef  = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<Blob[]>([]);
+  const [rec, setRec]       = useState(false);
+  const [busy, setBusy]     = useState(false);
+  const [secs, setSecs]     = useState(0);
+  const mrRef      = useRef<MediaRecorder | null>(null);
+  const chunks     = useRef<Blob[]>([]);
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(true);
+  const MAX_SECS   = 60;
 
   const start = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-      const mr = new MediaRecorder(stream, {mimeType: "audio/webm"});
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+      const mr = new MediaRecorder(stream, mimeType ? {mimeType} : {});
       chunks.current = [];
       mr.ondataavailable = e => { if (e.data.size > 0) chunks.current.push(e.data); };
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+        if (!mountedRef.current) return; // component unmounted — skip state updates
+        setSecs(0);
         setBusy(true);
         try {
-          const blob = new Blob(chunks.current, {type: "audio/webm"});
+          const blob = new Blob(chunks.current, {type: mimeType || "audio/webm"});
           const fd = new FormData();
           fd.append("audio", blob);
           fd.append("lang", lang);
@@ -393,18 +423,41 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
       mr.start();
       mrRef.current = mr;
       setRec(true);
+      setSecs(0);
+      // Auto-stop at MAX_SECS with live countdown
+      let elapsed = 0;
+      timerRef.current = setInterval(() => {
+        elapsed += 1;
+        setSecs(elapsed);
+        if (elapsed >= MAX_SECS) stop();
+      }, 1000);
     } catch {
       onError(lang==="ar"?"يرجى السماح بالوصول إلى الميكروفون":lang==="fr"?"Autorisez l'accès au micro":"Allow microphone access");
     }
   };
 
-  const stop = () => { mrRef.current?.stop(); mrRef.current = null; setRec(false); };
+  const stop = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    mrRef.current?.stop(); mrRef.current = null; setRec(false);
+  };
 
+  // Cleanup on unmount: mark as unmounted first so onstop handler skips setState,
+  // then stop the recording and cancel the countdown timer.
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (timerRef.current) clearInterval(timerRef.current);
+      try { mrRef.current?.stop(); } catch {}
+    };
+  }, []);
+
+  const recLabel = rec
+    ? `${lang==="ar"?"⏹ إيقاف":lang==="fr"?"⏹ Arrêter":"⏹ Stop"} ${MAX_SECS - secs}s`
+    : (lang==="ar"?"تحدث عن فكرتك 🎤":lang==="fr"?"Parlez votre idée 🎤":"Speak your idea 🎤");
   const label = busy
     ? (lang==="ar"?"جاري التحويل...":lang==="fr"?"Transcription...":"Transcribing...")
-    : rec
-    ? (lang==="ar"?"إيقاف التسجيل ⏹":lang==="fr"?"Arrêter ⏹":"Stop ⏹")
-    : (lang==="ar"?"تحدث عن فكرتك 🎤":lang==="fr"?"Parlez votre idée 🎤":"Speak your idea 🎤");
+    : recLabel;
+  const nearLimit = rec && secs >= MAX_SECS - 10;
 
   return (
     <button
@@ -413,8 +466,10 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
       title={label}
       style={{
         display:"flex", alignItems:"center", gap:"6px",
-        padding:"10px 14px", borderRadius:"11px", border:`1.5px solid ${rec ? "#EF4444" : Y}`,
-        background: rec ? "#FFF0F0" : YL, color: rec ? "#EF4444" : ND,
+        padding:"10px 14px", borderRadius:"11px",
+        border:`1.5px solid ${nearLimit ? "#C0632F" : rec ? "#EF4444" : Y}`,
+        background: nearLimit ? "#FFF5EC" : rec ? "#FFF0F0" : YL,
+        color: nearLimit ? "#C0632F" : rec ? "#EF4444" : ND,
         fontSize:"12px", fontWeight:"700", cursor: busy ? "wait" : "pointer",
         fontFamily:"inherit", opacity: busy ? 0.7 : 1, transition:"all .2s",
         animation: rec ? "pulse 1.4s ease infinite" : "none",
@@ -482,12 +537,14 @@ const Badge = ({role}: { role: string }) => {
     background: b.c + "22", color: b.c, border: `1px solid ${b.c}55`}}>{b.l}</span>;
 };
 
-const LangToggle = ({lang, setLang}: { lang: string; setLang: (l: string) => void }) => (
+const LangToggle = ({lang, setLang, dark = true}: { lang: string; setLang: (l: string) => void; dark?: boolean }) => (
   <div style={{display: "flex", gap: "4px"}}>
     {["fr", "ar", "en"].map(k => (
       <button key={k} onClick={() => setLang(k)} style={{
-        padding: "4px 10px", borderRadius: "7px", border: `1px solid ${lang === k ? Y : "rgba(255,255,255,.15)"}`,
-        background: lang === k ? Y : "transparent", color: lang === k ? ND : "rgba(255,255,255,.55)",
+        padding: "4px 10px", borderRadius: "7px",
+        border: `1px solid ${lang === k ? Y : dark ? "rgba(255,255,255,.15)" : CD}`,
+        background: lang === k ? Y : "transparent",
+        color: lang === k ? ND : dark ? "rgba(255,255,255,.55)" : GR,
         fontSize: "11px", fontWeight: "700", textTransform: "uppercase",
         fontFamily: ff(lang), transition: "all .18s"
       }}>{k}</button>
@@ -547,6 +604,7 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
         const r = await fetch("/api/ai", {
           method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({messages: history, system: sys, task:"dialogue"}),
+          signal: AbortSignal.timeout(65_000),
         });
         const d = await r.json();
         const text = d.content?.[0]?.text || "";
@@ -574,6 +632,7 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
     <>
       {/* Floating button */}
       <button
+        data-noprint="true"
         onClick={() => { setOpen(p => !p); setUnread(false); }}
         title={lang==="ar"?"المساعد الشخصي":lang==="fr"?"Assistant IdeaMap":"IdeaMap Assistant"}
         style={{position:"fixed", bottom:24, right:24, zIndex:1000,
@@ -592,8 +651,8 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
 
       {/* Chat panel */}
       {open && (
-        <div className="fadeUp" style={{position:"fixed", bottom:88, right:24, zIndex:999,
-          width:320, maxHeight:460, background:WH, borderRadius:18,
+        <div data-noprint="true" className="fadeUp" style={{position:"fixed", bottom:88, right:24, zIndex:999,
+          width:320, maxWidth:"calc(100vw - 48px)", maxHeight:460, background:WH, borderRadius:18,
           boxShadow:"0 8px 48px rgba(15,34,51,.2)", border:`1px solid ${CD}`,
           display:"flex", flexDirection:"column", fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
 
@@ -619,15 +678,23 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
             flexDirection:"column", gap:"9px", maxHeight:250}}>
             <div style={{padding:"10px 13px", background:YL, borderRadius:"12px 12px 12px 4px",
               fontSize:"12px", color:ND, lineHeight:1.65}}>{greet}</div>
-            {msgs.map((m, i) => (
-              <div key={i} style={{padding:"10px 13px", maxWidth:"88%",
-                borderRadius: m.role==="user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-                background: m.role==="user" ? `linear-gradient(135deg,${N},${ND})` : YL,
-                color: m.role==="user" ? WH : ND, fontSize:"12px", lineHeight:1.65,
-                alignSelf: m.role==="user" ? (dir==="rtl"?"flex-start":"flex-end") : (dir==="rtl"?"flex-end":"flex-start")}}>
-                {m.content}
-              </div>
-            ))}
+            {msgs.map((m, i) => {
+              const isUser = m.role === "user";
+              const isRtl = dir === "rtl";
+              // Tail (4px corner) points toward the edge the bubble is anchored to
+              const br = isUser
+                ? (isRtl ? "12px 12px 12px 4px" : "12px 12px 4px 12px")
+                : (isRtl ? "12px 12px 4px 12px" : "12px 12px 12px 4px");
+              return (
+                <div key={i} style={{padding:"10px 13px", maxWidth:"88%",
+                  borderRadius: br,
+                  background: isUser ? `linear-gradient(135deg,${N},${ND})` : YL,
+                  color: isUser ? WH : ND, fontSize:"12px", lineHeight:1.65,
+                  alignSelf: isUser ? (isRtl?"flex-start":"flex-end") : (isRtl?"flex-end":"flex-start")}}>
+                  {m.content}
+                </div>
+              );
+            })}
             {busy && <div style={{display:"flex", gap:"4px", padding:"4px 0"}}>
               {[0,1,2].map(i => <div key={i} style={{width:7, height:7, borderRadius:"50%",
                 background:Y, animation:`bounce 1s ease ${i*.2}s infinite`}}/>)}
@@ -692,11 +759,11 @@ const Sel = ({value, onChange, options, placeholder, dir}: {
 );
 
 /* ── HEADER ─────────────────────────────────────────── */
-const Header = ({lang, user, onLogout, t}: {
-  lang: string;
+const Header = ({lang, setLang, user, onLogout, t}: {
+  lang: string; setLang: (l: string) => void;
   user: any; onLogout: () => void; t: any;
 }) => (
-  <div style={{background: ND, height: "58px", display: "flex", alignItems: "center",
+  <div data-noprint="true" style={{background: ND, height: "58px", display: "flex", alignItems: "center",
     justifyContent: "space-between", padding: "0 22px",
     boxShadow: "0 2px 16px rgba(15,34,51,.3)", position: "sticky", top: 0, zIndex: 200}}>
     <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
@@ -704,7 +771,8 @@ const Header = ({lang, user, onLogout, t}: {
         display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", fontWeight: "900", color: WH}}>I</div>
       <span style={{fontSize: "17px", fontWeight: "800", color: WH, lineHeight: 1, letterSpacing: "-.3px"}}>IdeaMap</span>
     </div>
-    <div style={{display: "flex", alignItems: "center", gap: "14px"}}>
+    <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
+      <LangToggle lang={lang} setLang={setLang}/>
       {user && <>
         <div style={{display: "flex", alignItems: "center", gap: "8px",
           padding: "4px 12px", background: NB, borderRadius: "10px",
@@ -726,14 +794,27 @@ const Header = ({lang, user, onLogout, t}: {
 );
 
 /* ── PROGRESS BAR ROW ───────────────────────────────── */
-const ProgRow = ({t, si, steps}: { lang: string; t: any; si: number; steps: string[] }) => (
-  <div style={{background: WH, padding: "9px 22px", borderBottom: `1px solid ${CD}`}}>
+const ProgRow = ({t, si, steps, onStepClick}: { lang: string; t: any; si: number; steps: string[]; onStepClick?: (i: number) => void }) => (
+  <div data-noprint="true" style={{background: WH, padding: "9px 22px", borderBottom: `1px solid ${CD}`}}>
     <div style={{maxWidth: "720px", margin: "0 auto"}}>
       <div style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-        {steps.map((s: string, i: number) => (
-          <span key={i} style={{fontSize: "9px", fontWeight: "700", textTransform: "uppercase",
-            letterSpacing: ".5px", color: si >= i ? N : GR}}>{s}</span>
-        ))}
+        {steps.map((s: string, i: number) => {
+          const done = i < si;
+          return (
+            <span key={i}
+              onClick={() => done && onStepClick?.(i)}
+              title={done ? s : undefined}
+              className={!done && i !== si ? "prog-fut" : ""}
+              style={{fontSize: "9px", fontWeight: "700", textTransform: "uppercase",
+                letterSpacing: ".5px",
+                color: done ? GN : i === si ? N : GR,
+                cursor: done ? "pointer" : "default",
+                transition: "opacity .15s",
+              }}>
+              {done ? "✓" : s}
+            </span>
+          );
+        })}
       </div>
       <PBar pct={((si + 1) / steps.length) * 100} h={6}
         color={`linear-gradient(90deg,${Y},${YD})`}/>
@@ -742,14 +823,17 @@ const ProgRow = ({t, si, steps}: { lang: string; t: any; si: number; steps: stri
 );
 
 /* ── DASHBOARD SIDEBAR ─────────────────────────────── */
-const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, t}: {
+const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, setLang, t, open, onClose}: {
   user: any; navItems: {id:string; label:string}[]; activeTab: string;
-  onTabChange: (id:string)=>void; onLogout:()=>void; lang:string; t:any;
+  onTabChange: (id:string)=>void; onLogout:()=>void; lang:string; setLang:(l:string)=>void; t:any;
+  open?: boolean; onClose?: () => void;
 }) => (
-  <div style={{width:240, flexShrink:0, background:WH, borderRight:`1px solid ${CD}`,
+  <div className={`dash-sidebar${open ? " dsb-open" : ""}`}
+    style={{width:240, flexShrink:0, background:WH, borderRight:`1px solid ${CD}`,
     position:"sticky", top:0, height:"100vh", display:"flex", flexDirection:"column", zIndex:50}}>
-    {/* Logo area */}
-    <div style={{padding:"20px 18px 16px", borderBottom:`1px solid ${CD}`}}>
+    {/* Logo area + close button (mobile) */}
+    <div style={{padding:"20px 18px 16px", borderBottom:`1px solid ${CD}`,
+      display:"flex", alignItems:"center", justifyContent:"space-between"}}>
       <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
         <div style={{width:34, height:34, borderRadius:"9px", background:ND, flexShrink:0,
           display:"flex", alignItems:"center", justifyContent:"center", fontSize:"15px", fontWeight:"900", color:WH}}>I</div>
@@ -760,13 +844,18 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, t}
           </div>
         </div>
       </div>
+      {onClose && (
+        <button onClick={onClose} className="dash-topbar"
+          style={{background:"transparent", border:"none", fontSize:"18px", color:GR,
+            cursor:"pointer", lineHeight:1, padding:"2px 4px"}}>✕</button>
+      )}
     </div>
     {/* Nav items */}
     <nav style={{padding:"10px 10px", flex:1, overflowY:"auto"}}>
       {navItems.map(item => {
         const active = activeTab === item.id;
         return (
-          <button key={item.id} onClick={() => onTabChange(item.id)}
+          <button key={item.id} onClick={() => { onTabChange(item.id); onClose?.(); }}
             style={{width:"100%", display:"flex", alignItems:"center", gap:"11px",
               padding:"9px 12px", borderRadius:"8px", border:"none", cursor:"pointer", marginBottom:"2px",
               background: active ? "#F0F1F5" : "transparent", textAlign:"left", fontFamily:ff(lang)}}>
@@ -787,6 +876,9 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, t}
           <div style={{fontSize:"12px", fontWeight:"600", color:N, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{user.name||user.id}</div>
           <div style={{fontSize:"10px", color:GR, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{user.id}</div>
         </div>
+      </div>
+      <div style={{marginBottom:"8px"}}>
+        <LangToggle lang={lang} setLang={setLang} dark={false}/>
       </div>
       <button onClick={onLogout} style={{background:"transparent", border:"none", padding:0,
         fontSize:"11px", fontWeight:"500", color:GR, cursor:"pointer", fontFamily:ff(lang), textDecoration:"underline"}}>
@@ -844,9 +936,9 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   const showPrefecture = form.region === "Casablanca-Settat";
 
   useEffect(() => {
-    if (showPrefecture && prefRef.current) {
-      setTimeout(() => prefRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
-    }
+    if (!showPrefecture || !prefRef.current) return;
+    const id = setTimeout(() => prefRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
+    return () => clearTimeout(id);
   }, [showPrefecture]);
 
   const REQUIRED_FIELDS: Array<{key: keyof typeof form; label: Record<string,string>}> = [
@@ -1113,6 +1205,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
             placeholder={t.codePh as string}
             maxLength={30}
             autoFocus
+            autoComplete="off"
             className={err ? "shake" : ""}
             style={{width:"100%", padding:"13px 14px",
               background:IF, border:`1px solid ${DV}`,
@@ -1175,6 +1268,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [comp, setComp]    = useState<any>(initialState?.comp || null);
   const [docs, setDocs]    = useState<Record<number, boolean>>(initialState?.docs || {});
   const [logo, setLogo]    = useState<any>(initialState?.logo || null);
+  const [logoStyle, setLogoStyle] = useState(initialState?.logoStyle ?? 0); // 0=gradient burst, 1=moroccan star, 2=diagonal split
   const [docFiles, setDocFiles] = useState<Record<number, string>>(initialState?.docFiles || {});
   const [logoGenerating, setLogoGenerating] = useState(false);
   const [pendingAttach, setPendingAttach]   = useState<number | null>(null);
@@ -1183,8 +1277,11 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [currentQ, setCurrentQ]             = useState(initialState?.currentQ || "");
   const [dlLang, setDlLang]                 = useState(lang);
   const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const msgEnd = useRef<HTMLDivElement>(null);
+  // Keep download language in sync with the UI language unless the user has explicitly overridden it
+  useEffect(() => { setDlLang(lang); }, [lang]);
+  const fileInputRef  = useRef<HTMLInputElement>(null);
+  const msgEnd        = useRef<HTMLDivElement>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
   const LL  = lang === "ar" ? "arabe" : lang === "fr" ? "français" : "anglais";
   const MAX_Q = 4;
@@ -1192,12 +1289,28 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
 
   useEffect(() => {
-    if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, docFiles, brief, currentQ, suggestions});
-  }, [proj, plan, comp, step, logo, docs, msgs, budget, brief, currentQ]);
+    if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, logoStyle, docFiles, brief, currentQ, suggestions});
+  }, [proj, plan, comp, step, logo, logoStyle, docs, msgs, budget, brief, currentQ]);
+
+  // Auto-check Business Plan doc (#8) when plan is generated — matches its "Généré automatiquement ✓" label
+  useEffect(() => {
+    if (plan && !docs[8]) setDocs(p => ({...p, 8: true}));
+  }, [plan]);
+
+  // Scroll to top on step transitions so users see the new step header
+  useEffect(() => {
+    window.scrollTo({top: 0, behavior: "smooth"});
+  }, [step]);
+
+  // Cancel any pending toast timer on unmount to avoid setState-on-unmounted warning
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, []);
 
   const showToast = (msg: string, type: "error"|"success" = "error") => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({msg, type});
-    setTimeout(() => setToast(null), 4500);
+    toastTimerRef.current = setTimeout(() => setToast(null), 4500);
   };
 
   // Auto-retries up to 3× with exponential back-off before surfacing any error.
@@ -1212,6 +1325,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({messages, system, task}),
+          signal: AbortSignal.timeout(65_000),
         });
         const d = await r.json();
         if (d.error) {
@@ -1246,11 +1360,201 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   };
 
   const dlText = (content: string, name: string) => {
-    const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"})),
-      download: name,
-    });
+    const url = URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"}));
+    const a = Object.assign(document.createElement("a"), {href: url, download: name});
     a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+
+  // Opens a print-ready HTML window — browser converts to PDF via Ctrl+P / Save as PDF.
+  // Uses the browser's native PDF engine (free, offline, professional output).
+  const dlPDF = (exportLang: string = dlLang) => {
+    const eAr = exportLang === "ar"; const eEn = exportLang === "en";
+    const dir2 = eAr ? "rtl" : "ltr";
+    const font = eAr ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
+    const total = (budget?.items||[]).reduce((s: number, x: any) => s + (x.total||0), 0);
+    const indhAmt = budget?.indhContribution || Math.round(total * 0.85);
+    const holdAmt = budget?.beneficiaryContribution || Math.round(total * 0.15);
+    const T = {
+      title:   eAr?"خطة الأعمال":eEn?"Business Plan":"Plan d'Affaires",
+      holder:  eAr?"الحامل":eEn?"Holder":"Porteur",
+      exec:    eAr?"الملخص التنفيذي":eEn?"Executive Summary":"Résumé Exécutif",
+      problem: eAr?"إشكالية المشروع":eEn?"Problem Statement":"Problématique",
+      sol:     eAr?"الحل المقترح":eEn?"Proposed Solution":"Solution",
+      market:  eAr?"تحليل السوق":eEn?"Market Analysis":"Analyse de Marché",
+      biz:     eAr?"نموذج الأعمال":eEn?"Business Model":"Modèle Économique",
+      impact:  eAr?"الأثر الاجتماعي":eEn?"Social Impact":"Impact Social",
+      ops:     eAr?"الخطة التشغيلية":eEn?"Operational Plan":"Plan Opérationnel",
+      indh:    eAr?"التوافق مع المبادرة":eEn?"INDH Alignment":"Alignement INDH",
+      risks:   eAr?"المخاطر":eEn?"Risks":"Risques",
+      proj:    eAr?"التوقعات المالية (درهم)":eEn?"Financial Projections (MAD)":"Projections Financières (MAD)",
+      budT:    eAr?"الميزانية التفصيلية":eEn?"Detailed Budget":"Budget Prévisionnel",
+      cat:     eAr?"الفئة":eEn?"Category":"Catégorie",
+      item:    eAr?"البند":eEn?"Item":"Désignation",
+      qty:     eAr?"الكمية":eEn?"Qty":"Qté",
+      pu:      eAr?"السعر الوحدوي":eEn?"Unit Price":"Prix unit.",
+      tot:     eAr?"المجموع":eEn?"Total":"Total",
+      indhC:   eAr?"مساهمة المبادرة الوطنية (85%)":eEn?"INDH Contribution (85%)":"Contribution INDH (85%)",
+      holdC:   eAr?"مساهمة الحامل (15%)":eEn?"Holder Contribution (15%)":"Apport porteur (15%)",
+      compT:   eAr?"تقرير الامتثال":eEn?"Compliance Report":"Rapport de Conformité",
+      score:   eAr?"النقطة الإجمالية":eEn?"Overall Score":"Score global",
+      elig:    eAr?`مؤهل للتمويل ✓`:eEn?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
+      notEl:   eAr?"يحتاج تعديلات ✗":eEn?"NOT ELIGIBLE ✗":"NON ÉLIGIBLE ✗",
+      str:     eAr?"نقاط القوة":eEn?"Strengths":"Points forts",
+      recs:    eAr?"التوصيات":eEn?"Recommendations":"Recommandations",
+      jury:    eAr?"تقييم اللجنة":eEn?"Jury Evaluation":"Grille Jury",
+      ax:      eAr?"محور المبادرة":eEn?"INDH Pillar":"Axe INDH",
+      yr:      eAr?"السنة":eEn?"Year":"An",
+    };
+    const esc = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const sec = (heading: string, body: string, accent = "#2A5CE0") => body ? `
+      <div class="section">
+        <h3 style="color:${accent};border-bottom:2px solid ${accent};padding-bottom:6px;margin:24px 0 10px">${heading}</h3>
+        <p>${esc(body).replace(/\n/g,"<br>")}</p>
+      </div>` : "";
+    const html = `<!DOCTYPE html><html lang="${exportLang}" dir="${dir2}">
+<head>
+<meta charset="utf-8"/>
+<title>${esc(proj?.projectName||"IdeaMap")} — ${T.title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:${font};font-size:13px;color:#10132A;background:#fff;padding:0}
+  @page{size:A4;margin:18mm 16mm 18mm 16mm}
+  @media print{body{padding:0}.no-print{display:none!important}}
+  .header{background:#0A0F2C;color:#fff;padding:28px 32px;margin-bottom:0}
+  .header h1{font-size:22px;font-weight:800;color:#2A5CE0;margin-bottom:4px}
+  .header p{font-size:12px;color:rgba(255,255,255,.6)}
+  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:18px 32px;background:#F7F8FA;border-bottom:1px solid #E4E7ED}
+  .meta-item{display:flex;flex-direction:column}
+  .meta-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#5B6178;margin-bottom:2px}
+  .meta-value{font-size:13px;font-weight:600;color:#0A0F2C}
+  .body{padding:20px 32px 32px}
+  .section{margin-bottom:18px;page-break-inside:avoid}
+  h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+  p{font-size:12.5px;line-height:1.75;color:#1C3A5C}
+  table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:10px}
+  th{background:#0A0F2C;color:#fff;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;text-align:${eAr?"right":"left"}}
+  td{padding:8px 10px;border-bottom:1px solid #E4E7ED;color:#10132A}
+  tr:nth-child(even) td{background:#F7F8FA}
+  .tfoot td{background:#0A0F2C!important;color:#fff;font-weight:700}
+  .tfoot td:last-child{color:#2A5CE0}
+  .score-box{display:inline-block;padding:14px 28px;border-radius:12px;text-align:center;margin-bottom:14px}
+  .score-num{font-size:38px;font-weight:800}
+  .jury-bar{height:6px;border-radius:3px;background:#E4E7ED;overflow:hidden;margin-top:4px}
+  .jury-fill{height:100%;border-radius:3px}
+  ul{padding-${eAr?"right":"left"}:16px;margin-top:6px}
+  li{font-size:12px;margin-bottom:4px;color:#1C3A5C;line-height:1.6}
+  .proj-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .proj-card{background:#EFF6FF;border-radius:8px;padding:14px;text-align:center;border:1px solid #2A5CE055}
+  .proj-year{font-size:9px;font-weight:700;color:#5B6178;text-transform:uppercase;margin-bottom:4px}
+  .proj-val{font-size:18px;font-weight:800;color:#0A0F2C}
+  .btn-print{display:block;margin:20px auto 0;padding:12px 32px;background:#0A0F2C;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:${font}}
+  .footer{margin-top:32px;padding-top:12px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;align-items:center}
+  .footer p{font-size:10px;color:#5B6178}
+  .indh-badge{background:#0A0F2C;color:#2A5CE0;font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px}
+  .jury-strip{padding:12px 32px 14px;background:#F0F4FF;border-bottom:2px solid #2A5CE0}
+  .jury-strip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 18px;margin-top:10px}
+  .jury-strip-item{display:flex;flex-direction:column;gap:3px}
+  .jury-strip-lbl{font-size:8px;font-weight:700;color:#5B6178;text-transform:uppercase;letter-spacing:.4px}
+  .jury-strip-bar{height:5px;background:#E4E7ED;border-radius:3px;overflow:hidden;margin-bottom:2px}
+  .jury-strip-fill{height:100%;border-radius:3px}
+  .jury-strip-score{font-size:9px;font-weight:700;color:#0A0F2C}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>${esc(proj?.projectName||"")}</h1>
+  <p>${T.holder}: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · ${esc(proj?.location||user.profile?.region||"")} · INDH Phase 3</p>
+</div>
+<div class="meta-grid">
+  <div class="meta-item"><span class="meta-label">Secteur / القطاع</span><span class="meta-value">${esc(proj?.sector||"")}</span></div>
+  <div class="meta-item"><span class="meta-label">${T.ax}</span><span class="meta-value">${esc(proj?.pillar||"")}</span></div>
+  <div class="meta-item"><span class="meta-label">Budget total</span><span class="meta-value">${total.toLocaleString()} MAD</span></div>
+  <div class="meta-item"><span class="meta-label">${T.indhC}</span><span class="meta-value">${indhAmt.toLocaleString()} MAD</span></div>
+</div>
+${comp ? `<div class="jury-strip">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:9px;font-weight:700;color:#5B6178;text-transform:uppercase;letter-spacing:.5px">${T.compT} — INDH Phase 3</div>
+      <div style="font-size:26px;font-weight:800;color:${comp.eligible?"#2A5CE0":"#C0632F"};line-height:1.2;margin-top:2px">${comp.score}<span style="font-size:13px;font-weight:400;color:#5B6178"> /100</span></div>
+      <div style="font-size:11px;font-weight:700;color:${comp.eligible?"#1C7A62":"#C0632F"};margin-top:3px">${comp.eligible?T.elig:T.notEl}</div>
+    </div>
+    <div style="font-size:38px;line-height:1">${comp.eligible?"✅":"⚠️"}</div>
+  </div>
+  ${comp.juryScore ? `<div class="jury-strip-grid">
+    ${[{k:"impact",l:eAr?"أثر اجتماعي":eEn?"Social Impact":"Impact social",w:25},{k:"viability",l:eAr?"جدوى اقتصادية":eEn?"Viability":"Viabilité",w:20},{k:"relevance",l:eAr?"ملاءمة ترابية":eEn?"Relevance":"Pertinence",w:20},{k:"management",l:eAr?"قدرة تسيير":eEn?"Management":"Gestion",w:15},{k:"sustainability",l:eAr?"استدامة":eEn?"Sustainability":"Durabilité",w:10},{k:"innovation",l:eAr?"ابتكار":eEn?"Innovation":"Innovation",w:10}].map(j=>{const sc=comp.juryScore[j.k]||0;const pct=Math.round((sc/j.w)*100);const col=pct>=70?"#2A5CE0":pct>=50?"#D97706":"#C0632F";return`<div class="jury-strip-item"><div class="jury-strip-lbl">${j.l} (/${j.w})</div><div class="jury-strip-bar"><div class="jury-strip-fill" style="width:${pct}%;background:${col}"></div></div><div class="jury-strip-score">${sc}/${j.w}</div></div>`;}).join("")}
+  </div>` : ""}
+</div>` : ""}
+<div class="body">
+${plan ? `
+${sec(T.exec, plan.executiveSummary)}
+${sec(T.problem, plan.problemStatement)}
+${sec(T.sol, plan.solution)}
+${sec(T.market, plan.marketAnalysis)}
+${sec(T.biz, plan.businessModel)}
+${sec(T.impact, plan.socialImpact)}
+${sec(T.ops, plan.operationalPlan)}
+${sec(T.indh, plan.indh_alignment)}
+${plan.risks?.length ? `<div class="section"><h3 style="color:#C0632F;border-bottom:2px solid #C0632F;padding-bottom:6px;margin:24px 0 10px">⚠️ ${T.risks}</h3><ul>${plan.risks.map((r: string)=>`<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
+${plan.projections ? `<div class="section"><h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">📈 ${T.proj}</h3><div class="proj-grid">${Object.entries(plan.projections).map(([y,v])=>`<div class="proj-card"><div class="proj-year">${T.yr} ${y.replace("year","")}</div><div class="proj-val">${Number(v).toLocaleString()}</div><div style="font-size:9px;color:#5B6178;margin-top:2px">MAD</div></div>`).join("")}</div></div>` : ""}
+` : ""}
+${budget?.items?.length ? `
+<div class="section" style="page-break-before:always">
+<h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">💰 ${T.budT}</h3>
+<table><thead><tr>
+  <th>${T.cat}</th><th>${T.item}</th><th style="text-align:center">${T.qty}</th>
+  <th style="text-align:center">${T.pu}</th><th style="text-align:center">${T.tot}</th>
+</tr></thead><tbody>
+${budget.items.map((x: any,i: number)=>`<tr><td>${esc(x.category||"")}</td><td>${esc(x.item||"")}</td><td style="text-align:center">${x.quantity}</td><td style="text-align:center">${Number(x.unitPrice||0).toLocaleString()}</td><td style="text-align:center;font-weight:700">${Number(x.total||0).toLocaleString()}</td></tr>`).join("")}
+<tr class="tfoot"><td colspan="4">${T.tot}</td><td style="text-align:center">${total.toLocaleString()} MAD</td></tr>
+</tbody></table>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+  <div style="background:#0A0F2C;border-radius:10px;padding:14px;text-align:center">
+    <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:4px">🏛️ ${T.indhC}</div>
+    <div style="font-size:20px;font-weight:800;color:#2A5CE0">${indhAmt.toLocaleString()} MAD</div>
+  </div>
+  <div style="background:#EFF6FF;border-radius:10px;padding:14px;text-align:center;border:2px solid #2A5CE0">
+    <div style="font-size:9px;font-weight:700;color:#5B6178;text-transform:uppercase;margin-bottom:4px">👥 ${T.holdC}</div>
+    <div style="font-size:20px;font-weight:800;color:#0A0F2C">${holdAmt.toLocaleString()} MAD</div>
+  </div>
+</div>
+</div>` : ""}
+${comp ? `
+<div class="section" style="page-break-before:always">
+<h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">✅ ${T.compT}</h3>
+<div class="score-box" style="background:${comp.eligible?"#0A0F2C":"#FFF0F0"};border:2px solid ${comp.eligible?"#2A5CE0":"#C0632F"}">
+  <div class="score-num" style="color:${comp.eligible?"#2A5CE0":"#C0632F"}">${comp.score}</div>
+  <div style="font-size:11px;color:${comp.eligible?"rgba(255,255,255,.6)":"#C0632F"};margin-top:2px">/100</div>
+  <div style="font-size:12px;font-weight:700;color:${comp.eligible?"#2A5CE0":"#C0632F"};margin-top:4px">${comp.eligible?T.elig:T.notEl}</div>
+</div>
+${comp.pillar ? `<p style="margin-bottom:10px">📌 ${T.ax}: <strong>${esc(comp.pillar)}</strong></p>` : ""}
+${comp.juryScore ? `<table><thead><tr><th>${eAr?"المعيار":eEn?"Criterion":"Critère"}</th><th style="text-align:center">${eAr?"الوزن":eEn?"Weight":"Poids"}</th><th style="text-align:center">${eAr?"النقطة":eEn?"Score":"Score"}</th></tr></thead><tbody>${[{k:"impact",l:"Impact social",w:25},{k:"viability",l:"Viabilité",w:20},{k:"relevance",l:"Pertinence territoriale",w:20},{k:"management",l:"Capacité de gestion",w:15},{k:"sustainability",l:"Durabilité",w:10},{k:"innovation",l:"Innovation",w:10}].map(j=>{const sc=comp.juryScore[j.k]||0;const p=Math.round((sc/j.w)*100);return`<tr><td>${j.l}</td><td style="text-align:center">/${j.w}</td><td style="text-align:center"><strong style="color:${p>=70?"#2A5CE0":p>=50?"#F59E0B":"#C0632F"}">${sc}</strong></td></tr>`;}).join("")}</tbody></table>` : ""}
+${comp.strengths?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#1C7A62;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💪 ${T.str}</h4><ul>${comp.strengths.map((s: string)=>`<li>${esc(s)}</li>`).join("")}</ul></div>` : ""}
+${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#2A5CE0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💡 ${T.recs}</h4><ul>${comp.recommendations.map((r: string)=>`<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
+</div>` : ""}
+<div class="footer">
+  <p>© IdeaMap 2026 · ideamaponline.org · ${new Date().toLocaleDateString(exportLang==="ar"?"ar-MA":exportLang==="fr"?"fr-FR":"en-GB")}</p>
+  <span class="indh-badge">INDH Phase 3</span>
+</div>
+</div>
+<button class="btn-print no-print" onclick="window.print()">
+  🖨️ ${eAr?"طباعة / حفظ كـ PDF":eEn?"Print / Save as PDF":"Imprimer / Enregistrer en PDF"}
+</button>
+</body></html>`;
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      // Wait for fonts & images to load before opening print dialog — more reliable than a fixed delay.
+      // Fallback fires after 2.5s in case the load event never triggers (popup blocker quirks).
+      const printWhenReady = () => { try { w.print(); } catch {} };
+      let fallback: ReturnType<typeof setTimeout>;
+      w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 200); }, {once: true});
+      fallback = setTimeout(printWhenReady, 2500);
+    }
+    else { showToast(lang==="ar"?"يُرجى السماح بالنوافذ المنبثقة في المتصفح للتحميل":lang==="fr"?"Autorisez les popups dans votre navigateur pour générer le PDF":"Allow popups in your browser to download the PDF", "error"); }
   };
 
   const dlPPTX = async (type: "pitch" | "jury", exportLang: string = dlLang) => {
@@ -1340,111 +1644,313 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         s.addText(T.stepsText, {x:0.4,y:1.1,w:9.1,h:4,fontSize:15,color:"222222",fontFace:"Arial",align:isAr?"right":"left"});
         await prs.writeFile({fileName: `PitchDeck_${proj?.projectName || "IdeaMap"}.pptx`});
       } else {
+        // ── 9-slide INDH jury presentation — presentation-ready with talking points ──
+        const clip = (txt: string, n: number) => {
+          if (!txt) return "";
+          if (txt.length <= n) return txt;
+          return txt.slice(0, n).replace(/\s\S*$/, "…");
+        };
+        const bpts = (txt: string, max: number = 3): string[] => {
+          if (!txt) return [];
+          return txt.split(/\.\s+|;\s+|\n+/).map((x: string) => x.trim()).filter((x: string) => x.length > 10).slice(0, max);
+        };
+
+        const SH = (prs as any).ShapeType?.rect || "rect";
+        const jTalk = (sl: any, txt: string, bg: string = "EFF6FF", txtCol: string = "1C3A5C") => {
+          sl.addShape(SH, {x:0.3,y:4.55,w:9.4,h:0.78,fill:{color:bg},line:{color:"CCCCCC",pt:0.5}});
+          sl.addText(`🎤 ${txt}`, {x:0.45,y:4.6,w:9.1,h:0.7,fontSize:9.5,color:txtCol,italic:true,wrap:true,fontFace:"Arial"});
+        };
+        const headerBar = (sl: any, txt: string, colHex: string, scoreStr: string, subLabel: string) => {
+          sl.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:colHex}});
+          sl.addText(txt, {x:0.25,y:0,w:7.2,h:0.82,fontSize:18,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
+          sl.addShape(SH, {x:7.6,y:0.1,w:2.15,h:0.62,fill:{color:"00000033"},line:{color:WHITE,pt:1}});
+          sl.addText(scoreStr, {x:7.6,y:0.1,w:2.15,h:0.62,fontSize:20,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
+          if (subLabel) sl.addText(subLabel, {x:7.6,y:0.74,w:2.15,h:0.22,fontSize:7.5,color:colHex,align:"center",fontFace:"Arial",bold:true});
+        };
+
+        // ── Slide 1: Cover ──
         let s = prs.addSlide(); s.background = {color:NAVY};
-        s.addText(proj?.projectName || "", {x:0.5,y:1.3,w:9,h:1.4,fontSize:38,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
-        s.addText(`${T.holder} : ${user.name}`, {x:0.5,y:2.9,w:9,h:0.5,fontSize:14,color:WHITE,align:"center"});
-        s.addText(`INDH Phase 3 · ${proj?.pillar || ""}`, {x:0.5,y:3.6,w:9,h:0.4,fontSize:12,color:YELLOW,align:"center"});
-        s.addText("IdeaMap", {x:0.5,y:4.7,w:9,h:0.3,fontSize:9,color:"666666",align:"center"});
+        s.addShape(SH, {x:0,y:0,w:10,h:0.1,fill:{color:"2A5CE0"}});
+        s.addShape(SH, {x:0,y:5.53,w:10,h:0.1,fill:{color:"2A5CE0"}});
+        s.addText(proj?.projectName || "", {x:0.5,y:0.6,w:9,h:1.0,fontSize:30,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
+        if (logo?.concept?.tagline) s.addText(`« ${logo.concept.tagline} »`, {x:0.5,y:1.72,w:9,h:0.38,fontSize:14,color:"CCCCCC",align:"center",fontFace:"Arial",italic:true});
+        s.addText(`${proj?.sector||""} · 📍 ${proj?.location||user.profile?.region||""}`, {x:0.5,y:2.18,w:9,h:0.32,fontSize:12,color:"AAAAAA",align:"center",fontFace:"Arial"});
+        s.addShape(SH, {x:0.5,y:2.6,w:9,h:0.04,fill:{color:"2A5CE044"}});
+        const metricTotal = budget?.items?.reduce((s2: number, x: any)=>s2+(x.total||0),0)||0;
+        const chips = [
+          {l:isAr?"النقطة":isEn?"Score":"Score", v:comp?`${comp.score}/100`:"—", col:comp?.eligible?"22C55E":"EF4444"},
+          {l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—", col:YELLOW},
+          {l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:proj?.beneficiaries?String(proj.beneficiaries):"—", col:"60A5FA"},
+          {l:isAr?"مساهمة INDH":isEn?"INDH Grant":"Subvention INDH", v:metricTotal?`${Math.round(metricTotal*.85).toLocaleString()} MAD`:"—", col:"A78BFA"},
+        ];
+        chips.forEach((m, i) => {
+          const bx = 0.3 + i * 2.4;
+          s.addShape(SH, {x:bx,y:2.82,w:2.2,h:1.1,fill:{color:"141B45"},line:{color:"2A5CE0",pt:1}});
+          s.addText(m.l, {x:bx+0.1,y:2.87,w:2,h:0.28,fontSize:7.5,color:"888888",fontFace:"Arial",bold:true});
+          s.addText(m.v, {x:bx+0.1,y:3.12,w:2,h:0.55,fontSize:12,color:m.col,bold:true,fontFace:"Arial"});
+        });
+        s.addText(`${T.holder}: ${user.name} ${user.profile?.lastName||""} · ${proj?.pillar||"INDH Phase 3"}`, {x:0.5,y:4.15,w:9,h:0.3,fontSize:10,color:"888888",align:"center",fontFace:"Arial"});
+        s.addText("IdeaMap · ideamaponline.org", {x:0.5,y:4.6,w:9,h:0.25,fontSize:8,color:"444444",align:"center",fontFace:"Arial"});
 
-        s = prs.addSlide(); s.background = {color:"FAF7F0"};
-        s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-        s.addText(T.summary, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:28,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        if (plan?.executiveSummary) s.addText(plan.executiveSummary, {x:0.4,y:1.1,w:9.1,h:4,fontSize:13,color:"222222",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        // ── Slide 2: Mon Projet en 30 secondes ──
+        s = prs.addSlide(); s.background = {color:"F8F9FF"};
+        s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:"0A0F2C"}});
+        s.addText(isAr?"مشروعي في 30 ثانية":isEn?"My Project in 30 Seconds":"Mon Projet en 30 Secondes", {x:0.25,y:0,w:9.5,h:0.82,fontSize:20,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
+        if (plan?.executiveSummary) s.addText(clip(plan.executiveSummary, 280), {x:0.35,y:0.98,w:9.2,h:1.0,fontSize:12.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        const infoChips = [
+          {icon:"🏭", l:isAr?"القطاع":isEn?"Sector":"Secteur", v:proj?.sector||""},
+          {icon:"👥", l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:String(proj?.beneficiaries||"—")},
+          {icon:"💰", l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—"},
+        ];
+        infoChips.forEach((ic, i) => {
+          const bx = 0.35 + i * 3.1;
+          s.addShape(SH, {x:bx,y:2.1,w:2.85,h:0.85,fill:{color:"EFF6FF"},line:{color:"2A5CE055",pt:1}});
+          s.addText(`${ic.icon} ${ic.l}`, {x:bx+0.1,y:2.15,w:2.65,h:0.25,fontSize:8,color:"5B6178",bold:true,fontFace:"Arial"});
+          s.addText(ic.v, {x:bx+0.1,y:2.4,w:2.65,h:0.45,fontSize:11,color:"0A0F2C",bold:true,fontFace:"Arial",wrap:true});
+        });
+        s.addShape(SH, {x:0.35,y:3.1,w:9.2,h:0.7,fill:{color:"0A0F2C"},line:{color:"2A5CE0",pt:1}});
+        s.addText(`🏛️ ${comp?.pillar||proj?.pillar||"INDH Phase 3"}`, {x:0.55,y:3.1,w:8.8,h:0.7,fontSize:13,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
+        jTalk(s, isAr?"أنا [اسمك]، وأريد [الحل] لـ [المستفيدين] في [المنطقة]. مشروعي يطلب [الميزانية] من المبادرة الوطنية.":isEn?"I am [Name]. I want to [solution] for [beneficiaries] in [location]. My project requests [budget] from INDH.":"Je suis [Nom]. Je veux [solution] pour [bénéficiaires] à [lieu]. Mon projet demande [budget] à l'INDH.", "EFF6FF");
 
-        s = prs.addSlide(); s.background = {color:"FAF7F0"};
-        s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-        s.addText(T.plan, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:28,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        const planBody = [plan?.problemStatement, plan?.solution, plan?.businessModel].filter(Boolean).join("\n\n");
-        if (planBody) s.addText(planBody, {x:0.4,y:1.1,w:9.1,h:4,fontSize:11,color:"222222",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        // ── Slide 3: Impact Social [25 pts] ──
+        s = prs.addSlide(); s.background = {color:"FAFFF9"};
+        const impScore = comp?.juryScore?.impact||0;
+        headerBar(s, isAr?"الأثر الاجتماعي والمستفيدون":isEn?"Social Impact & Beneficiaries":"Impact Social & Bénéficiaires", "1C7A62", `${impScore}/25`, isAr?"25 نقطة — الأعلى وزناً":isEn?"25 pts — highest weight":"25 pts — critère n°1");
+        s.addShape(SH, {x:0.35,y:1.0,w:2.6,h:1.4,fill:{color:"1C7A62"},line:{color:"FFFFFF",pt:0}});
+        s.addText(String(proj?.beneficiaries||""), {x:0.35,y:1.05,w:2.6,h:0.8,fontSize:44,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
+        s.addText(isAr?"مستفيد مباشر":isEn?"direct beneficiaries":"bénéficiaires directs", {x:0.35,y:1.86,w:2.6,h:0.4,fontSize:9,color:"DDFFEE",align:"center",fontFace:"Arial"});
+        if (proj?.targetProfile) {
+          s.addShape(SH, {x:3.15,y:1.0,w:6.5,h:0.6,fill:{color:"EAF5F0"},line:{color:"1C7A6244",pt:0.5}});
+          s.addText(`👥 ${clip(proj.targetProfile, 120)}`, {x:3.3,y:1.0,w:6.2,h:0.6,fontSize:11,color:"1C3A5C",bold:true,fontFace:"Arial",valign:"middle",wrap:true});
+        }
+        const impBpts = bpts(plan?.socialImpact, 3);
+        impBpts.forEach((bp, i) => {
+          s.addText(`• ${clip(bp, 130)}`, {x:3.15,y:1.72+i*0.5,w:6.5,h:0.48,fontSize:10.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        });
+        if (plan?.indh_alignment) {
+          s.addShape(SH, {x:0.35,y:3.25,w:9.2,h:0.04,fill:{color:"1C7A6244"}});
+          s.addText(`🏛️ ${clip(plan.indh_alignment, 200)}`, {x:0.35,y:3.35,w:9.2,h:0.8,fontSize:9.5,color:"1C3A5C",wrap:true,fontFace:"Arial",italic:true,align:isAr?"right":"left"});
+        }
+        jTalk(s, isAr?"مشروعي سيستفيد [العدد] شخصاً من [الفئة] في [المنطقة]. كل مستفيد سيحصل على دخل إضافي يقدر بـ [المبلغ] درهماً شهرياً.":isEn?"My project benefits [N] people from [profile] in [location]. Each will earn an extra [amount] MAD/month.":"Mon projet bénéficiera à [N] personnes de [profil] à [lieu]. Chacun gagnera [montant] MAD/mois supplémentaires.", "E8F5F0", "1C4A3A");
 
-        s = prs.addSlide(); s.background = {color:"FAF7F0"};
-        s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-        s.addText(T.impact, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:24,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        if (plan?.socialImpact) s.addText(plan.socialImpact, {x:0.4,y:1.1,w:9.1,h:2,fontSize:12,color:"222222",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        if (plan?.indh_alignment) s.addText(plan.indh_alignment, {x:0.4,y:3.3,w:9.1,h:1.8,fontSize:11,color:"1C3A5C",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        // ── Slide 4: Pertinence Territoriale [20 pts] ──
+        s = prs.addSlide(); s.background = {color:"F8F9FF"};
+        const relScore = comp?.juryScore?.relevance||0;
+        headerBar(s, isAr?"الملاءمة الترابية والإشكالية":isEn?"Territorial Relevance & Problem":"Pertinence Territoriale & Problématique", "2A5CE0", `${relScore}/20`, isAr?"20 نقطة":isEn?"20 pts":"20 pts");
+        s.addShape(SH, {x:0.35,y:1.0,w:9.2,h:0.55,fill:{color:"EFF6FF"},line:{color:"2A5CE055",pt:0.8}});
+        s.addText(`📍 ${proj?.location||user.profile?.region||""}`, {x:0.55,y:1.0,w:8.8,h:0.55,fontSize:15,color:"0A0F2C",bold:true,fontFace:"Arial",valign:"middle"});
+        if (proj?.localProblem) {
+          s.addShape(SH, {x:0.35,y:1.68,w:9.2,h:0.75,fill:{color:"DDEEFF"},line:{color:"2A5CE033",pt:0.5}});
+          s.addText(`⚠️ ${clip(proj.localProblem, 160)}`, {x:0.5,y:1.7,w:8.9,h:0.7,fontSize:11.5,color:"0A0F2C",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        }
+        const solBpts = bpts(plan?.solution, 3);
+        if (solBpts.length > 0) {
+          s.addText(isAr?"الحل المقترح:":isEn?"Proposed solution:":"Solution proposée :", {x:0.35,y:2.56,w:9.2,h:0.28,fontSize:9,color:"2A5CE0",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+          solBpts.forEach((bp, i) => {
+            s.addText(`→ ${clip(bp, 130)}`, {x:0.5,y:2.87+i*0.44,w:9.0,h:0.42,fontSize:10.5,color:"1C3A5C",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+          });
+        }
+        jTalk(s, isAr?"في [المنطقة]، [المشكلة المحلية]. مشروعي يقدم [الحل] مباشرةً لمن يحتاجونه هناك.":isEn?"In [area], [local problem]. My project brings [solution] directly to those who need it.":"À [lieu], [problème local]. Mon projet apporte [solution] directement à ceux qui en ont besoin.", "EFF6FF");
 
+        // ── Slide 5: Viabilité Économique [20 pts] ──
+        s = prs.addSlide(); s.background = {color:"FBF8FF"};
+        const viaScore = comp?.juryScore?.viability||0;
+        headerBar(s, isAr?"الجدوى الاقتصادية والتوقعات المالية":isEn?"Economic Viability & Projections":"Viabilité Économique & Projections", "7C3AED", `${viaScore}/20`, isAr?"20 نقطة":isEn?"20 pts":"20 pts");
+        if (proj?.revenueModel) {
+          s.addShape(SH, {x:0.35,y:1.0,w:9.2,h:0.72,fill:{color:"EDE9FE"},line:{color:"7C3AED44",pt:0.5}});
+          s.addText(`💡 ${clip(proj.revenueModel, 200)}`, {x:0.5,y:1.02,w:9.0,h:0.68,fontSize:11,color:"3B007A",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        }
+        const bisBpts = bpts(plan?.businessModel, 2);
+        bisBpts.forEach((bp, i) => {
+          s.addText(`• ${clip(bp, 120)}`, {x:0.5,y:1.86+i*0.44,w:9.0,h:0.42,fontSize:10.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        });
+        if (plan?.projections) {
+          s.addText(isAr?"التوقعات المالية (درهم)":isEn?"Financial Projections (MAD)":"Projections Financières (MAD)", {x:0.35,y:2.85,w:9.2,h:0.28,fontSize:9,color:"7C3AED",bold:true,fontFace:"Arial"});
+          const projEntries = Object.entries(plan.projections);
+          projEntries.forEach(([yr, val], i) => {
+            const bx = 0.35 + i * 3.1;
+            const prev = i > 0 ? Number(projEntries[i-1][1]) : 0;
+            const growth = prev > 0 ? Math.round(((Number(val)-prev)/prev)*100) : null;
+            s.addShape(SH, {x:bx,y:3.18,w:2.85,h:1.02,fill:{color:"EDE9FE"},line:{color:"7C3AED55",pt:1}});
+            s.addText(`${isAr?"السنة":isEn?"Year":"An"} ${yr.replace("year","")}`, {x:bx+0.1,y:3.23,w:2.65,h:0.25,fontSize:8,color:"7C3AED",bold:true,fontFace:"Arial"});
+            s.addText(`${Number(val).toLocaleString()} MAD`, {x:bx+0.1,y:3.5,w:2.65,h:0.45,fontSize:13,color:NAVY,bold:true,fontFace:"Arial"});
+            if (growth !== null) s.addText(`▲ ${growth}%`, {x:bx+0.1,y:3.97,w:2.65,h:0.22,fontSize:9,color:"1C7A62",bold:true,fontFace:"Arial"});
+          });
+        }
+        jTalk(s, isAr?"أتوقع رقم معاملات شهري يبلغ [المبلغ] درهماً منذ الشهر [X]. الربحية تُحقَّق خلال [N] أشهر. بعد المبادرة، [الاستدامة].":isEn?"I expect [amount] MAD/month revenue from month [X]. Break-even in [N] months. After INDH: [sustainability].":"Je prévois [montant] MAD/mois dès le mois [X]. Rentabilité en [N] mois. Après l'INDH : [pérennité].", "EDE9FE", "3B007A");
+
+        // ── Slide 6: Budget INDH 85%/15% ──
         s = prs.addSlide(); s.background = {color:NAVY};
-        s.addText(T.budgetPrev, {x:0.5,y:0.2,w:9,h:0.7,fontSize:28,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
+        s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:"2A5CE0"}});
+        s.addText(T.budgetPrev, {x:0.25,y:0,w:9.5,h:0.82,fontSize:20,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
+        const indhPct = Math.round((indh/(total||1))*100);
+        const barW = 9.2;
+        s.addShape(SH, {x:0.4,y:0.95,w:barW*(indhPct/100),h:0.3,fill:{color:"2A5CE0"}});
+        s.addShape(SH, {x:0.4+barW*(indhPct/100),y:0.95,w:barW*(1-indhPct/100),h:0.3,fill:{color:"4B5563"}});
+        s.addText(`🏛️ INDH ${indhPct}% = ${indh.toLocaleString()} MAD`, {x:0.4,y:1.3,w:6,h:0.35,fontSize:11,color:"60A5FA",fontFace:"Arial",bold:true});
+        s.addText(`👤 ${100-indhPct}% = ${bene.toLocaleString()} MAD`, {x:6.5,y:1.3,w:3.1,h:0.35,fontSize:11,color:"AAAAAA",fontFace:"Arial"});
         if (budget?.items?.length) {
           const rows = [
             [{text:T.catLabel,options:{bold:true,color:YELLOW}},{text:T.itemLabel,options:{bold:true,color:YELLOW}},{text:T.totalCol,options:{bold:true,color:YELLOW}}],
-            ...budget.items.slice(0,10).map((x: any) => [x.category||"", x.item||"", Number(x.total||0).toLocaleString()]),
+            ...budget.items.slice(0,8).map((x: any) => [clip(x.category||"",18), clip(x.item||"",40), `${Number(x.total||0).toLocaleString()} MAD`]),
             [{text:"",options:{}},{text:T.totalLabel,options:{bold:true,color:YELLOW}},{text:`${total.toLocaleString()} MAD`,options:{bold:true,color:YELLOW}}],
           ];
-          s.addTable(rows, {x:0.3,y:1.1,w:9.4,colW:[2.2,5,2.2],fontSize:9,color:WHITE,border:{type:"solid",color:"444444",pt:0.5},fontFace:"Arial"});
+          s.addTable(rows, {x:0.3,y:1.72,w:9.4,colW:[2.0,5.2,2.2],fontSize:8.5,color:WHITE,border:{type:"solid",color:"334466",pt:0.5},fontFace:"Arial"});
         }
 
-        s = prs.addSlide(); s.background = {color:"FAF7F0"};
-        s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-        s.addText(T.compliance, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:28,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+        // ── Slide 7: Gestion, Durabilité & Innovation [35 pts] ──
+        s = prs.addSlide(); s.background = {color:"FFFBF0"};
+        const mgmtScore = comp?.juryScore?.management||0;
+        const sustScore = comp?.juryScore?.sustainability||0;
+        const innScore  = comp?.juryScore?.innovation||0;
+        headerBar(s, isAr?"التسيير والاستدامة والابتكار":isEn?"Management, Sustainability & Innovation":"Gestion, Durabilité & Innovation", "D97706", `${mgmtScore+sustScore+innScore}/35`, isAr?"15+10+10 نقطة":isEn?"15+10+10 pts":"15+10+10 pts");
+        [{l:isAr?"تسيير":isEn?"Mgmt":"Gestion",sc:mgmtScore,mx:15},{l:isAr?"استدامة":isEn?"Sust.":"Durabilité",sc:sustScore,mx:10},{l:isAr?"ابتكار":isEn?"Innov.":"Innovation",sc:innScore,mx:10}].forEach((c, i) => {
+          const bx = 0.35 + i * 3.1;
+          const colChip = (c.sc/c.mx)>=0.7 ? "1C7A62" : (c.sc/c.mx)>=0.5 ? "D97706" : "C0632F";
+          s.addShape(SH, {x:bx,y:0.9,w:2.85,h:0.68,fill:{color:"FEF3C7"},line:{color:"D97706",pt:1}});
+          s.addText(`${c.l}: ${c.sc}/${c.mx}`, {x:bx+0.1,y:0.94,w:2.65,h:0.58,fontSize:13,color:colChip,bold:true,fontFace:"Arial",align:"center"});
+        });
+        if (proj?.holderExperience) {
+          s.addText(isAr?"خبرة الحامل:":isEn?"Holder experience:":"Expérience du porteur :", {x:0.35,y:1.72,w:9.2,h:0.28,fontSize:9,color:"D97706",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+          s.addShape(SH, {x:0.35,y:2.0,w:9.2,h:0.65,fill:{color:"FEF3C7"},line:{color:"D9770644",pt:0.5}});
+          s.addText(`⭐ ${clip(proj.holderExperience, 180)}`, {x:0.5,y:2.02,w:9.0,h:0.6,fontSize:11,color:"7A3C00",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        }
+        const actList = proj?.activities || [];
+        if (actList.length > 0) {
+          s.addText(isAr?"الأنشطة الرئيسية:":isEn?"Core activities:":"Activités clés :", {x:0.35,y:2.76,w:9.2,h:0.28,fontSize:9,color:"D97706",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+          actList.slice(0,3).forEach((act: string, i: number) => {
+            s.addShape(SH, {x:0.35,y:3.08+i*0.38,w:9.2,h:0.34,fill:{color:i%2===0?"FFFBF0":"FEF3C7"},line:{color:"D9770633",pt:0.3}});
+            s.addText(`✓ ${clip(act, 100)}`, {x:0.5,y:3.1+i*0.38,w:9.0,h:0.3,fontSize:10,color:"3A2000",fontFace:"Arial",align:isAr?"right":"left"});
+          });
+        }
+        jTalk(s, isAr?"لدي [الخبرة]. سأُدير المشروع بنفسي بمساعدة [المساعدين]. خطة التشغيل لدي واضحة: [الخطة].":isEn?"I have [experience]. I will manage with [team]. My operational plan: [plan].":"J'ai [expérience]. Je gèrerai avec [équipe]. Mon plan opérationnel : [plan].", "FFF8E8", "7A3C00");
+
+        // ── Slide 8: Grille Jury INDH — KEY SLIDE ──
+        s = prs.addSlide(); s.background = {color:"F8F9FF"};
+        const eligBg = comp?.eligible ? "0A0F2C" : "FFF0F0";
+        s.addShape(SH, {x:0,y:0,w:10,h:0.85,fill:{color:eligBg}});
+        s.addText(`${isAr?"تقييم لجنة التحكيم INDH":isEn?"INDH Jury Evaluation Grid":"Grille d'Évaluation du Jury INDH"}`, {x:0.3,y:0,w:7,h:0.85,fontSize:20,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
         if (comp) {
-          const scoreColor = comp.eligible ? "22C55E" : "EF4444";
-          s.addText(`${comp.score}/100 · ${comp.eligible ? T.eligible : T.notElig}`, {x:0.4,y:1.1,w:9.1,h:0.7,fontSize:20,color:scoreColor,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-          if (comp.juryScore) {
-            const juryRows = [
-              [{text:T.criteriaLabel,options:{bold:true,color:NAVY}},{text:T.weightLabel,options:{bold:true,color:NAVY}},{text:T.scoreLabel,options:{bold:true,color:NAVY}}],
-              ...JURY.map(j => [j.label, `/${j.w}`, String(comp.juryScore[j.key]||0)])
-            ];
-            s.addTable(juryRows, {x:0.3,y:2,w:9.4,fontSize:10,color:"222222",border:{type:"solid",color:"CCCCCC",pt:0.5},fontFace:"Arial"});
-          }
+          const sc = comp.score;
+          s.addText(`${sc}/100`, {x:7.5,y:0,w:2.1,h:0.85,fontSize:30,color:sc>=60?"22C55E":"EF4444",bold:true,align:"right",fontFace:"Arial",valign:"middle"});
+          s.addText(comp.eligible?`✅ ${T.eligible}`:`⚠️ ${T.notElig}`, {x:7.5,y:0.0,w:2.2,h:0.85,fontSize:9,color:comp.eligible?"22C55E":"EF4444",bold:true,align:"right",fontFace:"Arial",valign:"bottom"});
         }
-
-        s = prs.addSlide(); s.background = {color:"FAF7F0"};
-        s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-        s.addText(T.docs, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:28,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        s.addText(T.docsCount, {x:0.4,y:1.1,w:9.1,h:0.4,fontSize:13,color:"333333",fontFace:"Arial"});
-        const dRows = [
-          [{text:T.docLabel,options:{bold:true,color:NAVY}},{text:T.statusLabel,options:{bold:true,color:NAVY}}],
-          ...DOCS.map(d => [d.name, docs[d.id] ? T.ready : T.pending])
+        const juryDef = [
+          {key:"impact",lbl:isAr?"الأثر الاجتماعي":isEn?"Social Impact":"Impact social",w:25,col:"1C7A62"},
+          {key:"viability",lbl:isAr?"الجدوى الاقتصادية":isEn?"Economic Viability":"Viabilité économique",w:20,col:"7C3AED"},
+          {key:"relevance",lbl:isAr?"الملاءمة الترابية":isEn?"Territorial Relevance":"Pertinence territoriale",w:20,col:"2A5CE0"},
+          {key:"management",lbl:isAr?"قدرة التسيير":isEn?"Management Capacity":"Capacité de gestion",w:15,col:"D97706"},
+          {key:"sustainability",lbl:isAr?"الاستدامة":isEn?"Sustainability":"Durabilité",w:10,col:"0891B2"},
+          {key:"innovation",lbl:isAr?"الابتكار":isEn?"Innovation":"Innovation",w:10,col:"DB2777"},
         ];
-        s.addTable(dRows, {x:0.3,y:1.7,w:9.4,fontSize:8,color:"222222",border:{type:"solid",color:"DDDDDD",pt:0.5},fontFace:"Arial"});
+        juryDef.forEach((j, i) => {
+          const yPos = 1.0 + i * 0.73;
+          const sc = comp?.juryScore?.[j.key]||0;
+          const pct = Math.min(sc/j.w, 1);
+          s.addText(`${j.lbl} (/${j.w})`, {x:0.3,y:yPos,w:4.5,h:0.3,fontSize:10.5,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+          s.addText(`${sc}/${j.w}`, {x:9.2,y:yPos,w:0.6,h:0.3,fontSize:11,color:j.col,bold:true,fontFace:"Arial",align:"right"});
+          s.addShape(SH, {x:4.9,y:yPos+0.05,w:4.2,h:0.22,fill:{color:"E4E7ED"}});
+          if (pct>0) s.addShape(SH, {x:4.9,y:yPos+0.05,w:4.2*pct,h:0.22,fill:{color:j.col}});
+          s.addText(`${Math.round(pct*100)}%`, {x:4.9+4.2*pct+0.05,y:yPos+0.05,w:0.5,h:0.22,fontSize:7,color:"666666",fontFace:"Arial"});
+        });
 
+        // ── Slide 9: Documents + Soumission ──
         s = prs.addSlide(); s.background = {color:NAVY};
-        s.addText(T.submission, {x:0.5,y:0.2,w:9,h:0.7,fontSize:28,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
-        s.addText(T.submissionText, {x:0.5,y:1.2,w:9,h:4.5,fontSize:14,color:WHITE,fontFace:"Arial",align:isAr?"right":"left"});
+        s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:YELLOW}});
+        s.addText(`${T.docs} · ${T.submission}`, {x:0.25,y:0,w:9.5,h:0.82,fontSize:18,color:NAVY,bold:true,fontFace:"Arial",valign:"middle"});
+        s.addText(T.docsCount, {x:0.35,y:0.9,w:9.2,h:0.28,fontSize:11,color:"CCCCCC",fontFace:"Arial"});
+        const dRows2 = [
+          [{text:T.docLabel,options:{bold:true,color:NAVY}},{text:T.statusLabel,options:{bold:true,color:NAVY}}],
+          ...DOCS.slice(0,8).map(d => [{text:d.name,options:{color:"111111"}},{text:(docs[d.id]?T.ready:T.pending),options:{color:docs[d.id]?"1C7A62":"C0632F"}}])
+        ];
+        s.addTable(dRows2, {x:0.3,y:1.22,w:5.5,fontSize:8,color:"222222",border:{type:"solid",color:"334466",pt:0.5},fill:{color:WHITE},fontFace:"Arial"});
+        const subSteps = isAr
+          ? ["إيداع الملف (DAS)","وصل الإيداع","CPDH — 4 إلى 8 أسابيع","لجنة التحكيم INDH","القرار → الاتفاقية → الانطلاق"]
+          : isEn
+          ? ["Submit to DAS","Deposit receipt","CPDH review — 4-8 wks","INDH jury panel","Decision → Convention → Launch"]
+          : ["Dépôt DAS","Récépissé délivré","CPDH — 4 à 8 semaines","Jury INDH","Décision → Convention → Démarrage"];
+        subSteps.forEach((step, i) => {
+          s.addShape(SH, {x:6.0,y:1.22+i*0.78,w:0.36,h:0.36,fill:{color:YELLOW}});
+          s.addText(String(i+1), {x:6.0,y:1.22+i*0.78,w:0.36,h:0.36,fontSize:11,color:NAVY,bold:true,align:"center",fontFace:"Arial",valign:"middle"});
+          s.addText(step, {x:6.45,y:1.22+i*0.78,w:3.25,h:0.62,fontSize:9.5,color:"DDDDDD",fontFace:"Arial",wrap:true,valign:"middle"});
+        });
+        s.addText("IdeaMap · ideamaponline.org", {x:0.35,y:5.2,w:9.2,h:0.25,fontSize:8,color:"555555",align:"center",fontFace:"Arial"});
+
         await prs.writeFile({fileName: `DossierJury_${proj?.projectName || "IdeaMap"}.pptx`});
       }
-    } catch (e) { console.error("PPTX error:", e); }
+    } catch (e) { console.error("PPTX error:", e); showToast(lang==="ar"?"فشل إنشاء ملف PowerPoint":lang==="fr"?"Erreur lors de la création du fichier PowerPoint":"PowerPoint generation failed", "error"); }
   };
-
-  const [logoStyle, setLogoStyle] = useState(0); // 0=circle, 1=badge, 2=shield
 
   const genLogo = async () => {
     setLogoGenerating(true);
+    try {
     const projInfo = {
       name: proj?.projectName,
       sector: proj?.sector,
       location: proj?.location,
       beneficiaries: proj?.targetProfile || proj?.beneficiaries,
       pillar: proj?.pillar,
+      localProblem: proj?.localProblem,
+      revenueModel: proj?.revenueModel,
+      holderExperience: proj?.holderExperience,
+      activities: proj?.activities,
+      strengths: proj?.strengths,
+      estimatedBudget: proj?.estimatedBudget,
+      idea: idea?.slice(0, 200),
     };
     const r = await ai(
       [{role:"user", content:`Projet INDH Maroc: ${JSON.stringify(projInfo)}`}],
       `Tu es un directeur artistique expert en branding pour micro-entrepreneurs marocains. Tu crées des identités visuelles simples, fortes et culturellement ancrées au Maroc.
 
-Analyse le projet et crée une identité visuelle complète. Règles:
+CONTEXTE COMPLET DU PROJET (utilise TOUT ce contexte pour créer une identité unique):
+- Idée originale du porteur: "${projInfo.idea||""}"
+- Problème local résolu: "${projInfo.localProblem||""}"
+- Modèle économique: "${projInfo.revenueModel||""}"
+- Expérience du porteur: "${projInfo.holderExperience||""}"
+- Activités principales: ${JSON.stringify(projInfo.activities||[])}
+- Points forts identifiés: ${JSON.stringify(projInfo.strengths||[])}
+
+Règles pour créer une identité VRAIMENT unique à CE projet spécifique:
 1. INITIALES: 2-3 lettres tirées du nom du projet (initiales du nom commercial).
-2. COULEURS: couleur principale chaleureuse qui évoque le secteur et le Maroc (ex: artisanat→ocre terracotta, cuisine→orange chaud, agriculture→vert olive, coiffure→violet élégant, numérique→bleu électrique). Couleur secondaire harmonieuse.
-3. COULEUR TEXTE: contraste parfait avec la couleur principale (blanc #FFFFFF si couleur foncée, marine #0F2233 si couleur claire).
-4. ICÔNE: emoji qui représente EXACTEMENT le secteur d'activité (ex: ✂️ pour coiffure, 🍞 pour boulangerie, 🧵 pour couture, 🌿 pour agriculture, 💻 pour numérique).
-5. SLOGAN: 3-5 mots percutants en ${LL} qui résonnent au Maroc — simple, mémorable, en rapport avec le bénéfice client (ex: "La qualité à votre porte", "Savoir-faire ancestral", "Votre beauté, notre passion").
-6. STYLE DESCRIPTION: courte phrase décrivant le positionnement (ex: "Artisanat traditionnel haut de gamme", "Service de proximité moderne").
+2. COULEURS: couleur principale qui évoque PRÉCISÉMENT ce secteur ET ce territoire marocain (ex: artisanat Marrakech→ocre terre cuite #C8602A, couture urbaine→indigo #3B3B8E, agriculture Souss→vert olive #6B7A3E, coiffure moderne→violet #7B3B8E, numérique jeune→bleu électrique #1E6FE8, restauration→orange chaleureux #E87420, pêche→bleu marine profond #1A4A7A). Couleur secondaire harmonieuse et contrastée.
+3. COULEUR TEXTE: contraste parfait (blanc #FFFFFF si couleur foncée, marine #0F2233 si couleur claire).
+4. ICÔNE: emoji qui représente EXACTEMENT l'activité principale vue dans les activités du porteur (pas juste le secteur générique — si couture→🧵 ou ✂️, si argan→🌿, si coiffure→💇, si café→☕).
+5. SLOGAN: 3-5 mots ORIGINAUX en ${LL} qui reflètent la proposition de valeur UNIQUE de CE projet — inspiré du modèle économique et du problème résolu (ex: si service de proximité manquant→"À portée de main", si valorisation locale→"L'authenticité, notre force").
+6. STYLE DESCRIPTION: 4-6 mots décrivant le positionnement unique (ex: "Artisanat féminin haute qualité", "Service rapide quartier populaire", "Agriculture bio circuit court").
 
 JSON UNIQUEMENT sans markdown:
-{"initials":"2-3 lettres","color1":"#hexcode couleur principale","color2":"#hexcode couleur secondaire","colorText":"#FFFFFF ou #0F2233 selon contraste","icon":"emoji secteur précis","tagline":"slogan 3-5 mots en ${LL}","styleDesc":"positionnement en 4-6 mots en ${LL}","accentColor":"#hexcode couleur d'accent pour détails"}`,
+{"initials":"2-3 lettres","color1":"#hexcode couleur principale sector-specific","color2":"#hexcode couleur secondaire harmonieuse","colorText":"#FFFFFF ou #0F2233","icon":"emoji activité précise","tagline":"slogan 3-5 mots en ${LL} unique à CE projet","styleDesc":"positionnement 4-6 mots en ${LL}","accentColor":"#hexcode couleur d'accent pour détails"}`,
       "json"
     );
     const concept = parseJ(r);
-    if (concept) { setLogo({type:"generated", concept}); setLogoStyle(0); }
-    setLogoGenerating(false);
+    if (concept) {
+      // Ensure required color fields have safe fallbacks in case AI skips them
+      concept.color1     = concept.color1     || Y;
+      concept.color2     = concept.color2     || YD;
+      concept.colorText  = concept.colorText  || WH;
+      concept.icon       = concept.icon       || "💡";
+      concept.initials   = concept.initials   || (proj?.projectName||"").slice(0,2).toUpperCase() || "IM";
+      setLogo({type:"generated", concept}); setLogoStyle(0);
+    } else {
+      showToast(
+        lang === "ar" ? "فشل إنشاء الشعار — حاول مجدداً" :
+        lang === "fr" ? "Génération du logo échouée — réessayez" :
+        "Logo generation failed — try again",
+        "error"
+      );
+    }
+    } finally {
+      setLogoGenerating(false);
+    }
   };
 
   const dlLogo = () => {
     if (!logo?.concept) return;
     const c = logo.concept;
     const ct = c.colorText || "#FFFFFF";
-    const tag = (c.tagline || "").slice(0, 24).toUpperCase();
-    const ini = (c.initials || "?").slice(0, 3);
+    const escXml = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const tag = escXml((c.tagline || "").slice(0, 24).toUpperCase());
+    const ini = escXml((c.initials || "?").slice(0, 3));
     const ico = c.icon || "💡";
     // Helper: 8-pointed star points string (300×300 canvas)
     const star = (ox: number, oy: number, R: number, r: number): string => {
@@ -1507,12 +2013,13 @@ JSON UNIQUEMENT sans markdown:
 </svg>`,
     ];
     const svg = svgs[logoStyle];
-    const blob = new Blob([svg], {type:"image/svg+xml"});
+    const url = URL.createObjectURL(new Blob([svg], {type:"image/svg+xml"}));
     const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(blob),
+      href: url,
       download: `Logo_${(proj?.projectName||"IdeaMap").replace(/\s+/g,"_")}.svg`,
     });
     a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC — DONNÉES TERRAIN RÉELLES:
@@ -1558,7 +2065,11 @@ QUESTION: [question directe en ${LL} — max 12 mots]
 SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}]`,
       "dialogue");
     const { brief: b, question, suggs } = parseQS(r);
-    setBrief(b || ideaPreview); // keep idea preview as fallback if AI doesn't return a brief
+    if (!question) {
+      // AI failed entirely — bounce back to idea step (toast already shown by ai())
+      setStep("idea"); setBusy(false); setBrief(""); setCurrentQ(""); return;
+    }
+    setBrief(b || ideaPreview);
     setCurrentQ(question);
     setMsgs([{role: "user", content: idea}, {role: "assistant", content: question}]);
     setSuggestions(suggs);
@@ -1593,12 +2104,25 @@ QUESTION: [question directe en ${LL} — max 12 mots]
 SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}]`}`,
       last ? "json" : "dialogue");
     if (last) {
+      const p = parseJ(r);
+      if (!p) {
+        // All providers failed to return valid JSON on the final question — stay on dialogue.
+        setBusy(false);
+        showToast(
+          lang === "ar" ? "فشل تحليل مشروعك — أعد المحاولة" :
+          lang === "fr" ? "Analyse du projet échouée — réessayez" :
+          "Project analysis failed — please try again",
+          "error"
+        );
+        return;
+      }
       setBrief(""); setCurrentQ(""); setSuggestions([]);
-      setMsgs((p: any[]) => [...p, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
-      const p = parseJ(r); if (p) setProj(p);
+      setMsgs((prev: any[]) => [...prev, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
+      setProj(p);
       setTimeout(() => setStep("profile"), 1000);
     } else {
       const { brief: b, question, suggs } = parseQS(r);
+      if (!question) { setBusy(false); return; } // AI failed — keep current question visible, let user retry
       setBrief(b);
       setCurrentQ(question);
       setMsgs((p: any[]) => [...p, {role: "assistant", content: question}]);
@@ -1610,6 +2134,7 @@ SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL
 
   const genPlan = async () => {
     setBusy(true); setStep("plan");
+    try {
     const projCtx = JSON.stringify(proj || {idea});
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب كل النصوص بالعربية الفصحى السليمة والواضحة. جمل كاملة ومنظمة. لا دارجة مغربية. لا حروف لاتينية داخل النصوص العربية."
@@ -1650,11 +2175,14 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     ]);
     const p = parseJ(r); if (p) setPlan(p);
     const b = parseJ(r2); if (b) setBudget(b);
-    setBusy(false);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const checkComp = async () => {
     setStep("compliance"); setBusy(true);
+    try {
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب نقاط القوة والتوصيات بالعربية الفصحى البسيطة. جمل واضحة وقصيرة."
       : "";
@@ -1686,7 +2214,9 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"eligible":true/false,"score":N,"pillar":"axe INDH Phase 3 exact en ${LL}","strengths":["force SPÉCIFIQUE tirée du dossier 1","force SPÉCIFIQUE 2","force SPÉCIFIQUE 3"],"weaknesses":["faiblesse précise qui coûte des points jury 1","faiblesse 2"],"recommendations":["action immédiate et concrète 1 en ${LL}","action 2","action 3"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
       "json");
     const c = parseJ(r); if (c) setComp(c);
-    setBusy(false);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const STEPS = ["idea", "dialogue", "profile", "plan", "budget", "logo", "compliance", "documents", "export"];
@@ -1704,6 +2234,22 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       fontSize: "14px", fontWeight: "800", fontFamily: ff(lang), ...style}}>{label}</button>
   );
 
+  const backBtn = (overrideStep?: string) => {
+    const target = overrideStep || STEPS[si - 1];
+    if (!target || si <= 0) return null;
+    return (
+      <button onClick={() => setStep(target)} style={{
+        marginTop: "10px", background: "none", border: `1px solid ${CD}`,
+        borderRadius: "10px", color: GR, fontSize: "12px", fontFamily: ff(lang),
+        cursor: "pointer", padding: "9px", width: "100%",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: "5px"
+      }}>
+        <span style={{fontSize: "14px"}}>{dir === "rtl" ? "→" : "←"}</span>
+        {lang === "ar" ? "المرحلة السابقة" : lang === "fr" ? "Étape précédente" : "Previous step"}
+      </button>
+    );
+  };
+
   const planBlock = (key: string, fr: string, ar: string, en: string, icon: string) => plan[key] && (
     <div key={key} style={{padding: "14px 16px", background: CR, borderRadius: "13px",
       borderLeft: `4px solid ${Y}`, marginBottom: "12px"}}>
@@ -1716,8 +2262,14 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
   return (
     <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)}/>}
-      <Header lang={lang} user={user} onLogout={onLogout} t={t}/>
-      <ProgRow lang={lang} t={t} si={si} steps={t.steps as string[]}/>
+      <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
+      <ProgRow lang={lang} t={t} si={si} steps={t.steps as string[]}
+        onStepClick={i => {
+          // Dialogue is a one-way step — once proj is set the Q&A is done;
+          // navigating back to it would show a broken empty state.
+          if (STEPS[i] === "dialogue" && proj) return;
+          setStep(STEPS[i]);
+        }}/>
       <div className="fadeUp" style={{maxWidth: "700px", margin: "0 auto", padding: "24px 18px 60px"}}>
 
         {/* ── IDEA ── */}
@@ -1736,6 +2288,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             </div>
             {/* Quick starter templates */}
             {!idea.trim() && (() => {
+              const profileSector = user.profile?.sector || "";
+              const profileCity   = user.profile?.city || user.profile?.region || "";
+              const personalStarter = profileSector ? (
+                lang === "ar"
+                  ? `أريد إطلاق مشروع في قطاع ${profileSector} في ${profileCity || "منطقتي"}.\nأريد تقديم خدمات بأسعار معقولة وخلق فرصة عمل لي ولأسرتي.`
+                  : lang === "en"
+                  ? `I want to start a ${profileSector} project in ${profileCity || "my city"}.\nI want to offer affordable services and create employment for myself and my family.`
+                  : `Je veux démarrer un projet dans le secteur "${profileSector}" à ${profileCity || "ma ville"}.\nJe veux offrir des services accessibles et créer mon propre emploi.`
+              ) : null;
               const starters: Record<string, string[]> = {
                 fr: [
                   "Je veux créer un atelier de couture dans mon quartier à Casablanca.\nJ'aimerais former des femmes au chômage et vendre des vêtements traditionnels.",
@@ -1759,9 +2320,25 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               const list = starters[lang] || starters.fr;
               return (
                 <div style={{marginBottom: "14px"}}>
+                  {personalStarter && (
+                    <div style={{marginBottom: "10px"}}>
+                      <p style={{fontSize: "10px", fontWeight: "700", color: Y, textTransform: "uppercase",
+                        letterSpacing: ".6px", marginBottom: "6px"}}>
+                        🎯 {lang==="ar"?"مقترح بناءً على ملفك:":lang==="fr"?"Suggestion personnalisée :":"Suggested for you:"}
+                      </p>
+                      <button onClick={() => setIdea(personalStarter)}
+                        style={{width:"100%", padding: "11px 14px", borderRadius: "11px",
+                          border: `2px solid ${Y}`, background: YL, color: ND,
+                          fontSize: "12px", fontWeight: "600", textAlign: dir==="rtl"?"right":"left",
+                          cursor: "pointer", fontFamily: ff(lang), direction: dir as "rtl"|"ltr",
+                          lineHeight: "1.6"}}>
+                        ✨ {personalStarter.split("\n")[0]}
+                      </button>
+                    </div>
+                  )}
                   <p style={{fontSize: "10px", fontWeight: "700", color: GR, textTransform: "uppercase",
                     letterSpacing: ".6px", marginBottom: "8px"}}>
-                    ✨ {lang==="ar"?"اختر مثالاً للبدء:":lang==="fr"?"Exemples — cliquez pour démarrer :":"Examples — click to start:"}
+                    💡 {lang==="ar"?"أمثلة للإلهام:":lang==="fr"?"Exemples — cliquez pour démarrer :":"Examples — click to start:"}
                   </p>
                   <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
                     {list.map((s, i) => (
@@ -1836,6 +2413,16 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <h2 style={{fontSize: "17px", fontWeight: "700", color: ND}}>{t.dialogT}</h2>
               </div>
             </div>
+
+            {/* Idea reminder pill */}
+            {idea && <div style={{display:"flex", alignItems:"flex-start", gap:"7px", marginBottom:"14px",
+              padding:"9px 12px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
+              <span style={{fontSize:"15px", flexShrink:0}}>💡</span>
+              <p style={{fontSize:"11px", color:GR, lineHeight:"1.55", margin:0,
+                direction:dir as "rtl"|"ltr", maxHeight:"2.8em", overflow:"hidden"}}>
+                {idea.trim()}
+              </p>
+            </div>}
 
             {/* Progress */}
             <div style={{marginBottom: "16px"}}>
@@ -1928,6 +2515,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </button>
             </div>
             <div ref={msgEnd}/>
+            {!busy && qN <= 1 && backBtn("idea")}
           </Card>
         )}
 
@@ -1967,6 +2555,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </div>
             </>) : (<div style={{textAlign: "center", padding: "40px", color: GR}}><Dots/></div>)}
             {indhBtn(t.genPlan, genPlan)}
+            {backBtn()}
           </Card>
         )}
 
@@ -1978,6 +2567,19 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             <p style={{color: GR, fontSize: "13px", marginBottom: "18px"}}>{lang === "ar" ? "إعداد خطة الأعمال والميزانية..." : lang === "fr" ? "Préparation du business plan et budget..." : "Preparing business plan and budget..."}</p>
             <div style={{display: "flex", justifyContent: "center"}}><Dots/></div>
           </Card>}
+          {!busy && !plan && (
+            <Card style={{textAlign:"center", padding:"40px 24px"}}>
+              <div style={{fontSize:"48px", marginBottom:"14px"}}>⚠️</div>
+              <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"8px"}}>
+                {lang==="ar"?"فشل إنشاء الخطة":lang==="fr"?"Génération échouée":"Generation failed"}
+              </div>
+              <div style={{fontSize:"13px", color:GR, marginBottom:"18px", lineHeight:1.6}}>
+                {lang==="ar"?"جميع خوادم الذكاء الاصطناعي مشغولة. انتظر ثوانٍ ثم حاول مجدداً.":lang==="fr"?"L'IA est temporairement surchargée. Attendez quelques secondes et réessayez.":"All AI providers are busy. Wait a few seconds and try again."}
+              </div>
+              {indhBtn(lang==="ar"?"🔄 إعادة المحاولة":lang==="fr"?"🔄 Réessayer":"🔄 Try again", genPlan)}
+              {backBtn()}
+            </Card>
+          )}
           {plan && !busy && (<>
             <Card>
               <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px"}}>
@@ -2016,6 +2618,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </div>}
             </Card>
             {indhBtn(`💰 ${lang === "ar" ? "الميزانية" : lang === "fr" ? "Voir le Budget" : "View Budget"} →`, () => setStep("budget"))}
+            {backBtn()}
           </>)}
         </>)}
 
@@ -2086,7 +2689,17 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     <span style={{fontSize: "15px", fontWeight: "800", color: Y}}>{total.toLocaleString()} MAD</span>
                   </div>
                 </div>
-              </div>) : <div style={{textAlign: "center", padding: "28px", color: GR}}><Dots/></div>}
+              </div>) : (
+                <div style={{textAlign: "center", padding: "24px 16px"}}>
+                  {busy ? <><div style={{display:"flex",justifyContent:"center"}}><Dots/></div></> : <>
+                    <div style={{fontSize:"36px", marginBottom:"10px"}}>⚠️</div>
+                    <div style={{fontSize:"13px", color:GR, marginBottom:"14px", lineHeight:1.6}}>
+                      {lang==="ar"?"فشل إنشاء الميزانية":lang==="fr"?"Génération du budget échouée":"Budget generation failed"}
+                    </div>
+                    {indhBtn(lang==="ar"?"🔄 إعادة التوليد":lang==="fr"?"🔄 Régénérer le budget":"🔄 Regenerate budget", genPlan)}
+                  </>}
+                </div>
+              )}
               <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px"}}>
                 <div style={{padding: "16px", background: ND, borderRadius: "13px", textAlign: "center"}}>
                   <div style={{fontSize: "9px", color: Y, fontWeight: "700", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: "5px"}}>🏛️ {t.indhC}</div>
@@ -2100,6 +2713,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 </div>
               </div>
               {indhBtn(`🎨 ${lang === "ar" ? "التالي: الشعار ←" : lang === "fr" ? "Suivant : Logo →" : "Next: Logo →"}`, () => setStep("logo"))}
+              {backBtn()}
             </Card>
           );
         })()}
@@ -2122,7 +2736,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             </div>
 
             {/* ── Logo options: upload or AI generate ── */}
-            {!logo && (
+            {!logo && !logoGenerating && (
               <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginBottom:"16px"}}>
                 <label style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
                   padding:"24px 14px", borderRadius:"14px", border:`2px dashed ${CD}`,
@@ -2326,14 +2940,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     letterSpacing:".6px", marginBottom:"10px", textAlign:"center"}}>
                     {lang==="ar"?"اختر التصميم المفضل:":lang==="fr"?"Choisissez votre style :":"Choose your style:"}
                   </p>
-                  <div style={{display:"flex", gap:"10px", justifyContent:"center", marginBottom:"14px"}}>
+                  <div style={{display:"flex", gap:"10px", marginBottom:"14px",
+                    overflowX:"auto", paddingBottom:"4px"}}>
                     {[0,1,2].map(idx => (
                       <div key={idx} onClick={() => setLogoStyle(idx)}
                         style={{cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center",
-                          gap:"6px", padding:"10px", borderRadius:"14px",
+                          gap:"6px", padding:"10px", borderRadius:"14px", flexShrink:0,
                           border:`2px solid ${logoStyle===idx ? Y : CD}`,
                           background:logoStyle===idx ? YL : WH,
-                          transition:"all .2s", opacity:1}}>
+                          transition:"all .2s"}}>
                         {renderVariant(idx, 80)}
                         <span style={{fontSize:"9px", fontWeight:"700", color:logoStyle===idx ? ND : GR,
                           textTransform:"uppercase", letterSpacing:".5px"}}>{styleNames[idx]}</span>
@@ -2428,6 +3043,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               lang==="ar"?"← التالي: الامتثال":lang==="fr"?"Continuer → Conformité":"Continue → Compliance",
               checkComp
             )}
+            {backBtn()}
           </Card>
         )}
 
@@ -2446,6 +3062,19 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             </p>
             <div style={{display: "flex", justifyContent: "center", marginTop: "14px"}}><Dots/></div>
           </div>}
+          {!busy && !comp && (
+            <div style={{textAlign:"center", padding:"32px 20px"}}>
+              <div style={{fontSize:"48px", marginBottom:"14px"}}>⚠️</div>
+              <div style={{fontSize:"15px", fontWeight:"700", color:ND, marginBottom:"8px"}}>
+                {lang==="ar"?"فشل تحليل الامتثال":lang==="fr"?"Analyse échouée":"Analysis failed"}
+              </div>
+              <div style={{fontSize:"13px", color:GR, marginBottom:"18px", lineHeight:1.6}}>
+                {lang==="ar"?"حاول مجدداً":lang==="fr"?"Réessayez dans quelques secondes":"Try again in a few seconds"}
+              </div>
+              {indhBtn(t.checkBtn as string, checkComp)}
+              {backBtn()}
+            </div>
+          )}
           {comp && !busy && (<>
             <div style={{padding: "24px", borderRadius: "16px", textAlign: "center", marginBottom: "18px",
               background: comp.eligible ? ND : "#FFF0F0", border: `2px solid ${comp.eligible ? Y : RE}`}}>
@@ -2479,7 +3108,12 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               <div style={{fontSize: "10px", fontWeight: "700", color: ND, textTransform: "uppercase", letterSpacing: ".4px", marginBottom: "8px"}}>💡 {t.recs}</div>
               {comp.recommendations.map((r: string, i: number) => <div key={i} style={{display: "flex", gap: "7px", fontSize: "12px", color: N, marginBottom: "4px"}}><span style={{color: Y, fontWeight: "700"}}>→</span>{r}</div>)}
             </div>}
-            {indhBtn(`📁 ${lang === "ar" ? "الوثائق" : lang === "fr" ? "Documents Requis" : "Required Documents"} →`, () => setStep("documents"))}
+            {indhBtn(`📁 ${lang === "ar" ? "الوثائق" : lang === "fr" ? "Documents Requis" : "Required Documents"} →`, () => {
+              // Auto-check doc #8 (Business Plan) since IdeaMap generates it automatically
+              if (plan) setDocs(p => ({...p, 8: true}));
+              setStep("documents");
+            })}
+            {backBtn()}
           </>)}
         </Card>)}
 
@@ -2521,7 +3155,12 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <p style={{fontSize: "10px", fontWeight: "700", textTransform: "uppercase", letterSpacing: ".6px",
                   color: type === "req" ? N : GR, margin: "16px 0 8px"}}>{type === "req" ? `⭐ ${t.req}` : `📎 ${t.opt}`}</p>
                 {DOCS.filter(d => type === "req" ? d.req : !d.req).map(doc => (
-                  <div key={doc.id} onClick={() => setDocs(p => ({...p, [doc.id]: !p[doc.id]}))}
+                  <div key={doc.id}
+                    role="checkbox"
+                    aria-checked={!!docs[doc.id]}
+                    tabIndex={0}
+                    onClick={() => setDocs(p => ({...p, [doc.id]: !p[doc.id]}))}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDocs(p => ({...p, [doc.id]: !p[doc.id]})); } }}
                     style={{display: "flex", alignItems: "flex-start", gap: "10px", padding: "12px",
                       borderRadius: "13px", marginBottom: "7px", cursor: "pointer",
                       background: docs[doc.id] ? (type === "req" ? ND : YL) : WH,
@@ -2560,6 +3199,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   style={{fontSize: "12px", color: "#1E40AF", fontWeight: "600"}}>www.rokhsa.ma →</a>
               </div>
               {indhBtn(`🎉 ${lang === "ar" ? "عرض ملفي الكامل" : lang === "fr" ? "Voir Mon Dossier" : "View My Application"} →`, () => setStep("export"))}
+              {backBtn()}
             </Card>
           );
         })()}
@@ -2568,6 +3208,16 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         {step === "export" && (() => {
           const done = Object.values(docs).filter(Boolean).length;
           const readiness = Math.round(((comp?.score || 0) * .5) + ((done / DOCS.length) * 50));
+          const exportTotal = (budget?.items||[]).reduce((s: number, x: any) => s + (x.total||0), 0);
+          const waText = encodeURIComponent([
+            `🎉 ${lang==="ar"?"مشروعي INDH جاهز":lang==="fr"?"Mon projet INDH est prêt !":"My INDH project is ready!"}`,
+            `📌 ${proj?.projectName||""}`,
+            comp ? `✅ ${lang==="ar"?"النقطة":lang==="fr"?"Score":"Score"}: ${comp.score}/100${comp.eligible?" ✓":""}` : "",
+            `📍 ${proj?.location||proj?.sector||""}`,
+            exportTotal ? `💰 ${exportTotal.toLocaleString()} MAD` : "",
+            ``,
+            `🔗 ${lang==="ar"?"تم إنشاؤه بواسطة IdeaMap":lang==="fr"?"Généré avec IdeaMap":"Generated with IdeaMap"}`,
+          ].filter(Boolean).join("\n"));
           return (<>
             <div style={{background: ND, borderRadius: "18px", padding: "32px 24px",
               textAlign: "center", marginBottom: "14px"}}>
@@ -2578,6 +3228,46 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 background: "rgba(37,99,235,.2)", borderRadius: "16px", border: `2px solid ${Y}`}}>
                 <div style={{fontSize: "48px", fontWeight: "800", color: Y, lineHeight: 1}}>{readiness}%</div>
                 <div style={{fontSize: "11px", color: "rgba(255,255,255,.5)", marginTop: "5px"}}>{t.readiness}</div>
+              </div>
+              {/* CIN + WhatsApp row */}
+              <div style={{display:"flex", gap:"8px", marginTop:"16px", flexWrap:"wrap", justifyContent:"center"}}>
+                <button onClick={() => {
+                  const copied = (() => {
+                    if (navigator.clipboard) {
+                      navigator.clipboard.writeText(user.id).catch(() => {});
+                      return true;
+                    }
+                    try {
+                      const ta = document.createElement("textarea");
+                      ta.value = user.id;
+                      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+                      document.body.appendChild(ta);
+                      ta.select();
+                      const ok = document.execCommand("copy");
+                      document.body.removeChild(ta);
+                      return ok;
+                    } catch { return false; }
+                  })();
+                  showToast(
+                    copied
+                      ? (lang==="ar"?"تم نسخ رقم البطاقة":lang==="fr"?"CIN copié !":"CIN copied!")
+                      : (lang==="ar"?"انسخ يدوياً: "+user.id:lang==="fr"?"Copiez manuellement: "+user.id:"Copy manually: "+user.id),
+                    copied ? "success" : "error"
+                  );
+                }} style={{display:"flex", alignItems:"center", gap:"6px",
+                  padding:"10px 16px", borderRadius:"10px",
+                  background:"rgba(255,255,255,.1)", border:"1px solid rgba(255,255,255,.2)",
+                  color:WH, fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
+                  📋 {user.id}
+                </button>
+                <a href={`https://wa.me/?text=${waText}`} target="_blank" rel="noopener noreferrer"
+                  style={{display:"flex", alignItems:"center", gap:"6px",
+                    padding:"10px 16px", borderRadius:"10px",
+                    background:"#25D366", color:WH, fontSize:"12px", fontWeight:"700",
+                    textDecoration:"none", fontFamily:ff(lang)}}>
+                  <span>📲</span>
+                  {lang==="ar"?"واتساب":lang==="fr"?"WhatsApp":"WhatsApp"}
+                </a>
               </div>
             </div>
             <Card>
@@ -2592,7 +3282,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <span style={{fontSize:"11px", fontWeight:"700", color:ND, flexShrink:0}}>
                   🌐 {lang==="ar"?"لغة التنزيل:":lang==="fr"?"Langue des téléchargements :":"Download language:"}
                 </span>
-                <div style={{display:"flex", gap:"6px"}}>
+                <div style={{display:"flex", gap:"6px", flexWrap:"wrap"}}>
                   {[{k:"fr",fl:"🇫🇷",lb:"Français"},{k:"ar",fl:"🇲🇦",lb:"العربية"},{k:"en",fl:"🇬🇧",lb:"English"}].map(({k,fl,lb}) => (
                     <button key={k} onClick={() => setDlLang(k)}
                       style={{padding:"6px 14px", borderRadius:"9px",
@@ -2649,6 +3339,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 const indhAmt = budget?.indhContribution||Math.round(total*.85);
                 const holdAmt = budget?.beneficiaryContribution||Math.round(total*.15);
                 const items: {icon:string;l:string;ok:boolean;onDl:()=>void;badge?:string}[] = [
+                  {icon:"📄", l:eAr?"تحميل ملف PDF الكامل":eEn?"Download Full PDF Dossier":"Télécharger le Dossier PDF", ok:!!plan,
+                    onDl:() => dlPDF(dlLang), badge:"pdf"},
                   {icon:"📊", l:TXT.bp, ok:!!plan,
                     onDl:() => dlText([
                       `${proj?.projectName||"Projet"} — ${TXT.bp}`,``,
@@ -2703,30 +3395,158 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                       `• www.indh.ma`,
                       `• www.rokhsa.ma`,
                     ].join("\n"), `GuideSubmission_${proj?.projectName||"IdeaMap"}.txt`)},
-                  {icon:"🎯", l:TXT.jury, ok:!!proj, onDl:() => dlPPTX("jury", dlLang), badge:"pptx"},
+                  {icon:"📝", l:eAr?"ورقة تحضير لجنة التحكيم":eEn?"Jury Prep Sheet":"Fiche Préparation Jury", ok:!!comp||!!plan,
+                    onDl:() => {
+                      const q5 = eAr ? [
+                        ["Q1 — اللجنة: مَن سيستفيد من مشروعك تحديداً وكم عددهم؟",
+                          `A: ${proj?.targetProfile||proj?.beneficiaries||"..."} — عدد المستفيدين المباشرين: ${proj?.beneficiaries||"..."} شخصاً.\n   الدخل الإضافي المتوقع: نحو ${plan?.businessModel?.match(/\d[\d\s]*MAD/)?.[0]||"..."} شهرياً لكل مستفيد.`],
+                        ["Q2 — اللجنة: ما المشكل الحقيقي الذي يحله مشروعك في منطقتك؟",
+                          `A: ${plan?.problemStatement?.slice(0,220)||"..."}.\n   المشروع يقع في ${proj?.location||"..."} ويخدم حاجة حقيقية غير مُغطّاة.`],
+                        ["Q3 — اللجنة: كيف ستربح من هذا المشروع بعد انتهاء دعم المبادرة؟",
+                          `A: ${plan?.businessModel?.slice(0,220)||"..."}.\n   قناة البيع الرئيسية: ${plan?.businessModel?.match(/(souk|WhatsApp|clients|عملاء|سوق)[^.]{0,60}/i)?.[0]||"..."}.`],
+                        ["Q4 — اللجنة: ما خبرتك أو كفاءتك في هذا المجال؟",
+                          `A: ${proj?.holderExperience||"تجربة ميدانية في القطاع"}.\n   ${plan?.operationalPlan?.slice(0,160)||"خطة تشغيلية مفصّلة موجودة في الملف."}`],
+                        ["Q5 — اللجنة: كيف سيستمر مشروعك ويتطور بعد سنة أولى؟",
+                          `A: ${plan?.indh_alignment?.slice(0,180)||"..."}.\n   التوقعات: سنة 1 → ${plan?.projections?.year1||"??"} درهم · سنة 2 → ${plan?.projections?.year2||"??"} درهم · سنة 3 → ${plan?.projections?.year3||"??"} درهم.`],
+                      ] : eEn ? [
+                        ["Q1 — JURY: Who exactly will benefit from your project and how many?",
+                          `A: ${proj?.targetProfile||proj?.beneficiaries||"..."} — ${proj?.beneficiaries||"..."} direct beneficiaries.\n   Expected extra income: ~${plan?.businessModel?.match(/\d[\d\s]*MAD/)?.[0]||"..."} / month per beneficiary.`],
+                        ["Q2 — JURY: What real local problem does your project solve?",
+                          `A: ${plan?.problemStatement?.slice(0,220)||"..."}.\n   Located in ${proj?.location||"..."} — filling a genuine unmet need.`],
+                        ["Q3 — JURY: How will you make money after INDH support ends?",
+                          `A: ${plan?.businessModel?.slice(0,220)||"..."}.\n   Main sales channel: ${plan?.businessModel?.match(/(souk|WhatsApp|clients)[^.]{0,60}/i)?.[0]||"..."}.`],
+                        ["Q4 — JURY: What experience or skills do you have in this field?",
+                          `A: ${proj?.holderExperience||"Hands-on sector experience"}.\n   ${plan?.operationalPlan?.slice(0,160)||"Detailed operational plan included in the file."}`],
+                        ["Q5 — JURY: How will your project survive and grow after year one?",
+                          `A: ${plan?.indh_alignment?.slice(0,180)||"..."}.\n   Projections: Year 1 → ${plan?.projections?.year1||"??"} MAD · Year 2 → ${plan?.projections?.year2||"??"} MAD · Year 3 → ${plan?.projections?.year3||"??"} MAD.`],
+                      ] : [
+                        ["Q1 — JURY: Qui va bénéficier de votre projet et combien sont-ils?",
+                          `R: ${proj?.targetProfile||proj?.beneficiaries||"..."} — ${proj?.beneficiaries||"..."} bénéficiaires directs.\n   Revenu supplémentaire attendu: ~${plan?.businessModel?.match(/\d[\d\s]*MAD/)?.[0]||"..."} / mois par bénéficiaire.`],
+                        ["Q2 — JURY: Quel problème local concret résout votre projet?",
+                          `R: ${plan?.problemStatement?.slice(0,220)||"..."}.\n   Localisation: ${proj?.location||"..."} — besoin réel non couvert.`],
+                        ["Q3 — JURY: Comment allez-vous gagner de l'argent après l'INDH?",
+                          `R: ${plan?.businessModel?.slice(0,220)||"..."}.\n   Canal principal: ${plan?.businessModel?.match(/(souk|WhatsApp|clients)[^.]{0,60}/i)?.[0]||"..."}.`],
+                        ["Q4 — JURY: Quelle est votre expérience ou compétence dans ce domaine?",
+                          `R: ${proj?.holderExperience||"Expérience terrain dans le secteur"}.\n   ${plan?.operationalPlan?.slice(0,160)||"Plan opérationnel détaillé inclus dans le dossier."}`],
+                        ["Q5 — JURY: Comment votre projet va-t-il survivre et croître après la 1ère année?",
+                          `R: ${plan?.indh_alignment?.slice(0,180)||"..."}.\n   Projections: An 1 → ${plan?.projections?.year1||"??"} MAD · An 2 → ${plan?.projections?.year2||"??"} MAD · An 3 → ${plan?.projections?.year3||"??"} MAD.`],
+                      ];
+                      const budgetTotal = (budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
+                      const lines = [
+                        `${"═".repeat(60)}`,
+                        `${proj?.projectName||"Projet"} — ${eAr?"ورقة تحضير لجنة التحكيم":eEn?"JURY PREPARATION SHEET":"FICHE PRÉPARATION JURY"}`,
+                        `${"═".repeat(60)}`,``,
+                        eAr?"★ الأرقام الأساسية يجب حفظها":eEn?"★ KEY NUMBERS TO MEMORIZE":"★ CHIFFRES CLÉS À MÉMORISER",
+                        `${"─".repeat(40)}`,
+                        eAr?`• الميزانية الإجمالية: ${budgetTotal.toLocaleString()} درهم`:eEn?`• Total budget: ${budgetTotal.toLocaleString()} MAD`:`• Budget total: ${budgetTotal.toLocaleString()} MAD`,
+                        eAr?`• مساهمة المبادرة (85%): ${(budget?.indhContribution||Math.round(budgetTotal*.85)).toLocaleString()} درهم`:eEn?`• INDH grant (85%): ${(budget?.indhContribution||Math.round(budgetTotal*.85)).toLocaleString()} MAD`:`• Subvention INDH (85%): ${(budget?.indhContribution||Math.round(budgetTotal*.85)).toLocaleString()} MAD`,
+                        eAr?`• مساهمتي (15%): ${(budget?.beneficiaryContribution||Math.round(budgetTotal*.15)).toLocaleString()} درهم`:eEn?`• My contribution (15%): ${(budget?.beneficiaryContribution||Math.round(budgetTotal*.15)).toLocaleString()} MAD`:`• Mon apport (15%): ${(budget?.beneficiaryContribution||Math.round(budgetTotal*.15)).toLocaleString()} MAD`,
+                        eAr?`• نقطتي لدى اللجنة: ${comp?.score||"?"}/100 (${comp?.eligible?"مؤهل ✓":"يحتاج تحسين"})`:eEn?`• Jury score: ${comp?.score||"?"}/100 (${comp?.eligible?"Eligible ✓":"Needs improvement"})`:`• Score jury: ${comp?.score||"?"}/100 (${comp?.eligible?"ÉLIGIBLE ✓":"À améliorer"})`,
+                        eAr?`• عدد المستفيدين: ${proj?.beneficiaries||"..."}`:eEn?`• Beneficiaries: ${proj?.beneficiaries||"..."}`:`• Bénéficiaires: ${proj?.beneficiaries||"..."}`,
+                        eAr?`• قطاع النشاط: ${proj?.sector||"..."}`:eEn?`• Sector: ${proj?.sector||"..."}`:`• Secteur: ${proj?.sector||"..."}`,
+                        eAr?`• محور المبادرة: ${comp?.pillar||proj?.pillar||"..."}`:eEn?`• INDH Pillar: ${comp?.pillar||proj?.pillar||"..."}`:`• Axe INDH: ${comp?.pillar||proj?.pillar||"..."}`,
+                        ``,
+                        eAr?"★ نقاط قوتي الرئيسية (أبرزها أمام اللجنة)":eEn?"★ MY STRENGTHS (highlight to the jury)":"★ MES POINTS FORTS (à mettre en avant)",
+                        `${"─".repeat(40)}`,
+                        ...(comp?.strengths||[]).map((s: string, i: number) => `${i+1}. ${s}`),
+                        ``,
+                        eAr?"★ نقاط الضعف والإجراءات قبل يوم اللجنة":eEn?"★ WEAKNESSES — ACTIONS BEFORE JURY DAY":"★ POINTS FAIBLES — ACTIONS AVANT LE JURY",
+                        `${"─".repeat(40)}`,
+                        ...(comp?.recommendations||[]).map((r: string, i: number) => `${i+1}. ⚡ ${r}`),
+                        ``,
+                        eAr?"★ تقييم اللجنة بالتفصيل":eEn?"★ JURY SCORING BREAKDOWN":"★ DÉCOMPOSITION DU SCORE JURY",
+                        `${"─".repeat(40)}`,
+                        ...[{key:"impact",label:"Impact social",w:25},{key:"viability",label:"Viabilité économique",w:20},{key:"relevance",label:"Pertinence territoriale",w:20},{key:"management",label:"Capacité de gestion",w:15},{key:"sustainability",label:"Durabilité",w:10},{key:"innovation",label:"Innovation",w:10}].map(j => {
+                          const sc = comp?.juryScore?.[j.key]||0;
+                          const bar = "█".repeat(Math.round(sc/j.w*10)) + "░".repeat(10-Math.round(sc/j.w*10));
+                          return `${j.label.padEnd(28)} ${bar} ${sc}/${j.w}`;
+                        }),
+                        ``,
+                        eAr?"★ أسئلة اللجنة المتوقعة + إجاباتك المقترحة":eEn?"★ EXPECTED JURY QUESTIONS + SUGGESTED ANSWERS":"★ QUESTIONS JURY PROBABLES + RÉPONSES SUGGÉRÉES",
+                        `${"─".repeat(40)}`,
+                        ...q5.flatMap((pair) => { const [q,a] = pair as [string,string]; return [``,q,``,a,``]; }),
+                        `${"═".repeat(60)}`,
+                        eAr?"💡 نصيحة أخيرة: تحدث بثقة، استشهد بالأرقام الدقيقة، وأظهر شغفك بمشروعك.":eEn?"💡 Final tip: Speak confidently, cite exact numbers, and show your passion for the project.":"💡 Conseil final: Parlez avec confiance, citez vos chiffres précis, et montrez votre passion.",
+                        eAr?"منصة IdeaMap — مبادرة وطنية للتنمية البشرية المرحلة 3":eEn?"IdeaMap Platform — INDH Phase 3 Morocco":"Plateforme IdeaMap — INDH Phase 3 Maroc",
+                      ];
+                      dlText(lines.join("\n"), `FicheJury_${proj?.projectName||"IdeaMap"}.txt`);
+                    }},
+                  {icon:"🎤", l:eAr?"عرض تقديمي للممولين (5 شرائح)":eEn?"Investor Pitch Deck — 5 slides":"Pitch Deck Investisseur — 5 diapositives", ok:!!plan,
+                    onDl:() => dlPPTX("pitch", dlLang), badge:"pptx"},
+                  {icon:"🏛️", l:TXT.jury, ok:!!proj, onDl:() => dlPPTX("jury", dlLang), badge:"pptx"},
                 ];
                 return items.map((x, i) => (
                   <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px",
                     borderRadius:"13px", marginBottom:"7px", background:x.ok?ND:CR, border:`1px solid ${x.ok?Y:CD}`}}>
-                    <span style={{fontSize:"20px"}}>{x.icon}</span>
-                    <span style={{flex:1, fontSize:"12px", color:x.ok?WH:ND, fontWeight:"500",
+                    <span style={{fontSize:"20px", flexShrink:0}}>{x.icon}</span>
+                    <span style={{flex:1, minWidth:0, fontSize:"12px", color:x.ok?WH:ND, fontWeight:"500",
                       fontFamily:dlLang==="ar"?"'Tajawal',sans-serif":undefined,
                       direction:dlLang==="ar"?"rtl":"ltr"}}>{x.l}</span>
                     {x.ok ? (
                       <button onClick={x.onDl}
                         style={{padding:"5px 12px", borderRadius:"8px", border:`1.5px solid ${Y}`,
                           background:"transparent", color:Y, fontSize:"11px", fontWeight:"700",
-                          fontFamily:ff(lang), cursor:"pointer"}}>
+                          fontFamily:ff(lang), cursor:"pointer", flexShrink:0, whiteSpace:"nowrap"}}>
                         ⬇ {x.badge || "txt"}
                       </button>
                     ) : (
                       <span style={{padding:"2px 7px", borderRadius:"5px", fontSize:"9px", fontWeight:"700",
-                        background:CD, color:GR}}>⏳</span>
+                        background:CD, color:GR, flexShrink:0}}>⏳</span>
                     )}
                   </div>
                 ));
               })()}
             </Card>
+
+            {/* Submission process steps */}
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"16px"}}>
+                <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>🗺️ {t.processT}</span>
+              </div>
+              {[
+                {n:"1", l:lang==="ar"?"إعداد جميع الوثائق":lang==="fr"?"Finaliser et réunir les documents":"Finalize and gather all documents", d:lang==="ar"?"8 وثائق إلزامية + 4 اختيارية":lang==="fr"?"8 obligatoires + 4 recommandés":"8 required + 4 recommended"},
+                {n:"2", l:lang==="ar"?"إيداع الملف لدى مديرية العمل الاجتماعي (DAS)":lang==="fr"?"Déposer le dossier à la DAS":"Submit to Division of Social Action (DAS)", d:lang==="ar"?"احصل على وصل الإيداع":lang==="fr"?"Obtenez le récépissé de dépôt":"Obtain deposit receipt"},
+                {n:"3", l:lang==="ar"?"دراسة الملف من طرف اللجنة الإقليمية (CPDH)":lang==="fr"?"Instruction par le CPDH local":"Review by local CPDH committee", d:lang==="ar"?"4 إلى 8 أسابيع":lang==="fr"?"Délai: 4 à 8 semaines":"Timeline: 4 to 8 weeks"},
+                {n:"4", l:lang==="ar"?"المثول أمام لجنة التحكيم":lang==="fr"?"Présentation devant le jury INDH":"Present before INDH selection jury", d:lang==="ar"?"100 نقطة — حد الأهلية 60/100":lang==="fr"?"100 pts — éligible si ≥ 60/100":"100 pts — eligible if ≥ 60/100"},
+                {n:"5", l:lang==="ar"?"التوقيع على اتفاقية المبادرة وانطلاق المشروع":lang==="fr"?"Signature de la convention et démarrage":"Sign INDH convention and launch", d:lang==="ar"?"INDH 85% + مساهمة الحامل 15%":lang==="fr"?"INDH 85% + apport porteur 15%":"INDH 85% + holder 15%"},
+              ].map((s, i, arr) => (
+                <div key={i} style={{display:"flex", gap:"12px", paddingBottom: i < arr.length-1 ? "16px" : 0,
+                  marginBottom: i < arr.length-1 ? "16px" : 0,
+                  borderBottom: i < arr.length-1 ? `1px solid ${CD}` : "none"}}>
+                  <div style={{width:28, height:28, borderRadius:"50%", background:ND, flexShrink:0,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:"11px", fontWeight:"800", color:Y}}>{s.n}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:"13px", fontWeight:"600", color:ND, marginBottom:"3px"}}>{s.l}</div>
+                    <div style={{fontSize:"11px", color:GR}}>{s.d}</div>
+                  </div>
+                </div>
+              ))}
+            </Card>
+
+            {/* Jury tips */}
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"16px"}}>
+                <AccBar/><span style={{fontSize:"15px", fontWeight:"700", color:ND}}>🏆 {t.tipsT}</span>
+              </div>
+              <div style={{display:"flex", flexDirection:"column", gap:"8px"}}>
+                {[
+                  {icon:"👥", tip:lang==="ar"?"اذكر عدداً دقيقاً من المستفيدين مع ملفهم (نساء، شباب، أسر...)":lang==="fr"?"Citez un nombre PRÉCIS de bénéficiaires avec leur profil (femmes, jeunes, familles...)":"Name the EXACT beneficiary count with their profile (women, youth, families...)"},
+                  {icon:"💰", tip:lang==="ar"?"أعط أرقاماً واقعية: الإيراد الشهري المتوقع، هامش الربح، شهور الربحية":lang==="fr"?"Donnez des chiffres réels: CA mensuel, marge brute, mois de rentabilité":"Give real numbers: monthly revenue, gross margin, break-even in months"},
+                  {icon:"📍", tip:lang==="ar"?"أبرز المشكلة المحلية بالأرقام (بطالة الشباب، غياب الخدمة...)":lang==="fr"?"Montrez le problème LOCAL avec des stats (chômage, service manquant...)":"Show the LOCAL problem with stats (unemployment, missing service...)"},
+                  {icon:"📜", tip:lang==="ar"?"أضف شهادة أو رسالة دعم من الجماعة المحلية لتعزيز الانتماء الترابي":lang==="fr"?"Ajoutez un courrier de soutien de la commune pour le critère 'pertinence territoriale'":"A support letter from the local commune boosts the 'territorial relevance' criterion"},
+                  {icon:"🔄", tip:lang==="ar"?"بيّن كيف سيستمر المشروع بعد انتهاء دعم المبادرة الوطنية":lang==="fr"?"Expliquez comment le projet survit APRÈS l'INDH: clients fidèles, partenariats":"Explain how the project survives AFTER INDH: repeat clients, partnerships"},
+                ].map((item, i) => (
+                  <div key={i} style={{display:"flex", gap:"10px", padding:"11px 13px",
+                    background:YL, borderRadius:"11px", border:`1px solid ${Y}33`}}>
+                    <span style={{fontSize:"18px", flexShrink:0}}>{item.icon}</span>
+                    <span style={{fontSize:"12px", color:ND, lineHeight:"1.65", fontFamily:ff(lang),
+                      direction:lang==="ar"?"rtl":"ltr"}}>{item.tip}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            {backBtn()}
           </>);
         })()}
 
@@ -2744,9 +3564,17 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
   onLogout: () => void; t: any; holders: any[];
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
-  const [tab, setTab]       = useState("holders");
-  const [search, setSearch] = useState("");
-  const [detail, setDetail] = useState<any>(null);
+  const [tab, setTab]           = useState("holders");
+  const [search, setSearch]     = useState("");
+  const [detail, setDetail]     = useState<any>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
 
   const COORD_NAV = [
     {id:"overview", label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
@@ -2775,11 +3603,9 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
       h.proj?.projectName||"", h.comp?.score||"", h.comp?.eligible?"OUI":"NON", h.step||"idea",
     ].map(v => `"${String(v).replace(/"/g,'""')}"`));
     const csv = [cols.join(";"), ...rows.map(r => r.join(";"))].join("\n");
-    const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"})),
-      download: "IdeaMap_Porteurs_Coord.csv",
-    });
-    a.click();
+    const url = URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"}));
+    Object.assign(document.createElement("a"), {href: url, download: "IdeaMap_Porteurs_Coord.csv"}).click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const getStatus = (h: any) => {
@@ -2793,10 +3619,22 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
     const h = detail;
     return (
       <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+        {sidebarOpen && <div onClick={() => setSidebarOpen(false)}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:299}}/>}
         <DashSidebar user={user} navItems={COORD_NAV} activeTab={tab}
-          onTabChange={id => { setTab(id); setDetail(null); }}
-          onLogout={onLogout} lang={lang} t={t}/>
+          onTabChange={id => { setTab(id); setDetail(null); setSidebarOpen(false); }}
+          onLogout={onLogout} lang={lang} setLang={setLang} t={t}
+          open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
         <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+          {/* Mobile top bar — hamburger + title */}
+          <div className="dash-topbar" style={{background:WH, borderBottom:`1px solid ${CD}`,
+            padding:"12px 16px", alignItems:"center", gap:"12px",
+            position:"sticky", top:0, zIndex:100}}>
+            <button onClick={() => setSidebarOpen(true)}
+              style={{background:"transparent", border:`1px solid ${CD}`, borderRadius:"8px",
+                padding:"6px 10px", fontSize:"16px", cursor:"pointer", color:ND}}>☰</button>
+            <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
+          </div>
           <div style={{maxWidth:860, padding:"32px 40px 48px"}}>
             <button onClick={() => setDetail(null)} style={{marginBottom:"20px", padding:"8px 16px",
               borderRadius:"8px", border:`1px solid ${CD}`, background:WH,
@@ -2874,9 +3712,21 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
 
   return (
     <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+      {sidebarOpen && <div onClick={() => setSidebarOpen(false)}
+        style={{position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:299}}/>}
       <DashSidebar user={user} navItems={COORD_NAV} activeTab={tab}
-        onTabChange={setTab} onLogout={onLogout} lang={lang} t={t}/>
+        onTabChange={setTab} onLogout={onLogout} lang={lang} setLang={setLang} t={t}
+        open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
       <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+        {/* Mobile top bar */}
+        <div className="dash-topbar" style={{background:WH, borderBottom:`1px solid ${CD}`,
+          padding:"12px 16px", alignItems:"center", gap:"12px",
+          position:"sticky", top:0, zIndex:100}}>
+          <button onClick={() => setSidebarOpen(true)}
+            style={{background:"transparent", border:`1px solid ${CD}`, borderRadius:"8px",
+              padding:"6px 10px", fontSize:"16px", cursor:"pointer", color:ND}}>☰</button>
+          <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
+        </div>
         <div style={{padding:"32px 40px 48px", maxWidth:860}}>
 
           {/* ── Overview ── */}
@@ -2885,19 +3735,66 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
               {lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"}
             </h2>
             <p style={{fontSize:14, color:GR, marginBottom:24}}>{user.id}</p>
-            <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:14, marginBottom:20}}>
-              {[
-                {v:holders.length, l:lang==="ar"?"الحاملون المعينون":lang==="fr"?"Porteurs assignés":"Assigned holders"},
-                {v:holders.length ? Math.round(holders.reduce((s,h)=>s+(STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100),0)/holders.length) + "%" : "—", l:lang==="ar"?"متوسط التقدم":lang==="fr"?"Préparation moyenne":"Avg progress"},
-                {v:holders.filter(h=>h.comp?.eligible).length, l:lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects"},
-              ].map((x,i) => (
-                <div key={i} style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
-                  padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
-                  <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>{x.l}</div>
-                  <div style={{fontSize:28, fontWeight:800, color:ND}}>{x.v}</div>
+            {(() => {
+              const eligC  = holders.filter(h => h.comp?.eligible).length;
+              const eligR  = holders.length ? Math.round((eligC / holders.length) * 100) : 0;
+              const avgPct = holders.length
+                ? Math.round(holders.reduce((s, h) => s + (STEPS_LIST.indexOf(h.step||"idea") / (STEPS_LIST.length - 1) * 100), 0) / holders.length)
+                : 0;
+              return (
+                <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:14, marginBottom:20}}>
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"الحاملون المعينون":lang==="fr"?"Porteurs assignés":"Assigned holders"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{holders.length}</div>
+                  </div>
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"متوسط التقدم":lang==="fr"?"Préparation":"Avg progress"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{holders.length ? avgPct + "%" : "—"}</div>
+                    {holders.length > 0 && (
+                      <div style={{height:4, background:CD, borderRadius:2, marginTop:8, overflow:"hidden"}}>
+                        <div style={{height:"100%", borderRadius:2, background:Y, width:`${avgPct}%`, transition:"width .5s"}}/>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{background: eligC > 0 ? "#EAF3EF" : WH, border:`1px solid ${eligC > 0 ? GN + "44" : CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects"}
+                    </div>
+                    <div style={{display:"flex", alignItems:"baseline", gap:6}}>
+                      <div style={{fontSize:28, fontWeight:800, color: eligC > 0 ? GN : ND}}>{eligC}</div>
+                      {holders.length > 0 && <div style={{fontSize:12, fontWeight:700, color: eligC > 0 ? GN : GR}}>({eligR}%)</div>}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })()}
+            {holders.length === 0 ? (
+              <Card style={{textAlign:"center", padding:"40px 24px"}}>
+                <svg viewBox="0 0 200 140" style={{width:180, height:126, margin:"0 auto 18px", display:"block"}}>
+                  <circle cx="100" cy="56" r="38" fill={YL} stroke={Y} strokeWidth="1.5"/>
+                  <text x="100" y="68" textAnchor="middle" fontSize="32">🎓</text>
+                  <rect x="30" y="104" width="140" height="8" rx="4" fill={CD}/>
+                  <rect x="55" y="118" width="90" height="8" rx="4" fill={CD}/>
+                </svg>
+                <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>
+                  {lang==="ar"?"لا يوجد حاملون بعد":lang==="fr"?"Aucun porteur assigné":"No holders assigned yet"}
+                </div>
+                <div style={{fontSize:"13px", color:GR, lineHeight:1.6, maxWidth:300, margin:"0 auto"}}>
+                  {lang==="ar"
+                    ? "سيظهر حاملو مشاريعك هنا بمجرد تسجيلهم باستخدام رمز CIN الخاص بهم."
+                    : lang==="fr"
+                    ? "Vos porteurs apparaîtront ici dès qu'ils se connectent avec leur CIN."
+                    : "Your holders appear here once they sign in with their CIN."}
+                </div>
+              </Card>
+            ) : (
             <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
                 <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
@@ -2920,6 +3817,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
                 );
               })}
             </Card>
+            )}
             {holders.filter(h => STEPS_LIST.indexOf(h.step||"idea")/(STEPS_LIST.length-1)*100 < 40).length > 0 && (
               <Card>
                 <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
@@ -3145,6 +4043,14 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   const [filterSector, setFilterSector] = useState("");
   const [filterStep, setFilterStep]     = useState("");
   const [detailH, setDetailH]   = useState<any>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
 
   const ADMIN_NAV = [
     {id:"overview",  label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
@@ -3183,11 +4089,9 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
       h.comp?.score||"", h.comp?.eligible?"OUI":"NON", h.step||"idea",
     ].map(v => `"${String(v).replace(/"/g,'""')}"`));
     const csv = [cols.join(";"), ...rows.map(r => r.join(";"))].join("\n");
-    const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"})),
-      download: "IdeaMap_Porteurs.csv",
-    });
-    a.click();
+    const url = URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8"}));
+    Object.assign(document.createElement("a"), {href: url, download: "IdeaMap_Porteurs.csv"}).click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const BarRow = ({label, n, total, col}: {label: string; n: number; total: number; col: string}) => (
@@ -3215,10 +4119,22 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
     const h = detailH;
     return (
       <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+        {sidebarOpen && <div onClick={() => setSidebarOpen(false)}
+          style={{position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:299}}/>}
         <DashSidebar user={user} navItems={ADMIN_NAV} activeTab={tab}
-          onTabChange={id => { setTab(id); setDetailH(null); }}
-          onLogout={onLogout} lang={lang} t={t}/>
+          onTabChange={id => { setTab(id); setDetailH(null); setSidebarOpen(false); }}
+          onLogout={onLogout} lang={lang} setLang={setLang} t={t}
+          open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
         <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+          {/* Mobile top bar */}
+          <div className="dash-topbar" style={{background:WH, borderBottom:`1px solid ${CD}`,
+            padding:"12px 16px", alignItems:"center", gap:"12px",
+            position:"sticky", top:0, zIndex:100}}>
+            <button onClick={() => setSidebarOpen(true)}
+              style={{background:"transparent", border:`1px solid ${CD}`, borderRadius:"8px",
+                padding:"6px 10px", fontSize:"16px", cursor:"pointer", color:ND}}>☰</button>
+            <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
+          </div>
           <div style={{padding:"32px 40px 48px", maxWidth:860}}>
             <button onClick={() => setDetailH(null)} style={{marginBottom:"20px", padding:"8px 16px",
               borderRadius:"8px", border:`1px solid ${CD}`, background:WH,
@@ -3340,11 +4256,9 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                    h2.profile?.phone||"", h2.profile?.region||"", h2.proj?.sector||"",
                    h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
                 ].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(";")).join("\n");
-                const a = Object.assign(document.createElement("a"), {
-                  href: URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"})),
-                  download: `Porteur_${h2.id}.csv`,
-                });
-                a.click();
+                const url = URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"}));
+                Object.assign(document.createElement("a"), {href: url, download: `Porteur_${h2.id}.csv`}).click();
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
               }} style={{padding:"8px 16px", borderRadius:"8px", border:`1.5px solid ${Y}`,
                 background:"transparent", color:Y, fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
                 ⬇ CSV
@@ -3358,9 +4272,21 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
 
   return (
     <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
+      {sidebarOpen && <div onClick={() => setSidebarOpen(false)}
+        style={{position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:299}}/>}
       <DashSidebar user={user} navItems={ADMIN_NAV} activeTab={tab}
-        onTabChange={setTab} onLogout={onLogout} lang={lang} t={t}/>
+        onTabChange={setTab} onLogout={onLogout} lang={lang} setLang={setLang} t={t}
+        open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
       <div style={{flex:1, overflowY:"auto", direction:dir as "rtl"|"ltr"}}>
+        {/* Mobile top bar */}
+        <div className="dash-topbar" style={{background:WH, borderBottom:`1px solid ${CD}`,
+          padding:"12px 16px", alignItems:"center", gap:"12px",
+          position:"sticky", top:0, zIndex:100}}>
+          <button onClick={() => setSidebarOpen(true)}
+            style={{background:"transparent", border:`1px solid ${CD}`, borderRadius:"8px",
+              padding:"6px 10px", fontSize:"16px", cursor:"pointer", color:ND}}>☰</button>
+          <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
+        </div>
         <div style={{padding:"32px 40px 48px", maxWidth:900}}>
 
           {/* ── Overview ── */}
@@ -3371,20 +4297,60 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
             <p style={{fontSize:14, color:GR, marginBottom:24}}>
               {lang==="ar"?"لوحة تحكم المدير":lang==="fr"?"Tableau de bord Administrateur":"Admin Dashboard"}
             </p>
-            <div style={{display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:14, marginBottom:20}}>
-              {[
-                {label:lang==="ar"?"الحاملون النشطون":lang==="fr"?"Porteurs actifs":"Active holders", val:holders.length},
-                {label:lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects", val:holders.filter(h=>h.comp?.eligible).length},
-                {label:lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs actifs":"Active coordinators", val:coords.length},
-                {label:lang==="ar"?"متوسط النقاط":lang==="fr"?"Score moyen":"Avg score", val:holders.length ? Math.round(holders.reduce((s,h)=>s+(h.comp?.score||0),0)/holders.length) : 0},
-              ].map((x,i) => (
-                <div key={i} style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
-                  padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
-                  <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>{x.label}</div>
-                  <div style={{fontSize:28, fontWeight:800, color:ND}}>{x.val}</div>
+            {(() => {
+              const eligCount   = holders.filter(h => h.comp?.eligible).length;
+              const eligRate    = holders.length ? Math.round((eligCount / holders.length) * 100) : 0;
+              const doneCount   = holders.filter(h => h.step === "export").length;
+              const avgScore    = holders.length ? Math.round(holders.reduce((s, h) => s + (h.comp?.score || 0), 0) / holders.length) : 0;
+              const scoreCol    = avgScore >= 60 ? GN : avgScore >= 40 ? "#D97706" : avgScore > 0 ? RE : GR;
+              return (
+                <div style={{display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:14, marginBottom:20}}>
+                  {/* Card 1 — total holders */}
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"الحاملون النشطون":lang==="fr"?"Porteurs actifs":"Active holders"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{holders.length}</div>
+                  </div>
+                  {/* Card 2 — eligible count + rate */}
+                  <div style={{background:eligCount > 0 ? "#EAF3EF" : WH, border:`1px solid ${eligCount > 0 ? GN + "44" : CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"مشاريع مؤهلة":lang==="fr"?"Projets éligibles":"Eligible projects"}
+                    </div>
+                    <div style={{display:"flex", alignItems:"baseline", gap:6}}>
+                      <div style={{fontSize:28, fontWeight:800, color: eligCount > 0 ? GN : ND}}>{eligCount}</div>
+                      {holders.length > 0 && <div style={{fontSize:12, fontWeight:700, color: eligCount > 0 ? GN : GR}}>({eligRate}%)</div>}
+                    </div>
+                  </div>
+                  {/* Card 3 — coordinators */}
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{coords.length}</div>
+                  </div>
+                  {/* Card 4 — avg jury score with color + completed dossiers */}
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12,
+                    padding:"18px 20px", boxShadow:"0 1px 2px rgba(10,15,44,.04)"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"متوسط النقاط":lang==="fr"?"Score moyen":"Avg score"}
+                    </div>
+                    <div style={{display:"flex", alignItems:"baseline", gap:6}}>
+                      <div style={{fontSize:28, fontWeight:800, color:scoreCol}}>{avgScore > 0 ? avgScore : "—"}</div>
+                      {avgScore > 0 && <div style={{fontSize:12, fontWeight:700, color:scoreCol}}>/100</div>}
+                    </div>
+                    {doneCount > 0 && (
+                      <div style={{fontSize:10.5, color:GN, fontWeight:600, marginTop:4}}>
+                        ✓ {doneCount} {lang==="ar"?"دوسيه كامل":lang==="fr"?"dossier(s) complet(s)":"complete dossier(s)"}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })()}
             <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
               <Card style={{marginBottom:0}}>
                 <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
@@ -3407,6 +4373,32 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                 {Object.keys(bySector).length === 0 && <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p>}
               </Card>
             </div>
+            {holders.length === 0 && (
+              <Card style={{textAlign:"center", padding:"40px 24px"}}>
+                <svg viewBox="0 0 200 140" style={{width:180, height:126, margin:"0 auto 18px", display:"block"}}>
+                  <rect x="20" y="20" width="160" height="100" rx="14" fill={YL} stroke={Y} strokeWidth="1.5"/>
+                  <rect x="36" y="38" width="64" height="8" rx="4" fill={Y} opacity=".35"/>
+                  <rect x="36" y="54" width="128" height="6" rx="3" fill={CD}/>
+                  <rect x="36" y="66" width="100" height="6" rx="3" fill={CD}/>
+                  <rect x="36" y="78" width="116" height="6" rx="3" fill={CD}/>
+                  <circle cx="152" cy="42" r="14" fill={Y} opacity=".12"/>
+                  <circle cx="152" cy="42" r="8" fill={Y} opacity=".5"/>
+                  <path d="M148 42 l3 3 l6-6" stroke={WH} strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  <rect x="36" y="96" width="44" height="14" rx="7" fill={ND} opacity=".12"/>
+                  <text x="58" y="107" textAnchor="middle" fontSize="8" fill={ND} fontFamily="Arial" fontWeight="700">INDH</text>
+                </svg>
+                <div style={{fontSize:"16px", fontWeight:"700", color:ND, marginBottom:"6px"}}>
+                  {lang==="ar"?"لا توجد مشاريع بعد":lang==="fr"?"Aucun porteur enregistré":"No holders yet"}
+                </div>
+                <div style={{fontSize:"13px", color:GR, lineHeight:1.6, maxWidth:320, margin:"0 auto"}}>
+                  {lang==="ar"
+                    ? "سيظهر حاملو المشاريع هنا بعد تسجيلهم باستخدام رمز CIN الخاص بهم."
+                    : lang==="fr"
+                    ? "Les porteurs apparaîtront ici dès qu'ils se connectent avec leur CIN."
+                    : "Holders appear here once they sign in with their CIN."}
+                </div>
+              </Card>
+            )}
             {holders.length > 0 && <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
                 <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
@@ -3714,6 +4706,7 @@ export default function IdeaMapPage() {
   const [holders, setHolders] = useState<any[]>([]);
   const [coords, setCoords]   = useState<string[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ── Fetch live data from Google Sheets on mount ──────
      Falls back to localStorage if Sheets isn't configured */
@@ -3800,7 +4793,23 @@ export default function IdeaMapPage() {
         : [...p, data];
       return updated;
     });
-    persistHolder(data);
+    // Write localStorage immediately so offline reload never loses progress.
+    try {
+      const cur = JSON.parse(localStorage.getItem("idm_holders") || "[]") as any[];
+      const idx = cur.findIndex(h => h.id === data.id);
+      localStorage.setItem("idm_holders", JSON.stringify(
+        idx >= 0 ? cur.map((h, i) => i === idx ? {...h, ...data} : h) : [...cur, data]
+      ));
+    } catch {}
+    // Debounce Redis writes: dialogue fires this every message, batch to 2s.
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(() => {
+      fetch("/api/sheets", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({type: "save_holder", holder: data}),
+      }).catch(() => {});
+    }, 2000);
   }
 
   function onAddCoord(c: string) {
