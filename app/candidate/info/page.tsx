@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import PageHeader from '../../../components/PageHeader';
+import Logo from '../../../components/Logo';
 import { useAuth } from '../../../contexts/AuthContext';
 
 const CITIES = [
@@ -93,9 +93,9 @@ export default function CandidateInfoPage() {
   /* Show loading spinner while auth hydrates */
   if (!initialized) {
     return (
-      <main style={{ minHeight: '100vh', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+      <main style={{ minHeight: '100vh', background: '#F6F8FC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid #e2e8f0', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+          <div style={{ width: '40px', height: '40px', border: '3px solid #E2E8F0', borderTopColor: '#1B4FD8', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Chargement…</p>
         </div>
@@ -152,8 +152,8 @@ export default function CandidateInfoPage() {
   };
   const inputStyle = (filled: boolean): React.CSSProperties => ({
     width: '100%', padding: '0.75rem 1rem', fontSize: '0.9rem',
-    border: `1.5px solid ${filled ? '#2563eb' : '#e2e8f0'}`,
-    borderRadius: '9px', outline: 'none', background: filled ? '#eff6ff' : '#f8fafc',
+    border: `1.5px solid ${filled ? '#1B4FD8' : '#E2E8F0'}`,
+    borderRadius: '9px', outline: 'none', background: filled ? '#EFF6FF' : '#f8fafc',
     color: '#0f172a', transition: 'border-color 0.15s, background 0.15s',
     fontFamily: 'inherit', boxSizing: 'border-box',
   });
@@ -168,16 +168,12 @@ export default function CandidateInfoPage() {
   const pct = Math.round((filledCount / totalFields) * 100);
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <main style={{ minHeight: '100vh', background: '#F6F8FC', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {/* Header */}
-      <div style={{ position: 'relative' }}>
-        <PageHeader title="TalentMap" subtitle="Mon Profil" />
-        <div style={{ position: 'absolute', top: '50%', right: '1.5rem', transform: 'translateY(-50%)', zIndex: 10, display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <Link href="/candidate" style={{ background: 'rgba(255,255,255,0.15)', color: 'white', border: '1.5px solid rgba(255,255,255,0.4)', borderRadius: '8px', padding: '0.5rem 1.1rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>
-            ← Dashboard
-          </Link>
-        </div>
-      </div>
+      <nav style={{ background: '#0B1629', height: 60, padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,.06)', boxShadow: '0 2px 16px rgba(0,0,0,.35)' }}>
+        <Logo size="md" variant="light" />
+        <Link href="/candidate" style={{ color: 'rgba(255,255,255,.75)', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>← Dashboard</Link>
+      </nav>
 
       <div style={{ maxWidth: '780px', margin: '0 auto', padding: '2rem 1.25rem 4rem' }}>
 
@@ -191,19 +187,19 @@ export default function CandidateInfoPage() {
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ flex: 1, height: '6px', background: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #1d4ed8, #2563eb)', borderRadius: '9999px', transition: 'width 0.4s ease' }} />
+              <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #1B4FD8, #1443B8)', borderRadius: '9999px', transition: 'width 0.4s ease' }} />
             </div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563eb', minWidth: '36px' }}>{pct}%</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1B4FD8', minWidth: '36px' }}>{pct}%</span>
           </div>
         </div>
 
         {/* ── Photo card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e8edf2' }}>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
           <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>📷 Photo de profil</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             <div
               onClick={() => fileRef.current?.click()}
-              style={{ width: '96px', height: '96px', borderRadius: '50%', border: '3px dashed #93c5fd', background: form.photo ? 'transparent' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', flexShrink: 0, transition: 'border-color 0.2s' }}
+              style={{ width: '96px', height: '96px', borderRadius: '50%', border: '3px dashed #93c5fd', background: form.photo ? 'transparent' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', flexShrink: 0, transition: 'border-color 0.2s' }}
               title="Cliquez pour changer la photo"
             >
               {form.photo
@@ -217,7 +213,7 @@ export default function CandidateInfoPage() {
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                   onClick={() => fileRef.current?.click()}
-                  style={{ padding: '0.55rem 1.1rem', background: 'linear-gradient(135deg,#1d4ed8,#2563eb)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ padding: '0.55rem 1.1rem', background: 'linear-gradient(135deg,#0B1629,#1B4FD8)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
                 >
                   {form.photo ? '🔄 Changer la photo' : '📁 Choisir une photo'}
                 </button>
@@ -244,7 +240,7 @@ export default function CandidateInfoPage() {
         </div>
 
         {/* ── Identity card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e8edf2' }}>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
           <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>🪪 État civil</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
@@ -267,7 +263,7 @@ export default function CandidateInfoPage() {
         </div>
 
         {/* ── Contact card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e8edf2' }}>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
           <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>📞 Contact & Localisation</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
@@ -289,7 +285,7 @@ export default function CandidateInfoPage() {
         </div>
 
         {/* ── Education card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e8edf2' }}>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
           <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>🎓 Formation & Diplôme</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ ...fieldBlock, gridColumn: '1 / -1' }}>
@@ -320,14 +316,14 @@ export default function CandidateInfoPage() {
             </div>
           </div>
           {form.diploma && (
-            <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.9rem', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#1d4ed8', fontWeight: 600 }}>
+            <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.9rem', background: '#EFF6FF', borderRadius: '8px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#1B4FD8', fontWeight: 600 }}>
               ✅ {form.diploma}{form.institution ? ` — ${form.institution}` : ''}{form.graduationYear ? ` (${form.graduationYear})` : ''}
             </div>
           )}
         </div>
 
         {/* ── Professional card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e8edf2' }}>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
           <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>💼 Profil Professionnel</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
@@ -356,7 +352,7 @@ export default function CandidateInfoPage() {
         </div>
 
         {/* ── Languages card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.75rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e8edf2' }}>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.75rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
           <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1rem' }}>🌐 Langues maîtrisées *</h2>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {LANGS.map(l => {
@@ -365,7 +361,7 @@ export default function CandidateInfoPage() {
                 <button
                   key={l}
                   onClick={() => toggleLang(l)}
-                  style={{ padding: '0.45rem 1rem', borderRadius: '9999px', border: `2px solid ${active ? '#2563eb' : '#e2e8f0'}`, background: active ? '#eff6ff' : '#f8fafc', color: active ? '#1d4ed8' : '#64748b', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
+                  style={{ padding: '0.45rem 1rem', borderRadius: '9999px', border: `2px solid ${active ? '#1B4FD8' : '#E2E8F0'}`, background: active ? '#EFF6FF' : '#f8fafc', color: active ? '#1B4FD8' : '#64748b', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
                 >
                   {active ? '✓ ' : ''}{l}
                 </button>
@@ -379,7 +375,7 @@ export default function CandidateInfoPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            style={{ padding: '0.9rem 2rem', background: saved ? '#059669' : 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', minWidth: '160px' }}
+            style={{ padding: '0.9rem 2rem', background: saved ? '#059669' : 'linear-gradient(135deg,#0B1629,#1B4FD8)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', minWidth: '160px' }}
           >
             {saving ? 'Enregistrement…' : saved ? '✅ Enregistré !' : '💾 Enregistrer'}
           </button>
