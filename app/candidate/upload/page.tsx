@@ -56,10 +56,10 @@ function generateCVHtml(data: {
   photo?: string; linkedin?: string; portfolio?: string;
 }) {
   const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
-  const initials = data.name.split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+  const initials = data.name.split(' ').map((w: string) => w[0] || '').join('').slice(0, 2).toUpperCase();
   const avatarHtml = data.photo
     ? `<img src="${data.photo}" alt="Photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
-    : initials || '?';
+    : `<span style="font-size:1.85rem;font-weight:800;color:#C49A35;font-family:'Playfair Display',Georgia,serif;letter-spacing:.02em">${initials || '?'}</span>`;
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -67,97 +67,169 @@ function generateCVHtml(data: {
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${data.name} — CV</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Poppins:wght@300;400;500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{max-width:840px;margin:2rem auto;background:#fff;border-radius:0;box-shadow:0 12px 48px rgba(0,0,0,.14);overflow:hidden}
-.hdr{background:linear-gradient(135deg,#0a1631 0%,#1a3a6b 50%,#2563eb 100%);padding:2.5rem 2.75rem 2rem;color:#fff;position:relative;overflow:hidden;display:flex;align-items:center;gap:2rem}
-.hdr::before{content:'';position:absolute;top:-80px;right:-80px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.06)}
-.hdr-avatar{width:90px;height:90px;border-radius:50%;border:3px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.9rem;font-weight:900;color:#fff;flex-shrink:0;position:relative;z-index:1;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.25)}
-.hdr-info{flex:1;position:relative;z-index:1}
-.hdr-name{font-size:1.95rem;font-weight:900;letter-spacing:-.03em;line-height:1.1}
-.hdr-role{margin-top:.4rem;font-size:1rem;font-weight:600;opacity:.75}
-.hdr-contacts{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1rem}
-.hdr-contacts span{font-size:.82rem;opacity:.8;display:flex;align-items:center;gap:.3rem}
-.body{display:grid;grid-template-columns:1fr 270px;gap:0}
-.main{padding:2rem 2rem 2rem 2.75rem;border-right:1px solid #f0f4f8}
-.side{padding:2rem 1.75rem;background:#f8fafc}
-.sec-title{font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#2563eb;margin-bottom:.85rem;padding-bottom:.45rem;border-bottom:2px solid #dbeafe}
-.sec{margin-bottom:1.75rem}
-.pills{display:flex;flex-wrap:wrap;gap:.4rem}
-.pill{background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:.3rem .75rem;font-size:.76rem;font-weight:700;border:1px solid #bfdbfe}
-.pill.lang{background:#f0fdf4;color:#065f46;border-color:#bbf7d0}
-.pill.cert{background:#fefce8;color:#713f12;border-color:#fde68a}
-.pill.role{background:#fdf4ff;color:#6b21a8;border-color:#e9d5ff}
-.badge{display:inline-flex;align-items:center;gap:.35rem;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border-radius:6px;padding:.4rem 1rem;font-size:.82rem;font-weight:700}
-.entry{padding:1rem 1.1rem;background:#fff;border-radius:8px;margin-bottom:.8rem;border-left:3px solid #2563eb;box-shadow:0 1px 6px rgba(30,64,175,.08)}
-.entry h4{font-size:.95rem;font-weight:800;color:#0f172a;line-height:1.3}
-.entry .co{font-size:.85rem;font-weight:700;color:#2563eb;margin-top:.15rem}
-.entry .meta{font-size:.75rem;color:#64748b;margin:.25rem 0 .6rem;font-weight:500}
-.entry ul{list-style:none;padding:0;margin:0}
-.entry ul li{font-size:.83rem;color:#374151;line-height:1.65;padding-left:1rem;position:relative;margin-bottom:.25rem}
-.entry ul li::before{content:"›";position:absolute;left:0;color:#2563eb;font-weight:800}
-.summary-text{font-size:.88rem;color:#334155;line-height:1.8;border-left:3px solid #2563eb;padding-left:1rem;font-style:italic}
-.edu-entry{background:#f8fafc;border-radius:8px;padding:.85rem 1rem;border:1px solid #e2e8f0}
-.edu-entry h4{font-size:.92rem;font-weight:700;color:#0f172a}
-.edu-entry .meta{font-size:.75rem;color:#64748b;margin-top:.2rem}
-.footer{text-align:center;padding:.9rem;font-size:.68rem;color:#94a3b8;border-top:1px solid #f0f4f8;letter-spacing:.04em;background:#f8fafc}
-@media print{body{background:#fff}.page{margin:0;box-shadow:none}}
+body{font-family:'Poppins',Arial,sans-serif;background:#d8dde6;color:#1a2438;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:860px;margin:2rem auto;display:flex;flex-direction:column;box-shadow:0 20px 64px rgba(0,0,0,.22);overflow:hidden}
+/* ── Two-column layout ── */
+.cv-body{display:flex;min-height:100%}
+/* ── Left sidebar ── */
+.sidebar{width:252px;flex-shrink:0;background:#0D1B2A;color:#e8edf3;display:flex;flex-direction:column}
+.sidebar-top{padding:2.4rem 1.8rem 1.8rem;display:flex;flex-direction:column;align-items:center;text-align:center;background:#0A1520;border-bottom:1px solid rgba(196,154,53,.25)}
+.avatar-ring{width:108px;height:108px;border-radius:50%;border:3px solid #C49A35;background:#1a2d42;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:1.1rem;box-shadow:0 0 0 6px rgba(196,154,53,.12)}
+.sb-name{font-family:'Playfair Display',Georgia,serif;font-size:1.18rem;font-weight:700;color:#fff;line-height:1.3;letter-spacing:.01em;margin-bottom:.3rem}
+.sb-role{font-size:.74rem;font-weight:500;color:#C49A35;text-transform:uppercase;letter-spacing:.12em;line-height:1.4}
+.sidebar-sections{padding:1.6rem 1.8rem;flex:1}
+.sb-sec{margin-bottom:1.7rem}
+.sb-sec-title{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#C49A35;margin-bottom:.9rem;padding-bottom:.45rem;border-bottom:1px solid rgba(196,154,53,.3);display:flex;align-items:center;gap:.45rem}
+.sb-sec-title::before{content:'';display:inline-block;width:14px;height:2px;background:#C49A35;border-radius:1px;flex-shrink:0}
+.contact-row{display:flex;align-items:flex-start;gap:.65rem;margin-bottom:.65rem}
+.contact-icon{width:26px;height:26px;border-radius:6px;background:rgba(196,154,53,.13);border:1px solid rgba(196,154,53,.22);display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;margin-top:.05rem}
+.contact-text{font-size:.74rem;color:#b8c4d2;line-height:1.55;word-break:break-word}
+.skill-tag{display:inline-block;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:.28rem .7rem;font-size:.7rem;font-weight:500;color:#c8d4e0;margin:.22rem .2rem .22rem 0;line-height:1.3}
+.lang-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+.lang-name{font-size:.75rem;color:#c8d4e0;font-weight:500;display:flex;align-items:center;gap:.4rem}
+.lang-bar-wrap{width:78px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
+.lang-bar{height:100%;border-radius:2px;background:linear-gradient(90deg,#C49A35,#e8c170)}
+.cert-item{display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.55rem}
+.cert-dot{width:6px;height:6px;border-radius:50%;background:#C49A35;margin-top:.35rem;flex-shrink:0}
+.cert-text{font-size:.72rem;color:#b8c4d2;line-height:1.5}
+/* ── Right main content ── */
+.main{flex:1;background:#ffffff;display:flex;flex-direction:column}
+.main-inner{padding:2.4rem 2.8rem 2rem}
+.main-sec{margin-bottom:2rem}
+.main-sec-title{font-family:'Playfair Display',Georgia,serif;font-size:.95rem;font-weight:700;color:#0D1B2A;text-transform:uppercase;letter-spacing:.09em;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:2px solid #C49A35;display:flex;align-items:center;gap:.5rem}
+.profile-text{font-size:.84rem;color:#334155;line-height:1.85;padding:.9rem 1.1rem;background:#f9fafb;border-left:3px solid #C49A35;border-radius:0 6px 6px 0;font-style:italic}
+.work-entry{margin-bottom:1.3rem;padding-bottom:1.3rem;border-bottom:1px solid #f0f2f5;position:relative;padding-left:1rem}
+.work-entry:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.work-entry::before{content:'';position:absolute;left:0;top:.35rem;width:3px;height:calc(100% - .7rem);background:rgba(196,154,53,.25);border-radius:2px}
+.work-title{font-family:'Playfair Display',Georgia,serif;font-size:.98rem;font-weight:700;color:#0D1B2A;line-height:1.3}
+.work-company{font-size:.82rem;font-weight:700;color:#C49A35;margin:.18rem 0 .12rem;letter-spacing:.01em}
+.work-meta{font-size:.71rem;color:#94a3b8;font-weight:500;margin-bottom:.5rem;display:flex;align-items:center;gap:.3rem}
+.work-entry ul{list-style:none;padding:0;margin:0}
+.work-entry ul li{font-size:.79rem;color:#475569;line-height:1.7;padding-left:1.1rem;position:relative;margin-bottom:.2rem}
+.work-entry ul li::before{content:"▸";position:absolute;left:0;color:#C49A35;font-weight:700;font-size:.8rem;top:.02rem}
+.edu-block{background:#f9fafb;border-radius:8px;padding:.95rem 1.2rem;border:1px solid #e8ecf0;display:flex;gap:1rem;align-items:flex-start}
+.edu-year-badge{background:#0D1B2A;color:#C49A35;font-size:.68rem;font-weight:700;padding:.3rem .65rem;border-radius:5px;white-space:nowrap;flex-shrink:0;margin-top:.15rem;letter-spacing:.04em}
+.edu-degree{font-family:'Playfair Display',Georgia,serif;font-size:.92rem;font-weight:600;color:#0D1B2A;line-height:1.3}
+.edu-inst{font-size:.75rem;color:#64748b;margin-top:.22rem;font-weight:500}
+.roles-wrap{display:flex;flex-wrap:wrap;gap:.45rem}
+.role-chip{background:#0D1B2A;color:#C49A35;border-radius:5px;padding:.35rem .9rem;font-size:.74rem;font-weight:600;letter-spacing:.02em;border:1px solid rgba(196,154,53,.35)}
+.exp-badge{display:inline-flex;align-items:center;gap:.4rem;background:#0D1B2A;color:#C49A35;border-radius:6px;padding:.38rem 1rem;font-size:.75rem;font-weight:700;letter-spacing:.04em;border:1px solid rgba(196,154,53,.4)}
+/* ── Footer ── */
+.cv-footer{background:#0D1B2A;padding:.75rem 2.4rem;display:flex;align-items:center;justify-content:space-between}
+.cv-footer-brand{font-size:.65rem;font-weight:700;color:#C49A35;text-transform:uppercase;letter-spacing:.14em}
+.cv-footer-date{font-size:.63rem;color:rgba(255,255,255,.35);letter-spacing:.03em}
+@media print{
+  body{background:#fff}
+  .page{margin:0;box-shadow:none}
+  .work-entry{page-break-inside:avoid}
+  .main-sec{page-break-inside:avoid}
+}
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="hdr">
-    <div class="hdr-avatar">${avatarHtml}</div>
-    <div class="hdr-info">
-      <div class="hdr-name">${data.name || 'Nom Prénom'}</div>
-      <div class="hdr-role">${data.experience} · ${data.sector}</div>
-      <div class="hdr-contacts">
-        ${data.email ? `<span>✉ ${data.email}</span>` : ''}
-        ${data.phone ? `<span>📞 ${data.phone}</span>` : ''}
-        ${data.address ? `<span>📍 ${data.address}</span>` : ''}
-        ${data.idNumber ? `<span>🪪 CIN ${data.idNumber}</span>` : ''}
-        ${data.linkedin ? `<span>🔗 ${data.linkedin}</span>` : ''}
-        ${data.portfolio ? `<span>💻 ${data.portfolio}</span>` : ''}
+  <div class="cv-body">
+    <!-- ══ SIDEBAR ══ -->
+    <div class="sidebar">
+      <div class="sidebar-top">
+        <div class="avatar-ring">${avatarHtml}</div>
+        <div class="sb-name">${data.name || 'Nom Prénom'}</div>
+        <div class="sb-role">${data.sector}${data.experience ? ' · ' + data.experience : ''}</div>
+      </div>
+      <div class="sidebar-sections">
+        <!-- Coordonnées -->
+        <div class="sb-sec">
+          <div class="sb-sec-title">Coordonnées</div>
+          ${data.email ? `<div class="contact-row"><div class="contact-icon">✉</div><div class="contact-text">${data.email}</div></div>` : ''}
+          ${data.phone ? `<div class="contact-row"><div class="contact-icon">☏</div><div class="contact-text">${data.phone}</div></div>` : ''}
+          ${data.address ? `<div class="contact-row"><div class="contact-icon">⌖</div><div class="contact-text">${data.address}</div></div>` : ''}
+          ${data.linkedin ? `<div class="contact-row"><div class="contact-icon">in</div><div class="contact-text">${data.linkedin}</div></div>` : ''}
+          ${data.portfolio ? `<div class="contact-row"><div class="contact-icon">↗</div><div class="contact-text">${data.portfolio}</div></div>` : ''}
+        </div>
+        <!-- Compétences -->
+        ${data.skills.length ? `
+        <div class="sb-sec">
+          <div class="sb-sec-title">Compétences</div>
+          <div>${data.skills.map((s: string) => `<span class="skill-tag">${s}</span>`).join('')}</div>
+        </div>` : ''}
+        <!-- Langues -->
+        ${data.languages.length ? `
+        <div class="sb-sec">
+          <div class="sb-sec-title">Langues</div>
+          ${data.languages.map((l: string, i: number) => {
+            const barWidth = i === 0 ? '100%' : i === 1 ? '82%' : i === 2 ? '65%' : '50%';
+            return `<div class="lang-row">
+              <div class="lang-name"><span>${LANG_FLAGS[l] || '🌐'}</span><span>${l}</span></div>
+              <div class="lang-bar-wrap"><div class="lang-bar" style="width:${barWidth}"></div></div>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
+        <!-- Certifications -->
+        ${data.certifications?.length ? `
+        <div class="sb-sec">
+          <div class="sb-sec-title">Certifications</div>
+          ${data.certifications.map((c: string) => `<div class="cert-item"><div class="cert-dot"></div><div class="cert-text">${c}</div></div>`).join('')}
+        </div>` : ''}
+        <!-- Niveau -->
+        ${data.experience ? `
+        <div class="sb-sec">
+          <div class="sb-sec-title">Niveau</div>
+          <span class="exp-badge">◆ ${data.experience}</span>
+        </div>` : ''}
+      </div>
+    </div>
+    <!-- ══ MAIN ══ -->
+    <div class="main">
+      <div class="main-inner">
+        <!-- Profil professionnel -->
+        ${data.summary ? `
+        <div class="main-sec">
+          <div class="main-sec-title">Profil Professionnel</div>
+          <p class="profile-text">${data.summary}</p>
+        </div>` : ''}
+        <!-- Expériences -->
+        ${data.work.some((w: WorkEntry) => w.company) ? `
+        <div class="main-sec">
+          <div class="main-sec-title">Expériences Professionnelles</div>
+          ${data.work.filter((w: WorkEntry) => w.company).map((w: WorkEntry) => `
+          <div class="work-entry">
+            <div class="work-title">${w.title || 'Poste'}</div>
+            <div class="work-company">${w.company}</div>
+            <div class="work-meta">
+              <span>◷</span>
+              <span>${w.startDate || ''}${w.startDate || w.endDate ? ' — ' : ''}${w.endDate || (w.startDate ? 'Présent' : '')}</span>
+            </div>
+            ${w.description ? `<ul>${descToBullets(w.description)}</ul>` : ''}
+          </div>`).join('')}
+        </div>` : ''}
+        <!-- Formation -->
+        ${data.education.degree ? `
+        <div class="main-sec">
+          <div class="main-sec-title">Formation</div>
+          <div class="edu-block">
+            ${data.education.year ? `<div class="edu-year-badge">${data.education.year}</div>` : ''}
+            <div>
+              <div class="edu-degree">${data.education.degree}</div>
+              ${data.education.institution ? `<div class="edu-inst">${data.education.institution}</div>` : ''}
+            </div>
+          </div>
+        </div>` : ''}
+        <!-- Postes recherchés -->
+        ${data.targetRoles?.length ? `
+        <div class="main-sec">
+          <div class="main-sec-title">Postes Visés</div>
+          <div class="roles-wrap">${data.targetRoles.map((r: string) => `<span class="role-chip">${r}</span>`).join('')}</div>
+        </div>` : ''}
       </div>
     </div>
   </div>
-  <div class="body">
-    <div class="main">
-      ${data.summary ? `<div class="sec"><div class="sec-title">✦ Profil Professionnel</div><p class="summary-text">${data.summary}</p></div>` : ''}
-      ${data.work.some(w => w.company) ? `
-      <div class="sec">
-        <div class="sec-title">✦ Expériences Professionnelles</div>
-        ${data.work.filter(w => w.company).map(w => `
-        <div class="entry">
-          <h4>${w.title || 'Poste'}</h4>
-          <div class="co">${w.company}</div>
-          <div class="meta">📅 ${w.startDate || ''}${w.startDate && (w.endDate || 'Présent') ? ' – ' + (w.endDate || 'Présent') : w.endDate || ''}</div>
-          ${w.description ? `<ul>${descToBullets(w.description)}</ul>` : ''}
-        </div>`).join('')}
-      </div>` : ''}
-      ${data.education.degree ? `
-      <div class="sec">
-        <div class="sec-title">✦ Formation</div>
-        <div class="edu-entry">
-          <h4>${data.education.degree}</h4>
-          <div class="meta">${data.education.institution || ''}${data.education.year ? ' · ' + data.education.year : ''}</div>
-        </div>
-      </div>` : ''}
-      ${data.targetRoles?.length ? `
-      <div class="sec">
-        <div class="sec-title">✦ Postes Recherchés</div>
-        <div class="pills">${data.targetRoles.map(r => `<span class="pill role">🎯 ${r}</span>`).join('')}</div>
-      </div>` : ''}
-    </div>
-    <div class="side">
-      <div class="sec"><div class="sec-title">Niveau</div><span class="badge">⭐ ${data.experience}</span></div>
-      ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><div class="pills">${data.skills.map(s => `<span class="pill">${s}</span>`).join('')}</div></div>` : ''}
-      ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.languages.map(l => `<span class="pill lang">${LANG_FLAGS[l] || '🌐'} ${l}</span>`).join('')}</div></div>` : ''}
-      ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.certifications.map(c => `<span class="pill cert">🏅 ${c}</span>`).join('')}</div></div>` : ''}
-    </div>
+  <!-- ══ FOOTER ══ -->
+  <div class="cv-footer">
+    <span class="cv-footer-brand">TalentMap · Expert RH · Maroc</span>
+    <span class="cv-footer-date">${today}</span>
   </div>
-  <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
 </div>
 </body>
 </html>`;
@@ -676,7 +748,7 @@ export default function CandidateUpload() {
     setProcessStep('enhancing');
     let extracted: any = null;
     let enhanced: any = null;
-    const SYS = `Tu es un directeur RH senior avec 15 ans d'expérience sur le marché marocain. Tu maîtrises les attentes des recruteurs des grandes entreprises marocaines (Attijariwafa, OCP, Renault Tanger, Capgemini Maroc, Lydec, Marjane, etc.).\n\n${MOROCCO_CONTEXT}\n\nAnalyse ce CV et retourne UN SEUL objet JSON valide sans markdown, sans backticks, sans texte autour — UNIQUEMENT le JSON:\n{"name":"Prénom NOM exact","email":"email@example.com","phone":"+212XXXXXXXXX ou vide","address":"Ville, Maroc","sector":"secteur porteur marocain précis parmi: BTP, Technology, Finance, Marketing, Design, Operations, Data Science, Agro-alimentaire, Tourisme, Healthcare","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","skills":["15 compétences techniques ET comportementales prioritaires pour ce profil sur le marché marocain — mélange hard skills (outils, logiciels, certifications) et soft skills (leadership, gestion projet, communication clients)"],"summary":"Accroche professionnelle PERCUTANTE de 3-4 phrases en français. Commence par une phrase d'impact (ex: Ingénieur financier avec 7 ans d'expérience...). Utilise des verbes d'action forts: développé, piloté, optimisé, géré, coordonné, animé, réalisé, déployé, supervisé. Inclure secteur, niveau, valeur ajoutée concrète pour l'employeur marocain.","work":[{"company":"nom entreprise","title":"poste exact","startDate":"MM/AAAA","endDate":"MM/AAAA ou Présent","description":"2-3 bullet points séparés par \\n, chaque bullet commence par un verbe d'action fort et inclut des résultats chiffrés si disponibles (ex: Piloté une équipe de 8 personnes pour déployer ERP SAP sur 3 sites, réduisant les délais de traitement de 40%)"}],"education":{"degree":"diplôme exact","institution":"école ou université","year":"AAAA"},"languages":["Français","Arabe","Anglais","etc — seulement les langues présentes dans le CV"],"targetRoles":["3-4 postes cibles réalistes et précis au Maroc correspondant exactement au profil"],"certifications":["3-4 certifications concrètes et obtainables au Maroc pour renforcer l'employabilité — citer des certifications reconnues: PMP, AWS, CCNA, CFA, ACCA, Six Sigma, etc."]}`;
+    const SYS = `Tu es un expert en lecture de CV. Ton unique rôle est d'EXTRAIRE fidèlement les informations présentes dans ce CV — ne jamais inventer, suggérer, ni améliorer.\n\n${MOROCCO_CONTEXT}\n\nEXTRAIS UNIQUEMENT ce qui est EXPLICITEMENT écrit dans le document. Si une information est absente, laisse le champ vide ou utilise un tableau vide []. Ne génère rien.\n\nRetourne UN SEUL objet JSON valide sans markdown, sans backticks, sans texte autour — UNIQUEMENT le JSON:\n{"sector":"secteur principal détecté dans le CV parmi: BTP, Technology, Finance, Marketing, Design, Operations, Data Science, Agro-alimentaire, Tourisme, Healthcare","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead (basé sur les années d'expérience trouvées)","skills":["compétences et outils EXPLICITEMENT mentionnés dans le CV — maximum 15"],"summary":"Accroche professionnelle PERCUTANTE de 3-4 phrases en français basée sur ce qui est dans le CV. Commence par une phrase d'impact. Utilise des verbes d'action forts: développé, piloté, optimisé. Inclure secteur, niveau, valeur ajoutée.","work":[{"company":"nom entreprise TEL QUE DANS LE CV","title":"poste TEL QUE DANS LE CV","startDate":"MM/AAAA tel qu'écrit","endDate":"MM/AAAA ou Présent","description":"2-3 bullets basés sur ce qui est écrit, commençant par un verbe d'action fort"}],"education":{"degree":"diplôme TEL QUE DANS LE CV","institution":"école ou université TEL QUE DANS LE CV","year":"AAAA"},"languages":["seulement les langues EXPLICITEMENT mentionnées dans le CV"],"targetRoles":["postes cibles SI MENTIONNÉS dans le CV — sinon []"],"certifications":["certifications SI PRÉSENTES dans le CV — sinon []"]}`;
 
     for (let attempt = 0; attempt < 3 && !extracted; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
@@ -706,10 +778,8 @@ export default function CandidateUpload() {
     const finalRoles       = enhanced?.targetRoles       || [];
     const finalCerts       = enhanced?.certifications    || [];
 
-    if (extracted.name)       setName(extracted.name);
-    if (extracted.email)      setEmail(extracted.email);
-    if (extracted.phone)      setPhone(extracted.phone);
-    if (extracted.address)    setAddress(extracted.address);
+    // Identity fields (name/email/phone/address) are NOT overwritten here —
+    // they come from the verified tm_info_ profile loaded at init, not from AI extraction.
     if (extracted.work?.length)     setWork(extracted.work.filter((w: any) => w.company || w.title));
     if (extracted.education?.degree) setEducation(extracted.education);
     if (extracted.languages?.length) setLanguages(extracted.languages.filter((l: string) => LANGUAGES.includes(l)));
@@ -731,9 +801,9 @@ export default function CandidateUpload() {
         cv: {
           id: user!.idNumber,
           status: 'done',
-          name: extracted.name || name,
-          email: extracted.email || email,
-          phone: extracted.phone || phone,
+          name: name,
+          email: email,
+          phone: phone,
           sector: finalSector,
           experience: finalExperience,
           skills: finalSkills,

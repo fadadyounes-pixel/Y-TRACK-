@@ -141,6 +141,7 @@ export default function CandidateInfoPage() {
         body: JSON.stringify({ type: 'save_cv', cv: { ...form, id: user.idNumber, name: `${form.firstName} ${form.lastName}`.trim() || user.name, role: 'candidate' } }),
       }).catch(() => {});
       setSaved(true);
+      setTimeout(() => router.push('/candidate'), 600);
     } catch {}
     setSaving(false);
   };
@@ -370,23 +371,15 @@ export default function CandidateInfoPage() {
           </div>
         </div>
 
-        {/* ── Save + Next CTA ── */}
+        {/* ── Save CTA ── */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             onClick={handleSave}
             disabled={saving}
             style={{ padding: '0.9rem 2rem', background: saved ? '#059669' : 'linear-gradient(135deg,#0B1629,#1B4FD8)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', minWidth: '160px' }}
           >
-            {saving ? 'Enregistrement…' : saved ? '✅ Enregistré !' : '💾 Enregistrer'}
+            {saving ? 'Enregistrement…' : saved ? '✅ Enregistré — Redirection…' : '💾 Enregistrer et continuer'}
           </button>
-          {saved && (
-            <Link
-              href="/candidate/upload"
-              style={{ padding: '0.9rem 2rem', background: 'linear-gradient(135deg,#059669,#10b981)', color: '#fff', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, textDecoration: 'none', display: 'inline-block' }}
-            >
-              📄 Créer / Mettre à jour mon CV →
-            </Link>
-          )}
         </div>
 
         {!saved && pct < 50 && (

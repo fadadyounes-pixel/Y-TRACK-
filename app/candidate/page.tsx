@@ -33,8 +33,10 @@ export default function CandidateDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    try { const s = localStorage.getItem(`tm_info_${user.idNumber}`); if (s) setInfo(JSON.parse(s)); } catch {}
+    let infoData: Record<string, any> | null = null;
+    try { const s = localStorage.getItem(`tm_info_${user.idNumber}`); if (s) { infoData = JSON.parse(s); setInfo(infoData); } } catch {}
     try { const c = localStorage.getItem(`tm_cv_${user.idNumber}`);   if (c) setCvData(JSON.parse(c)); } catch {}
+    if (!infoData || !infoData.firstName) { router.push('/candidate/info'); }
   }, [user]);
 
   if (!initialized || !user || user.role !== 'candidate') return null;
