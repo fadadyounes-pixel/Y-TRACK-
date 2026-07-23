@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import PageHeader from '../../components/PageHeader';
+import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 
 /* ── Types ─────────────────────────────────────────── */
@@ -151,12 +151,24 @@ function downloadCvPDF(cv: CV) {
 </body>
 </html>`;
 
-  const win = window.open('', '_blank');
-  if (!win) return;
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(() => { win.print(); }, 400);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
+  iframe.src = url;
+  document.body.appendChild(iframe);
+  const cleanup = () => {
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+    URL.revokeObjectURL(url);
+  };
+  iframe.onload = () => {
+    try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch { cleanup(); }
+    setTimeout(cleanup, 60000);
+  };
+  setTimeout(() => {
+    try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch {}
+    setTimeout(cleanup, 60000);
+  }, 1500);
 }
 
 /* ── CV Panel (slide-in drawer) ─────────────────────── */
@@ -379,6 +391,8 @@ export default function CoordinatorDashboard() {
 
   // Matching tab state
   const [matchJob, setMatchJob] = useState<string>('');
+  const [aiInsights, setAiInsights] = useState<{ topPick: string; rationale: string; gaps: string[]; questions: string[] } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     if (initialized && (!user || user.role !== 'coordinator')) router.push('/login');
@@ -444,19 +458,16 @@ export default function CoordinatorDashboard() {
   /* ── Top matches for overview ── */
   const topMatches = useMemo(() => {
     const openJobs = jobs.filter(j => j.status === 'Open' || j.status === 'open');
-    return cvs
-      .filter(c => c.status === 'done')
-      .map(cv => {
-        let bestScore = 0, bestJob: Job | null = null, bestMatch: MatchResult | null = null;
-        for (const job of openJobs) {
-          const m = computeMatch(cv, job);
-          if (m.total > bestScore) { bestScore = m.total; bestJob = job; bestMatch = m; }
-        }
-        return { cv, bestJob, bestMatch, bestScore };
-      })
-      .filter(x => x.bestJob !== null)
-      .sort((a, b) => b.bestScore - a.bestScore)
-      .slice(0, 8);
+    const result: { cv: CV; bestJob: Job; bestMatch: MatchResult; bestScore: number }[] = [];
+    cvs.filter(c => c.status === 'done').forEach(cv => {
+      let bestScore = 0, bestJob: Job | null = null, bestMatch: MatchResult | null = null;
+      openJobs.forEach(job => {
+        const m = computeMatch(cv, job);
+        if (m.total > bestScore) { bestScore = m.total; bestJob = job; bestMatch = m; }
+      });
+      if (bestJob && bestMatch) result.push({ cv, bestJob, bestMatch, bestScore });
+    });
+    return result.sort((a, b) => b.bestScore - a.bestScore).slice(0, 8);
   }, [cvs, jobs]);
 
   /* ── Candidates filters ── */
@@ -485,6 +496,38 @@ export default function CoordinatorDashboard() {
       .sort((a, b) => b.match.total - a.match.total);
   }, [cvs, activeMatchJob]);
 
+  /* ── AI Insights generator ── */
+  const generateAiInsights = async () => {
+    if (!activeMatchJob) return;
+    setAiLoading(true);
+    setAiInsights(null);
+    const top5 = matchRanked.slice(0, 5).map(({ cv, match }) => ({
+      name: cv.name || cv.fileName,
+      sector: cv.sector,
+      experience: cv.experience,
+      skills: cv.skills,
+      score: match.total,
+      matchedSkills: match.matchedSkills,
+    }));
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Offre: ${activeMatchJob.title} chez ${activeMatchJob.company}\nSecteur: ${activeMatchJob.sector} | Expérience: ${activeMatchJob.experience}\nCompétences requises: ${activeMatchJob.skills.join(', ')}\n\nTop candidats (par score):\n${top5.map((c, i) => `${i + 1}. ${c.name} — ${c.sector} / ${c.experience} — Score: ${c.score}% — Skills correspondantes: ${c.matchedSkills.join(', ') || 'aucune'}`).join('\n')}` }],
+          system: 'Analyse ces candidats pour ce poste. Réponds UNIQUEMENT avec ce JSON valide sans markdown:\n{"topPick":"nom du meilleur candidat + 1 phrase courte expliquant pourquoi il est le meilleur fit","rationale":"2-3 phrases synthétisant le classement global et les forces communes","gaps":["lacune ou besoin de formation identifié 1","lacune 2","lacune 3"],"questions":["Question entretien ciblée au poste 1","Question 2","Question 3"]}',
+          task: 'json',
+          max_tokens: 700,
+        }),
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text || '';
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) setAiInsights(JSON.parse(m[0]));
+    } catch {}
+    setAiLoading(false);
+  };
+
   const excellent = matchRanked.filter(x => x.match.total >= 70);
   const good = matchRanked.filter(x => x.match.total >= 50 && x.match.total < 70);
   const others = matchRanked.filter(x => x.match.total < 50);
@@ -496,59 +539,107 @@ export default function CoordinatorDashboard() {
     background: active ? '#2563eb' : 'white', color: active ? 'white' : '#6b7280', transition: 'all 0.15s',
   });
 
+  /* ── Sidebar nav items ── */
+  const NAV: { key: typeof tab; icon: string; label: string }[] = [
+    { key: 'overview',   icon: '⊞',  label: 'Vue d\'ensemble' },
+    { key: 'candidates', icon: '👥', label: `Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}` },
+    { key: 'jobs',       icon: '💼', label: `Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}` },
+    { key: 'matching',   icon: '✦',  label: 'Matching IA' },
+  ];
+
   return (
-    <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      {/* Header */}
-      <div style={{ position: 'relative' }}>
-        <PageHeader title="TalentMap" subtitle="Coordinator Portal" />
-        <div style={{ position: 'absolute', top: '50%', right: '1.5rem', transform: 'translateY(-50%)', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem' }}>{user.name}</span>
-          <button onClick={logout} style={{ background: 'rgba(255,255,255,0.15)', color: 'white', border: '1.5px solid rgba(255,255,255,0.4)', borderRadius: '8px', padding: '0.45rem 1rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Logout</button>
-        </div>
-      </div>
-
-      {/* CV Panel */}
-      {selectedCV && <CVPanel cv={selectedCV} jobs={jobs} onClose={() => setSelectedCV(null)} />}
-
-      <div className="container" style={{ padding: '2rem 1.5rem' }}>
-
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
-          {[
-            { label: 'CVs importés', value: loading ? '…' : stats.totalCvs, color: '#2563eb', bg: '#eff6ff' },
-            { label: 'Offres ouvertes', value: loading ? '…' : stats.openJobs, color: '#0284c7', bg: '#f0f9ff' },
-            { label: 'Profils excellents', value: loading ? '…' : stats.excellentMatches, color: '#16a34a', bg: '#f0fdf4' },
-            { label: 'Score moy. matching', value: loading ? '…' : (stats.avgScore > 0 ? stats.avgScore + '%' : '—'), color: '#7c3aed', bg: '#f5f3ff' },
-          ].map(s => (
-            <div key={s.label} className="card">
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: s.color }}>{s.value}</div>
-              <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '0.25rem' }}>{s.label}</div>
-            </div>
-          ))}
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif' }}>
+      {/* Dark sidebar */}
+      <aside style={{
+        width: '220px', flexShrink: 0, background: '#0B1629',
+        display: 'flex', flexDirection: 'column',
+        position: 'sticky', top: 0, height: '100vh',
+      }}>
+        {/* Logo area */}
+        <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+          <Logo size="md" variant="light" />
         </div>
 
-        {/* Action bar */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <Link href="/coordinator/upload" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-            📁 Importer des CVs
+        {/* User pill */}
+        <div style={{ margin: '0.75rem 0.875rem', padding: '0.6rem 0.875rem', borderRadius: '8px', background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)' }}>
+          <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '2px' }}>Coordinateur</div>
+          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.id}</div>
+        </div>
+
+        {/* Nav items */}
+        <nav style={{ flex: 1, padding: '0.5rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {NAV.map(n => {
+            const active = tab === n.key;
+            return (
+              <button key={n.key} onClick={() => setTab(n.key)}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: '0.6rem',
+                  padding: '0.6rem 0.75rem', borderRadius: '7px', border: 'none',
+                  background: active ? 'rgba(27,79,216,.85)' : 'transparent',
+                  color: active ? '#FFFFFF' : 'rgba(255,255,255,.5)',
+                  fontSize: '0.82rem', fontWeight: active ? 700 : 500,
+                  cursor: 'pointer', textAlign: 'left', transition: 'all .18s',
+                  fontFamily: 'inherit',
+                }}>
+                <span style={{ fontSize: '0.9rem', width: '18px', flexShrink: 0, textAlign: 'center' }}>{n.icon}</span>
+                {n.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Action buttons */}
+        <div style={{ padding: '0.75rem', borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <Link href="/coordinator/upload" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.55rem 0.75rem', borderRadius: '7px', background: '#1B4FD8', color: '#fff', fontSize: '0.78rem', fontWeight: 700, textDecoration: 'none' }}>
+            📁 Importer CVs
           </Link>
-          <Link href="/coordinator/jobs" className="btn-primary" style={{ background: '#0284c7', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Link href="/coordinator/jobs" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.55rem 0.75rem', borderRadius: '7px', background: 'rgba(255,255,255,.07)', color: 'rgba(255,255,255,.7)', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(255,255,255,.1)' }}>
             ➕ Nouvelle offre
           </Link>
-          {!loading && cvs.length === 0 && (
-            <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Aucun CV — commencez par en importer</span>
-          )}
+          <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.75rem', borderRadius: '7px', background: 'transparent', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.35)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', marginTop: '2px' }}>
+            ↩ Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main style={{ flex: 1, minWidth: 0, background: '#F6F8FC', overflowY: 'auto' }}>
+        {/* Top bar */}
+        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '0.875rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
+          <div>
+            <h1 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0B1629', margin: 0 }}>
+              { NAV.find(n => n.key === tab)?.label ?? 'Dashboard' }
+            </h1>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {!loading && cvs.length === 0 && (
+              <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginRight: '0.5rem' }}>Aucun CV — commencez par en importer</span>
+            )}
+          </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, marginBottom: '1.5rem', border: '1.5px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', width: 'fit-content' }}>
-          {([
-            ['overview', '📊 Vue d\'ensemble'],
-            ['candidates', `👥 Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}`],
-            ['jobs', `💼 Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}`],
-            ['matching', '🎯 Matching IA'],
-          ] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key as any)} style={tabBtn(tab === key)}>{label}</button>
+        {/* CV Panel */}
+        {selectedCV && <CVPanel cv={selectedCV} jobs={jobs} onClose={() => setSelectedCV(null)} />}
+
+        <div style={{ padding: '1.75rem 2rem' }}>
+
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
+          {[
+            { label: 'CVs importés',        value: loading ? '…' : stats.totalCvs,         accent: '#1B4FD8' },
+            { label: 'Offres ouvertes',      value: loading ? '…' : stats.openJobs,         accent: '#0284C7' },
+            { label: 'Profils excellents',   value: loading ? '…' : stats.excellentMatches, accent: '#059669' },
+            { label: 'Score moy. matching',  value: loading ? '…' : (stats.avgScore > 0 ? stats.avgScore + '%' : '—'), accent: '#7C3AED' },
+          ].map(s => (
+            <div key={s.label} style={{
+              background: '#FFFFFF', borderRadius: '10px',
+              border: '1px solid #E2E8F0', padding: '1.25rem 1.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,.04)',
+              borderLeft: `3px solid ${s.accent}`,
+            }}>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0B1629', lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: '0.73rem', color: '#64748B', marginTop: '0.4rem', fontWeight: 500 }}>{s.label}</div>
+            </div>
           ))}
         </div>
 
@@ -820,7 +911,7 @@ export default function CoordinatorDashboard() {
                 <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sélectionner une offre</label>
                 <select
                   value={matchJob || (jobs[0]?.id ?? '')}
-                  onChange={e => setMatchJob(e.target.value)}
+                  onChange={e => { setMatchJob(e.target.value); setAiInsights(null); }}
                   style={{ ...inp, minWidth: '300px', fontWeight: 600, color: '#111827' }}>
                   {jobs.map(j => (
                     <option key={j.id} value={j.id}>{j.title} — {j.company}</option>
@@ -881,6 +972,55 @@ export default function CoordinatorDashboard() {
                     </div>
                   </div>
                 )}
+
+                {/* AI Insights */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: aiInsights ? '1rem' : '0' }}>
+                    <button
+                      onClick={generateAiInsights}
+                      disabled={aiLoading || matchRanked.length === 0}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', borderRadius: '8px', border: 'none', background: aiLoading ? '#e5e7eb' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: aiLoading ? '#9ca3af' : 'white', fontSize: '0.85rem', fontWeight: 700, cursor: aiLoading || matchRanked.length === 0 ? 'not-allowed' : 'pointer', transition: 'all 0.15s', opacity: matchRanked.length === 0 ? 0.5 : 1 }}>
+                      {aiLoading ? '⏳ Analyse en cours…' : '🤖 Générer analyse IA'}
+                    </button>
+                    {aiInsights && !aiLoading && (
+                      <button onClick={() => setAiInsights(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.8rem', cursor: 'pointer' }}>✕ Effacer</button>
+                    )}
+                  </div>
+                  {aiInsights && (
+                    <div style={{ background: 'white', borderRadius: '12px', border: '1.5px solid #dbeafe', overflow: 'hidden' }}>
+                      <div style={{ padding: '0.85rem 1.1rem', background: 'linear-gradient(135deg,#eff6ff,#dbeafe)', borderBottom: '1px solid #dbeafe', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>🤖</span>
+                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#1e40af' }}>Analyse IA — {activeMatchJob?.title}</span>
+                      </div>
+                      <div style={{ padding: '1rem 1.1rem', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1rem' }}>
+                        <div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>⭐ Meilleur candidat</div>
+                          <div style={{ fontSize: '0.875rem', color: '#111827', lineHeight: 1.55 }}>{aiInsights.topPick}</div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.85rem', marginBottom: '0.4rem' }}>📋 Synthèse du classement</div>
+                          <div style={{ fontSize: '0.82rem', color: '#374151', lineHeight: 1.6 }}>{aiInsights.rationale}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>⚠️ Lacunes identifiées</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '1rem' }}>
+                            {(aiInsights.gaps || []).map((g, i) => (
+                              <div key={i} style={{ display: 'flex', gap: '0.4rem', fontSize: '0.8rem', color: '#374151' }}>
+                                <span style={{ color: '#dc2626', fontWeight: 700, flexShrink: 0 }}>•</span>{g}
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>💬 Questions d'entretien suggérées</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {(aiInsights.questions || []).map((q, i) => (
+                              <div key={i} style={{ padding: '0.45rem 0.75rem', background: '#f5f3ff', borderRadius: '6px', fontSize: '0.78rem', color: '#4c1d95', borderLeft: '2px solid #7c3aed' }}>
+                                {i + 1}. {q}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Two-column candidate grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1rem' }}>
@@ -995,7 +1135,8 @@ export default function CoordinatorDashboard() {
           </div>
         )}
 
-      </div>
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }
