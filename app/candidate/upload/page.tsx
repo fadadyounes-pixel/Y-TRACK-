@@ -235,6 +235,462 @@ body{font-family:'Poppins',Arial,sans-serif;background:#d8dde6;color:#1a2438;-we
 </html>`;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   TEMPLATE 2 — Modern Teal  (single column, full-width teal header)
+══════════════════════════════════════════════════════════════════ */
+function generateCVHtml2(data: {
+  name: string; email: string; phone: string; address: string; idNumber: string;
+  summary: string; skills: string[]; languages: string[];
+  experience: string; sector: string;
+  work: WorkEntry[]; education: { degree: string; institution: string; year: string };
+  targetRoles?: string[]; certifications?: string[];
+  photo?: string; linkedin?: string; portfolio?: string;
+}) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((w: string) => w[0] || '').join('').slice(0, 2).toUpperCase();
+  const avatarHtml = data.photo
+    ? `<img src="${data.photo}" alt="Photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.6rem;font-weight:800;color:#0891B2;font-family:Inter,Arial,sans-serif">${initials || '?'}</span>`;
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${data.name} — CV</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',Arial,sans-serif;background:#e8edf2;color:#0f172a;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:860px;margin:2rem auto;background:#fff;box-shadow:0 20px 64px rgba(0,0,0,.18);overflow:hidden}
+.t2-header{background:linear-gradient(135deg,#0891B2 0%,#0e7490 60%,#164e63 100%);padding:2.4rem 2.8rem 2rem;display:flex;align-items:center;gap:2rem;position:relative;overflow:hidden}
+.t2-header::after{content:'';position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.06)}
+.t2-header::before{content:'';position:absolute;right:80px;bottom:-40px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.04)}
+.t2-avatar{width:96px;height:96px;border-radius:50%;border:3px solid rgba(255,255,255,.7);background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.t2-header-info{flex:1;position:relative;z-index:1}
+.t2-name{font-family:'DM Serif Display',Georgia,serif;font-size:2rem;font-weight:400;color:#fff;line-height:1.15;letter-spacing:-.01em;margin-bottom:.35rem}
+.t2-role{font-size:.82rem;font-weight:600;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.9rem}
+.t2-contacts{display:flex;flex-wrap:wrap;gap:.5rem .9rem}
+.t2-contact-chip{display:flex;align-items:center;gap:.38rem;font-size:.72rem;color:rgba(255,255,255,.82);font-weight:400}
+.t2-contact-chip span:first-child{font-size:.78rem}
+.t2-body{padding:2.2rem 2.8rem 2.4rem;display:grid;grid-template-columns:1fr 240px;gap:2.4rem}
+.t2-main{}
+.t2-sidebar-right{}
+.t2-sec{margin-bottom:1.8rem}
+.t2-sec:last-child{margin-bottom:0}
+.t2-sec-title{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.17em;color:#0891B2;margin-bottom:.9rem;padding-bottom:.45rem;border-bottom:2px solid #e0f2fe;display:flex;align-items:center;gap:.5rem}
+.t2-sec-title svg{flex-shrink:0}
+.t2-summary{font-size:.85rem;color:#374151;line-height:1.8;border-left:3px solid #0891B2;padding-left:1rem;font-style:italic;background:#f0f9ff;padding:.85rem 1rem;border-radius:0 8px 8px 0}
+.t2-work{margin-bottom:1.1rem;padding-bottom:1.1rem;border-bottom:1px solid #f1f5f9}
+.t2-work:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.t2-work-title{font-size:.96rem;font-weight:700;color:#0f172a;line-height:1.3}
+.t2-work-co{font-size:.82rem;font-weight:600;color:#0891B2;margin:.15rem 0 .1rem}
+.t2-work-date{font-size:.7rem;color:#94a3b8;font-weight:500;margin-bottom:.45rem;display:inline-flex;align-items:center;gap:.3rem;background:#f8fafc;padding:.2rem .55rem;border-radius:5px}
+.t2-work ul{list-style:none;padding:0}
+.t2-work ul li{font-size:.79rem;color:#475569;line-height:1.72;padding-left:1.1rem;position:relative;margin-bottom:.18rem}
+.t2-work ul li::before{content:"▸";position:absolute;left:0;color:#0891B2;font-weight:700;font-size:.82rem}
+.t2-skill-grid{display:flex;flex-wrap:wrap;gap:.35rem}
+.t2-skill{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .75rem;border-radius:6px;font-size:.72rem;font-weight:600;background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd}
+.t2-lang-item{display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem}
+.t2-lang-name{font-size:.77rem;color:#374151;font-weight:500;display:flex;align-items:center;gap:.38rem}
+.t2-lang-dots{display:flex;gap:3px}
+.t2-lang-dot{width:8px;height:8px;border-radius:50%}
+.t2-edu{background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:.9rem 1rem}
+.t2-edu-degree{font-size:.88rem;font-weight:700;color:#0f172a;line-height:1.3}
+.t2-edu-inst{font-size:.74rem;color:#0891B2;font-weight:600;margin-top:.18rem}
+.t2-edu-year{display:inline-block;font-size:.66rem;font-weight:700;color:#fff;background:#0891B2;padding:.2rem .55rem;border-radius:5px;margin-top:.35rem}
+.t2-cert{display:flex;align-items:flex-start;gap:.45rem;margin-bottom:.45rem;font-size:.74rem;color:#475569;line-height:1.55}
+.t2-cert::before{content:"✦";color:#0891B2;font-size:.62rem;margin-top:.22rem;flex-shrink:0}
+.t2-role-chip{display:inline-block;padding:.3rem .8rem;border-radius:20px;font-size:.71rem;font-weight:600;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;margin:.18rem .18rem 0 0}
+.t2-footer{background:#0f172a;padding:.6rem 2.8rem;display:flex;align-items:center;justify-content:space-between}
+.t2-footer-brand{font-size:.62rem;font-weight:700;color:#0891B2;text-transform:uppercase;letter-spacing:.14em}
+.t2-footer-date{font-size:.6rem;color:rgba(255,255,255,.3)}
+@media print{body{background:#fff}.page{margin:0;box-shadow:none}.t2-work{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="t2-header">
+    <div class="t2-avatar">${avatarHtml}</div>
+    <div class="t2-header-info">
+      <div class="t2-name">${data.name || 'Nom Prénom'}</div>
+      <div class="t2-role">${data.sector}${data.experience ? ' · ' + data.experience : ''}</div>
+      <div class="t2-contacts">
+        ${data.email ? `<div class="t2-contact-chip"><span>✉</span><span>${data.email}</span></div>` : ''}
+        ${data.phone ? `<div class="t2-contact-chip"><span>☏</span><span>${data.phone}</span></div>` : ''}
+        ${data.address ? `<div class="t2-contact-chip"><span>📍</span><span>${data.address}</span></div>` : ''}
+        ${data.linkedin ? `<div class="t2-contact-chip"><span>in</span><span>${data.linkedin}</span></div>` : ''}
+      </div>
+    </div>
+  </div>
+  <div class="t2-body">
+    <div class="t2-main">
+      ${data.summary ? `<div class="t2-sec"><div class="t2-sec-title">Profil Professionnel</div><div class="t2-summary">${data.summary}</div></div>` : ''}
+      ${data.work.some((w: WorkEntry) => w.company) ? `
+      <div class="t2-sec">
+        <div class="t2-sec-title">Expériences Professionnelles</div>
+        ${data.work.filter((w: WorkEntry) => w.company).map((w: WorkEntry) => `
+        <div class="t2-work">
+          <div class="t2-work-title">${w.title || 'Poste'}</div>
+          <div class="t2-work-co">${w.company}</div>
+          ${(w.startDate || w.endDate) ? `<div class="t2-work-date">◷ ${w.startDate || ''}${w.startDate || w.endDate ? ' — ' : ''}${w.endDate || (w.startDate ? 'Présent' : '')}</div>` : ''}
+          ${w.description ? `<ul>${descToBullets(w.description)}</ul>` : ''}
+        </div>`).join('')}
+      </div>` : ''}
+      ${data.education.degree ? `
+      <div class="t2-sec">
+        <div class="t2-sec-title">Formation</div>
+        <div class="t2-edu">
+          <div class="t2-edu-degree">${data.education.degree}</div>
+          ${data.education.institution ? `<div class="t2-edu-inst">${data.education.institution}</div>` : ''}
+          ${data.education.year ? `<span class="t2-edu-year">${data.education.year}</span>` : ''}
+        </div>
+      </div>` : ''}
+    </div>
+    <div class="t2-sidebar-right">
+      ${data.skills.length ? `
+      <div class="t2-sec">
+        <div class="t2-sec-title">Compétences</div>
+        <div class="t2-skill-grid">${data.skills.map((s: string) => `<span class="t2-skill">✓ ${s}</span>`).join('')}</div>
+      </div>` : ''}
+      ${data.languages.length ? `
+      <div class="t2-sec">
+        <div class="t2-sec-title">Langues</div>
+        ${data.languages.map((l: string, i: number) => {
+          const filled = i === 0 ? 5 : i === 1 ? 4 : i === 2 ? 3 : 2;
+          return `<div class="t2-lang-item">
+            <div class="t2-lang-name"><span>${LANG_FLAGS[l] || '🌐'}</span><span>${l}</span></div>
+            <div class="t2-lang-dots">${[1,2,3,4,5].map(n => `<div class="t2-lang-dot" style="background:${n<=filled?'#0891B2':'#e2e8f0'}"></div>`).join('')}</div>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+      ${data.certifications?.length ? `
+      <div class="t2-sec">
+        <div class="t2-sec-title">Certifications</div>
+        ${data.certifications.map((c: string) => `<div class="t2-cert">${c}</div>`).join('')}
+      </div>` : ''}
+      ${data.targetRoles?.length ? `
+      <div class="t2-sec">
+        <div class="t2-sec-title">Postes Visés</div>
+        <div>${data.targetRoles.map((r: string) => `<span class="t2-role-chip">${r}</span>`).join('')}</div>
+      </div>` : ''}
+    </div>
+  </div>
+  <div class="t2-footer">
+    <span class="t2-footer-brand">TalentMap · Expert RH · Maroc</span>
+    <span class="t2-footer-date">${today}</span>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TEMPLATE 3 — Bold Executive  (dark header, purple accent, 2-col)
+══════════════════════════════════════════════════════════════════ */
+function generateCVHtml3(data: {
+  name: string; email: string; phone: string; address: string; idNumber: string;
+  summary: string; skills: string[]; languages: string[];
+  experience: string; sector: string;
+  work: WorkEntry[]; education: { degree: string; institution: string; year: string };
+  targetRoles?: string[]; certifications?: string[];
+  photo?: string; linkedin?: string; portfolio?: string;
+}) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((w: string) => w[0] || '').join('').slice(0, 2).toUpperCase();
+  const avatarHtml = data.photo
+    ? `<img src="${data.photo}" alt="Photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.55rem;font-weight:800;color:#7C3AED">${initials || '?'}</span>`;
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${data.name} — CV</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800;900&family=Lato:wght@300;400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Lato',Arial,sans-serif;background:#dde2e8;color:#1e1b4b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:860px;margin:2rem auto;background:#fff;box-shadow:0 20px 64px rgba(0,0,0,.2);overflow:hidden}
+.t3-header{background:#1e1b4b;padding:2.2rem 2.8rem 2rem;display:flex;align-items:center;gap:1.8rem;position:relative;overflow:hidden}
+.t3-accent-bar{position:absolute;left:0;top:0;bottom:0;width:6px;background:linear-gradient(180deg,#7C3AED,#4f46e5)}
+.t3-avatar{width:90px;height:90px;border-radius:12px;border:2.5px solid rgba(124,58,237,.6);background:rgba(124,58,237,.1);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;margin-left:.5rem}
+.t3-hd-info{flex:1}
+.t3-name{font-family:'Raleway',Arial,serif;font-size:2.05rem;font-weight:900;color:#fff;line-height:1.15;letter-spacing:-.02em;text-transform:uppercase;margin-bottom:.3rem}
+.t3-role-tag{display:inline-flex;align-items:center;gap:.45rem;background:rgba(124,58,237,.25);border:1px solid rgba(124,58,237,.5);color:#c4b5fd;font-size:.74rem;font-weight:700;padding:.3rem .9rem;border-radius:20px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.85rem}
+.t3-contacts{display:flex;flex-wrap:wrap;gap:.4rem .85rem}
+.t3-chip{font-size:.72rem;color:rgba(255,255,255,.65);display:flex;align-items:center;gap:.35rem}
+.t3-chip-icon{color:#7C3AED;font-size:.78rem}
+.t3-body{display:flex;min-height:1px}
+.t3-left{width:236px;flex-shrink:0;background:#f5f3ff;padding:1.8rem 1.6rem;border-right:1px solid #ede9fe}
+.t3-right{flex:1;padding:1.9rem 2.2rem}
+.t3-sec{margin-bottom:1.6rem}
+.t3-sec:last-child{margin-bottom:0}
+.t3-sec-title{font-family:'Raleway',Arial,sans-serif;font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.2em;color:#7C3AED;margin-bottom:.85rem;padding-bottom:.4rem;border-bottom:2px solid #ede9fe;display:flex;align-items:center;gap:.4rem}
+.t3-sec-title::before{content:'';width:10px;height:2px;background:#7C3AED;display:inline-block;flex-shrink:0}
+.t3-skill-item{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem}
+.t3-skill-dot{width:5px;height:5px;border-radius:50%;background:#7C3AED;flex-shrink:0}
+.t3-skill-name{font-size:.75rem;color:#3730a3;font-weight:500}
+.t3-lang-row{margin-bottom:.6rem}
+.t3-lang-label{font-size:.72rem;color:#4338ca;font-weight:600;margin-bottom:.25rem;display:flex;align-items:center;gap:.3rem}
+.t3-lang-bar-bg{height:3px;background:#ddd6fe;border-radius:2px;overflow:hidden}
+.t3-lang-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#7C3AED,#4f46e5)}
+.t3-cert{font-size:.72rem;color:#4338ca;line-height:1.6;margin-bottom:.4rem;padding-left:.85rem;position:relative}
+.t3-cert::before{content:"◆";position:absolute;left:0;font-size:.5rem;color:#7C3AED;top:.18rem}
+.t3-summary{font-size:.84rem;color:#374151;line-height:1.8;border-left:4px solid #7C3AED;padding:.9rem 1rem;background:#faf5ff;border-radius:0 8px 8px 0;margin-bottom:1.8rem;font-style:italic}
+.t3-work{margin-bottom:1.2rem;padding-bottom:1.2rem;border-bottom:1px dashed #e9d5ff}
+.t3-work:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.t3-work-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;margin-bottom:.3rem}
+.t3-work-title{font-family:'Raleway',Arial,sans-serif;font-size:.97rem;font-weight:800;color:#1e1b4b;line-height:1.25}
+.t3-work-date{font-size:.68rem;color:#7C3AED;font-weight:700;background:#f5f3ff;padding:.22rem .6rem;border-radius:5px;white-space:nowrap;flex-shrink:0;border:1px solid #ddd6fe}
+.t3-work-co{font-size:.81rem;font-weight:600;color:#6d28d9;margin-bottom:.45rem}
+.t3-work ul{list-style:none;padding:0}
+.t3-work ul li{font-size:.79rem;color:#475569;line-height:1.7;padding-left:1.15rem;position:relative;margin-bottom:.18rem}
+.t3-work ul li::before{content:"▸";position:absolute;left:0;color:#7C3AED;font-weight:700;font-size:.85rem}
+.t3-edu-block{background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:10px;padding:.9rem 1.1rem;display:flex;gap:.9rem;align-items:flex-start}
+.t3-edu-badge{background:#7C3AED;color:#fff;font-size:.65rem;font-weight:700;padding:.25rem .6rem;border-radius:5px;white-space:nowrap;flex-shrink:0;margin-top:.1rem}
+.t3-edu-degree{font-family:'Raleway',Arial,sans-serif;font-size:.9rem;font-weight:800;color:#1e1b4b}
+.t3-edu-inst{font-size:.73rem;color:#7C3AED;margin-top:.2rem;font-weight:500}
+.t3-roles-wrap{display:flex;flex-wrap:wrap;gap:.35rem}
+.t3-role-chip{background:#1e1b4b;color:#c4b5fd;border-radius:5px;padding:.28rem .75rem;font-size:.7rem;font-weight:700;border:1px solid rgba(124,58,237,.4)}
+.t3-exp-badge{display:inline-flex;align-items:center;gap:.35rem;background:#7C3AED;color:#fff;border-radius:6px;padding:.3rem .9rem;font-size:.7rem;font-weight:700;margin-bottom:.9rem}
+.t3-footer{background:#1e1b4b;padding:.55rem 2.8rem;display:flex;align-items:center;justify-content:space-between}
+.t3-footer-brand{font-size:.6rem;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:.14em}
+.t3-footer-date{font-size:.58rem;color:rgba(255,255,255,.28)}
+@media print{body{background:#fff}.page{margin:0;box-shadow:none}.t3-work{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="t3-header">
+    <div class="t3-accent-bar"></div>
+    <div class="t3-avatar">${avatarHtml}</div>
+    <div class="t3-hd-info">
+      <div class="t3-name">${data.name || 'Nom Prénom'}</div>
+      <div class="t3-role-tag">◆ ${data.sector}${data.experience ? ' · ' + data.experience : ''}</div>
+      <div class="t3-contacts">
+        ${data.email ? `<div class="t3-chip"><span class="t3-chip-icon">✉</span><span>${data.email}</span></div>` : ''}
+        ${data.phone ? `<div class="t3-chip"><span class="t3-chip-icon">☏</span><span>${data.phone}</span></div>` : ''}
+        ${data.address ? `<div class="t3-chip"><span class="t3-chip-icon">📍</span><span>${data.address}</span></div>` : ''}
+        ${data.linkedin ? `<div class="t3-chip"><span class="t3-chip-icon">in</span><span>${data.linkedin}</span></div>` : ''}
+      </div>
+    </div>
+  </div>
+  <div class="t3-body">
+    <div class="t3-left">
+      ${data.skills.length ? `
+      <div class="t3-sec">
+        <div class="t3-sec-title">Compétences</div>
+        ${data.skills.map((s: string) => `<div class="t3-skill-item"><div class="t3-skill-dot"></div><span class="t3-skill-name">${s}</span></div>`).join('')}
+      </div>` : ''}
+      ${data.languages.length ? `
+      <div class="t3-sec">
+        <div class="t3-sec-title">Langues</div>
+        ${data.languages.map((l: string, i: number) => {
+          const pct = i === 0 ? '100%' : i === 1 ? '82%' : i === 2 ? '62%' : '45%';
+          return `<div class="t3-lang-row">
+            <div class="t3-lang-label">${LANG_FLAGS[l] || '🌐'} ${l}</div>
+            <div class="t3-lang-bar-bg"><div class="t3-lang-bar-fill" style="width:${pct}"></div></div>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+      ${data.certifications?.length ? `
+      <div class="t3-sec">
+        <div class="t3-sec-title">Certifications</div>
+        ${data.certifications.map((c: string) => `<div class="t3-cert">${c}</div>`).join('')}
+      </div>` : ''}
+      ${data.education.degree ? `
+      <div class="t3-sec">
+        <div class="t3-sec-title">Formation</div>
+        <div class="t3-edu-block">
+          ${data.education.year ? `<div class="t3-edu-badge">${data.education.year}</div>` : ''}
+          <div>
+            <div class="t3-edu-degree">${data.education.degree}</div>
+            ${data.education.institution ? `<div class="t3-edu-inst">${data.education.institution}</div>` : ''}
+          </div>
+        </div>
+      </div>` : ''}
+    </div>
+    <div class="t3-right">
+      ${data.experience ? `<div class="t3-exp-badge">◆ ${data.experience}</div>` : ''}
+      ${data.summary ? `<div class="t3-summary">${data.summary}</div>` : ''}
+      ${data.work.some((w: WorkEntry) => w.company) ? `
+      <div class="t3-sec">
+        <div class="t3-sec-title">Expériences Professionnelles</div>
+        ${data.work.filter((w: WorkEntry) => w.company).map((w: WorkEntry) => `
+        <div class="t3-work">
+          <div class="t3-work-header">
+            <div class="t3-work-title">${w.title || 'Poste'}</div>
+            ${(w.startDate || w.endDate) ? `<div class="t3-work-date">${w.startDate || ''}${w.startDate||w.endDate?' — ':''}${w.endDate||(w.startDate?'Présent':'')}</div>` : ''}
+          </div>
+          <div class="t3-work-co">${w.company}</div>
+          ${w.description ? `<ul>${descToBullets(w.description)}</ul>` : ''}
+        </div>`).join('')}
+      </div>` : ''}
+      ${data.targetRoles?.length ? `
+      <div class="t3-sec">
+        <div class="t3-sec-title">Postes Visés</div>
+        <div class="t3-roles-wrap">${data.targetRoles.map((r: string) => `<span class="t3-role-chip">${r}</span>`).join('')}</div>
+      </div>` : ''}
+    </div>
+  </div>
+  <div class="t3-footer">
+    <span class="t3-footer-brand">TalentMap · Expert RH · Maroc</span>
+    <span class="t3-footer-date">${today}</span>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TEMPLATE 4 — Classic ATS  (single column, minimal, recruiter-safe)
+══════════════════════════════════════════════════════════════════ */
+function generateCVHtml4(data: {
+  name: string; email: string; phone: string; address: string; idNumber: string;
+  summary: string; skills: string[]; languages: string[];
+  experience: string; sector: string;
+  work: WorkEntry[]; education: { degree: string; institution: string; year: string };
+  targetRoles?: string[]; certifications?: string[];
+  photo?: string; linkedin?: string; portfolio?: string;
+}) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((w: string) => w[0] || '').join('').slice(0, 2).toUpperCase();
+  const avatarHtml = data.photo
+    ? `<img src="${data.photo}" alt="Photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.4rem;font-weight:700;color:#1B4FD8">${initials || '?'}</span>`;
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${data.name} — CV</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Source Sans 3',Arial,sans-serif;background:#e8e8e8;color:#1a1a2e;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:780px;margin:2rem auto;background:#fff;box-shadow:0 8px 40px rgba(0,0,0,.15);padding:2.8rem 3rem}
+.t4-top{display:flex;align-items:center;gap:1.6rem;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:2.5px solid #1B4FD8}
+.t4-avatar{width:78px;height:78px;border-radius:8px;border:2px solid #dbeafe;background:#eff6ff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.t4-hd{flex:1}
+.t4-name{font-family:'Source Serif 4',Georgia,serif;font-size:2.1rem;font-weight:700;color:#0f172a;line-height:1.15;margin-bottom:.3rem;letter-spacing:-.01em}
+.t4-subtitle{font-size:.82rem;font-weight:600;color:#1B4FD8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.6rem}
+.t4-contacts-row{display:flex;flex-wrap:wrap;gap:.3rem .9rem}
+.t4-contact{font-size:.73rem;color:#64748b;display:flex;align-items:center;gap:.3rem}
+.t4-sec{margin-bottom:1.55rem}
+.t4-sec-title{font-family:'Source Serif 4',Georgia,serif;font-size:.8rem;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.85rem;padding-bottom:.4rem;border-bottom:1.5px solid #1B4FD8;position:relative}
+.t4-sec-title::after{content:'';position:absolute;bottom:-3px;left:0;width:40px;height:1.5px;background:#93c5fd}
+.t4-summary{font-size:.85rem;color:#374151;line-height:1.82;border-left:3px solid #bfdbfe;padding-left:.9rem;color:#475569}
+.t4-work{margin-bottom:1.05rem;padding-bottom:1.05rem;border-bottom:1px solid #f1f5f9}
+.t4-work:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.t4-work-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.12rem}
+.t4-work-title{font-size:.94rem;font-weight:700;color:#0f172a}
+.t4-work-date{font-size:.71rem;color:#94a3b8;font-weight:500}
+.t4-work-co{font-size:.81rem;font-weight:600;color:#1B4FD8;margin-bottom:.42rem}
+.t4-work ul{list-style:disc;padding-left:1.2rem}
+.t4-work ul li{font-size:.8rem;color:#475569;line-height:1.72;margin-bottom:.15rem}
+.t4-edu-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.1rem}
+.t4-edu-degree{font-size:.9rem;font-weight:700;color:#0f172a}
+.t4-edu-year{font-size:.71rem;color:#94a3b8;font-weight:500}
+.t4-edu-inst{font-size:.78rem;color:#1B4FD8;font-weight:500;margin-top:.1rem}
+.t4-skills-grid{display:flex;flex-wrap:wrap;gap:.4rem}
+.t4-skill{display:inline-flex;align-items:center;gap:.28rem;padding:.26rem .75rem;border-radius:4px;font-size:.74rem;font-weight:500;background:#eff6ff;color:#1e40af;border:1px solid #dbeafe}
+.t4-two-col{display:grid;grid-template-columns:1fr 1fr;gap:0 2rem}
+.t4-lang-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
+.t4-lang-label{font-size:.76rem;color:#374151;display:flex;align-items:center;gap:.35rem}
+.t4-lang-level{font-size:.68rem;font-weight:600;color:#1B4FD8;background:#eff6ff;padding:.15rem .5rem;border-radius:3px}
+.t4-role-chip{display:inline-block;padding:.22rem .7rem;font-size:.73rem;font-weight:600;color:#1B4FD8;border:1.5px solid #bfdbfe;border-radius:4px;margin:.15rem .15rem 0 0;background:#eff6ff}
+.t4-cert{font-size:.77rem;color:#374151;line-height:1.6;margin-bottom:.38rem;padding-left:.8rem;position:relative}
+.t4-cert::before{content:"·";position:absolute;left:0;color:#1B4FD8;font-size:1.1rem;line-height:.9}
+.t4-footer{margin-top:1.8rem;padding-top:.7rem;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
+.t4-footer-brand{font-size:.6rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em}
+.t4-footer-date{font-size:.6rem;color:#cbd5e1}
+@media print{body{background:#fff}.page{margin:0;box-shadow:none;padding:1.8rem 2rem}.t4-work{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="t4-top">
+    <div class="t4-avatar">${avatarHtml}</div>
+    <div class="t4-hd">
+      <div class="t4-name">${data.name || 'Nom Prénom'}</div>
+      <div class="t4-subtitle">${data.sector}${data.experience ? ' · ' + data.experience : ''}</div>
+      <div class="t4-contacts-row">
+        ${data.email ? `<div class="t4-contact"><span>✉</span>${data.email}</div>` : ''}
+        ${data.phone ? `<div class="t4-contact"><span>☏</span>${data.phone}</div>` : ''}
+        ${data.address ? `<div class="t4-contact"><span>📍</span>${data.address}</div>` : ''}
+        ${data.linkedin ? `<div class="t4-contact"><span>in</span>${data.linkedin}</div>` : ''}
+        ${data.portfolio ? `<div class="t4-contact"><span>↗</span>${data.portfolio}</div>` : ''}
+      </div>
+    </div>
+  </div>
+  ${data.summary ? `
+  <div class="t4-sec">
+    <div class="t4-sec-title">Profil Professionnel</div>
+    <div class="t4-summary">${data.summary}</div>
+  </div>` : ''}
+  ${data.work.some((w: WorkEntry) => w.company) ? `
+  <div class="t4-sec">
+    <div class="t4-sec-title">Expériences Professionnelles</div>
+    ${data.work.filter((w: WorkEntry) => w.company).map((w: WorkEntry) => `
+    <div class="t4-work">
+      <div class="t4-work-top">
+        <div class="t4-work-title">${w.title || 'Poste'}</div>
+        ${(w.startDate || w.endDate) ? `<div class="t4-work-date">${w.startDate || ''}${w.startDate||w.endDate?' – ':''}${w.endDate||(w.startDate?'Présent':'')}</div>` : ''}
+      </div>
+      <div class="t4-work-co">${w.company}</div>
+      ${w.description ? `<ul>${descToBullets(w.description)}</ul>` : ''}
+    </div>`).join('')}
+  </div>` : ''}
+  <div class="t4-two-col">
+    <div>
+      ${data.education.degree ? `
+      <div class="t4-sec">
+        <div class="t4-sec-title">Formation</div>
+        <div class="t4-edu-row">
+          <div class="t4-edu-degree">${data.education.degree}</div>
+          ${data.education.year ? `<div class="t4-edu-year">${data.education.year}</div>` : ''}
+        </div>
+        ${data.education.institution ? `<div class="t4-edu-inst">${data.education.institution}</div>` : ''}
+      </div>` : ''}
+      ${data.targetRoles?.length ? `
+      <div class="t4-sec">
+        <div class="t4-sec-title">Postes Visés</div>
+        <div>${data.targetRoles.map((r: string) => `<span class="t4-role-chip">${r}</span>`).join('')}</div>
+      </div>` : ''}
+    </div>
+    <div>
+      ${data.skills.length ? `
+      <div class="t4-sec">
+        <div class="t4-sec-title">Compétences</div>
+        <div class="t4-skills-grid">${data.skills.map((s: string) => `<span class="t4-skill">${s}</span>`).join('')}</div>
+      </div>` : ''}
+      ${data.languages.length ? `
+      <div class="t4-sec">
+        <div class="t4-sec-title">Langues</div>
+        ${data.languages.map((l: string, i: number) => {
+          const levels = ['Langue maternelle', 'Courant (C1)', 'Intermédiaire (B2)', 'Notions (B1)'];
+          return `<div class="t4-lang-row">
+            <div class="t4-lang-label">${LANG_FLAGS[l] || '🌐'} ${l}</div>
+            <span class="t4-lang-level">${levels[i] || 'Notions'}</span>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+      ${data.certifications?.length ? `
+      <div class="t4-sec">
+        <div class="t4-sec-title">Certifications</div>
+        ${data.certifications.map((c: string) => `<div class="t4-cert">${c}</div>`).join('')}
+      </div>` : ''}
+    </div>
+  </div>
+  <div class="t4-footer">
+    <span class="t4-footer-brand">TalentMap · Expert RH · Maroc</span>
+    <span class="t4-footer-date">${today}</span>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
 const EXP_ORDER = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
 
 function computeMatch(cv: { skills: string[]; sector: string; experience: string }, job: any): number {
@@ -453,6 +909,7 @@ export default function CandidateUpload() {
   // 3-step wizard
   const [step, setStep] = useState<Step>('cv');
   const [cvSource, setCvSource] = useState<'upload' | 'template'>('upload');
+  const [selectedTemplate, setSelectedTemplate] = useState<1|2|3|4>(1);
 
   // Upload AI processing state
   const [processing, setProcessing] = useState(false);
@@ -591,8 +1048,12 @@ export default function CandidateUpload() {
   // Live CV HTML
   const cvHtml = useMemo(() => {
     if (!user) return '';
-    return generateCVHtml({ name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio });
-  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio]);
+    const cvData = { name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio };
+    if (selectedTemplate === 2) return generateCVHtml2(cvData);
+    if (selectedTemplate === 3) return generateCVHtml3(cvData);
+    if (selectedTemplate === 4) return generateCVHtml4(cvData);
+    return generateCVHtml(cvData);
+  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio, selectedTemplate]);
 
   if (!user || user.role !== 'candidate') return null;
 
@@ -1331,6 +1792,42 @@ export default function CandidateUpload() {
                   {skills.length > 0 && <span>{skills.length} compétences · </span>}
                   {experience} · {sector}
                 </div>
+              </div>
+            </div>
+
+            {/* Template picker */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>🎨 Choisissez votre template</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))', gap: '0.65rem' }}>
+                {([
+                  { id: 1, name: 'Navy & Gold', desc: 'Élégant · Prestige', colors: ['#0D1B2A', '#C49A35'] },
+                  { id: 2, name: 'Modern Teal', desc: 'Épuré · Tech', colors: ['#0891B2', '#164e63'] },
+                  { id: 3, name: 'Bold Executive', desc: 'Impact · Dirigeant', colors: ['#1e1b4b', '#7C3AED'] },
+                  { id: 4, name: 'Classic ATS', desc: 'ATS-Safe · Universel', colors: ['#1B4FD8', '#0f172a'] },
+                ] as const).map(tpl => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => setSelectedTemplate(tpl.id)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', gap: '0.55rem',
+                      padding: '0.85rem 1rem', borderRadius: '11px', cursor: 'pointer',
+                      border: selectedTemplate === tpl.id ? '2px solid #1B4FD8' : '1.5px solid #e5e7eb',
+                      background: selectedTemplate === tpl.id ? '#EFF6FF' : 'white',
+                      textAlign: 'left', transition: 'all 0.15s',
+                      boxShadow: selectedTemplate === tpl.id ? '0 0 0 3px rgba(27,79,216,.12)' : 'none',
+                    }}>
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      {tpl.colors.map((c, i) => (
+                        <div key={i} style={{ width: 22, height: 22, borderRadius: '5px', background: c }} />
+                      ))}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: selectedTemplate === tpl.id ? '#1B4FD8' : '#111827' }}>{tpl.name}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{tpl.desc}</div>
+                    {selectedTemplate === tpl.id && (
+                      <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#1B4FD8', background: '#dbeafe', borderRadius: '4px', padding: '0.1rem 0.45rem', alignSelf: 'flex-start' }}>✓ Sélectionné</div>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
 
