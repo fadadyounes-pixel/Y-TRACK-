@@ -909,7 +909,6 @@ export default function CandidateUpload() {
   // 3-step wizard
   const [step, setStep] = useState<Step>('cv');
   const [cvSource, setCvSource] = useState<'upload' | 'template'>('upload');
-  const [selectedTemplate, setSelectedTemplate] = useState<1|2|3|4>(1);
 
   // Upload AI processing state
   const [processing, setProcessing] = useState(false);
@@ -1045,15 +1044,12 @@ export default function CandidateUpload() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, coordJobs, name, skillsKey]);
 
-  // Live CV HTML
+  // Live CV HTML — always Navy & Gold (best template)
   const cvHtml = useMemo(() => {
     if (!user) return '';
     const cvData = { name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio };
-    if (selectedTemplate === 2) return generateCVHtml2(cvData);
-    if (selectedTemplate === 3) return generateCVHtml3(cvData);
-    if (selectedTemplate === 4) return generateCVHtml4(cvData);
     return generateCVHtml(cvData);
-  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio, selectedTemplate]);
+  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio]);
 
   if (!user || user.role !== 'candidate') return null;
 
@@ -1583,14 +1579,6 @@ export default function CandidateUpload() {
                   </div>
                 )}
 
-                {processStep === 'done' && (
-                  <div style={{ background: '#f0fdf4', borderRadius: '16px', padding: '2rem', border: '1.5px solid #86efac', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>✅</div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#15803d', marginBottom: '0.25rem' }}>CV analysé et boosté pour le marché marocain !</h3>
-                    <p style={{ color: '#166534', fontSize: '0.875rem' }}>Résumé rédigé · Compétences optimisées · Postes cibles suggérés</p>
-                    <p style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.4rem' }}>Redirection vers l'aperçu…</p>
-                  </div>
-                )}
 
                 {processStep === 'error' && (
                   <div style={{ background: '#fef2f2', borderRadius: '16px', padding: '2rem', border: '1.5px solid #fecaca', textAlign: 'center' }}>
@@ -1781,54 +1769,6 @@ export default function CandidateUpload() {
         ════════════════════════════════════════════════════ */}
         {step === 'preview' && (
           <div>
-            {/* Success banner */}
-            <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '14px', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-              <span style={{ fontSize: '2.2rem' }}>🎉</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: '#15803d', fontSize: '1rem', marginBottom: '0.25rem' }}>Votre CV est optimisé pour le marché marocain !</div>
-                <div style={{ fontSize: '0.84rem', color: '#166534' }}>
-                  {targetRoles.length > 0 && <span>Postes cibles : {targetRoles.join(', ')} · </span>}
-                  {skills.length > 0 && <span>{skills.length} compétences · </span>}
-                  {experience} · {sector}
-                </div>
-              </div>
-            </div>
-
-            {/* Template picker */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>🎨 Choisissez votre template</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))', gap: '0.65rem' }}>
-                {([
-                  { id: 1, name: 'Navy & Gold', desc: 'Élégant · Prestige', colors: ['#0D1B2A', '#C49A35'] },
-                  { id: 2, name: 'Modern Teal', desc: 'Épuré · Tech', colors: ['#0891B2', '#164e63'] },
-                  { id: 3, name: 'Bold Executive', desc: 'Impact · Dirigeant', colors: ['#1e1b4b', '#7C3AED'] },
-                  { id: 4, name: 'Classic ATS', desc: 'ATS-Safe · Universel', colors: ['#1B4FD8', '#0f172a'] },
-                ] as const).map(tpl => (
-                  <button
-                    key={tpl.id}
-                    onClick={() => setSelectedTemplate(tpl.id)}
-                    style={{
-                      display: 'flex', flexDirection: 'column', gap: '0.55rem',
-                      padding: '0.85rem 1rem', borderRadius: '11px', cursor: 'pointer',
-                      border: selectedTemplate === tpl.id ? '2px solid #1B4FD8' : '1.5px solid #e5e7eb',
-                      background: selectedTemplate === tpl.id ? '#EFF6FF' : 'white',
-                      textAlign: 'left', transition: 'all 0.15s',
-                      boxShadow: selectedTemplate === tpl.id ? '0 0 0 3px rgba(27,79,216,.12)' : 'none',
-                    }}>
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      {tpl.colors.map((c, i) => (
-                        <div key={i} style={{ width: 22, height: 22, borderRadius: '5px', background: c }} />
-                      ))}
-                    </div>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: selectedTemplate === tpl.id ? '#1B4FD8' : '#111827' }}>{tpl.name}</div>
-                    <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{tpl.desc}</div>
-                    {selectedTemplate === tpl.id && (
-                      <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#1B4FD8', background: '#dbeafe', borderRadius: '4px', padding: '0.1rem 0.45rem', alignSelf: 'flex-start' }}>✓ Sélectionné</div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: '0.85rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
