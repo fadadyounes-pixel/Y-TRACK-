@@ -691,6 +691,25 @@ body{font-family:'Source Sans 3',Arial,sans-serif;background:#e8e8e8;color:#1a1a
 </html>`;
 }
 
+// Smart template selector — routes to the best template per sector/profile
+function selectCVTemplate(data: Parameters<typeof generateCVHtml>[0]) {
+  const s = (data.sector || '').toLowerCase();
+  // Finance, Banking, Law, Audit, Insurance → Template 1: Navy & Gold (prestigious, conservative)
+  if (/finance|banque|bank|audit|assurance|comptab|juridique|fisc|tresor|invest|notaire|avocat/.test(s)) {
+    return generateCVHtml(data);
+  }
+  // Tech, IT, Data, Engineering → Template 4: Classic ATS (clean, minimal, recruiter-safe)
+  if (/tech|info|digit|data|d[ée]velop|logiciel|s[ée]curit[ée] inf|syst[eè]me|r[ée]seau|cloud|ia|intelligence|web|mobile|devops|cyber|soft|hard/.test(s)) {
+    return generateCVHtml4(data);
+  }
+  // Design, Marketing, Creative, Media, Communication → Template 3: Bold Executive (visual, purple)
+  if (/design|market|cr[ée]at|m[ée]dia|communication|publicité|mode|fashion|art|film|photo|brand|content|social media|ui|ux|graph/.test(s)) {
+    return generateCVHtml3(data);
+  }
+  // Default: Template 2 (Modern Teal) — Tourism, Healthcare, BTP, Operations, Agro, etc.
+  return generateCVHtml2(data);
+}
+
 const EXP_ORDER = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
 
 function computeMatch(cv: { skills: string[]; sector: string; experience: string }, job: any): number {
@@ -1044,11 +1063,11 @@ export default function CandidateUpload() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, coordJobs, name, skillsKey]);
 
-  // Live CV HTML — always Navy & Gold (best template)
+  // Live CV HTML — auto-selects best template per sector
   const cvHtml = useMemo(() => {
     if (!user) return '';
     const cvData = { name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio };
-    return generateCVHtml(cvData);
+    return selectCVTemplate(cvData);
   }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio]);
 
   if (!user || user.role !== 'candidate') return null;
