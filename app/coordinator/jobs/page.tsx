@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import PageHeader from '../../../components/PageHeader';
+import Logo from '../../../components/Logo';
 import { useAuth } from '../../../contexts/AuthContext';
 
 interface Job {
@@ -71,35 +71,47 @@ export default function CoordinatorJobs() {
   const [search, setSearch] = useState('');
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [coordCvs, setCoordCvs] = useState<any[]>([]);
+  const [descLoading, setDescLoading] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== 'coordinator') router.push('/login');
   }, [user, router]);
 
-  // Load imported CVs from localStorage (uploaded by coordinator)
+  // Load jobs + CVs from Redis on mount
   useEffect(() => {
     if (!user) return;
-    try {
-      const stored = localStorage.getItem('coordinator_cvs');
-      if (stored) setCoordCvs(JSON.parse(stored));
-    } catch {}
+    fetch('/api/sheets')
+      .then(r => r.json())
+      .then(data => {
+        setJobs(data.jobs?.length ? data.jobs : INITIAL_JOBS);
+        setCoordCvs(data.cvs || []);
+        setLoaded(true);
+      })
+      .catch(() => {
+        // Fallback to localStorage cache
+        try {
+          const stored = localStorage.getItem('coordinator_jobs');
+          setJobs(stored ? JSON.parse(stored) : INITIAL_JOBS);
+        } catch { setJobs(INITIAL_JOBS); }
+        try {
+          const stored = localStorage.getItem('coordinator_cvs');
+          if (stored) setCoordCvs(JSON.parse(stored));
+        } catch {}
+        setLoaded(true);
+      });
   }, [user]);
 
-  // Load from localStorage
+  // Persist jobs to Redis (debounced via useEffect dependency)
   useEffect(() => {
-    if (!user) return;
-    try {
-      const stored = localStorage.getItem('coordinator_jobs');
-      setJobs(stored ? JSON.parse(stored) : INITIAL_JOBS);
-    } catch {
-      setJobs(INITIAL_JOBS);
-    }
-    setLoaded(true);
-  }, [user]);
-
-  // Persist to localStorage
-  useEffect(() => {
-    if (loaded) localStorage.setItem('coordinator_jobs', JSON.stringify(jobs));
+    if (!loaded) return;
+    // Update localStorage cache immediately
+    try { localStorage.setItem('coordinator_jobs', JSON.stringify(jobs)); } catch {}
+    // Persist to Redis
+    fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'save_jobs', jobs }),
+    }).catch(() => {});
   }, [jobs, loaded]);
 
   if (!user || user.role !== 'coordinator') return null;
@@ -153,19 +165,38 @@ export default function CoordinatorJobs() {
   const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.9rem', color: '#111827', background: 'white', fontFamily: 'inherit' };
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' };
 
+  async function generateDescription() {
+    if (!title && !sector) return;
+    setDescLoading(true);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Poste: ${title || 'Non précisé'}\nSecteur: ${sector}\nNiveau: ${experience}\nVille: ${location}${skills.length ? '\nCompétences: ' + skills.join(', ') : ''}` }],
+          system: 'Rédige une description de poste professionnelle et concise (3-4 phrases) en français, directement utilisable dans une offre d\'emploi. Pas de titre, pas de bullet points, juste le texte de description. Maximum 120 mots.',
+          task: 'dialogue',
+          max_tokens: 250,
+        }),
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text?.trim();
+      if (text) setDescription(text);
+    } catch {}
+    setDescLoading(false);
+  }
+
   return (
-    <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      <div style={{ position: 'relative' }}>
-        <PageHeader title="TalentMap" subtitle="Coordinator Portal" />
-        <div style={{ position: 'absolute', top: '50%', right: '1.5rem', transform: 'translateY(-50%)', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem' }}>{user.name}</span>
+    <main style={{ minHeight: '100vh', background: '#F6F8FC' }}>
+      <nav style={{ background: '#0B1629', height: 60, padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,.06)', boxShadow: '0 2px 16px rgba(0,0,0,.35)' }}>
+        <Logo size="md" variant="light" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ color: 'rgba(255,255,255,.75)', fontSize: '0.875rem', fontWeight: 600 }}>{user.name}</span>
+          <Link href="/coordinator" style={{ color: 'rgba(255,255,255,.55)', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>← Tableau de bord</Link>
         </div>
-      </div>
+      </nav>
 
       <div className="container" style={{ maxWidth: '900px', padding: '2rem 1.5rem' }}>
-        <Link href="/coordinator" style={{ fontSize: '0.875rem', color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1.25rem' }}>
-          ← Retour au tableau de bord
-        </Link>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
@@ -224,8 +255,17 @@ export default function CoordinatorJobs() {
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
-              <label style={labelStyle}>Description du poste</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Missions, responsabilités, environnement de travail…" style={{ ...inputStyle, resize: 'vertical' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Description du poste</label>
+                <button
+                  type="button"
+                  onClick={generateDescription}
+                  disabled={descLoading || (!title && !sector)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', background: descLoading ? '#e5e7eb' : 'linear-gradient(135deg,#1B4FD8,#1443B8)', color: descLoading ? '#9ca3af' : 'white', fontSize: '0.75rem', fontWeight: 700, cursor: descLoading || (!title && !sector) ? 'not-allowed' : 'pointer', opacity: (!title && !sector) ? 0.5 : 1 }}>
+                  {descLoading ? '⏳ Génération…' : '🤖 Générer avec IA'}
+                </button>
+              </div>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Missions, responsabilités, environnement de travail… ou cliquez « Générer avec IA »" style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
 
             <div style={{ marginBottom: '1.25rem' }}>
@@ -236,8 +276,8 @@ export default function CoordinatorJobs() {
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.5rem' }}>
                 {skills.map(s => (
-                  <span key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#eff6ff', color: '#1d4ed8', borderRadius: '9999px', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 600 }}>
-                    {s}<button onClick={() => setSkills(p => p.filter(x => x !== s))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1d4ed8', fontSize: '0.9rem' }}>×</button>
+                  <span key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#EFF6FF', color: '#1B4FD8', borderRadius: '9999px', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 600 }}>
+                    {s}<button onClick={() => setSkills(p => p.filter(x => x !== s))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1B4FD8', fontSize: '0.9rem' }}>×</button>
                   </span>
                 ))}
               </div>
@@ -282,7 +322,7 @@ export default function CoordinatorJobs() {
               </div>
             )}
             {filtered.map(j => (
-              <div key={j.id} style={{ padding: '1.25rem', background: '#f9fafb', borderRadius: '12px', borderLeft: `4px solid ${j.status === 'Open' ? '#2563eb' : '#d1d5db'}` }}>
+              <div key={j.id} style={{ padding: '1.25rem', background: '#F6F8FC', borderRadius: '12px', borderLeft: `4px solid ${j.status === 'Open' ? '#1B4FD8' : '#d1d5db'}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.65rem' }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '1rem', color: '#111827', marginBottom: '0.2rem' }}>{j.title}</div>
@@ -295,7 +335,7 @@ export default function CoordinatorJobs() {
                     <span style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem', borderRadius: '9999px', background: j.status === 'Open' ? '#d1fae5' : '#f3f4f6', color: j.status === 'Open' ? '#065f46' : '#6b7280', fontWeight: 600 }}>
                       {j.status === 'Open' ? '🟢 Ouverte' : '⚫ Fermée'}
                     </span>
-                    <button onClick={() => openEdit(j)} style={{ fontSize: '0.78rem', color: '#2563eb', background: 'none', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>✏️</button>
+                    <button onClick={() => openEdit(j)} style={{ fontSize: '0.78rem', color: '#1B4FD8', background: 'none', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>✏️</button>
                     <button onClick={() => toggleStatus(j.id)} style={{ fontSize: '0.78rem', color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>
                       {j.status === 'Open' ? 'Fermer' : 'Rouvrir'}
                     </button>
@@ -304,20 +344,20 @@ export default function CoordinatorJobs() {
                 </div>
                 {j.description && <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.75rem', lineHeight: 1.55 }}>{j.description}</p>}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.75rem' }}>
-                  {j.skills.map(s => <span key={s} style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: '4px', padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 600 }}>{s}</span>)}
+                  {j.skills.map(s => <span key={s} style={{ background: '#EFF6FF', color: '#1B4FD8', borderRadius: '4px', padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 600 }}>{s}</span>)}
                 </div>
                 {/* Ranked candidates panel */}
                 <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '0.75rem' }}>
                   <button
                     onClick={() => setExpandedJob(expandedJob === j.id ? null : j.id)}
-                    style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 700, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '0.35rem 0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                    style={{ fontSize: '0.8rem', color: '#1B4FD8', fontWeight: 700, background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '0.35rem 0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                     🎯 {expandedJob === j.id ? 'Masquer' : `Candidats classés (${coordCvs.length})`}
                   </button>
                   {expandedJob === j.id && (
                     <div style={{ marginTop: '0.75rem' }}>
                       {coordCvs.length === 0 ? (
-                        <div style={{ padding: '0.9rem', background: '#f9fafb', borderRadius: '8px', fontSize: '0.82rem', color: '#6b7280', textAlign: 'center' }}>
-                          Aucun CV importé. <Link href="/coordinator/upload" style={{ color: '#2563eb', fontWeight: 600 }}>Importer des CVs →</Link>
+                        <div style={{ padding: '0.9rem', background: '#F6F8FC', borderRadius: '8px', fontSize: '0.82rem', color: '#6b7280', textAlign: 'center' }}>
+                          Aucun CV importé. <Link href="/coordinator/upload" style={{ color: '#1B4FD8', fontWeight: 600 }}>Importer des CVs →</Link>
                         </div>
                       ) : (() => {
                         const ranked = coordCvs
@@ -340,7 +380,7 @@ export default function CoordinatorJobs() {
                                     <div style={{ fontSize: '0.72rem', color: '#6b7280' }}>{cv.sector} · {cv.experience}{cv.phone ? ` · ${cv.phone}` : ''}</div>
                                   </div>
                                   {cv.email ? (
-                                    <a href={`mailto:${cv.email}?subject=Offre: ${j.title} chez ${j.company}`} style={{ fontSize: '0.73rem', color: '#2563eb', fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none', padding: '0.25rem 0.6rem', borderRadius: '5px', border: '1px solid #bfdbfe', background: 'white' }}>
+                                    <a href={`mailto:${cv.email}?subject=Offre: ${j.title} chez ${j.company}`} style={{ fontSize: '0.73rem', color: '#1B4FD8', fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none', padding: '0.25rem 0.6rem', borderRadius: '5px', border: '1px solid #bfdbfe', background: 'white' }}>
                                       ✉ Contacter
                                     </a>
                                   ) : null}

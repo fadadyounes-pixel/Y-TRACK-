@@ -6,33 +6,67 @@ interface LogoProps {
 
 export default function Logo({ size = 'md', showText = true, variant = 'dark' }: LogoProps) {
   const scale = {
-    sm: { icon: 28, titleSize: '1.1rem', subSize: '0.55rem', gap: '0.5rem' },
-    md: { icon: 36, titleSize: '1.4rem', subSize: '0.6rem', gap: '0.65rem' },
-    lg: { icon: 48, titleSize: '1.75rem', subSize: '0.65rem', gap: '0.85rem' },
+    sm: { icon: 26, titleSize: '1rem',   subSize: '0.5rem',  gap: '0.45rem' },
+    md: { icon: 32, titleSize: '1.25rem', subSize: '0.55rem', gap: '0.6rem' },
+    lg: { icon: 42, titleSize: '1.6rem',  subSize: '0.6rem',  gap: '0.75rem' },
   }[size];
 
   const isDark = variant === 'dark';
-  const circleFill = isDark ? '#ffffff' : 'rgba(255,255,255,0.15)';
-  const titleColor = isDark ? '#111827' : '#ffffff';
-  const accentColor = isDark ? '#2563eb' : '#93c5fd';
-  const subColor = isDark ? '#6b7280' : 'rgba(255,255,255,0.6)';
+  const titleColor  = isDark ? '#0B1629' : '#FFFFFF';
+  const accentColor = isDark ? '#1B4FD8' : '#93C5FD';
+  const subColor    = isDark ? '#64748B' : 'rgba(255,255,255,0.55)';
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: scale.gap }}>
-      <svg width={scale.icon} height={scale.icon} viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
-        <path d="M16 2C9.4 2 4 7.4 4 14c0 9 12 16 12 16s12-7 12-16c0-6.6-5.4-12-12-12z" fill="#2563eb" />
-        <circle cx="16" cy="14" r="7.5" fill={circleFill} />
-        <polyline points="10.5,16.5 14,12.5 16.5,14.8 20.5,9.5" stroke="#2563eb" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline points="17.2,9.5 20.5,9.5 20.5,12.8" stroke="#2563eb" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Map-pin icon with upward chart */}
+      <svg width={scale.icon} height={scale.icon} viewBox="0 0 36 36" fill="none" style={{ flexShrink: 0 }}>
+        {/* Pin body */}
+        <path
+          d="M18 3C11.9 3 7 7.9 7 14c0 8.5 11 18.5 11 18.5S29 22.5 29 14c0-6.1-4.9-11-11-11z"
+          fill={isDark ? '#1B4FD8' : '#3B82F6'}
+        />
+        {/* Inner white circle */}
+        <circle cx="18" cy="14" r="7" fill={isDark ? '#FFFFFF' : 'rgba(255,255,255,0.92)'} />
+        {/* Upward trend line */}
+        <polyline
+          points="11.5,17 15,12.5 17.5,15 22.5,9.5"
+          stroke={isDark ? '#1B4FD8' : '#2563EB'}
+          strokeWidth="1.9"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* Arrow head top-right */}
+        <polyline
+          points="19.5,9.5 22.5,9.5 22.5,12.5"
+          stroke={isDark ? '#1B4FD8' : '#2563EB'}
+          strokeWidth="1.9"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
 
       {showText && (
-        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.05 }}>
-          <span style={{ fontSize: scale.titleSize, fontWeight: 800, color: titleColor, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+          <span style={{
+            fontSize: scale.titleSize,
+            fontWeight: 800,
+            color: titleColor,
+            letterSpacing: '-0.03em',
+            whiteSpace: 'nowrap',
+          }}>
             Talent<span style={{ color: accentColor }}>Map</span>
           </span>
-          <span style={{ fontSize: scale.subSize, fontWeight: 600, color: subColor, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '2px' }}>
-            Recruitment Platform
+          <span style={{
+            fontSize: scale.subSize,
+            fontWeight: 600,
+            color: subColor,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginTop: '1px',
+          }}>
+            Recruitment
           </span>
         </div>
       )}

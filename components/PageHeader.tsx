@@ -3,29 +3,49 @@ import Logo from './Logo';
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
+  actions?: React.ReactNode;
 }
 
-export default function PageHeader({ title, subtitle }: PageHeaderProps) {
+export default function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
     <div style={{
-      background: 'linear-gradient(135deg, #0a1f5c 0%, #1a3a8f 100%)',
-      padding: '1.5rem',
-      minHeight: '64px',
+      background: '#0B1629',
+      padding: '0 1.5rem',
+      height: '60px',
       display: 'flex',
       alignItems: 'center',
+      borderBottom: '1px solid rgba(255,255,255,.07)',
+      position: 'sticky',
+      top: 0,
+      zIndex: 30,
     }}>
-      <div className="container" style={{ display: 'flex', alignItems: 'center' }}>
-        <Logo size="md" variant="light" />
-        <div style={{ marginLeft: '1.25rem', paddingLeft: '1.25rem', borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', margin: 0 }}>
-            {title}
-          </h1>
-          {subtitle && (
-            <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginTop: '2px', margin: '2px 0 0' }}>
-              {subtitle}
-            </p>
-          )}
+      <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          <Logo size="md" variant="light" />
+          <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,.12)' }} />
+          <div>
+            <h1 style={{
+              fontSize: '0.95rem',
+              fontWeight: 700,
+              color: '#FFFFFF',
+              letterSpacing: '-0.01em',
+              margin: 0,
+              lineHeight: 1.2,
+            }}>
+              {title}
+            </h1>
+            {subtitle && (
+              <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,.45)', margin: '1px 0 0', lineHeight: 1 }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
         </div>
+        {actions && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );
