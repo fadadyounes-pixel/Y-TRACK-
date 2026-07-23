@@ -1384,7 +1384,7 @@ export default function CandidateUpload() {
     try {
       const text = await callAI(
         [{ role: 'user', content: ctx }],
-        `Expert RH senior Maroc. Génère UNIQUEMENT ce JSON valide (sans markdown):\n{"summary":${!hasGoodSummary ? '"accroche 3-4 phrases percutantes verbes action pour recruteur marocain"' : 'null'},"targetRoles":${!hasRoles ? '["poste1","poste2","poste3"]' : 'null'},"certifications":${certifications.length === 0 ? '["certification1","certification2"]' : 'null'}}\n\n${MOROCCO_CONTEXT}`,
+        `Expert RH senior Maroc. Génère UNIQUEMENT ce JSON valide (sans markdown):\n{"summary":${!hasGoodSummary ? '"accroche 3-4 phrases percutantes verbes action pour recruteur marocain"' : 'null'},"targetRoles":${!hasRoles ? '["poste1","poste2","poste3"]' : 'null'}}\n\n${MOROCCO_CONTEXT}`,
         'fast',
         450
       );
@@ -1393,7 +1393,6 @@ export default function CandidateUpload() {
         const p = JSON.parse(m[0]);
         if (p.summary && !hasGoodSummary) { setSummary(p.summary); resolvedSummary = p.summary; }
         if (p.targetRoles?.length && !hasRoles) { setTargetRoles(p.targetRoles.slice(0, 3)); resolvedRoles = p.targetRoles.slice(0, 3); }
-        if (p.certifications?.length && certifications.length === 0) setCertifications(p.certifications.slice(0, 3));
       }
     } catch {}
     // Sync to Redis for coordinator matching
