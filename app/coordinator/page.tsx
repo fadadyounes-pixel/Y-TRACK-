@@ -448,10 +448,10 @@ export default function CoordinatorDashboard() {
       .filter(c => c.status === 'done')
       .map(cv => {
         let bestScore = 0, bestJob: Job | null = null, bestMatch: MatchResult | null = null;
-        openJobs.forEach(job => {
+        for (const job of openJobs) {
           const m = computeMatch(cv, job);
           if (m.total > bestScore) { bestScore = m.total; bestJob = job; bestMatch = m; }
-        });
+        }
         return { cv, bestJob, bestMatch, bestScore };
       })
       .filter(x => x.bestJob !== null)
