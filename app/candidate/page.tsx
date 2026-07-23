@@ -3,13 +3,28 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
+
+const INK    = '#0B1629';
+const COBALT = '#1B4FD8';
+const BG     = '#F6F8FC';
+const BORDER = '#E2E8F0';
+const TEXT   = '#0F172A';
+const MUTED  = '#64748B';
+const FAINT  = '#94A3B8';
+const LBLUE  = '#EFF6FF';
+const WHITE  = '#ffffff';
+const PURPLE = '#7C3AED';
+const LPURP  = '#EDE9FE';
+const GREEN  = '#059669';
+const LGREEN = '#D1FAE5';
 
 export default function CandidateDashboard() {
   const { user, initialized, logout } = useAuth();
   const router = useRouter();
-  const [info, setInfo] = useState<Record<string, any> | null>(null);
-  const [cvData, setCvData] = useState<Record<string, any> | null>(null);
+  const [info, setInfo]       = useState<Record<string, any> | null>(null);
+  const [cvData, setCvData]   = useState<Record<string, any> | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
 
   useEffect(() => {
@@ -18,37 +33,31 @@ export default function CandidateDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    try {
-      const s = localStorage.getItem(`tm_info_${user.idNumber}`);
-      if (s) setInfo(JSON.parse(s));
-    } catch {}
-    try {
-      const c = localStorage.getItem(`tm_cv_${user.idNumber}`);
-      if (c) setCvData(JSON.parse(c));
-    } catch {}
+    try { const s = localStorage.getItem(`tm_info_${user.idNumber}`); if (s) setInfo(JSON.parse(s)); } catch {}
+    try { const c = localStorage.getItem(`tm_cv_${user.idNumber}`);   if (c) setCvData(JSON.parse(c)); } catch {}
   }, [user]);
 
   if (!initialized || !user || user.role !== 'candidate') return null;
 
-  const firstName = info?.firstName || user.name.split(' ')[0] || 'Candidat';
+  const firstName      = info?.firstName || user.name.split(' ')[0] || 'Candidat';
   const skills: string[] = cvData?.skills || info?.skills || [];
-  const hasProfile = !!info?.phone || !!info?.city;
-  const hasCV = !!(cvData?.skills?.length || cvData?.summary);
-  const completionSteps = [hasProfile, hasCV, false];
-  const completedCount = completionSteps.filter(Boolean).length;
+  const hasProfile     = !!info?.phone || !!info?.city;
+  const hasCV          = !!(cvData?.skills?.length || cvData?.summary);
+  const completionSteps   = [hasProfile, hasCV, false];
+  const completedCount    = completionSteps.filter(Boolean).length;
 
   const TOOLS = [
     {
       id: 'email',
       icon: '✉️',
-      title: 'Écrire une Lettre de Candidature',
+      title: 'Lettre de Candidature',
       sub: 'Outil IA · Guidé étape par étape',
-      desc: "Répondez à 4 questions simples. L'IA rédige pour vous une lettre professionnelle prête à envoyer en quelques secondes.",
+      desc: "Répondez à 4 questions simples. L'IA rédige pour vous une lettre professionnelle prête à envoyer.",
       href: '/candidate/email',
-      accent: '#7c3aed',
-      light: '#f5f3ff',
+      accent: PURPLE,
+      light: LPURP,
       badge: 'Nouveau',
-      badgeColor: '#7c3aed',
+      badgeColor: PURPLE,
       cta: 'Créer ma lettre →',
       featured: true,
     },
@@ -57,24 +66,24 @@ export default function CandidateDashboard() {
       icon: '📄',
       title: 'Mon CV',
       sub: 'Créer · Améliorer · Télécharger',
-      desc: "Importez votre CV ou créez-en un depuis zéro. L'IA l'améliore automatiquement et l'adapte à chaque offre d'emploi.",
+      desc: "Importez votre CV ou créez-en un depuis zéro. L'IA l'améliore et l'adapte à chaque offre.",
       href: '/candidate/upload',
-      accent: '#2563eb',
-      light: '#eff6ff',
+      accent: COBALT,
+      light: LBLUE,
       badge: hasCV ? '✓ CV créé' : null,
-      badgeColor: '#059669',
+      badgeColor: GREEN,
       cta: hasCV ? 'Mettre à jour mon CV →' : 'Créer mon CV →',
       featured: false,
     },
     {
       id: 'jobs',
       icon: '🎯',
-      title: 'Offres d\'Emploi',
+      title: "Offres d'Emploi",
       sub: 'Compatibilité · Matching IA',
-      desc: 'Consultez les postes disponibles et découvrez votre score de compatibilité avec chaque offre grâce à l\'IA.',
+      desc: "Consultez les postes disponibles et découvrez votre score de compatibilité grâce à l'IA.",
       href: '/candidate/upload',
-      accent: '#059669',
-      light: '#ecfdf5',
+      accent: GREEN,
+      light: LGREEN,
       badge: null,
       badgeColor: null,
       cta: 'Voir les offres →',
@@ -83,11 +92,11 @@ export default function CandidateDashboard() {
   ];
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f0f2f8', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <main style={{ minHeight: '100vh', background: BG, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
       {/* ── Navbar ── */}
       <nav style={{
-        background: '#0a1f5c',
+        background: INK,
         height: 60,
         padding: '0 1.5rem',
         display: 'flex',
@@ -96,47 +105,41 @@ export default function CandidateDashboard() {
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        boxShadow: '0 2px 16px rgba(10,31,92,.45)',
+        borderBottom: '1px solid rgba(255,255,255,.06)',
+        boxShadow: '0 2px 16px rgba(0,0,0,.35)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 9,
-            background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 17,
-          }}>🗺️</div>
-          <span style={{ color: '#fff', fontWeight: 800, fontSize: '1.05rem', letterSpacing: '-0.02em' }}>TalentMap</span>
-        </div>
+        <Logo size="md" variant="light" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{
-            background: 'rgba(255,255,255,.1)',
-            border: '1px solid rgba(255,255,255,.15)',
+            background: 'rgba(255,255,255,.08)',
+            border: '1px solid rgba(255,255,255,.12)',
             borderRadius: 9999,
-            padding: '0.3rem 0.75rem 0.3rem 0.4rem',
+            padding: '0.3rem 0.9rem 0.3rem 0.45rem',
             display: 'flex', alignItems: 'center', gap: '0.5rem',
           }}>
             <div style={{
               width: 26, height: 26, borderRadius: '50%',
-              background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
+              background: `linear-gradient(135deg,${COBALT},${PURPLE})`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, fontWeight: 900, color: '#fff',
+              fontSize: 11, fontWeight: 900, color: WHITE,
             }}>
               {firstName[0]?.toUpperCase()}
             </div>
-            <span style={{ color: 'rgba(255,255,255,.9)', fontSize: '0.82rem', fontWeight: 600 }}>{firstName}</span>
+            <span style={{ color: 'rgba(255,255,255,.88)', fontSize: '0.82rem', fontWeight: 600 }}>{firstName}</span>
           </div>
           <button
             onClick={logout}
             style={{
               background: 'transparent',
-              color: 'rgba(255,255,255,.55)',
-              border: '1px solid rgba(255,255,255,.2)',
+              color: 'rgba(255,255,255,.45)',
+              border: '1px solid rgba(255,255,255,.15)',
               borderRadius: 8,
               padding: '0.35rem 0.85rem',
               fontSize: '0.8rem',
               fontWeight: 600,
               cursor: 'pointer',
               transition: 'color .15s',
+              fontFamily: 'inherit',
             }}
           >
             Déconnexion
@@ -148,49 +151,49 @@ export default function CandidateDashboard() {
 
         {/* ── Hero banner ── */}
         <div style={{
-          background: 'linear-gradient(135deg, #0a1f5c 0%, #1a3a8f 55%, #2563eb 100%)',
+          background: `linear-gradient(135deg, ${INK} 0%, #162347 55%, ${COBALT} 100%)`,
           borderRadius: 20,
           padding: '2.25rem 2.5rem',
           marginBottom: '2rem',
-          color: '#fff',
+          color: WHITE,
           position: 'relative',
           overflow: 'hidden',
         }}>
-          <div style={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, borderRadius: '50%', background: 'rgba(124,58,237,.28)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', bottom: -30, right: 100, width: 120, height: 120, borderRadius: '50%', background: 'rgba(37,99,235,.35)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, borderRadius: '50%', background: `rgba(124,58,237,.22)`, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: -30, right: 100, width: 120, height: 120, borderRadius: '50%', background: `rgba(27,79,216,.28)`, pointerEvents: 'none' }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,.55)', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, marginBottom: '0.4rem' }}>
+            <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,.5)', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, marginBottom: '0.4rem' }}>
               Espace Candidat
             </p>
             <h1 style={{ fontSize: '1.9rem', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>
               Bonjour, {firstName} 👋
             </h1>
-            <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,.75)', marginBottom: '1.75rem', maxWidth: 460, lineHeight: 1.6 }}>
+            <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,.72)', marginBottom: '1.75rem', maxWidth: 460, lineHeight: 1.6 }}>
               Vos outils IA pour trouver un emploi — simples, guidés, et adaptés à votre profil.
             </p>
             {/* Progress pills */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {[['👤','Profil', hasProfile], ['📄','CV', hasCV], ['✉️','Lettre', false]].map(([icon, label, done], i) => (
-                <div key={i as number} style={{
+              {([['👤', 'Profil', hasProfile], ['📄', 'CV', hasCV], ['✉️', 'Lettre', false]] as [string, string, boolean][]).map(([icon, label, done], i) => (
+                <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: '0.35rem',
                   padding: '0.3rem 0.75rem', borderRadius: 9999,
-                  background: done ? 'rgba(16,185,129,.25)' : 'rgba(255,255,255,.1)',
-                  border: `1px solid ${done ? 'rgba(16,185,129,.5)' : 'rgba(255,255,255,.15)'}`,
+                  background: done ? 'rgba(16,185,129,.2)' : 'rgba(255,255,255,.08)',
+                  border: `1px solid ${done ? 'rgba(16,185,129,.4)' : 'rgba(255,255,255,.12)'}`,
                 }}>
-                  <span style={{ fontSize: '0.75rem' }}>{icon as string}</span>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: done ? '#6ee7b7' : 'rgba(255,255,255,.65)' }}>{label as string}</span>
+                  <span style={{ fontSize: '0.75rem' }}>{icon}</span>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: done ? '#6ee7b7' : 'rgba(255,255,255,.6)' }}>{label}</span>
                   {done && <span style={{ fontSize: '0.65rem', color: '#6ee7b7' }}>✓</span>}
                 </div>
               ))}
-              <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,.4)', marginLeft: 'auto' }}>
+              <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,.35)', marginLeft: 'auto' }}>
                 {completedCount}/3 complété{completedCount !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
         </div>
 
-        {/* ── AI Tools heading ── */}
-        <p style={{ fontSize: '0.72rem', fontWeight: 800, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.9rem' }}>
+        {/* ── Section heading ── */}
+        <p style={{ fontSize: '0.72rem', fontWeight: 800, color: FAINT, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.9rem' }}>
           Vos Outils IA
         </p>
 
@@ -208,16 +211,16 @@ export default function CandidateDashboard() {
                 borderRadius: 16,
                 padding: tool.featured ? '1.75rem' : '1.5rem',
                 background: tool.featured
-                  ? `linear-gradient(145deg, ${tool.accent}14, ${tool.accent}06)`
-                  : '#fff',
-                border: `2px solid ${hovered === tool.id || tool.featured ? tool.accent + '35' : '#e5e7eb'}`,
+                  ? `linear-gradient(145deg, ${tool.accent}12, ${tool.accent}06)`
+                  : WHITE,
+                border: `1.5px solid ${hovered === tool.id || tool.featured ? tool.accent + '30' : BORDER}`,
                 boxShadow: hovered === tool.id
-                  ? `0 10px 36px ${tool.accent}22`
+                  ? `0 10px 36px ${tool.accent}1a`
                   : tool.featured
-                  ? `0 4px 24px ${tool.accent}18`
-                  : '0 1px 6px rgba(0,0,0,.06)',
+                  ? `0 4px 24px ${tool.accent}14`
+                  : '0 1px 4px rgba(0,0,0,.05)',
                 transition: 'all .2s ease',
-                transform: hovered === tool.id ? 'translateY(-4px)' : 'none',
+                transform: hovered === tool.id ? 'translateY(-3px)' : 'none',
                 position: 'relative',
                 overflow: 'hidden',
                 height: '100%',
@@ -228,7 +231,7 @@ export default function CandidateDashboard() {
                   <div style={{
                     position: 'absolute', top: 0, right: 0,
                     width: 80, height: 80, borderRadius: '0 16px 0 80px',
-                    background: `${tool.accent}12`,
+                    background: `${tool.accent}10`,
                     pointerEvents: 'none',
                   }} />
                 )}
@@ -238,8 +241,8 @@ export default function CandidateDashboard() {
                     width: 50, height: 50, borderRadius: 14,
                     background: tool.featured ? tool.accent : tool.light,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 26, flexShrink: 0,
-                    boxShadow: tool.featured ? `0 4px 16px ${tool.accent}40` : 'none',
+                    fontSize: 24, flexShrink: 0,
+                    boxShadow: tool.featured ? `0 4px 14px ${tool.accent}38` : 'none',
                   }}>
                     {tool.icon}
                   </div>
@@ -247,26 +250,26 @@ export default function CandidateDashboard() {
                     <span style={{
                       padding: '0.18rem 0.6rem',
                       borderRadius: 9999,
-                      background: `${tool.badgeColor}18`,
+                      background: `${tool.badgeColor}14`,
                       color: tool.badgeColor!,
                       fontSize: '0.65rem',
                       fontWeight: 800,
                       textTransform: 'uppercase' as const,
                       letterSpacing: '0.08em',
-                      border: `1px solid ${tool.badgeColor}30`,
+                      border: `1px solid ${tool.badgeColor}28`,
                     }}>
                       {tool.badge}
                     </span>
                   )}
                 </div>
                 {/* Title */}
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#111827', marginBottom: '0.2rem', lineHeight: 1.3 }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: TEXT, marginBottom: '0.2rem', lineHeight: 1.3 }}>
                   {tool.title}
                 </h3>
                 <p style={{ fontSize: '0.7rem', fontWeight: 700, color: tool.accent, marginBottom: '0.65rem', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
                   {tool.sub}
                 </p>
-                <p style={{ fontSize: '0.875rem', color: '#6b7280', lineHeight: 1.65, marginBottom: '1.25rem' }}>
+                <p style={{ fontSize: '0.875rem', color: MUTED, lineHeight: 1.65, marginBottom: '1.25rem' }}>
                   {tool.desc}
                 </p>
                 {/* CTA */}
@@ -274,8 +277,8 @@ export default function CandidateDashboard() {
                   display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
                   padding: '0.5rem 1.1rem',
                   borderRadius: 9,
-                  background: tool.featured ? tool.accent : `${tool.accent}12`,
-                  color: tool.featured ? '#fff' : tool.accent,
+                  background: tool.featured ? tool.accent : `${tool.accent}10`,
+                  color: tool.featured ? WHITE : tool.accent,
                   fontSize: '0.82rem',
                   fontWeight: 700,
                   transition: 'all .2s',
@@ -289,10 +292,11 @@ export default function CandidateDashboard() {
 
         {/* ── Profile summary strip ── */}
         <div style={{
-          background: '#fff',
+          background: WHITE,
           borderRadius: 16,
           padding: '1.35rem 1.5rem',
-          border: '1.5px solid #e5e7eb',
+          border: `1.5px solid ${BORDER}`,
+          boxShadow: '0 1px 4px rgba(0,0,0,.04)',
           display: 'flex',
           flexWrap: 'wrap',
           gap: '1.25rem',
@@ -301,34 +305,34 @@ export default function CandidateDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flex: '1 1 200px' }}>
             <div style={{
               width: 48, height: 48, borderRadius: '50%',
-              background: 'linear-gradient(135deg,#0a1f5c,#2563eb)',
+              background: `linear-gradient(135deg,${INK},${COBALT})`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, fontWeight: 900, color: '#fff', flexShrink: 0,
+              fontSize: 20, fontWeight: 900, color: WHITE, flexShrink: 0,
             }}>
               {firstName[0]?.toUpperCase()}
             </div>
             <div>
-              <p style={{ fontWeight: 700, color: '#111827', fontSize: '0.95rem', lineHeight: 1.3 }}>{user.name}</p>
-              <p style={{ fontSize: '0.78rem', color: '#6b7280' }}>{user.email}</p>
-              <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.1rem' }}>CIN: {user.idNumber}</p>
+              <p style={{ fontWeight: 700, color: TEXT, fontSize: '0.95rem', lineHeight: 1.3 }}>{user.name}</p>
+              <p style={{ fontSize: '0.78rem', color: MUTED }}>{user.email}</p>
+              <p style={{ fontSize: '0.72rem', color: FAINT, marginTop: '0.1rem' }}>CIN: {user.idNumber}</p>
             </div>
           </div>
 
           {skills.length > 0 && (
             <div style={{ flex: '2 1 200px' }}>
-              <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' as const, letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+              <p style={{ fontSize: '0.68rem', fontWeight: 700, color: FAINT, textTransform: 'uppercase' as const, letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                 Compétences
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                 {skills.slice(0, 7).map((s: string) => (
                   <span key={s} style={{
                     padding: '0.2rem 0.65rem', borderRadius: 9999,
-                    background: '#eff6ff', color: '#1d4ed8',
+                    background: LBLUE, color: COBALT,
                     fontSize: '0.75rem', fontWeight: 600,
                   }}>{s}</span>
                 ))}
                 {skills.length > 7 && (
-                  <span style={{ padding: '0.2rem 0.65rem', borderRadius: 9999, background: '#f3f4f6', color: '#6b7280', fontSize: '0.75rem', fontWeight: 600 }}>
+                  <span style={{ padding: '0.2rem 0.65rem', borderRadius: 9999, background: '#F1F5F9', color: MUTED, fontSize: '0.75rem', fontWeight: 600 }}>
                     +{skills.length - 7}
                   </span>
                 )}
@@ -339,8 +343,8 @@ export default function CandidateDashboard() {
           <Link href="/candidate/info" style={{
             padding: '0.55rem 1rem',
             borderRadius: 9,
-            background: '#f3f4f6',
-            color: '#374151',
+            background: '#F8FAFC',
+            color: '#334155',
             fontSize: '0.82rem',
             fontWeight: 600,
             textDecoration: 'none',
@@ -348,8 +352,9 @@ export default function CandidateDashboard() {
             alignItems: 'center',
             gap: '0.35rem',
             flexShrink: 0,
-            border: '1.5px solid #e5e7eb',
+            border: `1.5px solid ${BORDER}`,
             whiteSpace: 'nowrap' as const,
+            transition: 'border-color .15s',
           }}>
             👤 Mon Profil
           </Link>
