@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rafiq } from "./providers";
 
+// Tell Vercel to allow up to 60s for the multi-provider cascade.
+// Without this, Vercel kills the function after 10s (Hobby/Pro default),
+// which would abort long AI calls even before the fallback chain finishes.
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const { messages, system, max_tokens = 1200, task = "dialogue" } = await request.json() as {

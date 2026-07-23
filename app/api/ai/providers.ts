@@ -1,7 +1,9 @@
 import { readFileSync } from "fs";
 
-// Per-provider timeout: 18s for long-form JSON tasks (CV analysis), 5s otherwise.
-function tFetch(url: string, opts: RequestInit, ms = 18000): Promise<Response> {
+// Per-provider timeout: 12s for long-form JSON tasks (CV analysis), 5s otherwise.
+// Reduced from 18s so orphaned race losers and sequential fallback providers abort
+// faster, keeping total request time within Vercel's 60s function limit.
+function tFetch(url: string, opts: RequestInit, ms = 12000): Promise<Response> {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), ms);
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(id));
@@ -139,6 +141,17 @@ const TOGETHER_MODELS = [
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+// In-flight deduplication — identical concurrent requests share a single provider call set.
+// Under heavy load (100 concurrent users), this prevents N×9 redundant parallel provider calls
+// for the same message. Key: last 150 chars of user message + 80 chars of system prompt.
+// Safe for Vercel serverless: the Map lives in the function instance's memory for its lifetime.
+const _inflight = new Map<string, Promise<string>>();
+function mkKey(msgs: Msg[], sys: string | undefined): string {
+  const s = (sys || "").slice(0, 80);
+  const m = msgs.length > 0 ? textOnly(msgs[msgs.length - 1].content).slice(0, 150) : "";
+  return `${s}|${m}`;
+}
+
 // Anthropic Claude — reads ANTHROPIC_API_KEY env var, then falls back to the
 // Claude Code session bearer token (available in remote execution environments).
 async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
@@ -173,7 +186,7 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
   };
   if (sys) body.system = sys;
 
-  const timeout = maxTok <= 500 ? 5000 : 18000;
+  const timeout = maxTok <= 500 ? 5000 : 12000;
   const res = await tFetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers,
@@ -195,7 +208,7 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
   }));
   const body: Record<string, unknown> = { contents, generationConfig: { maxOutputTokens: maxTok } };
   if (sys) body.systemInstruction = { parts: [{ text: sys }] };
-  const gTimeout = maxTok <= 500 ? 5000 : 18000;
+  const gTimeout = maxTok <= 500 ? 5000 : 12000;
   const res = await tFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
@@ -211,7 +224,7 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
   const key = ev("GROQ_API_KEY", _k.g);
   if (!key) throw new Error("no GROQ_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
-  const groqTimeout = maxTok <= 500 ? 5000 : 18000;
+  const groqTimeout = maxTok <= 500 ? 5000 : 12000;
   for (const model of fast ? GROQ_MODELS_FAST : GROQ_MODELS) {
     try {
       const res = await tFetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -239,7 +252,7 @@ async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fa
   const key = ev("CEREBRAS_API_KEY");
   if (!key) throw new Error("no CEREBRAS_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
-  const cbTimeout = maxTok <= 500 ? 5000 : 18000;
+  const cbTimeout = maxTok <= 500 ? 5000 : 12000;
   for (const model of fast ? CEREBRAS_MODELS_FAST : CEREBRAS_MODELS) {
     try {
       const res = await tFetch("https://api.cerebras.ai/v1/chat/completions", {
@@ -424,13 +437,19 @@ async function together(msgs: Msg[], sys: string | undefined, maxTok: number): P
   throw new Error("Together exhausted");
 }
 
-async function tryOnce(fn: (m: Msg[], s: string | undefined, t: number) => Promise<string>, msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string | null> {
-  try {
-    const text = await fn(msgs, sys, maxTok);
-    return text || null;
-  } catch {
-    return null;
-  }
+// tryOnce: wraps a provider call with an external timeout guard so sequential fallback loops
+// can't stall for the full per-provider timeout (12s) when providers are slow to respond.
+async function tryOnce(
+  fn: (m: Msg[], s: string | undefined, t: number) => Promise<string>,
+  msgs: Msg[], sys: string | undefined, maxTok: number,
+  timeoutMs = 10000
+): Promise<string | null> {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => resolve(null), timeoutMs);
+    fn(msgs, sys, maxTok)
+      .then(text => { clearTimeout(timer); resolve(text || null); })
+      .catch(() => { clearTimeout(timer); resolve(null); });
+  });
 }
 
 // Race providers in parallel — resolves with the first valid response within timeoutMs,
@@ -494,67 +513,87 @@ async function raceGroqModels(msgs: Msg[], sys: string | undefined, maxTok: numb
   return groq(msgs, sys, maxTok, false);
 }
 
-export async function rafiq({ task, messages, system, max_tokens = 1200 }: RafiqOpts): Promise<string> {
-  const fast = task === "fast";
+export async function rafiq(opts: RafiqOpts): Promise<string> {
+  const { task, messages, system, max_tokens = 1200 } = opts;
 
-  if (fast) {
-    // Fast path: race Cerebras LPU + Groq + Gemini Flash + DeepSeek-V3 in parallel (4s window).
-    // Cerebras hits 1 000–2 000 tok/s; Groq always available; DeepSeek-V3 is surprisingly fast.
-    const fastTok = Math.min(max_tokens, 800);
-    const fastResult = await raceFirst([
-      (m, s, t) => cerebras(m, s, t, true),   // LPU — fastest free inference
-      (m, s, t) => groq(m, s, t, true),        // Always available via hardcoded key
-      (m, s, t) => gemini(m, s, t, true),      // Gemini Flash Lite
-      deepseek,                                 // DeepSeek-V3 — fast + high quality
-    ], messages, system, fastTok, 4000);
-    if (fastResult) return fastResult;
-    // Sequential fallback — fast path should rarely reach here
-    for (const fn of [
-      nvidia, sambanova, anthropic, mistral, together,
-      (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
-    ]) {
-      const text = await tryOnce(fn, messages, system, fastTok);
+  // In-flight dedup: if an identical request is already running, piggyback on its promise.
+  // This collapses burst traffic (e.g., 100 users sending the same INDH question) into a
+  // single provider call set instead of 100 × 9 = 900 simultaneous upstream HTTP requests.
+  const key = mkKey(messages, system);
+  const existing = _inflight.get(key);
+  if (existing) {
+    try { return await existing; } catch { /* fresh attempt on failure */ }
+  }
+
+  const p: Promise<string> = (async () => {
+    const fast = task === "fast";
+
+    if (fast) {
+      // Fast path: race Cerebras LPU + Groq + Gemini Flash + DeepSeek-V3 in parallel (4s window).
+      // Cerebras hits 1 000–2 000 tok/s; Groq always available; DeepSeek-V3 is surprisingly fast.
+      const fastTok = Math.min(max_tokens, 800);
+      const fastResult = await raceFirst([
+        (m, s, t) => cerebras(m, s, t, true),   // LPU — fastest free inference
+        (m, s, t) => groq(m, s, t, true),        // Always available via hardcoded key
+        (m, s, t) => gemini(m, s, t, true),      // Gemini Flash Lite
+        deepseek,                                 // DeepSeek-V3 — fast + high quality
+      ], messages, system, fastTok, 4000);
+      if (fastResult) return fastResult;
+      // Sequential fallback — fast path should rarely reach here; 6s per provider.
+      for (const fn of [
+        nvidia, sambanova, anthropic, mistral, together,
+        (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
+      ]) {
+        const text = await tryOnce(fn, messages, system, fastTok, 6000);
+        if (text) return text;
+      }
+      throw new Error("Fast AI providers busy. Please try again.");
+    }
+
+    // JSON / dialogue: race ALL top-tier providers simultaneously — 9 providers in parallel.
+    // First valid response wins; orphaned requests complete but are discarded.
+    // Groq (raceGroqModels) always fires because it has a hardcoded key guarantee.
+    // JSON needs best quality → 9s window. Dialogue needs speed → 6s window.
+    const raceWindow = task === "json" ? 9000 : 6000;
+    const raceText = await raceFirst([
+      anthropic,                                         // Claude Haiku — best when key set
+      (m, s, t) => gemini(m, s, t, false),               // Gemini 2.5 Flash — 1M ctx, excellent
+      raceGroqModels,                                    // 5 Groq models in parallel — always available
+      nvidia,                                            // DeepSeek-R1 685B + Qwen3-235B (NIM free)
+      deepseek,                                          // DeepSeek V3 + R1 direct — near-free
+      (m, s, t) => cerebras(m, s, t, false),             // LPU 2 000 tok/s + qwen3-32b FR/AR
+      sambanova,                                         // Llama-4-Maverick 128k — long docs
+      mistral,                                           // Best French + Arabic bilingual
+      openrouter,                                        // Nemotron-253B + R1-0528 + Qwen3-235B free
+    ], messages, system, max_tokens, raceWindow);
+    if (raceText) return raceText;
+
+    // Sequential fallback — 8s per provider so we don't burn the full 12s internal timeout.
+    // Three extra providers tried before the second sweep.
+    for (const fn of [together, nvidia, deepseek]) {
+      const text = await tryOnce(fn, messages, system, max_tokens, 8000);
       if (text) return text;
     }
-    throw new Error("Fast AI providers busy. Please try again.");
-  }
 
-  // JSON / dialogue: race ALL top-tier providers simultaneously — 9 providers in parallel.
-  // First valid response wins; orphaned requests complete but are discarded.
-  // Groq (raceGroqModels) always fires because it has a hardcoded key guarantee.
-  // JSON needs best quality → 9s window. Dialogue needs speed → 6s window.
-  const raceWindow = task === "json" ? 9000 : 6000;
-  const raceText = await raceFirst([
-    anthropic,                                         // Claude Haiku — best when key set
-    (m, s, t) => gemini(m, s, t, false),               // Gemini 2.5 Flash — 1M ctx, excellent
-    raceGroqModels,                                    // 5 Groq models in parallel — always available
-    nvidia,                                            // DeepSeek-R1 685B + Qwen3-235B (NIM free)
-    deepseek,                                          // DeepSeek V3 + R1 direct — near-free
-    (m, s, t) => cerebras(m, s, t, false),             // LPU 2 000 tok/s + qwen3-32b FR/AR
-    sambanova,                                         // Llama-4-Maverick 128k — long docs
-    mistral,                                           // Best French + Arabic bilingual
-    openrouter,                                        // Nemotron-253B + R1-0528 + Qwen3-235B free
-  ], messages, system, max_tokens, raceWindow);
-  if (raceText) return raceText;
+    // Second sweep — 300–500ms jitter spreads retries across concurrent users so they don't
+    // all hit the same provider endpoint at the same millisecond after a 429 cooldown.
+    await sleep(300 + Math.random() * 200);
+    for (const fn of [
+      raceGroqModels,
+      (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
+      anthropic, nvidia, deepseek,
+      (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
+      sambanova, mistral, together, openrouter,
+    ]) {
+      const text = await tryOnce(fn, messages, system, max_tokens, 6000);
+      if (text) return text;
+    }
 
-  // Sequential fallback — providers not yet tried in the race
-  for (const fn of [together, nvidia, deepseek]) {
-    const text = await tryOnce(fn, messages, system, max_tokens);
-    if (text) return text;
-  }
+    throw new Error("All AI providers temporarily busy. Please try again in a few seconds.");
+  })();
 
-  // Second sweep after 1.2s — rate limits may have cleared on fast providers
-  await sleep(1200);
-  for (const fn of [
-    raceGroqModels,
-    (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
-    anthropic, nvidia, deepseek,
-    (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
-    sambanova, mistral, together, openrouter,
-  ]) {
-    const text = await tryOnce(fn, messages, system, max_tokens);
-    if (text) return text;
-  }
-
-  throw new Error("All AI providers temporarily busy. Please try again in a few seconds.");
+  // Register in-flight promise; clean up when settled so stale entries don't accumulate.
+  _inflight.set(key, p);
+  p.finally(() => { if (_inflight.get(key) === p) _inflight.delete(key); });
+  return p;
 }
