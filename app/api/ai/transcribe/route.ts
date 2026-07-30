@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 // Groq Whisper: free tier — 2,000 requests/day, 7,200 audio-seconds/hour.
 // Supports Arabic (ar), French (fr), English (en), Darija (auto-detected).
 // Model: whisper-large-v3-turbo — fastest multilingual ASR on Groq.
-const _d = (s: string) => Buffer.from(s, "base64").toString("utf8");
-const _kg = _d(["Z3NrX0VKUUFsYWNrcWsx","WVhMaExTcjJqV0dkeWIz","Rlkzb3I1aWI3U3ZvVUQ3","YUlCQ29FcVJlRWQ="].join(""));
 
 export async function POST(request: NextRequest) {
   try {
