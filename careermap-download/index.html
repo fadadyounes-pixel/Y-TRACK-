@@ -1497,13 +1497,12 @@ function buildReportHTML(profile, scores, role, reportLang) {
   body += '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1.8px;margin-bottom:14px">' + (isAr?'معد لـ':isEn?'PREPARED FOR':'PRÉPARÉ POUR') + '</div>';
   // Name big
   body += '<div style="font-family:Archivo,Arial,sans-serif;font-weight:800;font-size:28px;color:#fff;margin-bottom:10px">' + name + '</div>';
-  // Info chips: use prefecture (specific district) if set, else region
   var rawRegion = profile.region || '';
-  var cvRegionDisplay = profile.prefecture || profile.city || rawRegion;
   body += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">';
   var cvChips = [];
   cvChips.push((isAr?'الرمز':isEn?'Code':'Code') + ': ' + candId);
-  if (cvRegionDisplay) cvChips.push((isAr?'الجهة':isEn?'Region':'Région') + ': ' + cvRegionDisplay);
+  if (rawRegion) cvChips.push((isAr?'الجهة':isEn?'Region':'Région') + ': ' + rawRegion);
+  if (rawRegion === 'Casablanca-Settat' && profile.prefecture) cvChips.push((isAr?'العمالة':isEn?'District':'Arrondissement') + ': ' + profile.prefecture);
   if (profile.edu) cvChips.push((isAr?'المستوى':isEn?'Profile':'Profil') + ': ' + profile.edu);
   if (profile.age) cvChips.push(profile.age + (isAr?' سنة':isEn?' yrs':' ans'));
   cvChips.push((isAr?'التاريخ':isEn?'Date':'Date') + ': ' + date);
