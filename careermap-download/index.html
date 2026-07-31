@@ -2304,8 +2304,19 @@ function buildINDHReportHTML(c, lang) {
   pg1 += '<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:18px 32px;min-width:320px">';
   pg1 += '<div style="font-family:Archivo,Arial,sans-serif;font-size:21px;font-weight:900;color:#fff;margin-bottom:3px">'+name+'</div>';
   pg1 += '<div style="font-family:monospace;font-size:12px;color:#1aabaa;letter-spacing:.1em;margin-bottom:5px">'+candId+'</div>';
-  var pInfo = (profile.region||'') + (profile.age ? (profile.region?' · ':'')+profile.age : '') + (profile.gender ? ' · '+profile.gender : '');
-  if (pInfo) pg1 += '<div style="font-size:10px;color:rgba(255,255,255,.3)">'+pInfo+'</div>';
+  var indhChips = [];
+  var rawReg = profile.region || '';
+  if (rawReg) indhChips.push((isAr?'الجهة':isEn?'Region':'Région') + ': ' + rawReg);
+  if (rawReg === 'Casablanca-Settat' && profile.prefecture) indhChips.push((isAr?'العمالة':isEn?'District':'Arrondissement') + ': ' + profile.prefecture);
+  if (profile.edu) indhChips.push((isAr?'المستوى':isEn?'Profile':'Profil') + ': ' + profile.edu);
+  if (profile.age) indhChips.push(profile.age + (isAr?' سنة':isEn?' yrs':' ans'));
+  if (indhChips.length) {
+    pg1 += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">';
+    indhChips.forEach(function(c) {
+      pg1 += '<span style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:4px 12px;font-size:11px;color:rgba(255,255,255,.8);font-weight:600">'+c+'</span>';
+    });
+    pg1 += '</div>';
+  }
   pg1 += '</div></div>';
   pg1 += '<div style="padding:18px 48px 24px;display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0">';
   pg1 += '<span style="font-size:9px;color:rgba(255,255,255,.2);letter-spacing:.07em;text-transform:uppercase">'+(isEn?'Confidential — Internal Use Only':isAr?'سري — للاستخدام الداخلي فقط':'Confidentiel — Usage Interne INDH')+'</span>';
