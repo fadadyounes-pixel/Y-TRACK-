@@ -1349,14 +1349,20 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     try { const m = txt.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; } catch { return null; }
   };
 
+  // BRIEF/QUESTION are meant to be one short plain-text line — strip stray markdown
+  // (**, ##, ---, bullet markers) in case the model drifts from the requested format.
+  const stripMd = (s: string): string =>
+    s.replace(/\*\*/g, "").replace(/^#+\s*/gm, "").replace(/^-{3,}\s*$/gm, "")
+     .replace(/^[-•]\s+/gm, "").replace(/\n{2,}/g, " ").replace(/\s+/g, " ").trim();
+
   const parseQS = (raw: string): { brief: string; question: string; suggs: string[] } => {
     const bMatch = raw.match(/BRIEF\s*:\s*([\s\S]*?)(?=QUESTION\s*:|SUGGESTIONS\s*:|$)/i);
     const qMatch = raw.match(/QUESTION\s*:\s*([\s\S]*?)(?=SUGGESTIONS\s*:|BRIEF\s*:|$)/i);
     const sMatch = raw.match(/SUGGESTIONS\s*:\s*([\s\S]*)/i);
-    const brief = bMatch ? bMatch[1].trim() : "";
-    const question = qMatch ? qMatch[1].trim() : (brief ? "" : raw.replace(/SUGGESTIONS\s*:[\s\S]*/i, "").trim());
+    const brief = bMatch ? stripMd(bMatch[1]) : "";
+    const question = qMatch ? stripMd(qMatch[1]) : (brief ? "" : stripMd(raw.replace(/SUGGESTIONS\s*:[\s\S]*/i, "")));
     const suggs = sMatch
-      ? sMatch[1].split(/\|/).map((s: string) => s.trim()).filter((s: string) => s.length > 1 && s.length < 120)
+      ? sMatch[1].split(/\|/).map((s: string) => stripMd(s)).filter((s: string) => s.length > 1 && s.length < 120)
       : [];
     return { brief, question, suggs };
   };
@@ -2629,9 +2635,20 @@ QUESTION: [question directe en ${LL} — max 12 mots]
 SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}]`}`,
       last ? "json" : "dialogue");
     if (last) {
-      const p = parseJ(r);
+      let p = parseJ(r);
       if (!p) {
-        // All providers failed to return valid JSON on the final question — stay on dialogue.
+        // Model ignored the JSON-only instruction (e.g. asked a follow-up question instead).
+        // Retry once with a stricter, no-exceptions reminder before giving up.
+        const strictR = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
+          `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
+Construis le profil projet le plus précis possible à partir de la conversation ci-dessus, en utilisant ta meilleure estimation pour toute information manquante ou imprécise.
+NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON valide, rien d'autre:
+{"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`,
+          "json");
+        p = parseJ(strictR);
+      }
+      if (!p) {
+        // Still no valid JSON after the stricter retry — stay on dialogue.
         setBusy(false);
         showToast(
           lang === "ar" ? "فشل تحليل مشروعك — أعد المحاولة" :
