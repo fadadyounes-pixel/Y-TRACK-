@@ -1367,6 +1367,33 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     return { brief, question, suggs };
   };
 
+  // Porteurs answer by tapping, not typing — a question with no clickable options would
+  // force free-text. Retry up to twice, keeping the same question, forcing suggestions.
+  // If the model still won't comply, fall back to generic tap-only options so the user
+  // is never stuck: the final JSON step is instructed to use its best estimate anyway.
+  const ensureSuggestions = async (
+    question: string, brief: string, convo: {role: string; content: string}[], setBrief: (b: string) => void
+  ): Promise<string[]> => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const strictR = await ai(convo,
+        `Tu es le Conseiller INDH Phase 3 Maroc.
+Pose EXACTEMENT cette question: "${question}"
+Propose OBLIGATOIREMENT 3 suggestions de réponse courtes et réalistes (jamais coopérative/GIE).
+Format STRICT — respecte EXACTEMENT ces 3 lignes, la ligne SUGGESTIONS est OBLIGATOIRE:
+BRIEF: [1-2 phrases max en ${LL}]
+QUESTION: ${question}
+SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}]`,
+        "dialogue");
+      const retry = parseQS(strictR);
+      if (retry.suggs.length) { setBrief(retry.brief || brief); return retry.suggs; }
+    }
+    return [
+      lang === "ar" ? "استخدم أفضل تقدير" : lang === "fr" ? "Utilisez votre meilleure estimation" : "Use your best estimate",
+      lang === "ar" ? "كما في فكرتي الأصلية" : lang === "fr" ? "Comme dans mon idée de départ" : "As in my original idea",
+      lang === "ar" ? "سأوضح لاحقاً مع مستشار" : lang === "fr" ? "Je préciserai plus tard avec un conseiller" : "I'll clarify later with an advisor",
+    ];
+  };
+
   const dlText = (content: string, name: string) => {
     const url = URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"}));
     const a = Object.assign(document.createElement("a"), {href: url, download: name});
@@ -2576,13 +2603,15 @@ CRITÈRES JURY INDH — PONDÉRATION OFFICIELLE (100 pts):
 CE QUI CONVAINC LE JURY: profil vulnérable du porteur + chiffres précis + ancrage territorial fort + plan de pérennité concret.
 RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais association, coopérative ou GIE — ces structures ne sont pas éligibles au programme INDH Phase 3 porteurs.`;
 
-  const startChat = async () => {
-    if (!idea.trim()) return;
+  const startChat = async (override?: string) => {
+    const ideaText = (override ?? idea).trim();
+    if (!ideaText) return;
+    if (override) setIdea(override);
     // Show idea text immediately as a placeholder brief so the card appears during loading
-    const ideaPreview = idea.trim().replace(/\n/g, " ").slice(0, 200);
+    const ideaPreview = ideaText.replace(/\n/g, " ").slice(0, 200);
     setBusy(true); setSuggestions([]); setBrief(ideaPreview); setCurrentQ(""); setStep("dialogue");
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
-    const r = await ai([{role: "user", content: lang === "ar" ? `فكرتي: ${idea}` : `Mon idée: ${idea}`}],
+    const r = await ai([{role: "user", content: lang === "ar" ? `فكرتي: ${ideaText}` : `Mon idée: ${ideaText}`}],
       `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
 ${INDH_CTX}
 Le porteur vient de partager son idée. Fais 2 choses:
@@ -2595,14 +2624,19 @@ BRIEF: [1-2 phrases max en ${LL} — secteur + zone]
 QUESTION: [question directe en ${LL} — max 12 mots]
 SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}]`,
       "dialogue");
-    const { brief: b, question, suggs } = parseQS(r);
+    let { brief: b, question, suggs } = parseQS(r);
     if (!question) {
       // AI failed entirely — bounce back to idea step (toast already shown by ai())
       setStep("idea"); setBusy(false); setBrief(""); setCurrentQ(""); return;
     }
+    if (suggs.length === 0) {
+      suggs = await ensureSuggestions(question, b,
+        [{role: "user", content: lang === "ar" ? `فكرتي: ${ideaText}` : `Mon idée: ${ideaText}`}],
+        (v) => { b = v; });
+    }
     setBrief(b || ideaPreview);
     setCurrentQ(question);
-    setMsgs([{role: "user", content: idea}, {role: "assistant", content: question}]);
+    setMsgs([{role: "user", content: ideaText}, {role: "assistant", content: question}]);
     setSuggestions(suggs);
     setQN(1); setBusy(false);
   };
@@ -2663,8 +2697,13 @@ NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON 
       setProj(p);
       setTimeout(() => setStep("profile"), 1000);
     } else {
-      const { brief: b, question, suggs } = parseQS(r);
+      let { brief: b, question, suggs } = parseQS(r);
       if (!question) { setBusy(false); return; } // AI failed — keep current question visible, let user retry
+      if (suggs.length === 0) {
+        suggs = await ensureSuggestions(question, b,
+          all.map((m: any) => ({role: m.role, content: m.content})),
+          (v) => { b = v; });
+      }
       setBrief(b);
       setCurrentQ(question);
       setMsgs((p: any[]) => [...p, {role: "assistant", content: question}]);
@@ -2868,11 +2907,12 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                         letterSpacing: ".6px", marginBottom: "6px"}}>
                         🎯 {lang==="ar"?"مقترح بناءً على ملفك:":lang==="fr"?"Suggestion personnalisée :":"Suggested for you:"}
                       </p>
-                      <button onClick={() => setIdea(personalStarter)}
+                      <button onClick={() => startChat(personalStarter)} disabled={busy}
                         style={{width:"100%", padding: "11px 14px", borderRadius: "11px",
                           border: `2px solid ${Y}`, background: YL, color: ND,
                           fontSize: "12px", fontWeight: "600", textAlign: dir==="rtl"?"right":"left",
-                          cursor: "pointer", fontFamily: ff(lang), direction: dir as "rtl"|"ltr",
+                          cursor: busy ? "default" : "pointer", opacity: busy ? .6 : 1,
+                          fontFamily: ff(lang), direction: dir as "rtl"|"ltr",
                           lineHeight: "1.6"}}>
                         ✨ {personalStarter.split("\n")[0]}
                       </button>
@@ -2884,11 +2924,12 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   </p>
                   <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
                     {list.map((s, i) => (
-                      <button key={i} onClick={() => setIdea(s)}
+                      <button key={i} onClick={() => startChat(s)} disabled={busy}
                         style={{padding: "10px 14px", borderRadius: "11px",
                           border: `1.5px solid ${CD}`, background: WH, color: N,
                           fontSize: "12px", fontWeight: "500", textAlign: dir==="rtl"?"right":"left",
-                          cursor: "pointer", fontFamily: ff(lang), direction: dir as "rtl"|"ltr",
+                          cursor: busy ? "default" : "pointer", opacity: busy ? .6 : 1,
+                          fontFamily: ff(lang), direction: dir as "rtl"|"ltr",
                           transition: "all .15s", lineHeight: "1.6"}}>
                         💡 {s.split("\n")[0]}
                       </button>
