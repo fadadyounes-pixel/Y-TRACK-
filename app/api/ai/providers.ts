@@ -126,6 +126,18 @@ const TOGETHER_MODELS = [
   "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo-Free",
 ];
 
+// GitHub Models — free, OpenAI-compatible access to frontier models via a GitHub PAT
+// (needs "models: read" permission). Modest per-model daily caps, but genuinely
+// higher-quality models than most other free tiers — good for the final JSON step.
+// Sign up: https://github.com/settings/personal-access-tokens (free) | Set env var: GITHUB_MODELS_TOKEN
+const GITHUB_MODELS = [
+  "openai/gpt-4o-mini",
+  "openai/gpt-4o",
+  "meta/Meta-Llama-3.1-70B-Instruct",
+  "mistral-ai/mistral-large",
+  "deepseek/DeepSeek-R1",
+];
+
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // Anthropic Claude — reads ANTHROPIC_API_KEY env var, then falls back to the
@@ -413,6 +425,31 @@ async function together(msgs: Msg[], sys: string | undefined, maxTok: number): P
   throw new Error("Together exhausted");
 }
 
+async function githubModels(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = ev("GITHUB_MODELS_TOKEN");
+  if (!key) throw new Error("no GITHUB_MODELS_TOKEN");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  for (const model of GITHUB_MODELS) {
+    try {
+      const res = await tFetch("https://models.github.ai/inference/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("GitHub Models 401");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401")) throw e;
+      continue;
+    }
+  }
+  throw new Error("GitHub Models exhausted");
+}
+
 async function tryOnce(fn: (m: Msg[], s: string | undefined, t: number) => Promise<string>, msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string | null> {
   try {
     const text = await fn(msgs, sys, maxTok);
@@ -488,18 +525,18 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
 
   if (fast) {
     // Fast path: race Cerebras LPU + Groq + Gemini Flash + DeepSeek-V3 in parallel (4s window).
-    // Cerebras hits 1 000–2 000 tok/s; Groq always available; DeepSeek-V3 is surprisingly fast.
+    // Cerebras hits 1 000–2 000 tok/s; DeepSeek-V3 is surprisingly fast.
     const fastTok = Math.min(max_tokens, 800);
     const fastResult = await raceFirst([
       (m, s, t) => cerebras(m, s, t, true),   // LPU — fastest free inference
-      (m, s, t) => groq(m, s, t, true),        // Always available via hardcoded key
+      (m, s, t) => groq(m, s, t, true),        // Fast when GROQ_API_KEY is set
       (m, s, t) => gemini(m, s, t, true),      // Gemini Flash Lite
       deepseek,                                 // DeepSeek-V3 — fast + high quality
     ], messages, system, fastTok, 4000);
     if (fastResult) return fastResult;
     // Sequential fallback — fast path should rarely reach here
     for (const fn of [
-      nvidia, sambanova, anthropic, mistral, together,
+      nvidia, sambanova, anthropic, mistral, together, githubModels,
       (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
     ]) {
       const text = await tryOnce(fn, messages, system, fastTok);
@@ -508,15 +545,15 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     throw new Error("Fast AI providers busy. Please try again.");
   }
 
-  // JSON / dialogue: race ALL top-tier providers simultaneously — 9 providers in parallel.
+  // JSON / dialogue: race ALL top-tier providers simultaneously — 10 providers in parallel.
   // First valid response wins; orphaned requests complete but are discarded.
-  // Groq (raceGroqModels) always fires because it has a hardcoded key guarantee.
   // JSON needs best quality → 9s window. Dialogue needs speed → 6s window.
   const raceWindow = task === "json" ? 9000 : 6000;
   const raceText = await raceFirst([
     anthropic,                                         // Claude Haiku — best when key set
+    githubModels,                                      // GPT-4o / Llama-4 / DeepSeek-R1 — free via GitHub PAT
     (m, s, t) => gemini(m, s, t, false),               // Gemini 2.5 Flash — 1M ctx, excellent
-    raceGroqModels,                                    // 5 Groq models in parallel — always available
+    raceGroqModels,                                    // 5 Groq models in parallel — fast when key is set
     nvidia,                                            // DeepSeek-R1 685B + Qwen3-235B (NIM free)
     deepseek,                                          // DeepSeek V3 + R1 direct — near-free
     (m, s, t) => cerebras(m, s, t, false),             // LPU 2 000 tok/s + qwen3-32b FR/AR
@@ -537,7 +574,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
   for (const fn of [
     raceGroqModels,
     (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
-    anthropic, nvidia, deepseek,
+    anthropic, githubModels, nvidia, deepseek,
     (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
     sambanova, mistral, together, openrouter,
   ]) {
