@@ -1378,54 +1378,2076 @@ body{font-family:'Nunito',Arial,sans-serif;background:#e8cec5;-webkit-print-colo
 </body></html>`;
 }
 
+// ─── T11: Terracotta Commerce ───────────────────────────────────────────────
+function generateCVHtml11(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#92400e';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Georgia',serif;background:#fef3c7;color:#1c1917;min-height:100vh}
+    .wrap{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+    .side{background:${clr};color:#fff;padding:32px 22px;display:flex;flex-direction:column;gap:22px}
+    .av{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;border:3px solid rgba(255,255,255,.5);overflow:hidden;margin:0 auto}
+    .name{font-size:1.35rem;font-weight:700;text-align:center;line-height:1.3}
+    .title{font-size:.78rem;text-align:center;opacity:.8;margin-top:4px}
+    .sh{font-size:.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.6;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px}
+    .sitem{font-size:.74rem;margin-bottom:5px;line-height:1.5}
+    .skill{display:inline-block;background:rgba(255,255,255,.15);border-radius:10px;padding:2px 9px;font-size:.68rem;margin:2px}
+    .main{padding:36px 32px;background:#fffbeb}
+    .mh{font-size:.65rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:14px}
+    .job{margin-bottom:18px}.jtitle{font-size:.95rem;font-weight:700;color:#1c1917}.jco{font-size:.8rem;color:${clr};font-weight:600;margin:2px 0}.jdate{font-size:.72rem;color:#78716c}.jbul{margin:6px 0 0 16px;font-size:.76rem;color:#44403c;line-height:1.6}
+    .tag{display:inline-block;background:${clr}22;color:${clr};border:1px solid ${clr}44;border-radius:4px;padding:2px 8px;font-size:.68rem;margin:2px}
+    .foot{font-size:.65rem;color:#a8a29e;text-align:right;margin-top:18px;border-top:1px solid #e7e5e4;padding-top:8px}
+  </style></head><body><div class="wrap">
+  <div class="side">
+    <div class="av">${av}</div>
+    <div><div class="name">${data.name||'Votre Nom'}</div><div class="title">${data.targetRoles?.join(' · ')||'Commerce & Vente'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+      ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+    </div>
+    ${data.education?.degree?`<div><div class="sh">Formation</div><div class="sitem">${data.education.degree}</div><div class="sitem" style="opacity:.75">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div><div class="sh">Compétences</div><div>${data.skills.map((sk:string)=>`<span class="skill">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="sitem">• ${l}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div style="margin-bottom:24px"><div class="mh">Profil</div><p style="font-size:.82rem;line-height:1.75;color:#44403c">${data.summary}</p></div>`:''}
+    ${w.length?`<div style="margin-bottom:24px"><div class="mh">Expérience Professionnelle</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.targetRoles?.length?`<div><div class="mh">Objectifs Commerce</div><div>${data.targetRoles.map((r:string)=>`<span class="tag">${r}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></div></body></html>`;
+}
+
+// ─── T12: Royal Blue Education ───────────────────────────────────────────────
+function generateCVHtml12(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#1e40af';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Palatino Linotype',Palatino,serif;background:#eff6ff;color:#1e3a8a;min-height:100vh}
+    .wrap{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+    .side{background:${clr};color:#fff;padding:32px 20px;display:flex;flex-direction:column;gap:20px}
+    .av{width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;border:3px solid #bfdbfe;overflow:hidden;margin:0 auto}
+    .name{font-size:1.3rem;font-weight:700;text-align:center;line-height:1.3}
+    .title{font-size:.76rem;text-align:center;opacity:.8;margin-top:4px;font-style:italic}
+    .sh{font-size:.58rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.6;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.2)}
+    .sitem{font-size:.73rem;margin-bottom:5px;line-height:1.5}
+    .skill{display:inline-block;background:rgba(255,255,255,.15);border-radius:10px;padding:2px 9px;font-size:.67rem;margin:2px}
+    .main{padding:36px 32px;background:#fff}
+    .mh{font-size:.62rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:14px;margin-top:20px}
+    .mh:first-child{margin-top:0}
+    .job{margin-bottom:16px;padding-left:12px;border-left:3px solid ${clr}55}
+    .jtitle{font-size:.95rem;font-weight:700;color:#1e3a8a}.jco{font-size:.8rem;color:${clr};font-weight:600;margin:2px 0}.jdate{font-size:.7rem;color:#6b7280}
+    .jbul{margin:6px 0 0 14px;font-size:.75rem;color:#374151;line-height:1.65}
+    .tag{display:inline-block;background:${clr}15;color:${clr};border:1px solid ${clr}33;border-radius:4px;padding:2px 8px;font-size:.68rem;margin:2px}
+    .foot{font-size:.63rem;color:#9ca3af;text-align:right;margin-top:18px;border-top:1px solid #e5e7eb;padding-top:8px}
+  </style></head><body><div class="wrap">
+  <div class="side">
+    <div class="av">${av}</div>
+    <div><div class="name">${data.name||'Votre Nom'}</div><div class="title">${data.targetRoles?.join(' · ')||'Enseignant / Formateur'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+      ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+    </div>
+    ${data.education?.degree?`<div><div class="sh">Formation</div><div class="sitem">${data.education.degree}</div><div class="sitem" style="opacity:.75">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div><div class="sh">Compétences</div><div>${data.skills.map((sk:string)=>`<span class="skill">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="sitem">• ${l}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Philosophie Pédagogique</div><p style="font-size:.82rem;line-height:1.75;color:#374151;font-style:italic">${data.summary}</p></div>`:''}
+    ${w.length?`<div><div class="mh">Parcours Professionnel</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.targetRoles?.length?`<div><div class="mh">Domaines d'Enseignement</div><div>${data.targetRoles.map((r:string)=>`<span class="tag">${r}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></div></body></html>`;
+}
+
+// ─── T13: Burgundy Hospitality ───────────────────────────────────────────────
+function generateCVHtml13(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#7f1d1d';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Times New Roman',serif;background:#fff5f5;color:#1c1917;min-height:100vh}
+    .wrap{display:grid;grid-template-columns:255px 1fr;min-height:100vh}
+    .side{background:${clr};color:#fff;padding:32px 22px;display:flex;flex-direction:column;gap:20px}
+    .av{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;border:3px solid #fecaca;overflow:hidden;margin:0 auto}
+    .name{font-size:1.3rem;font-weight:700;text-align:center;line-height:1.3}
+    .title{font-size:.76rem;text-align:center;opacity:.8;margin-top:4px;letter-spacing:1px}
+    .sh{font-size:.58rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.5;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.2)}
+    .sitem{font-size:.73rem;margin-bottom:5px;line-height:1.5}
+    .skill{display:inline-block;background:rgba(255,255,255,.12);border-radius:10px;padding:2px 9px;font-size:.67rem;margin:2px}
+    .main{padding:36px 32px;background:#fff}
+    .mh{font-size:.62rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:14px;margin-top:22px}
+    .mh:first-child{margin-top:0}
+    .job{margin-bottom:16px}.jtitle{font-size:.93rem;font-weight:700;color:#1c1917}.jco{font-size:.8rem;color:${clr};font-weight:600;margin:2px 0}.jdate{font-size:.7rem;color:#78716c}
+    .jbul{margin:6px 0 0 14px;font-size:.75rem;color:#44403c;line-height:1.65}
+    .tag{display:inline-block;background:${clr}15;color:${clr};border:1px solid ${clr}33;border-radius:4px;padding:2px 8px;font-size:.68rem;margin:2px}
+    .foot{font-size:.63rem;color:#a8a29e;text-align:right;margin-top:18px;border-top:1px solid #f5f5f4;padding-top:8px}
+  </style></head><body><div class="wrap">
+  <div class="side">
+    <div class="av">${av}</div>
+    <div><div class="name">${data.name||'Votre Nom'}</div><div class="title">${data.targetRoles?.join(' · ')||'Hôtellerie & Restauration'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+      ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+    </div>
+    ${data.education?.degree?`<div><div class="sh">Formation</div><div class="sitem">${data.education.degree}</div><div class="sitem" style="opacity:.75">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div><div class="sh">Savoir-Faire</div><div>${data.skills.map((sk:string)=>`<span class="skill">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="sitem">• ${l}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Profil</div><p style="font-size:.82rem;line-height:1.75;color:#44403c">${data.summary}</p></div>`:''}
+    ${w.length?`<div><div class="mh">Expérience</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.targetRoles?.length?`<div><div class="mh">Spécialités</div><div>${data.targetRoles.map((r:string)=>`<span class="tag">${r}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></div></body></html>`;
+}
+
+// ─── T14: Slate Real Estate ───────────────────────────────────────────────────
+function generateCVHtml14(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#1e293b';
+  const gold = '#b8860b';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover"/>`
+    : `<span style="font-size:2rem;font-weight:900;color:${gold}">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;color:${clr};min-height:100vh}
+    .header{background:${clr};color:#fff;padding:40px 48px;display:flex;align-items:center;gap:28px}
+    .av{width:100px;height:100px;background:${gold}22;border:3px solid ${gold};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+    .hname{font-size:1.8rem;font-weight:700;letter-spacing:.5px}
+    .htitle{font-size:.85rem;color:${gold};margin-top:6px;letter-spacing:1px}
+    .hcontact{margin-top:10px;font-size:.75rem;color:#94a3b8;display:flex;flex-wrap:wrap;gap:14px}
+    .body{max-width:900px;margin:0 auto;padding:36px 48px}
+    .sec{margin-bottom:28px}
+    .mh{font-size:.62rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:${gold};border-bottom:2px solid ${gold};padding-bottom:5px;margin-bottom:16px}
+    .summ{font-size:.84rem;line-height:1.75;color:#334155}
+    .job{margin-bottom:18px;display:grid;grid-template-columns:1fr auto;gap:4px}
+    .jtitle{font-size:.95rem;font-weight:700;color:${clr}}.jco{font-size:.8rem;color:${gold};font-weight:600}.jdate{font-size:.72rem;color:#64748b;text-align:right}
+    .jbul{margin:6px 0 0 14px;font-size:.76rem;color:#475569;line-height:1.65;grid-column:1/-1}
+    .skills{display:flex;flex-wrap:wrap;gap:8px}
+    .skill{background:${clr}0d;border:1px solid ${clr}22;border-radius:4px;padding:4px 12px;font-size:.73rem;color:${clr}}
+    .foot{font-size:.63rem;color:#94a3b8;text-align:right;border-top:1px solid #e2e8f0;padding-top:10px;margin-top:10px}
+  </style></head><body>
+  <div class="header">
+    <div class="av">${av}</div>
+    <div>
+      <div class="hname">${data.name||'Votre Nom'}</div>
+      <div class="htitle">${data.targetRoles?.join(' · ')||'Immobilier & Foncier'}</div>
+      <div class="hcontact">
+        ${data.email?`<span>✉ ${data.email}</span>`:''}
+        ${data.phone?`<span>📞 ${data.phone}</span>`:''}
+        ${data.address?`<span>📍 ${data.address}</span>`:''}
+      </div>
+    </div>
+  </div>
+  <div class="body">
+    ${data.summary?`<div class="sec"><div class="mh">Profil</div><p class="summ">${data.summary}</p></div>`:''}
+    ${w.length?`<div class="sec"><div class="mh">Expérience</div>${w.map((j:WorkEntry)=>`<div class="job"><div><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div></div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.education?.degree?`<div class="sec"><div class="mh">Formation</div><div style="font-size:.85rem;font-weight:600;color:${clr}">${data.education.degree}</div><div style="font-size:.78rem;color:#64748b">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div class="sec"><div class="mh">Compétences</div><div class="skills">${data.skills.map((sk:string)=>`<span class="skill">${sk}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></body></html>`;
+}
+
+// ─── T15: Indigo Startup ──────────────────────────────────────────────────────
+function generateCVHtml15(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#4338ca';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:900;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter','Helvetica Neue',sans-serif;background:#eef2ff;color:#1e1b4b;min-height:100vh}
+    .wrap{display:grid;grid-template-columns:255px 1fr;min-height:100vh}
+    .side{background:${clr};color:#fff;padding:32px 22px;display:flex;flex-direction:column;gap:22px}
+    .av{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;border:3px solid rgba(255,255,255,.4);overflow:hidden;margin:0 auto}
+    .name{font-size:1.25rem;font-weight:800;text-align:center;line-height:1.3;letter-spacing:-.3px}
+    .title{font-size:.74rem;text-align:center;opacity:.75;margin-top:4px}
+    .sh{font-size:.58rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.55;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.2)}
+    .sitem{font-size:.73rem;margin-bottom:5px;line-height:1.5}
+    .pill{display:inline-block;background:rgba(255,255,255,.18);border-radius:20px;padding:3px 10px;font-size:.67rem;margin:2px;font-weight:600}
+    .main{padding:36px 32px;background:#f5f3ff}
+    .mh{font-size:.62rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${clr};margin-bottom:12px;display:flex;align-items:center;gap:8px}
+    .mh::after{content:'';flex:1;height:1px;background:${clr}33}
+    .job{margin-bottom:18px;background:#fff;border-radius:8px;padding:14px 16px;border-left:4px solid ${clr}}
+    .jtitle{font-size:.93rem;font-weight:700;color:#1e1b4b}.jco{font-size:.8rem;color:${clr};font-weight:600;margin:2px 0}.jdate{font-size:.7rem;color:#6d7aaa}
+    .jbul{margin:6px 0 0 14px;font-size:.75rem;color:#374151;line-height:1.65}
+    .tag{display:inline-block;background:${clr}15;color:${clr};border-radius:20px;padding:3px 10px;font-size:.68rem;margin:2px;font-weight:600}
+    .foot{font-size:.63rem;color:#9ca3af;text-align:right;margin-top:18px;border-top:1px solid #e0e7ff;padding-top:8px}
+  </style></head><body><div class="wrap">
+  <div class="side">
+    <div class="av">${av}</div>
+    <div><div class="name">${data.name||'Votre Nom'}</div><div class="title">${data.targetRoles?.join(' · ')||'Startup & Innovation'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+      ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+    </div>
+    ${data.education?.degree?`<div><div class="sh">Formation</div><div class="sitem">${data.education.degree}</div><div class="sitem" style="opacity:.75">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div><div class="sh">Stack & Skills</div><div>${data.skills.map((sk:string)=>`<span class="pill">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="sitem">• ${l}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div style="margin-bottom:22px"><div class="mh">À Propos</div><p style="font-size:.82rem;line-height:1.75;color:#3730a3">${data.summary}</p></div>`:''}
+    ${w.length?`<div style="margin-bottom:22px"><div class="mh">Expérience</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.targetRoles?.length?`<div><div class="mh">Missions Recherchées</div><div>${data.targetRoles.map((r:string)=>`<span class="tag">${r}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></div></body></html>`;
+}
+
+// ─── T16: Teal NGO / Social ──────────────────────────────────────────────────
+function generateCVHtml16(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#0d9488';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Helvetica,sans-serif;background:#f0fdfa;color:#134e4a;min-height:100vh}
+    .wrap{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+    .side{background:${clr};color:#fff;padding:32px 20px;display:flex;flex-direction:column;gap:20px}
+    .av{width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;border:3px solid rgba(255,255,255,.45);overflow:hidden;margin:0 auto}
+    .name{font-size:1.28rem;font-weight:700;text-align:center;line-height:1.3}
+    .title{font-size:.74rem;text-align:center;opacity:.8;margin-top:4px}
+    .sh{font-size:.58rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.55;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.2)}
+    .sitem{font-size:.73rem;margin-bottom:5px;line-height:1.5}
+    .skill{display:inline-block;background:rgba(255,255,255,.15);border-radius:10px;padding:2px 9px;font-size:.67rem;margin:2px}
+    .main{padding:36px 32px;background:#ccfbf1;background:linear-gradient(180deg,#ccfbf1 0%,#f0fdfa 120px)}
+    .mh{font-size:.62rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:14px;margin-top:22px}
+    .mh:first-child{margin-top:0}
+    .job{margin-bottom:16px;padding-left:12px;border-left:3px solid ${clr}55}
+    .jtitle{font-size:.93rem;font-weight:700;color:#134e4a}.jco{font-size:.8rem;color:${clr};font-weight:600;margin:2px 0}.jdate{font-size:.7rem;color:#6b7280}
+    .jbul{margin:6px 0 0 14px;font-size:.75rem;color:#374151;line-height:1.65}
+    .tag{display:inline-block;background:${clr}18;color:${clr};border:1px solid ${clr}44;border-radius:20px;padding:3px 10px;font-size:.68rem;margin:2px}
+    .foot{font-size:.63rem;color:#94a3b8;text-align:right;margin-top:18px;border-top:1px solid #99f6e4;padding-top:8px}
+  </style></head><body><div class="wrap">
+  <div class="side">
+    <div class="av">${av}</div>
+    <div><div class="name">${data.name||'Votre Nom'}</div><div class="title">${data.targetRoles?.join(' · ')||'ONG & Développement Social'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+      ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+    </div>
+    ${data.education?.degree?`<div><div class="sh">Formation</div><div class="sitem">${data.education.degree}</div><div class="sitem" style="opacity:.75">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div><div class="sh">Compétences</div><div>${data.skills.map((sk:string)=>`<span class="skill">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="sitem">• ${l}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Engagement & Profil</div><p style="font-size:.82rem;line-height:1.75;color:#134e4a">${data.summary}</p></div>`:''}
+    ${w.length?`<div><div class="mh">Expérience Terrain</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.targetRoles?.length?`<div><div class="mh">Domaines d'Action</div><div>${data.targetRoles.map((r:string)=>`<span class="tag">${r}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></div></body></html>`;
+}
+
+// ─── T17: Bold Red Journalism ─────────────────────────────────────────────────
+function generateCVHtml17(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#dc2626';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover"/>`
+    : `<span style="font-size:2rem;font-weight:900;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Franklin Gothic Medium','Arial Narrow',Arial,sans-serif;background:#fff;color:#111;min-height:100vh}
+    .header{background:#111;color:#fff;padding:0}
+    .hbar{background:${clr};height:8px}
+    .hcontent{padding:32px 48px;display:flex;align-items:center;gap:24px}
+    .av{width:90px;height:90px;background:${clr}33;border:3px solid ${clr};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+    .hname{font-size:2rem;font-weight:900;letter-spacing:-1px;text-transform:uppercase}
+    .htitle{font-size:.85rem;color:${clr};margin-top:6px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+    .hcontact{margin-top:10px;font-size:.74rem;color:#9ca3af;display:flex;flex-wrap:wrap;gap:16px}
+    .body{max-width:900px;margin:0 auto;padding:32px 48px}
+    .sec{margin-bottom:26px}
+    .mh{font-size:.6rem;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:#111;border-left:5px solid ${clr};padding-left:10px;margin-bottom:14px;line-height:1}
+    .summ{font-size:.84rem;line-height:1.75;color:#374151;font-style:italic;border-left:3px solid #e5e7eb;padding-left:14px}
+    .job{margin-bottom:16px;border-bottom:1px solid #f3f4f6;padding-bottom:14px}
+    .jtitle{font-size:.95rem;font-weight:800;color:#111;text-transform:uppercase;letter-spacing:.3px}.jco{font-size:.8rem;color:${clr};font-weight:700;margin:2px 0}.jdate{font-size:.7rem;color:#6b7280}
+    .jbul{margin:6px 0 0 14px;font-size:.76rem;color:#374151;line-height:1.65}
+    .skill{display:inline-block;background:#f3f4f6;border-radius:3px;padding:3px 10px;font-size:.7rem;margin:2px;font-weight:600;color:#111}
+    .foot{font-size:.63rem;color:#9ca3af;text-align:right;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:10px}
+  </style></head><body>
+  <div class="header"><div class="hbar"></div>
+    <div class="hcontent">
+      <div class="av">${av}</div>
+      <div>
+        <div class="hname">${data.name||'Votre Nom'}</div>
+        <div class="htitle">${data.targetRoles?.join(' · ')||'Journalisme & Médias'}</div>
+        <div class="hcontact">
+          ${data.email?`<span>✉ ${data.email}</span>`:''}
+          ${data.phone?`<span>📞 ${data.phone}</span>`:''}
+          ${data.address?`<span>📍 ${data.address}</span>`:''}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="body">
+    ${data.summary?`<div class="sec"><div class="mh">Profil</div><p class="summ">${data.summary}</p></div>`:''}
+    ${w.length?`<div class="sec"><div class="mh">Parcours</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.education?.degree?`<div class="sec"><div class="mh">Formation</div><div style="font-size:.85rem;font-weight:700">${data.education.degree}</div><div style="font-size:.78rem;color:#6b7280">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div class="sec"><div class="mh">Compétences</div><div>${data.skills.map((sk:string)=>`<span class="skill">${sk}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></body></html>`;
+}
+
+// ─── T18: Copper Architecture ────────────────────────────────────────────────
+function generateCVHtml18(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#78350f';
+  const acc = '#d97706';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover"/>`
+    : `<span style="font-size:2rem;font-weight:900;color:${acc}">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Georgia',serif;background:#fffbeb;color:#292524;min-height:100vh}
+    .header{background:${clr};padding:40px 48px;display:flex;align-items:center;gap:28px}
+    .av{width:100px;height:100px;background:rgba(255,255,255,.1);border:3px solid ${acc};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+    .hname{font-size:1.75rem;font-weight:700;color:#fff;letter-spacing:.5px}
+    .htitle{font-size:.82rem;color:${acc};margin-top:6px;letter-spacing:1px}
+    .hcontact{margin-top:10px;font-size:.74rem;color:#d6d3d1;display:flex;flex-wrap:wrap;gap:16px}
+    .body{max-width:900px;margin:0 auto;padding:36px 48px}
+    .sec{margin-bottom:26px}
+    .mh{font-size:.62rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${clr};padding-bottom:5px;border-bottom:2px solid ${acc};margin-bottom:16px}
+    .summ{font-size:.84rem;line-height:1.75;color:#44403c}
+    .job{margin-bottom:18px;padding-left:14px;border-left:3px solid ${acc}66}
+    .jtitle{font-size:.95rem;font-weight:700;color:#1c1917}.jco{font-size:.8rem;color:${clr};font-weight:600;margin:2px 0}.jdate{font-size:.7rem;color:#78716c}
+    .jbul{margin:6px 0 0 14px;font-size:.76rem;color:#44403c;line-height:1.65}
+    .skill{display:inline-block;background:${clr}12;border:1px solid ${acc}55;border-radius:4px;padding:3px 10px;font-size:.7rem;margin:2px;color:${clr}}
+    .foot{font-size:.63rem;color:#a8a29e;text-align:right;border-top:1px solid #e7e5e4;padding-top:8px;margin-top:10px}
+  </style></head><body>
+  <div class="header">
+    <div class="av">${av}</div>
+    <div>
+      <div class="hname">${data.name||'Votre Nom'}</div>
+      <div class="htitle">${data.targetRoles?.join(' · ')||'Architecture & Urbanisme'}</div>
+      <div class="hcontact">
+        ${data.email?`<span>✉ ${data.email}</span>`:''}
+        ${data.phone?`<span>📞 ${data.phone}</span>`:''}
+        ${data.address?`<span>📍 ${data.address}</span>`:''}
+      </div>
+    </div>
+  </div>
+  <div class="body">
+    ${data.summary?`<div class="sec"><div class="mh">Vision</div><p class="summ">${data.summary}</p></div>`:''}
+    ${w.length?`<div class="sec"><div class="mh">Projets & Expérience</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.education?.degree?`<div class="sec"><div class="mh">Formation</div><div style="font-size:.85rem;font-weight:600;color:#1c1917">${data.education.degree}</div><div style="font-size:.78rem;color:#78716c">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div class="sec"><div class="mh">Logiciels & Compétences</div><div>${data.skills.map((sk:string)=>`<span class="skill">${sk}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></body></html>`;
+}
+
+// ─── T19: Violet HR ──────────────────────────────────────────────────────────
+function generateCVHtml19(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#7c3aed';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f3ff;color:#1e1b4b;min-height:100vh}
+    .wrap{display:grid;grid-template-columns:255px 1fr;min-height:100vh}
+    .side{background:${clr};color:#fff;padding:32px 20px;display:flex;flex-direction:column;gap:20px}
+    .av{width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;border:3px solid rgba(255,255,255,.4);overflow:hidden;margin:0 auto}
+    .name{font-size:1.25rem;font-weight:700;text-align:center;line-height:1.3}
+    .title{font-size:.74rem;text-align:center;opacity:.8;margin-top:4px}
+    .sh{font-size:.57rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.55;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.2)}
+    .sitem{font-size:.73rem;margin-bottom:5px;line-height:1.5}
+    .skill{display:inline-block;background:rgba(255,255,255,.15);border-radius:10px;padding:2px 9px;font-size:.67rem;margin:2px}
+    .main{padding:36px 32px;background:#fff}
+    .mh{font-size:.62rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:14px;margin-top:22px}
+    .mh:first-child{margin-top:0}
+    .job{margin-bottom:16px;border-left:3px solid ${clr}44;padding-left:12px}
+    .jtitle{font-size:.93rem;font-weight:700;color:#1e1b4b}.jco{font-size:.8rem;color:${clr};font-weight:600;margin:2px 0}.jdate{font-size:.7rem;color:#6b7280}
+    .jbul{margin:6px 0 0 14px;font-size:.75rem;color:#374151;line-height:1.65}
+    .tag{display:inline-block;background:${clr}12;color:${clr};border:1px solid ${clr}33;border-radius:20px;padding:3px 10px;font-size:.68rem;margin:2px}
+    .foot{font-size:.63rem;color:#9ca3af;text-align:right;margin-top:18px;border-top:1px solid #ede9fe;padding-top:8px}
+  </style></head><body><div class="wrap">
+  <div class="side">
+    <div class="av">${av}</div>
+    <div><div class="name">${data.name||'Votre Nom'}</div><div class="title">${data.targetRoles?.join(' · ')||'Ressources Humaines'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+      ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+    </div>
+    ${data.education?.degree?`<div><div class="sh">Formation</div><div class="sitem">${data.education.degree}</div><div class="sitem" style="opacity:.75">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div><div class="sh">Compétences RH</div><div>${data.skills.map((sk:string)=>`<span class="skill">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="sitem">• ${l}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Profil RH</div><p style="font-size:.82rem;line-height:1.75;color:#374151">${data.summary}</p></div>`:''}
+    ${w.length?`<div><div class="mh">Expérience</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.targetRoles?.length?`<div><div class="mh">Expertises</div><div>${data.targetRoles.map((r:string)=>`<span class="tag">${r}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></div></body></html>`;
+}
+
+// ─── T20: Navy Logistics ─────────────────────────────────────────────────────
+function generateCVHtml20(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#0c4a6e';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Arial',sans-serif;background:#f0f9ff;color:#0c2340;min-height:100vh}
+    .wrap{display:grid;grid-template-columns:255px 1fr;min-height:100vh}
+    .side{background:${clr};color:#fff;padding:32px 22px;display:flex;flex-direction:column;gap:20px}
+    .av{width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;border:3px solid rgba(255,255,255,.4);overflow:hidden;margin:0 auto}
+    .name{font-size:1.28rem;font-weight:700;text-align:center;line-height:1.3}
+    .title{font-size:.74rem;text-align:center;opacity:.8;margin-top:4px}
+    .sh{font-size:.58rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.55;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.2)}
+    .sitem{font-size:.73rem;margin-bottom:5px;line-height:1.5}
+    .skill{display:inline-block;background:rgba(255,255,255,.12);border-radius:10px;padding:2px 9px;font-size:.67rem;margin:2px}
+    .main{padding:36px 32px;background:#fff}
+    .mh{font-size:.62rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:14px;margin-top:22px}
+    .mh:first-child{margin-top:0}
+    .job{margin-bottom:16px;padding:12px;background:#f0f9ff;border-radius:6px;border-left:4px solid ${clr}}
+    .jtitle{font-size:.93rem;font-weight:700;color:#0c2340}.jco{font-size:.8rem;color:${clr};font-weight:600;margin:2px 0}.jdate{font-size:.7rem;color:#6b7280}
+    .jbul{margin:6px 0 0 14px;font-size:.75rem;color:#374151;line-height:1.65}
+    .tag{display:inline-block;background:${clr}12;color:${clr};border:1px solid ${clr}33;border-radius:4px;padding:2px 8px;font-size:.68rem;margin:2px}
+    .foot{font-size:.63rem;color:#94a3b8;text-align:right;margin-top:18px;border-top:1px solid #e0f2fe;padding-top:8px}
+  </style></head><body><div class="wrap">
+  <div class="side">
+    <div class="av">${av}</div>
+    <div><div class="name">${data.name||'Votre Nom'}</div><div class="title">${data.targetRoles?.join(' · ')||'Logistique & Supply Chain'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+      ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+    </div>
+    ${data.education?.degree?`<div><div class="sh">Formation</div><div class="sitem">${data.education.degree}</div><div class="sitem" style="opacity:.75">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div>`:''}
+    ${data.skills?.length?`<div><div class="sh">Compétences</div><div>${data.skills.map((sk:string)=>`<span class="skill">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="sitem">• ${l}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Profil</div><p style="font-size:.82rem;line-height:1.75;color:#374151">${data.summary}</p></div>`:''}
+    ${w.length?`<div><div class="mh">Expérience</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jco">${j.company||''}</div><div class="jdate">${j.startDate||''} – ${j.endDate||'Présent'}</div><ul class="jbul">${descToBullets(j.description)}</ul></div>`).join('')}</div>`:''}
+    ${data.targetRoles?.length?`<div><div class="mh">Spécialités</div><div>${data.targetRoles.map((r:string)=>`<span class="tag">${r}</span>`).join('')}</div></div>`:''}
+    <div class="foot">TalentMap · Maroc · ${today}</div>
+  </div></div></body></html>`;
+}
+
+
+function generateCVHtml21(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#15803d';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f4;color:#1a2e1a;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(0,0,0,.10)}
+.side{width:260px;background:${clr};color:#fff;padding:36px 24px;flex-shrink:0}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.5);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.2)}
+.side h1{font-size:1.2rem;font-weight:800;text-align:center;color:#fff;margin-bottom:4px}
+.side .title{font-size:.78rem;text-align:center;color:rgba(255,255,255,.8);margin-bottom:20px}
+.shead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.6);border-bottom:1px solid rgba(255,255,255,.3);padding-bottom:4px;margin:18px 0 10px}
+.sitem{font-size:.78rem;color:rgba(255,255,255,.9);margin-bottom:6px;line-height:1.5}
+.skill-bar{background:rgba(255,255,255,.2);border-radius:4px;height:5px;margin-top:3px}
+.skill-fill{background:#bbf7d0;height:5px;border-radius:4px;width:82%}
+.main{flex:1;padding:36px 32px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.85rem;color:#374151;line-height:1.7;background:#f0fdf4;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 8px 8px 0}
+.job{margin-bottom:14px}
+.jtitle{font-size:.92rem;font-weight:700;color:#1a2e1a}
+.jmeta{font-size:.72rem;color:#6b7280;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#9ca3af;text-align:right;margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side">
+  <div class="av">${av}</div>
+  <h1>${data.name||'Prénom Nom'}</h1>
+  <div class="title">${(data.targetRoles||[])[0]||''}</div>
+  <div class="shead">Contact</div>
+  ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+  ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+  ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+  ${data.linkedin?`<div class="sitem">🔗 ${data.linkedin}</div>`:''}
+  <div class="shead">Formation</div>
+  <div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''}<br/>${data.education?.year||''}</div>
+  <div class="shead">Compétences</div>
+  ${(data.skills||[]).slice(0,8).map((sk: string)=>`<div class="sitem">${sk}<div class="skill-bar"><div class="skill-fill"></div></div></div>`).join('')}
+  <div class="shead">Langues</div>
+  ${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">
+  ${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+  <div class="mhead">Expérience professionnelle</div>
+  ${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+  ${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+  <div class="foot">Document généré le ${today}</div>
+</div></div></body></html>`;
+}
+
+function generateCVHtml22(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#1e3a5f';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:50%;border:3px solid #c0c8d4"/>`
+    : `<div style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff;border:3px solid rgba(255,255,255,.4)">${initials||'?'}</div>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;font-size:13.5px}
+.hdr{background:${clr};padding:36px 44px;color:#fff;display:flex;align-items:center;gap:28px}
+.hdr-text h1{font-size:1.6rem;font-weight:900;letter-spacing:-.5px}
+.hdr-text .sub{font-size:.88rem;color:#93c5fd;margin-top:3px}
+.hdr-contact{margin-top:10px;display:flex;gap:18px;flex-wrap:wrap}
+.hdr-contact span{font-size:.72rem;color:rgba(255,255,255,.8)}
+.body{max-width:900px;margin:0 auto;background:#fff;padding:32px 44px;box-shadow:0 2px 20px rgba(0,0,0,.07)}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.intro{font-size:.85rem;color:#374151;line-height:1.7;background:#eff6ff;border-left:4px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:16px}
+.job{margin-bottom:14px}
+.jtitle{font-size:.9rem;font-weight:700;color:#1e293b}
+.jmeta{font-size:.72rem;color:#6b7280;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.tag{display:inline-block;background:#e8f0fb;color:${clr};padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:700;margin:2px 2px 2px 0}
+.foot{font-size:.68rem;color:#9ca3af;text-align:right;margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px}
+</style></head><body>
+<div class="hdr">${av}<div class="hdr-text"><h1>${data.name||'Prénom Nom'}</h1><div class="sub">${(data.targetRoles||[])[0]||''}</div>
+<div class="hdr-contact">${[data.email,data.phone,data.address,data.linkedin].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</div></div></div>
+<div class="body">
+${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expérience</div>
+${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+<div class="two">
+<div><div class="mhead">Formation</div><div class="job"><div class="jtitle">${data.education?.degree||''}</div><div class="jmeta">${data.education?.institution||''} — ${data.education?.year||''}</div></div></div>
+<div><div class="mhead">Compétences</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<span class="tag">${sk}</span>`).join('')}</div>
+</div>
+<div class="foot">Document généré le ${today}</div>
+</div></body></html>`;
+}
+
+function generateCVHtml23(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#db2777';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#fdf2f8;color:#1a1a2e;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(0,0,0,.10)}
+.side{width:250px;background:${clr};color:#fff;padding:36px 22px;flex-shrink:0}
+.av{width:86px;height:86px;border-radius:50%;border:3px solid rgba(255,255,255,.5);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.18)}
+.side h1{font-size:1.1rem;font-weight:800;text-align:center;color:#fff;margin-bottom:4px}
+.side .title{font-size:.76rem;text-align:center;color:rgba(255,255,255,.8);margin-bottom:18px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.65);border-bottom:1px solid rgba(255,255,255,.3);padding-bottom:4px;margin:16px 0 8px}
+.sitem{font-size:.77rem;color:rgba(255,255,255,.9);margin-bottom:6px;line-height:1.5}
+.pill{display:inline-block;background:rgba(255,255,255,.18);border-radius:20px;padding:2px 10px;font-size:.68rem;margin:2px 2px 2px 0;color:#fff}
+.main{flex:1;padding:34px 30px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.85rem;color:#374151;line-height:1.7;background:#fdf2f8;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 8px 8px 0}
+.job{margin-bottom:14px}
+.jtitle{font-size:.9rem;font-weight:700;color:#1a1a2e}
+.jmeta{font-size:.72rem;color:#6b7280;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#9ca3af;text-align:right;margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side">
+  <div class="av">${av}</div>
+  <h1>${data.name||'Prénom Nom'}</h1>
+  <div class="title">${(data.targetRoles||[])[0]||''}</div>
+  <div class="shead">Contact</div>
+  ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+  ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+  ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+  ${data.linkedin?`<div class="sitem">🔗 ${data.linkedin}</div>`:''}
+  <div class="shead">Formation</div>
+  <div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''}<br/>${data.education?.year||''}</div>
+  <div class="shead">Outils & Plateformes</div>
+  ${(data.skills||[]).slice(0,7).map((sk: string)=>`<span class="pill">${sk}</span>`).join('')}
+  <div class="shead">Langues</div>
+  ${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">
+  ${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+  <div class="mhead">Expérience</div>
+  ${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+  ${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+  <div class="foot">Document généré le ${today}</div>
+</div></div></body></html>`;
+}
+
+function generateCVHtml24(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#0e7490';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#22d3ee">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0f172a;color:#e2e8f0;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto}
+.side{width:255px;background:#1e293b;padding:36px 22px;flex-shrink:0}
+.av{width:86px;height:86px;border-radius:50%;border:2px solid #22d3ee;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0f172a}
+.side h1{font-size:1.15rem;font-weight:800;text-align:center;color:#f1f5f9;margin-bottom:4px}
+.side .title{font-size:.76rem;text-align:center;color:#94a3b8;margin-bottom:18px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#22d3ee;border-bottom:1px solid #334155;padding-bottom:4px;margin:16px 0 8px}
+.sitem{font-size:.77rem;color:#cbd5e1;margin-bottom:6px;line-height:1.5}
+.code-tag{display:inline-block;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:2px 8px;font-size:.68rem;font-family:monospace;color:#22d3ee;margin:2px 2px 2px 0}
+.main{flex:1;background:#1a2540;padding:34px 30px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#22d3ee;border-bottom:1px solid #334155;padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.85rem;color:#94a3b8;line-height:1.7;border-left:3px solid #22d3ee;padding:10px 14px}
+.job{margin-bottom:14px}
+.jtitle{font-size:.9rem;font-weight:700;color:#f1f5f9}
+.jmeta{font-size:.72rem;color:#64748b;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#94a3b8;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#475569;text-align:right;margin-top:28px;border-top:1px solid #334155;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side">
+  <div class="av">${av}</div>
+  <h1>${data.name||'Prénom Nom'}</h1>
+  <div class="title">${(data.targetRoles||[])[0]||''}</div>
+  <div class="shead">Contact</div>
+  ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+  ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+  ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+  ${data.linkedin?`<div class="sitem">🔗 ${data.linkedin}</div>`:''}
+  <div class="shead">Stack Technique</div>
+  ${(data.skills||[]).slice(0,10).map((sk: string)=>`<span class="code-tag">${sk}</span>`).join('')}
+  <div class="shead">Formation</div>
+  <div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''}<br/>${data.education?.year||''}</div>
+</div>
+<div class="main">
+  ${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+  <div class="mhead">Expérience</div>
+  ${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+  ${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+  <div class="foot">Document généré le ${today}</div>
+</div></div></body></html>`;
+}
+
+function generateCVHtml25(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#c2410c';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:50%;border:3px solid rgba(255,255,255,.5)"/>`
+    : `<div style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff">${initials||'?'}</div>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#fff7f0;color:#1c1917;font-size:13.5px}
+.hdr{background:${clr};padding:36px 44px;color:#fff;display:flex;align-items:center;gap:28px}
+.hdr-text h1{font-size:1.6rem;font-weight:900;letter-spacing:-.5px}
+.hdr-text .sub{font-size:.88rem;color:#fed7aa;margin-top:3px}
+.hdr-contact{margin-top:10px;display:flex;gap:18px;flex-wrap:wrap}
+.hdr-contact span{font-size:.72rem;color:rgba(255,255,255,.85)}
+.body{max-width:900px;margin:0 auto;background:#fff;padding:32px 44px;box-shadow:0 2px 20px rgba(0,0,0,.07)}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.intro{font-size:.85rem;color:#374151;line-height:1.7;background:#fff7f0;border-left:4px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.two{display:grid;grid-template-columns:2fr 1fr;gap:28px;margin-top:8px}
+.job{margin-bottom:14px}
+.jtitle{font-size:.9rem;font-weight:700;color:#1c1917}
+.jmeta{font-size:.72rem;color:#6b7280;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.tag{display:inline-block;background:#fff7f0;color:${clr};border:1px solid #fdba74;padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:600;margin:2px 2px 2px 0}
+.foot{font-size:.68rem;color:#9ca3af;text-align:right;margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px}
+</style></head><body>
+<div class="hdr">${av}<div class="hdr-text"><h1>${data.name||'Prénom Nom'}</h1><div class="sub">${(data.targetRoles||[])[0]||''}</div>
+<div class="hdr-contact">${[data.email,data.phone,data.address].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</div></div></div>
+<div class="body">
+${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="two">
+<div>
+  <div class="mhead">Expérience</div>
+  ${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+</div>
+<div>
+  <div class="mhead">Formation</div>
+  <div class="job"><div class="jtitle">${data.education?.degree||''}</div><div class="jmeta">${data.education?.institution||''} — ${data.education?.year||''}</div></div>
+  <div class="mhead">Compétences</div>
+  ${(data.skills||[]).slice(0,8).map((sk: string)=>`<span class="tag">${sk}</span>`).join('')}
+  ${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.slice(0,4).map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+</div>
+</div>
+<div class="foot">Document généré le ${today}</div>
+</div></body></html>`;
+}
+
+function generateCVHtml26(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#059669';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0fdf4;color:#1a2e1a;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(0,0,0,.10)}
+.side{width:255px;background:${clr};color:#fff;padding:36px 22px;flex-shrink:0}
+.av{width:86px;height:86px;border-radius:50%;border:3px solid rgba(255,255,255,.5);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.15)}
+.side h1{font-size:1.15rem;font-weight:800;text-align:center;color:#fff;margin-bottom:4px}
+.side .title{font-size:.76rem;text-align:center;color:rgba(255,255,255,.8);margin-bottom:18px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.65);border-bottom:1px solid rgba(255,255,255,.3);padding-bottom:4px;margin:16px 0 8px}
+.sitem{font-size:.77rem;color:rgba(255,255,255,.9);margin-bottom:6px;line-height:1.5}
+.kpi{background:rgba(255,255,255,.18);border-radius:8px;padding:8px 10px;margin-bottom:8px;text-align:center}
+.kpi-n{font-size:1.2rem;font-weight:800;color:#fff}
+.kpi-l{font-size:.65rem;color:rgba(255,255,255,.7)}
+.main{flex:1;padding:34px 30px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.85rem;color:#374151;line-height:1.7;background:#f0fdf4;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 8px 8px 0}
+.job{margin-bottom:14px}
+.jtitle{font-size:.9rem;font-weight:700;color:#1a2e1a}
+.jmeta{font-size:.72rem;color:#6b7280;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#9ca3af;text-align:right;margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side">
+  <div class="av">${av}</div>
+  <h1>${data.name||'Prénom Nom'}</h1>
+  <div class="title">${(data.targetRoles||[])[0]||''}</div>
+  <div class="shead">Contact</div>
+  ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+  ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+  ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+  ${data.linkedin?`<div class="sitem">🔗 ${data.linkedin}</div>`:''}
+  <div class="shead">Formation</div>
+  <div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''}<br/>${data.education?.year||''}</div>
+  <div class="shead">Compétences</div>
+  ${(data.skills||[]).slice(0,7).map((sk: string)=>`<div class="sitem">▶ ${sk}</div>`).join('')}
+</div>
+<div class="main">
+  ${data.summary?`<div class="mhead">Profil Commercial</div><div class="intro">${data.summary}</div>`:''}
+  <div class="mhead">Expérience</div>
+  ${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+  ${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+  <div class="foot">Document généré le ${today}</div>
+</div></div></body></html>`;
+}
+
+function generateCVHtml27(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#374151';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:2px solid rgba(255,255,255,.3)"/>`
+    : `<div style="width:80px;height:80px;border-radius:6px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#e2e8f0">${initials||'?'}</div>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;color:#1e293b;font-size:13.5px}
+.hdr{background:${clr};padding:36px 44px;color:#fff;display:flex;align-items:center;gap:28px}
+.hdr-text h1{font-size:1.6rem;font-weight:900;letter-spacing:-.5px}
+.hdr-text .sub{font-size:.88rem;color:#9ca3af;margin-top:3px}
+.hdr-contact{margin-top:10px;display:flex;gap:18px;flex-wrap:wrap}
+.hdr-contact span{font-size:.72rem;color:rgba(255,255,255,.75)}
+.body{max-width:900px;margin:0 auto;background:#fff;padding:32px 44px;box-shadow:0 2px 20px rgba(0,0,0,.07)}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.intro{font-size:.85rem;color:#374151;line-height:1.7;background:#f8fafc;border-left:4px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:16px}
+.job{margin-bottom:14px}
+.jtitle{font-size:.9rem;font-weight:700;color:#1e293b}
+.jmeta{font-size:.72rem;color:#6b7280;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.tag{display:inline-block;background:#f1f5f9;color:${clr};padding:3px 10px;border-radius:4px;font-size:.68rem;font-weight:600;margin:2px 2px 2px 0;border:1px solid #e2e8f0}
+.foot{font-size:.68rem;color:#9ca3af;text-align:right;margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px}
+</style></head><body>
+<div class="hdr">${av}<div class="hdr-text"><h1>${data.name||'Prénom Nom'}</h1><div class="sub">${(data.targetRoles||[])[0]||''}</div>
+<div class="hdr-contact">${[data.email,data.phone,data.address].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</div></div></div>
+<div class="body">
+${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expérience</div>
+${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+<div class="two">
+<div><div class="mhead">Formation</div><div class="job"><div class="jtitle">${data.education?.degree||''}</div><div class="jmeta">${data.education?.institution||''} — ${data.education?.year||''}</div></div></div>
+<div><div class="mhead">Compétences</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<span class="tag">${sk}</span>`).join('')}</div>
+</div>
+<div class="foot">Document généré le ${today}</div>
+</div></body></html>`;
+}
+
+function generateCVHtml28(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#0369a1';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:50%;border:3px solid #bae6fd"/>`
+    : `<div style="width:80px;height:80px;border-radius:50%;background:#0369a1;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff">${initials||'?'}</div>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f9ff;color:#0c4a6e;font-size:13.5px}
+.hdr{background:${clr};padding:32px 44px;color:#fff;display:flex;align-items:center;gap:28px}
+.hdr-text h1{font-size:1.55rem;font-weight:900;letter-spacing:-.5px}
+.hdr-text .sub{font-size:.88rem;color:#bae6fd;margin-top:3px}
+.hdr-contact{margin-top:10px;display:flex;gap:18px;flex-wrap:wrap}
+.hdr-contact span{font-size:.72rem;color:rgba(255,255,255,.8)}
+.body{max-width:900px;margin:0 auto;background:#fff;padding:32px 44px;box-shadow:0 2px 20px rgba(0,0,0,.07)}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.intro{font-size:.85rem;color:#374151;line-height:1.7;background:#f0f9ff;border-left:4px solid ${clr};padding:10px 14px}
+.two{display:grid;grid-template-columns:2fr 1fr;gap:24px}
+.job{margin-bottom:14px}
+.jtitle{font-size:.9rem;font-weight:700;color:#0c4a6e}
+.jmeta{font-size:.72rem;color:#6b7280;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.tag{display:inline-block;background:#e0f2fe;color:${clr};padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:600;margin:2px 2px 2px 0}
+.foot{font-size:.68rem;color:#9ca3af;text-align:right;margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px}
+</style></head><body>
+<div class="hdr">${av}<div class="hdr-text"><h1>${data.name||'Prénom Nom'}</h1><div class="sub">${(data.targetRoles||[])[0]||''}</div>
+<div class="hdr-contact">${[data.email,data.phone,data.address].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</div></div></div>
+<div class="body">
+${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="two">
+<div>
+  <div class="mhead">Expérience</div>
+  ${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+</div>
+<div>
+  <div class="mhead">Formation</div>
+  <div class="job"><div class="jtitle">${data.education?.degree||''}</div><div class="jmeta">${data.education?.institution||''} — ${data.education?.year||''}</div></div>
+  <div class="mhead">Compétences</div>
+  ${(data.skills||[]).slice(0,8).map((sk: string)=>`<span class="tag">${sk}</span>`).join('')}
+  ${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.slice(0,4).map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+</div>
+</div>
+<div class="foot">Document généré le ${today}</div>
+</div></body></html>`;
+}
+
+function generateCVHtml29(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#3d6b21';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f8ec;color:#1a2e0a;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(0,0,0,.10)}
+.side{width:255px;background:${clr};color:#fff;padding:36px 22px;flex-shrink:0}
+.av{width:86px;height:86px;border-radius:50%;border:3px solid rgba(255,255,255,.5);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.15)}
+.side h1{font-size:1.15rem;font-weight:800;text-align:center;color:#fff;margin-bottom:4px}
+.side .title{font-size:.76rem;text-align:center;color:rgba(255,255,255,.8);margin-bottom:18px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.65);border-bottom:1px solid rgba(255,255,255,.3);padding-bottom:4px;margin:16px 0 8px}
+.sitem{font-size:.77rem;color:rgba(255,255,255,.9);margin-bottom:6px;line-height:1.5}
+.main{flex:1;padding:34px 30px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.85rem;color:#374151;line-height:1.7;background:#f1f8ec;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 8px 8px 0}
+.job{margin-bottom:14px}
+.jtitle{font-size:.9rem;font-weight:700;color:#1a2e0a}
+.jmeta{font-size:.72rem;color:#6b7280;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#9ca3af;text-align:right;margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side">
+  <div class="av">${av}</div>
+  <h1>${data.name||'Prénom Nom'}</h1>
+  <div class="title">${(data.targetRoles||[])[0]||''}</div>
+  <div class="shead">Contact</div>
+  ${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}
+  ${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}
+  ${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}
+  ${data.linkedin?`<div class="sitem">🔗 ${data.linkedin}</div>`:''}
+  <div class="shead">Formation</div>
+  <div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''}<br/>${data.education?.year||''}</div>
+  <div class="shead">Compétences</div>
+  ${(data.skills||[]).slice(0,7).map((sk: string)=>`<div class="sitem">🌿 ${sk}</div>`).join('')}
+  <div class="shead">Langues</div>
+  ${(data.languages||[]).slice(0,3).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">
+  ${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+  <div class="mhead">Expérience</div>
+  ${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+  ${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+  <div class="foot">Document généré le ${today}</div>
+</div></div></body></html>`;
+}
+
+function generateCVHtml30(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#1e3a5f';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:50%;border:3px solid #c0cfe4"/>`
+    : `<div style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#c0cfe4">${initials||'?'}</div>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Georgia',serif;background:#f8fafc;color:#1e293b;font-size:13.5px}
+.hdr{background:${clr};padding:36px 44px;color:#fff;display:flex;align-items:center;gap:28px;border-bottom:4px solid #c0a060}
+.hdr-text h1{font-size:1.6rem;font-weight:700;letter-spacing:.5px}
+.hdr-text .sub{font-size:.88rem;color:#c0cfe4;margin-top:3px;font-style:italic}
+.hdr-contact{margin-top:10px;display:flex;gap:18px;flex-wrap:wrap}
+.hdr-contact span{font-size:.72rem;color:rgba(255,255,255,.8)}
+.body{max-width:900px;margin:0 auto;background:#fff;padding:32px 44px;box-shadow:0 2px 20px rgba(0,0,0,.07)}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${clr};border-bottom:2px solid #c0a060;padding-bottom:4px;margin:22px 0 12px}
+.intro{font-size:.88rem;color:#374151;line-height:1.8;font-style:italic;border-left:4px solid #c0a060;padding:10px 14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:16px}
+.job{margin-bottom:14px}
+.jtitle{font-size:.9rem;font-weight:700;color:#1e293b}
+.jmeta{font-size:.72rem;color:#6b7280;margin:2px 0 6px;font-style:italic}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}
+.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.tag{display:inline-block;background:#eff6ff;color:${clr};padding:3px 10px;border-radius:4px;font-size:.68rem;font-weight:600;margin:2px 2px 2px 0}
+.foot{font-size:.68rem;color:#9ca3af;text-align:right;margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px}
+</style></head><body>
+<div class="hdr">${av}<div class="hdr-text"><h1>${data.name||'Prénom Nom'}</h1><div class="sub">${(data.targetRoles||[])[0]||''}</div>
+<div class="hdr-contact">${[data.email,data.phone,data.address,data.linkedin].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</div></div></div>
+<div class="body">
+${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expérience</div>
+${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} | ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+<div class="two">
+<div><div class="mhead">Formation</div><div class="job"><div class="jtitle">${data.education?.degree||''}</div><div class="jmeta">${data.education?.institution||''} — ${data.education?.year||''}</div></div></div>
+<div><div class="mhead">Compétences</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<span class="tag">${sk}</span>`).join('')}
+<div class="mhead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div style="font-size:.78rem;color:#374151;margin-bottom:3px">• ${l}</div>`).join('')}
+</div>
+</div>
+<div class="foot">Document généré le ${today}</div>
+</div></body></html>`;
+}
+
+// T31: Assurance/Actuariat — Navy+Silver
+function generateCVHtml31(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#1e293b';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1e293b;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(0,0,0,.10)}
+.side{width:260px;background:${clr};color:#fff;padding:36px 24px;flex-shrink:0}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.3);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.1)}
+.side h1{font-size:1.15rem;font-weight:800;text-align:center;margin-bottom:4px}
+.side .title{font-size:.78rem;text-align:center;color:#94a3b8;margin-bottom:20px}
+.shead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#cbd5e1;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px;margin:18px 0 10px}
+.sitem{font-size:.78rem;color:rgba(255,255,255,.85);margin-bottom:6px;line-height:1.5}
+.chip{display:inline-block;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#e2e8f0;padding:2px 8px;border-radius:10px;font-size:.66rem;margin:2px 1px}
+.main{flex:1;padding:36px 32px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid #94a3b8;padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.84rem;color:#374151;line-height:1.7;background:#f8fafc;border-left:3px solid #475569;padding:10px 14px;border-radius:0 6px 6px 0}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #f1f5f9}.job:last-child{border-bottom:none}
+.jtitle{font-size:.91rem;font-weight:700;color:${clr}}.jmeta{font-size:.72rem;color:#64748b;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#94a3b8;text-align:right;margin-top:28px;border-top:1px solid #e2e8f0;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side"><div class="av">${av}</div><h1>${data.name||'Prénom Nom'}</h1><div class="title">${(data.targetRoles||[])[0]||''}</div>
+<div class="shead">Contact</div>
+${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}${data.linkedin?`<div class="sitem">in ${data.linkedin}</div>`:''}
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''} ${data.education?.year||''}</div>
+<div class="shead">Compétences</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<span class="chip">${sk}</span>`).join('')}
+<div class="shead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">◆ ${l}</div>`).join('')}
+</div>
+<div class="main">${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expériences</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+<div class="foot">Document généré le ${today}</div></div></div></body></html>`;
+}
+
+// T32: Marketing Digital — Cyan Blue
+function generateCVHtml32(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#0284c7';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f9ff;color:#0c4a6e;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(2,132,199,.12)}
+.side{width:255px;background:${clr};color:#fff;padding:36px 24px;flex-shrink:0}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.4);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.15)}
+.side h1{font-size:1.15rem;font-weight:800;text-align:center;margin-bottom:4px}
+.side .title{font-size:.78rem;text-align:center;color:#bae6fd;margin-bottom:20px}
+.shead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#bae6fd;border-bottom:1px solid rgba(255,255,255,.25);padding-bottom:4px;margin:18px 0 10px}
+.sitem{font-size:.78rem;color:rgba(255,255,255,.9);margin-bottom:6px;line-height:1.5}
+.main{flex:1;padding:36px 32px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.84rem;color:#374151;line-height:1.7;background:#f0f9ff;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e0f2fe}.job:last-child{border-bottom:none}
+.jtitle{font-size:.91rem;font-weight:700;color:#0c4a6e}.jmeta{font-size:.72rem;color:#0284c7;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.tag{display:inline-block;background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:2px 9px;border-radius:12px;font-size:.66rem;font-weight:600;margin:2px 1px}
+.foot{font-size:.68rem;color:#94a3b8;text-align:right;margin-top:28px;border-top:1px solid #e0f2fe;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side"><div class="av">${av}</div><h1>${data.name||'Prénom Nom'}</h1><div class="title">${(data.targetRoles||[])[0]||''}</div>
+<div class="shead">Contact</div>
+${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}${data.linkedin?`<div class="sitem">in ${data.linkedin}</div>`:''}${data.portfolio?`<div class="sitem">🌐 ${data.portfolio}</div>`:''}
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''} ${data.education?.year||''}</div>
+<div class="shead">Outils & Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">${data.summary?`<div class="mhead">Profil Digital</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Compétences</div><div style="margin-bottom:16px">${(data.skills||[]).slice(0,10).map((sk: string)=>`<span class="tag">${sk}</span>`).join('')}</div>
+<div class="mhead">Expériences</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+<div class="foot">Document généré le ${today}</div></div></div></body></html>`;
+}
+
+// T33: Recherche Clinique/Essais — Deep Navy
+function generateCVHtml33(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#0f2f6e';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#eff6ff;color:#1e3a8a;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(15,47,110,.12)}
+.side{width:255px;background:${clr};color:#fff;padding:36px 24px;flex-shrink:0}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.35);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.1)}
+.side h1{font-size:1.1rem;font-weight:800;text-align:center;margin-bottom:4px}
+.side .title{font-size:.76rem;text-align:center;color:#93c5fd;margin-bottom:20px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#93c5fd;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px;margin:16px 0 9px}
+.sitem{font-size:.77rem;color:rgba(255,255,255,.88);margin-bottom:6px;line-height:1.5}
+.main{flex:1;padding:36px 32px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.84rem;color:#374151;line-height:1.75;background:#eff6ff;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #dbeafe}.job:last-child{border-bottom:none}
+.jtitle{font-size:.91rem;font-weight:700;color:${clr}}.jmeta{font-size:.72rem;color:#3b82f6;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#93c5fd;text-align:right;margin-top:28px;border-top:1px solid #dbeafe;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side"><div class="av">${av}</div><h1>${data.name||'Prénom Nom'}</h1><div class="title">${(data.targetRoles||[])[0]||''}</div>
+<div class="shead">Contact</div>
+${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}${data.linkedin?`<div class="sitem">in ${data.linkedin}</div>`:''}
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''} ${data.education?.year||''}</div>
+<div class="shead">Compétences</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<div class="sitem">▸ ${sk}</div>`).join('')}
+<div class="shead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expériences</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Certifications & Publications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+<div class="foot">Document généré le ${today}</div></div></div></body></html>`;
+}
+
+// T34: Sport & Coaching — Scarlet Red
+function generateCVHtml34(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#991b1b';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#fff5f5;color:#1c1917;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(153,27,27,.12)}
+.side{width:255px;background:${clr};color:#fff;padding:36px 24px;flex-shrink:0}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.4);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.12)}
+.side h1{font-size:1.15rem;font-weight:800;text-align:center;margin-bottom:4px}
+.side .title{font-size:.78rem;text-align:center;color:#fca5a5;margin-bottom:20px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#fca5a5;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px;margin:16px 0 9px}
+.sitem{font-size:.78rem;color:rgba(255,255,255,.9);margin-bottom:6px;line-height:1.5}
+.main{flex:1;padding:36px 32px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.84rem;color:#374151;line-height:1.7;background:#fff5f5;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #fee2e2}.job:last-child{border-bottom:none}
+.jtitle{font-size:.91rem;font-weight:700;color:${clr}}.jmeta{font-size:.72rem;color:#b91c1c;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#fca5a5;text-align:right;margin-top:28px;border-top:1px solid #fee2e2;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side"><div class="av">${av}</div><h1>${data.name||'Prénom Nom'}</h1><div class="title">${(data.targetRoles||[])[0]||''}</div>
+<div class="shead">Contact</div>
+${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}${data.linkedin?`<div class="sitem">in ${data.linkedin}</div>`:''}
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''} ${data.education?.year||''}</div>
+<div class="shead">Spécialités</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<div class="sitem">▸ ${sk}</div>`).join('')}
+<div class="shead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expériences</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Certifications & Diplômes Sportifs</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+<div class="foot">Document généré le ${today}</div></div></div></body></html>`;
+}
+
+// T35: Événementiel/Mariage — Rose Magenta
+function generateCVHtml35(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#9d174d';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#fdf2f8;color:#831843;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(157,23,77,.12)}
+.side{width:255px;background:${clr};color:#fff;padding:36px 24px;flex-shrink:0}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.4);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.12)}
+.side h1{font-size:1.15rem;font-weight:800;text-align:center;margin-bottom:4px}
+.side .title{font-size:.78rem;text-align:center;color:#fbcfe8;margin-bottom:20px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#fbcfe8;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px;margin:16px 0 9px}
+.sitem{font-size:.78rem;color:rgba(255,255,255,.9);margin-bottom:6px;line-height:1.5}
+.main{flex:1;padding:36px 32px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid #f9a8d4;padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.84rem;color:#374151;line-height:1.7;background:#fdf2f8;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #fce7f3}.job:last-child{border-bottom:none}
+.jtitle{font-size:.91rem;font-weight:700;color:${clr}}.jmeta{font-size:.72rem;color:#db2777;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#f9a8d4;text-align:right;margin-top:28px;border-top:1px solid #fce7f3;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side"><div class="av">${av}</div><h1>${data.name||'Prénom Nom'}</h1><div class="title">${(data.targetRoles||[])[0]||''}</div>
+<div class="shead">Contact</div>
+${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}${data.linkedin?`<div class="sitem">in ${data.linkedin}</div>`:''}
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''} ${data.education?.year||''}</div>
+<div class="shead">Compétences</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<div class="sitem">✦ ${sk}</div>`).join('')}
+<div class="shead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expériences</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+<div class="foot">Document généré le ${today}</div></div></div></body></html>`;
+}
+
+// T36: Qualité / HSE / Lean — Slate Gray
+function generateCVHtml36(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#475569';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;color:#0f172a;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(71,85,105,.10)}
+.side{width:255px;background:${clr};color:#fff;padding:36px 24px;flex-shrink:0}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.3);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.1)}
+.side h1{font-size:1.1rem;font-weight:800;text-align:center;margin-bottom:4px}
+.side .title{font-size:.76rem;text-align:center;color:#cbd5e1;margin-bottom:20px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;border-bottom:1px solid rgba(255,255,255,.15);padding-bottom:4px;margin:16px 0 9px}
+.sitem{font-size:.77rem;color:rgba(255,255,255,.88);margin-bottom:6px;line-height:1.5}
+.main{flex:1;padding:36px 32px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.84rem;color:#374151;line-height:1.7;background:#f8fafc;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #f1f5f9}.job:last-child{border-bottom:none}
+.jtitle{font-size:.91rem;font-weight:700;color:#0f172a}.jmeta{font-size:.72rem;color:${clr};margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#94a3b8;text-align:right;margin-top:28px;border-top:1px solid #e2e8f0;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side"><div class="av">${av}</div><h1>${data.name||'Prénom Nom'}</h1><div class="title">${(data.targetRoles||[])[0]||''}</div>
+<div class="shead">Contact</div>
+${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}${data.linkedin?`<div class="sitem">in ${data.linkedin}</div>`:''}
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''} ${data.education?.year||''}</div>
+<div class="shead">Normes & Standards</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<div class="sitem">▸ ${sk}</div>`).join('')}
+<div class="shead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expériences</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Certifications & Habilitations</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+<div class="foot">Document généré le ${today}</div></div></div></body></html>`;
+}
+
+// T37: Achats / Procurement / Supply Chain — Deep Teal
+function generateCVHtml37(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#0f766e';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0fdfa;color:#134e4a;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(15,118,110,.10)}
+.side{width:255px;background:${clr};color:#fff;padding:36px 24px;flex-shrink:0}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.4);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.12)}
+.side h1{font-size:1.1rem;font-weight:800;text-align:center;margin-bottom:4px}
+.side .title{font-size:.76rem;text-align:center;color:#99f6e4;margin-bottom:20px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#5eead4;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px;margin:16px 0 9px}
+.sitem{font-size:.77rem;color:rgba(255,255,255,.9);margin-bottom:6px;line-height:1.5}
+.main{flex:1;padding:36px 32px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.84rem;color:#374151;line-height:1.7;background:#f0fdfa;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #ccfbf1}.job:last-child{border-bottom:none}
+.jtitle{font-size:.91rem;font-weight:700;color:${clr}}.jmeta{font-size:.72rem;color:#0d9488;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#5eead4;text-align:right;margin-top:28px;border-top:1px solid #ccfbf1;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side"><div class="av">${av}</div><h1>${data.name||'Prénom Nom'}</h1><div class="title">${(data.targetRoles||[])[0]||''}</div>
+<div class="shead">Contact</div>
+${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}${data.linkedin?`<div class="sitem">in ${data.linkedin}</div>`:''}
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''} ${data.education?.year||''}</div>
+<div class="shead">Compétences</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<div class="sitem">◈ ${sk}</div>`).join('')}
+<div class="shead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expériences</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+<div class="foot">Document généré le ${today}</div></div></div></body></html>`;
+}
+
+// T38: Administration Publique / Fonction Publique — Navy Institutionnel
+function generateCVHtml38(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#1e3a8a';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#eff6ff;color:#1e3a8a;font-size:13.5px}
+.page{max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(30,58,138,.10)}
+.hdr{background:${clr};padding:28px 36px;display:flex;align-items:center;gap:22px}
+.av{width:80px;height:80px;border-radius:4px;border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.1);flex-shrink:0}
+.hname{font-size:1.6rem;font-weight:800;color:#fff;letter-spacing:.02em}
+.htitle{font-size:.82rem;color:#93c5fd;margin-top:4px;font-weight:500}
+.bar{height:4px;background:linear-gradient(90deg,#3b82f6,#1d4ed8,${clr})}
+.ribbon{background:#eff6ff;border-bottom:1px solid #dbeafe;padding:10px 36px;display:flex;gap:20px;flex-wrap:wrap}
+.rc{font-size:.68rem;color:#1e40af;font-weight:600}
+.body{display:flex;padding:28px 36px 36px;gap:28px}
+.main{flex:1}
+.right{width:210px;flex-shrink:0}
+.mhead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid #3b82f6;padding-bottom:4px;margin:20px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.83rem;color:#374151;line-height:1.7;background:#eff6ff;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:18px}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #dbeafe}.job:last-child{border-bottom:none}
+.jtitle{font-size:.88rem;font-weight:700;color:${clr}}.jmeta{font-size:.7rem;color:#3b82f6;margin:2px 0 6px}
+.jdesc{font-size:.78rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:14px}.jdesc li{margin-bottom:3px}
+.shead{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#1e40af;margin:14px 0 8px}
+.sitem{font-size:.74rem;color:#374151;margin-bottom:5px;line-height:1.5}
+.foot{font-size:.62rem;color:#93c5fd;background:${clr};padding:8px 36px;text-align:right}
+</style></head><body><div class="page">
+<div class="hdr"><div class="av">${av}</div><div><div class="hname">${data.name||'Prénom Nom'}</div><div class="htitle">${data.sector||''}</div></div></div>
+<div class="bar"></div>
+<div class="ribbon">
+${data.phone?`<span class="rc">📞 ${data.phone}</span>`:''}${data.email?`<span class="rc">✉ ${data.email}</span>`:''}${data.address?`<span class="rc">📍 ${data.address}</span>`:''}${data.linkedin?`<span class="rc">in ${data.linkedin}</span>`:''}
+</div>
+<div class="body">
+<div class="main">${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expériences Professionnelles</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Formations & Habilitations</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+</div>
+<div class="right">
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''}<br/>${data.education?.year||''}</div>
+<div class="shead">Compétences</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<div class="sitem">▸ ${sk}</div>`).join('')}
+<div class="shead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+</div>
+<div class="foot">Document généré le ${today}</div>
+</div></body></html>`;
+}
+
+// T39: Tourisme & Voyage — Warm Orange
+function generateCVHtml39(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#ea580c';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#fff7ed;color:#7c2d12;font-size:13.5px}
+.wrap{display:flex;min-height:100vh;max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(234,88,12,.12)}
+.side{width:255px;background:${clr};color:#fff;padding:36px 24px;flex-shrink:0}
+.av{width:88px;height:88px;border-radius:50%;border:3px solid rgba(255,255,255,.4);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.12)}
+.side h1{font-size:1.15rem;font-weight:800;text-align:center;margin-bottom:4px}
+.side .title{font-size:.78rem;text-align:center;color:#fed7aa;margin-bottom:20px}
+.shead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#fed7aa;border-bottom:1px solid rgba(255,255,255,.25);padding-bottom:4px;margin:16px 0 9px}
+.sitem{font-size:.78rem;color:rgba(255,255,255,.9);margin-bottom:6px;line-height:1.5}
+.main{flex:1;padding:36px 32px}
+.mhead{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid #fed7aa;padding-bottom:4px;margin:22px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.84rem;color:#374151;line-height:1.7;background:#fff7ed;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #ffedd5}.job:last-child{border-bottom:none}
+.jtitle{font-size:.91rem;font-weight:700;color:${clr}}.jmeta{font-size:.72rem;color:#c2410c;margin:2px 0 6px}
+.jdesc{font-size:.8rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:16px}.jdesc li{margin-bottom:3px}
+.foot{font-size:.68rem;color:#fed7aa;text-align:right;margin-top:28px;border-top:1px solid #ffedd5;padding-top:8px}
+</style></head><body><div class="wrap">
+<div class="side"><div class="av">${av}</div><h1>${data.name||'Prénom Nom'}</h1><div class="title">${(data.targetRoles||[])[0]||''}</div>
+<div class="shead">Contact</div>
+${data.email?`<div class="sitem">✉ ${data.email}</div>`:''}${data.phone?`<div class="sitem">📞 ${data.phone}</div>`:''}${data.address?`<div class="sitem">📍 ${data.address}</div>`:''}${data.linkedin?`<div class="sitem">in ${data.linkedin}</div>`:''}
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''} ${data.education?.year||''}</div>
+<div class="shead">Compétences</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<div class="sitem">✈ ${sk}</div>`).join('')}
+<div class="shead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+<div class="main">${data.summary?`<div class="mhead">Profil</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expériences</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Certifications</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+<div class="foot">Document généré le ${today}</div></div></div></body></html>`;
+}
+
+// T40: Médecin / Clinique — Medical Blue
+function generateCVHtml40(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#0369a1';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f9ff;color:#0c4a6e;font-size:13.5px}
+.page{max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 24px rgba(3,105,161,.10)}
+.hdr{background:${clr};padding:28px 36px;display:flex;align-items:center;gap:22px}
+.av{width:80px;height:80px;border-radius:50%;border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.12);flex-shrink:0}
+.hname{font-size:1.6rem;font-weight:800;color:#fff}
+.htitle{font-size:.82rem;color:#bae6fd;margin-top:4px}
+.bar{height:4px;background:linear-gradient(90deg,#38bdf8,#0369a1,#0c4a6e)}
+.ribbon{background:#f0f9ff;border-bottom:1px solid #bae6fd;padding:10px 36px;display:flex;gap:20px;flex-wrap:wrap}
+.rc{font-size:.68rem;color:#0284c7;font-weight:600}
+.body{display:flex;padding:28px 36px 36px;gap:28px}
+.main{flex:1}
+.right{width:210px;flex-shrink:0}
+.mhead{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${clr};border-bottom:2px solid #38bdf8;padding-bottom:4px;margin:20px 0 12px}
+.mhead:first-of-type{margin-top:0}
+.intro{font-size:.83rem;color:#374151;line-height:1.7;background:#f0f9ff;border-left:3px solid ${clr};padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:18px}
+.job{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e0f2fe}.job:last-child{border-bottom:none}
+.jtitle{font-size:.88rem;font-weight:700;color:${clr}}.jmeta{font-size:.7rem;color:#0284c7;margin:2px 0 6px}
+.jdesc{font-size:.78rem;color:#374151;line-height:1.65}.jdesc ul{padding-left:14px}.jdesc li{margin-bottom:3px}
+.shead{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:${clr};margin:14px 0 8px}
+.sitem{font-size:.74rem;color:#374151;margin-bottom:5px;line-height:1.5}
+.foot{font-size:.62rem;color:#bae6fd;background:${clr};padding:8px 36px;text-align:right}
+</style></head><body><div class="page">
+<div class="hdr"><div class="av">${av}</div><div><div class="hname">${data.name||'Prénom Nom'}</div><div class="htitle">${data.sector||''}</div></div></div>
+<div class="bar"></div>
+<div class="ribbon">
+${data.phone?`<span class="rc">📞 ${data.phone}</span>`:''}${data.email?`<span class="rc">✉ ${data.email}</span>`:''}${data.address?`<span class="rc">📍 ${data.address}</span>`:''}${data.linkedin?`<span class="rc">in ${data.linkedin}</span>`:''}
+</div>
+<div class="body">
+<div class="main">${data.summary?`<div class="mhead">Profil Médical</div><div class="intro">${data.summary}</div>`:''}
+<div class="mhead">Expériences Cliniques</div>${w.map((j: WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} · ${j.startDate||''} – ${j.endDate||'Présent'}</div><div class="jdesc">${descToBullets(j.description)}</div></div>`).join('')}
+${data.certifications?.length?`<div class="mhead">Formations & DU</div><div class="jdesc"><ul>${data.certifications.map((c: string)=>`<li>${c}</li>`).join('')}</ul></div>`:''}
+</div>
+<div class="right">
+<div class="shead">Formation</div><div class="sitem"><strong>${data.education?.degree||''}</strong><br/>${data.education?.institution||''}<br/>${data.education?.year||''}</div>
+<div class="shead">Spécialités</div>${(data.skills||[]).slice(0,8).map((sk: string)=>`<div class="sitem">⚕ ${sk}</div>`).join('')}
+<div class="shead">Langues</div>${(data.languages||[]).slice(0,4).map((l: string)=>`<div class="sitem">• ${l}</div>`).join('')}
+</div>
+</div>
+<div class="foot">Document généré le ${today}</div>
+</div></body></html>`;
+}
+
+// T41 — Dentiste / Chirurgien-Dentiste (#047857 Mint Green, Layout A)
+function generateCVHtml41(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#047857';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;font-size:11px;color:#1c1c1c;background:#f7faf9;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:#fff;display:grid;grid-template-columns:220px 1fr;box-shadow:0 2px 20px rgba(0,0,0,.08)}
+    .side{background:${clr};color:#fff;padding:28px 18px;display:flex;flex-direction:column;gap:22px}
+    .av{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;margin:0 auto;overflow:hidden;border:3px solid rgba(255,255,255,.5)}
+    .sname{font-size:16px;font-weight:700;text-align:center;line-height:1.3}
+    .stitle{font-size:9.5px;text-align:center;color:rgba(255,255,255,.8);margin-top:4px;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+    .sh{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.6);border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:5px;margin-bottom:8px}
+    .si{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:5px;line-height:1.5;display:flex;gap:6px;align-items:flex-start}
+    .skill-chip{display:inline-block;background:rgba(255,255,255,.15);border-radius:3px;padding:3px 8px;margin:2px;font-size:9px;color:#fff}
+    .lang{display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.9);margin-bottom:4px}
+    .main{padding:32px 28px;display:flex;flex-direction:column;gap:20px}
+    .mh{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:10px}
+    .summary{font-size:11px;color:#444;line-height:1.7}
+    .job{margin-bottom:12px}
+    .jtitle{font-weight:700;color:#111;font-size:11.5px}
+    .jmeta{font-size:10px;color:${clr};font-weight:600;margin-bottom:4px}
+    .jbullet{font-size:10.5px;color:#444;line-height:1.6;padding-left:12px}
+    .jbullet li{margin-bottom:2px;list-style:none;position:relative;padding-left:12px}
+    .jbullet li:before{content:'⚕';position:absolute;left:0;color:${clr};font-size:9px}
+    .edu{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+    .edl{font-size:11px;color:#222;font-weight:600}.edm{font-size:10px;color:#666}
+    .foot{grid-column:1/-1;background:#f0f7f4;border-top:2px solid ${clr};padding:10px 28px;font-size:9px;color:#666;text-align:right}
+  </style></head><body><div class="page">
+  <div class="side">
+    <div><div class="av">${av}</div><div class="sname" style="margin-top:12px">${data.name}</div><div class="stitle">${data.targetRoles?.[0]||data.sector||'Dentiste'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="si">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="si">✆ ${data.phone}</div>`:''}
+      ${data.address?`<div class="si">⊛ ${data.address}</div>`:''}
+      ${data.linkedin?`<div class="si">in ${data.linkedin}</div>`:''}
+    </div>
+    ${data.skills?.length?`<div><div class="sh">Compétences</div><div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="lang"><span>◆ ${l}</span></div>`).join('')}</div>`:''}
+    ${data.certifications?.length?`<div><div class="sh">Certifications</div>${data.certifications.map((c:string)=>`<div class="si">✓ ${c}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Profil Clinique</div><div class="summary">${data.summary}</div></div>`:''}
+    ${w.length?`<div><div class="mh">Expériences Cliniques</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+    ${data.education?.degree?`<div><div class="mh">Formation & Diplômes</div><div class="edu"><div><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''}</div></div><div class="edm">${data.education.year||''}</div></div></div>`:''}
+  </div>
+  <div class="foot">Généré le ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
+// T42 — Pharmacien / Officine (#166534 Dark Green, Layout A)
+function generateCVHtml42(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#166534';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;font-size:11px;color:#1c1c1c;background:#f4f9f4;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:#fff;display:grid;grid-template-columns:220px 1fr;box-shadow:0 2px 20px rgba(0,0,0,.08)}
+    .side{background:${clr};color:#fff;padding:28px 18px;display:flex;flex-direction:column;gap:22px}
+    .av{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;margin:0 auto;overflow:hidden;border:3px solid rgba(255,255,255,.5)}
+    .sname{font-size:16px;font-weight:700;text-align:center;line-height:1.3}
+    .stitle{font-size:9.5px;text-align:center;color:rgba(255,255,255,.8);margin-top:4px;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+    .sh{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.6);border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:5px;margin-bottom:8px}
+    .si{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:5px;line-height:1.5}
+    .skill-chip{display:inline-block;background:rgba(255,255,255,.15);border-radius:3px;padding:3px 8px;margin:2px;font-size:9px;color:#fff}
+    .lang{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:4px}
+    .main{padding:32px 28px;display:flex;flex-direction:column;gap:20px}
+    .mh{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:10px}
+    .summary{font-size:11px;color:#444;line-height:1.7}
+    .job{margin-bottom:12px}
+    .jtitle{font-weight:700;color:#111;font-size:11.5px}
+    .jmeta{font-size:10px;color:${clr};font-weight:600;margin-bottom:4px}
+    .jbullet{font-size:10.5px;color:#444;line-height:1.6;padding-left:12px}
+    .jbullet li{margin-bottom:2px;list-style:none;position:relative;padding-left:12px}
+    .jbullet li:before{content:'▸';position:absolute;left:0;color:${clr}}
+    .edu{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+    .edl{font-size:11px;color:#222;font-weight:600}.edm{font-size:10px;color:#666}
+    .foot{grid-column:1/-1;background:#f0f7f1;border-top:2px solid ${clr};padding:10px 28px;font-size:9px;color:#666;text-align:right}
+  </style></head><body><div class="page">
+  <div class="side">
+    <div><div class="av">${av}</div><div class="sname" style="margin-top:12px">${data.name}</div><div class="stitle">${data.targetRoles?.[0]||data.sector||'Pharmacien'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="si">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="si">✆ ${data.phone}</div>`:''}
+      ${data.address?`<div class="si">⊛ ${data.address}</div>`:''}
+    </div>
+    ${data.skills?.length?`<div><div class="sh">Compétences</div><div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="lang">◆ ${l}</div>`).join('')}</div>`:''}
+    ${data.certifications?.length?`<div><div class="sh">Habilitations</div>${data.certifications.map((c:string)=>`<div class="si">✓ ${c}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Profil Pharmaceutique</div><div class="summary">${data.summary}</div></div>`:''}
+    ${w.length?`<div><div class="mh">Expériences Professionnelles</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+    ${data.education?.degree?`<div><div class="mh">Formation & Doctorat</div><div class="edu"><div><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''}</div></div><div class="edm">${data.education.year||''}</div></div></div>`:''}
+  </div>
+  <div class="foot">Généré le ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
+// T43 — Chef Cuisinier / Gastronomie (#7c2d12 Dark Brown-Red, Layout A)
+function generateCVHtml43(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#7c2d12';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Georgia',serif;font-size:11px;color:#1c1c1c;background:#fdf8f5;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:#fff;display:grid;grid-template-columns:220px 1fr;box-shadow:0 2px 20px rgba(0,0,0,.1)}
+    .side{background:${clr};color:#fff;padding:28px 18px;display:flex;flex-direction:column;gap:22px}
+    .av{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;margin:0 auto;overflow:hidden;border:3px solid rgba(255,220,180,.5)}
+    .sname{font-size:16px;font-weight:700;text-align:center;line-height:1.3}
+    .stitle{font-size:9.5px;text-align:center;color:rgba(255,210,160,.9);margin-top:4px;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+    .sh{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,210,160,.7);border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:5px;margin-bottom:8px}
+    .si{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:5px;line-height:1.5}
+    .skill-chip{display:inline-block;background:rgba(255,255,255,.15);border-radius:3px;padding:3px 8px;margin:2px;font-size:9px;color:#fff}
+    .lang{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:4px}
+    .main{padding:32px 28px;display:flex;flex-direction:column;gap:20px;font-family:'Segoe UI',sans-serif}
+    .mh{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:10px}
+    .summary{font-size:11px;color:#444;line-height:1.7}
+    .job{margin-bottom:12px}
+    .jtitle{font-weight:700;color:#111;font-size:11.5px}
+    .jmeta{font-size:10px;color:${clr};font-weight:600;margin-bottom:4px}
+    .jbullet{font-size:10.5px;color:#444;line-height:1.6}
+    .jbullet li{margin-bottom:2px;list-style:none;position:relative;padding-left:14px}
+    .jbullet li:before{content:'★';position:absolute;left:0;color:${clr};font-size:8px;top:2px}
+    .edu{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+    .edl{font-size:11px;color:#222;font-weight:600}.edm{font-size:10px;color:#666}
+    .foot{grid-column:1/-1;background:#fef3ee;border-top:2px solid ${clr};padding:10px 28px;font-size:9px;color:#666;text-align:right}
+  </style></head><body><div class="page">
+  <div class="side">
+    <div><div class="av">${av}</div><div class="sname" style="margin-top:12px">${data.name}</div><div class="stitle">${data.targetRoles?.[0]||data.sector||'Chef Cuisinier'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="si">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="si">✆ ${data.phone}</div>`:''}
+      ${data.address?`<div class="si">⊛ ${data.address}</div>`:''}
+    </div>
+    ${data.skills?.length?`<div><div class="sh">Spécialités Culinaires</div><div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="lang">◆ ${l}</div>`).join('')}</div>`:''}
+    ${data.certifications?.length?`<div><div class="sh">Diplômes & Titres</div>${data.certifications.map((c:string)=>`<div class="si">★ ${c}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Philosophie Culinaire</div><div class="summary">${data.summary}</div></div>`:''}
+    ${w.length?`<div><div class="mh">Parcours en Cuisine</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+    ${data.education?.degree?`<div><div class="mh">Formation Culinaire</div><div class="edu"><div><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''}</div></div><div class="edm">${data.education.year||''}</div></div></div>`:''}
+  </div>
+  <div class="foot">Généré le ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
+// T44 — Enseignant / Formateur / Coach Pédagogique (#6d28d9 Purple, Layout A)
+function generateCVHtml44(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#6d28d9';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;font-size:11px;color:#1c1c1c;background:#f8f5ff;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:#fff;display:grid;grid-template-columns:220px 1fr;box-shadow:0 2px 20px rgba(0,0,0,.08)}
+    .side{background:${clr};color:#fff;padding:28px 18px;display:flex;flex-direction:column;gap:22px}
+    .av{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;margin:0 auto;overflow:hidden;border:3px solid rgba(255,255,255,.4)}
+    .sname{font-size:16px;font-weight:700;text-align:center;line-height:1.3}
+    .stitle{font-size:9.5px;text-align:center;color:rgba(230,210,255,.9);margin-top:4px;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+    .sh{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(230,210,255,.7);border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:5px;margin-bottom:8px}
+    .si{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:5px;line-height:1.5}
+    .skill-chip{display:inline-block;background:rgba(255,255,255,.15);border-radius:3px;padding:3px 8px;margin:2px;font-size:9px;color:#fff}
+    .lang{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:4px}
+    .main{padding:32px 28px;display:flex;flex-direction:column;gap:20px}
+    .mh{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:10px}
+    .summary{font-size:11px;color:#444;line-height:1.7}
+    .job{margin-bottom:12px}
+    .jtitle{font-weight:700;color:#111;font-size:11.5px}
+    .jmeta{font-size:10px;color:${clr};font-weight:600;margin-bottom:4px}
+    .jbullet{font-size:10.5px;color:#444;line-height:1.6}
+    .jbullet li{margin-bottom:2px;list-style:none;position:relative;padding-left:12px}
+    .jbullet li:before{content:'▸';position:absolute;left:0;color:${clr}}
+    .edu{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+    .edl{font-size:11px;color:#222;font-weight:600}.edm{font-size:10px;color:#666}
+    .foot{grid-column:1/-1;background:#f3f0ff;border-top:2px solid ${clr};padding:10px 28px;font-size:9px;color:#666;text-align:right}
+  </style></head><body><div class="page">
+  <div class="side">
+    <div><div class="av">${av}</div><div class="sname" style="margin-top:12px">${data.name}</div><div class="stitle">${data.targetRoles?.[0]||data.sector||'Enseignant / Formateur'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="si">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="si">✆ ${data.phone}</div>`:''}
+      ${data.address?`<div class="si">⊛ ${data.address}</div>`:''}
+      ${data.linkedin?`<div class="si">in ${data.linkedin}</div>`:''}
+    </div>
+    ${data.skills?.length?`<div><div class="sh">Compétences Pédagogiques</div><div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="lang">◆ ${l}</div>`).join('')}</div>`:''}
+    ${data.certifications?.length?`<div><div class="sh">Certifications</div>${data.certifications.map((c:string)=>`<div class="si">✓ ${c}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Approche Pédagogique</div><div class="summary">${data.summary}</div></div>`:''}
+    ${w.length?`<div><div class="mh">Expériences d'Enseignement</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+    ${data.education?.degree?`<div><div class="mh">Formation Académique</div><div class="edu"><div><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''}</div></div><div class="edm">${data.education.year||''}</div></div></div>`:''}
+  </div>
+  <div class="foot">Généré le ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
+// T45 — Traducteur / Interprète / Linguiste (#44403c Warm Slate, Layout A)
+function generateCVHtml45(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#44403c';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;font-size:11px;color:#1c1c1c;background:#f9f8f7;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:#fff;display:grid;grid-template-columns:220px 1fr;box-shadow:0 2px 20px rgba(0,0,0,.08)}
+    .side{background:${clr};color:#fff;padding:28px 18px;display:flex;flex-direction:column;gap:22px}
+    .av{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;margin:0 auto;overflow:hidden;border:3px solid rgba(255,255,255,.3)}
+    .sname{font-size:16px;font-weight:700;text-align:center;line-height:1.3}
+    .stitle{font-size:9.5px;text-align:center;color:rgba(220,216,210,.9);margin-top:4px;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+    .sh{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(220,216,210,.6);border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:5px;margin-bottom:8px}
+    .si{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:5px;line-height:1.5}
+    .skill-chip{display:inline-block;background:rgba(255,255,255,.12);border-radius:3px;padding:3px 8px;margin:2px;font-size:9px;color:#fff;border:1px solid rgba(255,255,255,.2)}
+    .lang{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:5px;display:flex;justify-content:space-between}
+    .main{padding:32px 28px;display:flex;flex-direction:column;gap:20px}
+    .mh{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:10px}
+    .summary{font-size:11px;color:#444;line-height:1.7}
+    .job{margin-bottom:12px}
+    .jtitle{font-weight:700;color:#111;font-size:11.5px}
+    .jmeta{font-size:10px;color:${clr};font-weight:600;margin-bottom:4px}
+    .jbullet{font-size:10.5px;color:#444;line-height:1.6}
+    .jbullet li{margin-bottom:2px;list-style:none;position:relative;padding-left:12px}
+    .jbullet li:before{content:'▸';position:absolute;left:0;color:${clr}}
+    .edu{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+    .edl{font-size:11px;color:#222;font-weight:600}.edm{font-size:10px;color:#666}
+    .foot{grid-column:1/-1;background:#f5f4f3;border-top:2px solid ${clr};padding:10px 28px;font-size:9px;color:#666;text-align:right}
+  </style></head><body><div class="page">
+  <div class="side">
+    <div><div class="av">${av}</div><div class="sname" style="margin-top:12px">${data.name}</div><div class="stitle">${data.targetRoles?.[0]||data.sector||'Traducteur / Interprète'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="si">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="si">✆ ${data.phone}</div>`:''}
+      ${data.address?`<div class="si">⊛ ${data.address}</div>`:''}
+    </div>
+    ${data.skills?.length?`<div><div class="sh">Domaines de Spécialité</div><div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues Maîtrisées</div>${data.languages.map((l:string)=>`<div class="lang"><span>◆ ${l}</span></div>`).join('')}</div>`:''}
+    ${data.certifications?.length?`<div><div class="sh">Accréditations</div>${data.certifications.map((c:string)=>`<div class="si">✓ ${c}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Profil Linguistique</div><div class="summary">${data.summary}</div></div>`:''}
+    ${w.length?`<div><div class="mh">Expériences de Traduction</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+    ${data.education?.degree?`<div><div class="mh">Formation Linguistique</div><div class="edu"><div><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''}</div></div><div class="edm">${data.education.year||''}</div></div></div>`:''}
+  </div>
+  <div class="foot">Généré le ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
+// T46 — Graphiste / Illustrateur (#1c1917 Black+Yellow, Layout C dark)
+function generateCVHtml46(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const bg = '#1c1917'; const acc = '#eab308';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:${bg}">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;font-size:11px;color:#e8e6e1;background:#111;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:${bg};box-shadow:0 2px 30px rgba(0,0,0,.5)}
+    .hdr{padding:36px 40px 28px;border-bottom:1px solid #2d2a26;display:flex;align-items:center;gap:24px}
+    .av{width:80px;height:80px;border-radius:50%;background:${acc};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+    .hname{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px}
+    .htitle{font-size:10px;color:${acc};text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;font-weight:600}
+    .hcontact{display:flex;gap:16px;margin-top:10px;font-size:9.5px;color:#a8a29e;flex-wrap:wrap}
+    .body{display:grid;grid-template-columns:1fr 190px;gap:0;min-height:900px}
+    .left{padding:28px 24px 28px 40px;display:flex;flex-direction:column;gap:20px;border-right:1px solid #2d2a26}
+    .right{padding:28px 18px;display:flex;flex-direction:column;gap:18px;background:#232017}
+    .mh{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${acc};margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #2d2a26}
+    .summary{font-size:11px;color:#a8a29e;line-height:1.7}
+    .job{margin-bottom:12px}
+    .jtitle{font-weight:700;color:#fff;font-size:11.5px}
+    .jmeta{font-size:10px;color:${acc};margin-bottom:4px;font-weight:600}
+    .jbullet{font-size:10.5px;color:#a8a29e;line-height:1.6}
+    .jbullet li{margin-bottom:2px;list-style:none;position:relative;padding-left:12px}
+    .jbullet li:before{content:'▸';position:absolute;left:0;color:${acc}}
+    .skill-chip{display:inline-block;background:#2d2a26;border:1px solid #3d3832;border-radius:3px;padding:3px 8px;margin:2px;font-size:9px;color:#e8e6e1}
+    .lang{font-size:10px;color:#a8a29e;margin-bottom:4px}
+    .cert{font-size:10px;color:#a8a29e;margin-bottom:4px;padding-left:10px;position:relative}
+    .cert:before{content:'▸';position:absolute;left:0;color:${acc};font-size:9px}
+    .edu{margin-bottom:8px}.edl{font-size:11px;color:#e8e6e1;font-weight:600}.edm{font-size:10px;color:#a8a29e}
+    .foot{background:#111;border-top:1px solid #2d2a26;padding:10px 40px;font-size:9px;color:#57534e;text-align:right}
+  </style></head><body><div class="page">
+  <div class="hdr">
+    <div class="av">${av}</div>
+    <div>
+      <div class="hname">${data.name}</div>
+      <div class="htitle">${data.targetRoles?.[0]||data.sector||'Graphiste / Illustrateur'}</div>
+      <div class="hcontact">
+        ${data.email?`<span>✉ ${data.email}</span>`:''}
+        ${data.phone?`<span>✆ ${data.phone}</span>`:''}
+        ${data.address?`<span>⊛ ${data.address}</span>`:''}
+        ${data.linkedin?`<span>in ${data.linkedin}</span>`:''}
+      </div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="left">
+      ${data.summary?`<div><div class="mh">Identité Créative</div><div class="summary">${data.summary}</div></div>`:''}
+      ${w.length?`<div><div class="mh">Expériences & Projets</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+      ${data.education?.degree?`<div><div class="mh">Formation</div><div class="edu"><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div></div>`:''}
+    </div>
+    <div class="right">
+      ${data.skills?.length?`<div><div class="mh">Outils & Logiciels</div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div>`:''}
+      ${data.languages?.length?`<div><div class="mh">Langues</div>${data.languages.map((l:string)=>`<div class="lang">◆ ${l}</div>`).join('')}</div>`:''}
+      ${data.certifications?.length?`<div><div class="mh">Formations</div>${data.certifications.map((c:string)=>`<div class="cert">${c}</div>`).join('')}</div>`:''}
+    </div>
+  </div>
+  <div class="foot">Généré le ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
+// T47 — Animateur 3D / Jeu Vidéo / VFX (#0f0f1e Purple+Neon, Layout C dark)
+function generateCVHtml47(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const bg = '#0f0f1e'; const acc = '#a78bfa';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:${bg}">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;font-size:11px;color:#e8e6ff;background:#080812;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:${bg};box-shadow:0 2px 40px rgba(167,139,250,.15)}
+    .hdr{padding:36px 40px 28px;border-bottom:1px solid #1e1a3c;display:flex;align-items:center;gap:24px;background:linear-gradient(135deg,#12123a 0%,${bg} 60%)}
+    .av{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,${acc},#7c3aed);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;box-shadow:0 0 20px rgba(167,139,250,.4)}
+    .hname{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px}
+    .htitle{font-size:10px;color:${acc};text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;font-weight:600}
+    .hcontact{display:flex;gap:16px;margin-top:10px;font-size:9.5px;color:#7c74a8;flex-wrap:wrap}
+    .body{display:grid;grid-template-columns:1fr 190px;gap:0;min-height:900px}
+    .left{padding:28px 24px 28px 40px;display:flex;flex-direction:column;gap:20px;border-right:1px solid #1e1a3c}
+    .right{padding:28px 18px;display:flex;flex-direction:column;gap:18px;background:#0c0c20}
+    .mh{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${acc};margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #1e1a3c}
+    .summary{font-size:11px;color:#9d97c7;line-height:1.7}
+    .job{margin-bottom:12px}
+    .jtitle{font-weight:700;color:#fff;font-size:11.5px}
+    .jmeta{font-size:10px;color:${acc};margin-bottom:4px;font-weight:600}
+    .jbullet{font-size:10.5px;color:#9d97c7;line-height:1.6}
+    .jbullet li{margin-bottom:2px;list-style:none;position:relative;padding-left:12px}
+    .jbullet li:before{content:'▸';position:absolute;left:0;color:${acc}}
+    .skill-chip{display:inline-block;background:#1a1535;border:1px solid #2d2760;border-radius:3px;padding:3px 8px;margin:2px;font-size:9px;color:#c4b8ff}
+    .lang{font-size:10px;color:#9d97c7;margin-bottom:4px}
+    .cert{font-size:10px;color:#9d97c7;margin-bottom:4px;padding-left:10px;position:relative}
+    .cert:before{content:'▸';position:absolute;left:0;color:${acc};font-size:9px}
+    .edu{margin-bottom:8px}.edl{font-size:11px;color:#e8e6ff;font-weight:600}.edm{font-size:10px;color:#9d97c7}
+    .foot{background:#080812;border-top:1px solid #1e1a3c;padding:10px 40px;font-size:9px;color:#4a4570;text-align:right}
+  </style></head><body><div class="page">
+  <div class="hdr">
+    <div class="av">${av}</div>
+    <div>
+      <div class="hname">${data.name}</div>
+      <div class="htitle">${data.targetRoles?.[0]||data.sector||'Animateur 3D / Game Developer'}</div>
+      <div class="hcontact">
+        ${data.email?`<span>✉ ${data.email}</span>`:''}
+        ${data.phone?`<span>✆ ${data.phone}</span>`:''}
+        ${data.address?`<span>⊛ ${data.address}</span>`:''}
+        ${data.linkedin?`<span>in ${data.linkedin}</span>`:''}
+      </div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="left">
+      ${data.summary?`<div><div class="mh">Profil Créatif</div><div class="summary">${data.summary}</div></div>`:''}
+      ${w.length?`<div><div class="mh">Expériences & Productions</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+      ${data.education?.degree?`<div><div class="mh">Formation</div><div class="edu"><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div></div>`:''}
+    </div>
+    <div class="right">
+      ${data.skills?.length?`<div><div class="mh">Outils & Moteurs</div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div>`:''}
+      ${data.languages?.length?`<div><div class="mh">Langues</div>${data.languages.map((l:string)=>`<div class="lang">◆ ${l}</div>`).join('')}</div>`:''}
+      ${data.certifications?.length?`<div><div class="mh">Certifications</div>${data.certifications.map((c:string)=>`<div class="cert">${c}</div>`).join('')}</div>`:''}
+    </div>
+  </div>
+  <div class="foot">Généré le ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
+// T48 — Artiste / Musicien / Comédien (#0a0a0a Black+Gold, Layout C dark)
+function generateCVHtml48(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const bg = '#0a0a0a'; const acc = '#d4a017';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:${bg}">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Georgia',serif;font-size:11px;color:#e0d8c8;background:#050505;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:${bg};box-shadow:0 2px 40px rgba(212,160,23,.1)}
+    .hdr{padding:40px 40px 28px;border-bottom:1px solid #2a2010;display:flex;align-items:center;gap:28px}
+    .av{width:88px;height:88px;border-radius:50%;background:${acc};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:2px solid ${acc}}
+    .hname{font-size:24px;font-weight:700;color:#fff;letter-spacing:1px;font-family:'Georgia',serif}
+    .htitle{font-size:10px;color:${acc};text-transform:uppercase;letter-spacing:2px;margin-top:6px;font-family:'Segoe UI',sans-serif;font-weight:600}
+    .hline{width:48px;height:2px;background:${acc};margin:10px 0}
+    .hcontact{display:flex;gap:16px;font-size:9.5px;color:#6b5f40;flex-wrap:wrap;font-family:'Segoe UI',sans-serif}
+    .body{display:grid;grid-template-columns:1fr 185px;gap:0;min-height:900px}
+    .left{padding:28px 24px 28px 40px;display:flex;flex-direction:column;gap:22px;border-right:1px solid #1a1508}
+    .right{padding:28px 18px;display:flex;flex-direction:column;gap:18px;background:#0e0c08}
+    .mh{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${acc};margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #2a2010;font-family:'Segoe UI',sans-serif}
+    .summary{font-size:11px;color:#8a7f6c;line-height:1.8;font-family:'Georgia',serif}
+    .job{margin-bottom:14px}
+    .jtitle{font-weight:700;color:#f5f0e8;font-size:11.5px;font-family:'Segoe UI',sans-serif}
+    .jmeta{font-size:10px;color:${acc};margin-bottom:4px;font-weight:600;font-family:'Segoe UI',sans-serif}
+    .jbullet{font-size:10.5px;color:#8a7f6c;line-height:1.6;font-family:'Segoe UI',sans-serif}
+    .jbullet li{margin-bottom:2px;list-style:none;position:relative;padding-left:14px}
+    .jbullet li:before{content:'◆';position:absolute;left:0;color:${acc};font-size:7px;top:3px}
+    .skill-chip{display:inline-block;background:#1a1508;border:1px solid #2a2010;border-radius:2px;padding:3px 8px;margin:2px;font-size:9px;color:#d4c89a;font-family:'Segoe UI',sans-serif}
+    .lang{font-size:10px;color:#8a7f6c;margin-bottom:4px;font-family:'Segoe UI',sans-serif}
+    .cert{font-size:10px;color:#8a7f6c;margin-bottom:4px;padding-left:10px;position:relative;font-family:'Segoe UI',sans-serif}
+    .cert:before{content:'◆';position:absolute;left:0;color:${acc};font-size:7px;top:3px}
+    .edu{margin-bottom:8px}.edl{font-size:11px;color:#e0d8c8;font-weight:600;font-family:'Segoe UI',sans-serif}.edm{font-size:10px;color:#8a7f6c;font-family:'Segoe UI',sans-serif}
+    .foot{background:#050505;border-top:1px solid #2a2010;padding:10px 40px;font-size:9px;color:#3a3020;text-align:right;font-family:'Segoe UI',sans-serif}
+  </style></head><body><div class="page">
+  <div class="hdr">
+    <div class="av">${av}</div>
+    <div>
+      <div class="hname">${data.name}</div>
+      <div class="htitle">${data.targetRoles?.[0]||data.sector||'Artiste / Musicien'}</div>
+      <div class="hline"></div>
+      <div class="hcontact">
+        ${data.email?`<span>✉ ${data.email}</span>`:''}
+        ${data.phone?`<span>✆ ${data.phone}</span>`:''}
+        ${data.address?`<span>⊛ ${data.address}</span>`:''}
+        ${data.linkedin?`<span>in ${data.linkedin}</span>`:''}
+      </div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="left">
+      ${data.summary?`<div><div class="mh">Biographie Artistique</div><div class="summary">${data.summary}</div></div>`:''}
+      ${w.length?`<div><div class="mh">Œuvres & Productions</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+      ${data.education?.degree?`<div><div class="mh">Formation Artistique</div><div class="edu"><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div></div>`:''}
+    </div>
+    <div class="right">
+      ${data.skills?.length?`<div><div class="mh">Disciplines</div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div>`:''}
+      ${data.languages?.length?`<div><div class="mh">Langues</div>${data.languages.map((l:string)=>`<div class="lang">◆ ${l}</div>`).join('')}</div>`:''}
+      ${data.certifications?.length?`<div><div class="mh">Récompenses & Titres</div>${data.certifications.map((c:string)=>`<div class="cert">${c}</div>`).join('')}</div>`:''}
+    </div>
+  </div>
+  <div class="foot">Généré le ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
+// T49 — Vétérinaire / Clinique Animale (#14532d Earth Green, Layout A)
+function generateCVHtml49(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const clr = '#14532d';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#fff">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;font-size:11px;color:#1c1c1c;background:#f2f8f4;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:#fff;display:grid;grid-template-columns:220px 1fr;box-shadow:0 2px 20px rgba(0,0,0,.08)}
+    .side{background:${clr};color:#fff;padding:28px 18px;display:flex;flex-direction:column;gap:22px}
+    .av{width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;margin:0 auto;overflow:hidden;border:3px solid rgba(255,255,255,.4)}
+    .sname{font-size:16px;font-weight:700;text-align:center;line-height:1.3}
+    .stitle{font-size:9.5px;text-align:center;color:rgba(210,240,220,.9);margin-top:4px;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+    .sh{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(210,240,220,.6);border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:5px;margin-bottom:8px}
+    .si{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:5px;line-height:1.5}
+    .skill-chip{display:inline-block;background:rgba(255,255,255,.15);border-radius:3px;padding:3px 8px;margin:2px;font-size:9px;color:#fff}
+    .lang{font-size:10px;color:rgba(255,255,255,.9);margin-bottom:4px}
+    .main{padding:32px 28px;display:flex;flex-direction:column;gap:20px}
+    .mh{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${clr};border-bottom:2px solid ${clr};padding-bottom:4px;margin-bottom:10px}
+    .summary{font-size:11px;color:#444;line-height:1.7}
+    .job{margin-bottom:12px}
+    .jtitle{font-weight:700;color:#111;font-size:11.5px}
+    .jmeta{font-size:10px;color:${clr};font-weight:600;margin-bottom:4px}
+    .jbullet{font-size:10.5px;color:#444;line-height:1.6}
+    .jbullet li{margin-bottom:2px;list-style:none;position:relative;padding-left:12px}
+    .jbullet li:before{content:'▸';position:absolute;left:0;color:${clr}}
+    .edu{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+    .edl{font-size:11px;color:#222;font-weight:600}.edm{font-size:10px;color:#666}
+    .foot{grid-column:1/-1;background:#edf7f0;border-top:2px solid ${clr};padding:10px 28px;font-size:9px;color:#666;text-align:right}
+  </style></head><body><div class="page">
+  <div class="side">
+    <div><div class="av">${av}</div><div class="sname" style="margin-top:12px">${data.name}</div><div class="stitle">${data.targetRoles?.[0]||data.sector||'Vétérinaire'}</div></div>
+    <div><div class="sh">Contact</div>
+      ${data.email?`<div class="si">✉ ${data.email}</div>`:''}
+      ${data.phone?`<div class="si">✆ ${data.phone}</div>`:''}
+      ${data.address?`<div class="si">⊛ ${data.address}</div>`:''}
+    </div>
+    ${data.skills?.length?`<div><div class="sh">Spécialités Vétérinaires</div><div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div></div>`:''}
+    ${data.languages?.length?`<div><div class="sh">Langues</div>${data.languages.map((l:string)=>`<div class="lang">◆ ${l}</div>`).join('')}</div>`:''}
+    ${data.certifications?.length?`<div><div class="sh">Habilitations</div>${data.certifications.map((c:string)=>`<div class="si">✓ ${c}</div>`).join('')}</div>`:''}
+  </div>
+  <div class="main">
+    ${data.summary?`<div><div class="mh">Profil Vétérinaire</div><div class="summary">${data.summary}</div></div>`:''}
+    ${w.length?`<div><div class="mh">Expériences Cliniques</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+    ${data.education?.degree?`<div><div class="mh">Formation & Doctorat Vétérinaire</div><div class="edu"><div><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''}</div></div><div class="edm">${data.education.year||''}</div></div></div>`:''}
+  </div>
+  <div class="foot">Généré le ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
+// T50 — Premium Executive Ultra-Minimal (#111827 Black+Silver, Layout C dark)
+function generateCVHtml50(data: Parameters<typeof generateCVHtml>[0]) {
+  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = data.name.split(' ').map((n: string) => n[0] || '').join('').slice(0, 2).toUpperCase();
+  const w = Array.isArray(data.work) ? data.work : [];
+  const bg = '#111827'; const acc = '#9ca3af';
+  const av = data.photo
+    ? `<img src="${data.photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:${bg}">${initials||'?'}</span>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;font-size:11px;color:#d1d5db;background:#0a0f1a;display:flex;justify-content:center;padding:20px}
+    .page{width:794px;min-height:1123px;background:${bg};box-shadow:0 2px 40px rgba(0,0,0,.6)}
+    .hdr{padding:40px 44px 30px;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:28px}
+    .av{width:80px;height:80px;border-radius:50%;background:#1f2937;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:2px solid #374151}
+    .hname{font-size:23px;font-weight:300;color:#f9fafb;letter-spacing:2px;text-transform:uppercase}
+    .htitle{font-size:9.5px;color:${acc};text-transform:uppercase;letter-spacing:2.5px;margin-top:6px;font-weight:400}
+    .hline{width:32px;height:1px;background:#374151;margin:12px 0}
+    .hcontact{display:flex;gap:18px;font-size:9.5px;color:#6b7280;flex-wrap:wrap}
+    .body{display:grid;grid-template-columns:1fr 195px;gap:0;min-height:900px}
+    .left{padding:30px 24px 30px 44px;display:flex;flex-direction:column;gap:22px;border-right:1px solid #1f2937}
+    .right{padding:30px 20px;display:flex;flex-direction:column;gap:18px;background:#0f172a}
+    .mh{font-size:8.5px;font-weight:400;letter-spacing:2.5px;text-transform:uppercase;color:#6b7280;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #1f2937}
+    .summary{font-size:11px;color:#9ca3af;line-height:1.8}
+    .job{margin-bottom:14px}
+    .jtitle{font-weight:500;color:#f3f4f6;font-size:11.5px;letter-spacing:.3px}
+    .jmeta{font-size:10px;color:#6b7280;margin-bottom:5px;font-weight:400}
+    .jbullet{font-size:10.5px;color:#9ca3af;line-height:1.7}
+    .jbullet li{margin-bottom:3px;list-style:none;position:relative;padding-left:12px}
+    .jbullet li:before{content:'—';position:absolute;left:0;color:#374151;font-size:10px}
+    .skill-chip{display:inline-block;background:#1f2937;border:1px solid #374151;border-radius:2px;padding:3px 9px;margin:2px;font-size:9px;color:#9ca3af;letter-spacing:.3px}
+    .lang{font-size:10px;color:#9ca3af;margin-bottom:5px}
+    .cert{font-size:10px;color:#9ca3af;margin-bottom:5px;padding-left:10px;position:relative}
+    .cert:before{content:'—';position:absolute;left:0;color:#374151}
+    .edu{margin-bottom:10px}.edl{font-size:11px;color:#d1d5db;font-weight:500}.edm{font-size:10px;color:#6b7280}
+    .foot{background:#0a0f1a;border-top:1px solid #1f2937;padding:10px 44px;font-size:9px;color:#374151;text-align:right;letter-spacing:.5px}
+  </style></head><body><div class="page">
+  <div class="hdr">
+    <div class="av">${av}</div>
+    <div>
+      <div class="hname">${data.name}</div>
+      <div class="htitle">${data.targetRoles?.[0]||data.sector||'Executive'}</div>
+      <div class="hline"></div>
+      <div class="hcontact">
+        ${data.email?`<span>${data.email}</span>`:''}
+        ${data.phone?`<span>${data.phone}</span>`:''}
+        ${data.address?`<span>${data.address}</span>`:''}
+        ${data.linkedin?`<span>${data.linkedin}</span>`:''}
+      </div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="left">
+      ${data.summary?`<div><div class="mh">Executive Summary</div><div class="summary">${data.summary}</div></div>`:''}
+      ${w.length?`<div><div class="mh">Professional Experience</div>${w.map((j:WorkEntry)=>`<div class="job"><div class="jtitle">${j.title||''}</div><div class="jmeta">${j.company||''} ${j.startDate?'· '+j.startDate:''} ${j.endDate?' – '+j.endDate:''}</div><ul class="jbullet">${descToBullets(j.description||'')}</ul></div>`).join('')}</div>`:''}
+      ${data.education?.degree?`<div><div class="mh">Education</div><div class="edu"><div class="edl">${data.education.degree}</div><div class="edm">${data.education.institution||''} ${data.education.year?'· '+data.education.year:''}</div></div></div>`:''}
+    </div>
+    <div class="right">
+      ${data.skills?.length?`<div><div class="mh">Core Competencies</div>${data.skills.map((sk:string)=>`<span class="skill-chip">${sk}</span>`).join('')}</div>`:''}
+      ${data.languages?.length?`<div><div class="mh">Languages</div>${data.languages.map((l:string)=>`<div class="lang">— ${l}</div>`).join('')}</div>`:''}
+      ${data.certifications?.length?`<div><div class="mh">Certifications</div>${data.certifications.map((c:string)=>`<div class="cert">${c}</div>`).join('')}</div>`:''}
+    </div>
+  </div>
+  <div class="foot">Generated ${today} · IdeaMap CV Builder</div>
+</div></body></html>`;
+}
+
 // Smart template selector — routes to the best template per sector/profile
 function selectCVTemplate(data: Parameters<typeof generateCVHtml>[0]) {
   const s = (data.sector || '').toLowerCase();
   const exp = (data.experience || '').toLowerCase();
-  const isExecutive = /senior|lead|chief|director|manager|manager|directeur|dg|daf|drh|pdg|vp|président|executive/i.test(exp + ' ' + (data.targetRoles||[]).join(' '));
+  const roles = (data.targetRoles||[]).join(' ').toLowerCase();
+  const isExecutive = /senior|lead|chief|director|manager|directeur|dg|daf|drh|pdg|vp|président|executive/i.test(exp + ' ' + roles);
 
-  // Senior Management / C-suite / Executive Directors → Template 5: Charcoal Executive
-  if (isExecutive && /manage|direct|hr|rh|général|gestion|stratégi|opération|coord|admin|supply|logist|achat/.test(s)) {
-    return generateCVHtml5(data);
-  }
-  // Finance, Banking, Audit, Insurance (junior/mid) → Template 1: Navy & Gold
-  if (/finance|banque|bank|audit|assurance|comptab|fisc|tresor|invest/.test(s)) {
-    return generateCVHtml(data);
-  }
-  // Law, Notary, High-end Consulting → Template 7: Scarlet Prestige
-  if (/juridique|notaire|avocat|droit|conseil|compliance|consulting|arbitrage/.test(s)) {
-    return generateCVHtml7(data);
-  }
-  // Tech, IT, Data, Web, Mobile, DevOps → Template 4: Classic ATS
-  if (/tech|info|digit|data|d[ée]velop|logiciel|s[ée]curit[ée] inf|syst[eè]me|r[ée]seau|cloud|ia|intelligence|web|mobile|devops|cyber|soft|hard/.test(s)) {
-    return generateCVHtml4(data);
-  }
-  // Research, Data Science, Academia, PhD, R&D → Template 8: Academic Pure
-  if (/recherche|research|scientifique|doctorat|phd|biologie|chimie|physique|statistique|universit/.test(s)) {
-    return generateCVHtml8(data);
-  }
-  // BTP, Engineering, Industrial, Automotive, Manufacturing → Template 9: Steel Engineering
-  if (/btp|g[eé]nie|construction|chantier|industri|manufactur|automobile|m[eé]cani|[eé]lectri|travaux|ciment|produc|usine/.test(s)) {
-    return generateCVHtml9(data);
-  }
-  // Design, Creative, Fashion, Photo, Brand, Content, UI/UX → Template 10: Creative Vibrant
-  if (/design|cr[ée]at|mode|fashion|art|film|photo|brand|content|social media|ui|ux|graph|motion|vid[ée]o|influenc/.test(s)) {
-    return generateCVHtml10(data);
-  }
-  // Marketing, Communication, Media → Template 3: Bold Executive (Purple)
-  if (/market|communication|m[ée]dia|publicité|événement|event|relations|pr /.test(s)) {
-    return generateCVHtml3(data);
-  }
-  // Healthcare, Pharma, Agro, Biology, Environment → Template 6: Emerald Healthcare
-  if (/sant[eé]|health|médecin|pharma|agro|aliment|biologie|environnement|nature|qualit[eé]|haccp|iso 22|v[eé]t[eé]rin/.test(s)) {
-    return generateCVHtml6(data);
-  }
-  // Executive without specific sector → Template 5: Charcoal Executive
-  if (isExecutive) {
-    return generateCVHtml5(data);
-  }
-  // Default: Template 2 (Modern Teal) — Tourism, Operations, Hospitality, etc.
-  return generateCVHtml2(data);
+  // ── Sector-specific matches (most specific first) ──
+
+  // Dentistry → T41 Mint Green
+  if (/dentiste|chirurgien.dentiste|orthodontiste|dentaire|dental|chirurgie orale/.test(s)) { return generateCVHtml41(data); }
+  // Pharmacy → T42 Dark Green
+  if (/pharmacien|officine|pharmacie|médicament|dispensaire/.test(s)) { return generateCVHtml42(data); }
+  // Culinary / Gastronomy → T43 Dark Brown-Red
+  if (/cuisinier|chef|gastronomie|pâtisserie|restauration|cuisine|traiteur|boulanger/.test(s)) { return generateCVHtml43(data); }
+  // Teaching / Coaching / Pedagogy → T44 Purple
+  if (/enseignant|professeur|formateur|coach pédago|pédagogie|université|lycée|collège|école|formation professionnelle/.test(s)) { return generateCVHtml44(data); }
+  // Translation / Linguistics → T45 Warm Slate
+  if (/traducteur|traduction|interprète|interprétation|linguistique|langues|localisat/.test(s)) { return generateCVHtml45(data); }
+  // Graphic Design / Illustration → T46 Black+Yellow
+  if (/graphiste|illustrateur|design graphique|identité visuelle|print|infographiste/.test(s)) { return generateCVHtml46(data); }
+  // 3D / Game / VFX → T47 Purple+Neon
+  if (/animateur 3d|jeu.vid[ée]o|game|animation 3d|vfx|motion design|effets sp[ée]ciaux|unreal|unity/.test(s)) { return generateCVHtml47(data); }
+  // Performing Arts / Music → T48 Black+Gold
+  if (/musicien|artiste|com[ée]dien|th[ée]âtre|cin[ée]ma|performing arts|acteur|danseur|chanteur/.test(s)) { return generateCVHtml48(data); }
+  // Veterinary → T49 Earth Green
+  if (/v[ée]t[ée]rinaire|animal|[ée]levage|zootechnie|clinique v[ée]t/.test(s)) { return generateCVHtml49(data); }
+
+  // Insurance / Actuarial → T31 Navy+Silver
+  if (/assurance|actuariat|actuaire|r[ée]assurance|sinistre|courtage assurance/.test(s)) { return generateCVHtml31(data); }
+  // Digital Marketing → T32 Cyan
+  if (/marketing digital|growth|seo|sea|e-commerce|inbound|campaign|r[ée]seaux sociaux/.test(s)) { return generateCVHtml32(data); }
+  // Clinical Research → T33 Deep Navy
+  if (/recherche clinique|essai clinique|pharmacovigilance|aem|emc|ec |biostat|regulatory affairs/.test(s)) { return generateCVHtml33(data); }
+  // Sports / Coaching → T34 Scarlet
+  if (/sport|coach sportif|coaching|entraîneur|fitness|performance sportive|athlète/.test(s)) { return generateCVHtml34(data); }
+  // Events / Wedding → T35 Rose Magenta
+  if (/[ée]v[ée]nementiel|mariage|wedding|organisation.*[ée]v[ée]n|traiteur.*[ée]v[ée]n|animation.*event/.test(s)) { return generateCVHtml35(data); }
+  // QSE / HSE / Lean → T36 Slate
+  if (/qualit[ée]|hse|lean|iso 9001|iso 14001|ohsas|s[ée]curit[ée].*travail|am[ée]lioration continue|six sigma/.test(s)) { return generateCVHtml36(data); }
+  // Purchasing / Procurement → T37 Deep Teal
+  if (/achat|procurement|sourcing|supply chain|appro|n[ée]go|fournisseur/.test(s)) { return generateCVHtml37(data); }
+  // Public Administration → T38 Formal Navy
+  if (/administration publique|fonction publique|collectivit[ée]|mairie|pr[ée]fecture|minist[eè]re|service public/.test(s)) { return generateCVHtml38(data); }
+  // Tourism / Travel → T39 Warm Orange
+  if (/tourisme|voyage|h[ôo]tellerie|accueil|guide touristique|agence de voyage|hospitality/.test(s)) { return generateCVHtml39(data); }
+  // Doctor / General Medicine → T40 Medical Blue
+  if (/m[ée]decin|clinique|g[ée]n[ée]raliste|sp[ée]cialiste|chirurg|urgentiste|bloc op[ée]ratoire|radiologue/.test(s)) { return generateCVHtml40(data); }
+
+  // ── Broad sector matches ──
+
+  // C-suite Executive (broad sector) → T5 Charcoal Executive
+  if (isExecutive && /manage|direct|hr|rh|g[ée]n[ée]ral|gestion|strat[ée]gi|op[ée]ration|coord|admin|supply|logist|achat/.test(s)) { return generateCVHtml5(data); }
+  // Finance / Banking / Audit → T1 Navy+Gold
+  if (/finance|banque|bank|audit|comptab|fisc|tresor|invest|cfa|ifrs/.test(s)) { return generateCVHtml(data); }
+  // Law / Notary / Compliance → T7 Scarlet Prestige
+  if (/juridique|notaire|avocat|droit|conseil|compliance|consulting|arbitrage|r[ée]glement/.test(s)) { return generateCVHtml7(data); }
+  // Tech / IT / Data / Dev → T4 Classic ATS
+  if (/tech|info|digit|data|d[ée]velop|logiciel|s[ée]curit[ée] inf|syst[eè]me|r[ée]seau|cloud|ia|intelligence|web|mobile|devops|cyber|soft|hard/.test(s)) { return generateCVHtml4(data); }
+  // Research / PhD / Academia → T8 Academic Pure
+  if (/recherche|research|scientifique|doctorat|phd|biologie|chimie|physique|statistique|universit/.test(s)) { return generateCVHtml8(data); }
+  // BTP / Engineering / Manufacturing → T9 Steel Engineering
+  if (/btp|g[eé]nie|construction|chantier|industri|manufactur|automobile|m[eé]cani|[eé]lectri|travaux|ciment|produc|usine/.test(s)) { return generateCVHtml9(data); }
+  // Design / Creative / UX → T10 Creative Vibrant
+  if (/design|cr[ée]at|mode|fashion|art|film|photo|brand|content|social media|ui|ux|graph|motion|vid[ée]o|influenc/.test(s)) { return generateCVHtml10(data); }
+  // Marketing / Media / Communication → T3 Bold Purple
+  if (/market|communication|m[ée]dia|publicit[ée]|[ée]v[ée]nement|event|relations|pr /.test(s)) { return generateCVHtml3(data); }
+  // Healthcare / Pharma / Environment → T6 Emerald Healthcare
+  if (/sant[ée]|health|pharma|agro|aliment|biologie|environnement|nature|haccp|iso 22/.test(s)) { return generateCVHtml6(data); }
+  // Remaining executives → T5
+  if (isExecutive) { return generateCVHtml5(data); }
+
+  // Ultra-minimal fallback for unknown/premium contexts → T50
+  return generateCVHtml50(data);
 }
 
 const EXP_ORDER = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
