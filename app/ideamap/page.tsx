@@ -29,7 +29,13 @@ function injectCSS() {
     "button{cursor:pointer;font-family:inherit;border:none;transition:all .18s}",
     "button:active{transform:scale(.96)!important}",
     "input,select,textarea{font-family:inherit}",
-    "input:focus,select:focus,textarea:focus{outline:none}",
+    "input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(42,92,224,.15);border-color:#2A5CE0!important}",
+    // Primary CTA buttons — resting shadow + a small lift on hover for real depth
+    "button.im-primary{box-shadow:0 4px 14px rgba(42,92,224,.22)}",
+    "button.im-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 22px rgba(42,92,224,.32)}",
+    "button.im-primary:active:not(:disabled){transform:translateY(0) scale(.98)!important}",
+    // Cards — soft layered elevation instead of a near-invisible hairline shadow
+    ".im-card{transition:box-shadow .25s ease,transform .25s ease}",
     // Print styles — hide chrome, expand content, force white background for PDF output
     "@media print{",
     "header,nav,.no-print,[data-noprint]{display:none!important}",
@@ -362,7 +368,7 @@ const Btn = ({children, onClick, disabled, outline, small, style = {}}: {
   children: React.ReactNode; onClick?: () => void; disabled?: boolean;
   outline?: boolean; small?: boolean; style?: React.CSSProperties;
 }) => (
-  <button onClick={onClick} disabled={disabled} style={{
+  <button onClick={onClick} disabled={disabled} className={outline ? "" : "im-primary"} style={{
     background: outline ? "transparent" : `linear-gradient(135deg,${Y},${YD})`,
     color: outline ? N : ND, border: outline ? `2px solid ${N}` : "none",
     borderRadius: "12px", padding: small ? "8px 16px" : "14px 24px",
@@ -372,8 +378,8 @@ const Btn = ({children, onClick, disabled, outline, small, style = {}}: {
 );
 
 const Card = ({children, style = {}, onClick}: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) => (
-  <div onClick={onClick} style={{background: WH, borderRadius: "12px", padding: "22px",
-    boxShadow: "0 1px 2px rgba(10,15,44,.04)", marginBottom: "14px",
+  <div onClick={onClick} className="im-card" style={{background: WH, borderRadius: "18px", padding: "24px",
+    boxShadow: "0 1px 2px rgba(10,15,44,.04), 0 10px 30px rgba(10,15,44,.06)", marginBottom: "16px",
     border: `1px solid ${CD}`, ...style}}>
     {children}
   </div>
@@ -985,6 +991,13 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   const lStyle: React.CSSProperties = {display:"block", fontSize:"9px", fontWeight:700,
     color:"rgba(255,255,255,.4)", marginBottom:"5px", letterSpacing:".8px", textTransform:"uppercase"};
 
+  const regSec = (icon: string, label: string) => (
+    <div style={{display:"flex", alignItems:"center", gap:"8px", margin:"6px 0 2px"}}>
+      <span style={{fontSize:"13px"}}>{icon}</span>
+      <span style={{fontSize:"10px", fontWeight:"800", color:Y, textTransform:"uppercase", letterSpacing:".6px"}}>{label}</span>
+      <div style={{flex:1, height:"1px", background:"rgba(255,255,255,.08)"}}/>
+    </div>
+  );
   const dBorder = (field: keyof typeof form) => {
     if (!form[field]) return formErr.length > 0 && allRequired.some(r => r.key === field) ? RE : "rgba(28,58,92,.8)";
     if (field === "email") return isEmailValid(form.email) ? "#1db87a" : RE;
@@ -1044,10 +1057,12 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
           </div>
 
           <div style={{display:"flex", flexDirection:"column", gap:"10px"}}>
+            {regSec("👤", lang==="ar"?"الهوية":lang==="fr"?"Identité":"Identity")}
             <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
               <div><label style={lStyle}>{t.firstName}</label>{dInp("firstName", t.firstName as string)}</div>
               <div><label style={lStyle}>{t.lastName}</label>{dInp("lastName", t.lastName as string)}</div>
             </div>
+            {regSec("📬", lang==="ar"?"التواصل":lang==="fr"?"Contact":"Contact")}
             <div style={{position:"relative"}}>
               <label style={lStyle}>{t.email}</label>
               {dInp("email", t.email as string)}
@@ -1055,6 +1070,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
                 <span style={{position:"absolute", right:"12px", top:"calc(50% + 8px)", transform:"translateY(-50%)", fontSize:"13px"}}>✅</span>}
             </div>
             <div><label style={lStyle}>{t.phone}</label>{dInp("phone", t.phone as string)}</div>
+            {regSec("📊", lang==="ar"?"الملف الشخصي":lang==="fr"?"Profil":"Profile")}
             <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
               <div><label style={lStyle}>{t.age}</label>{dSel("age", AGES, t.age as string)}</div>
               <div><label style={lStyle}>{t.gender}</label>{dSel("gender", GENDERS[lang], t.gender as string)}</div>
@@ -1064,6 +1080,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
               <div><label style={lStyle}>{t.edu}</label>{dSel("edu", EDU[lang], t.edu as string)}</div>
             </div>
             <div><label style={lStyle}>{t.occupation}</label>{dSel("occupation", OCCUPATION[lang], t.occupation as string)}</div>
+            {regSec("📍", lang==="ar"?"الموقع":lang==="fr"?"Localisation":"Location")}
             <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
               <div><label style={lStyle}>{t.city}</label>{dInp("city", t.city as string)}</div>
               <div>
@@ -1086,6 +1103,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
                 {dSel("prefecture", PREFECTURES_CS, t.prefecture as string)}
               </div>
             )}
+            {regSec("💼", lang==="ar"?"المشروع":lang==="fr"?"Projet":"Project")}
             <div><label style={lStyle}>{t.sector}</label>{dSel("sector", SECTORS, t.sector as string)}</div>
             <div><label style={lStyle}>{t.projType}</label>{dSel("projType", PROJ_TYPES[lang], t.projType as string)}</div>
             <div>
@@ -1128,12 +1146,12 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
           )}
 
           <div style={{marginTop:"20px", display:"flex", flexDirection:"column", gap:"10px"}}>
-            <button onClick={handleCreate}
-              style={{width:"100%", padding:"14px",
+            <button onClick={handleCreate} className={fillPct >= 60 ? "im-primary" : ""}
+              style={{width:"100%", padding:"15px",
                 background: fillPct >= 60 ? `linear-gradient(135deg,${Y},${YD})` : "rgba(255,255,255,.08)",
                 color: fillPct >= 60 ? ND : "rgba(255,255,255,.3)",
                 border: fillPct >= 60 ? "none" : "1px solid rgba(255,255,255,.1)",
-                borderRadius:"12px", fontSize:"14px", fontWeight:"800",
+                borderRadius:"14px", fontSize:"14px", fontWeight:"800",
                 fontFamily:ff(lang), cursor:"pointer", transition:"all .2s"}}>
               {t.create}
             </button>
@@ -2832,7 +2850,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
   };
 
   const indhBtn = (label: string, onClick: () => void, style: React.CSSProperties = {}) => (
-    <button onClick={onClick} style={{width: "100%", padding: "14px", borderRadius: "13px", border: "none",
+    <button onClick={onClick} className="im-primary" style={{width: "100%", padding: "15px", borderRadius: "14px", border: "none",
       cursor: "pointer", background: `linear-gradient(135deg,${Y},${YD})`, color: ND,
       fontSize: "14px", fontWeight: "800", fontFamily: ff(lang), ...style}}>{label}</button>
   );
@@ -2863,7 +2881,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
   );
 
   return (
-    <div style={{minHeight: "100vh", background: CR, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
+    <div style={{minHeight: "100vh", background: `linear-gradient(180deg,${YL} 0,${CR} 320px)`, fontFamily: ff(lang), direction: dir as "rtl" | "ltr"}}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)}/>}
       <Header lang={lang} setLang={setLang} user={user} onLogout={onLogout} t={t}/>
       <ProgRow lang={lang} t={t} si={si} steps={t.steps as string[]}
