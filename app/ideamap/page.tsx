@@ -349,6 +349,15 @@ const TX: Record<string, Record<string, string | string[]>> = {
 /* ── SHARED UI ───────────────────────────────────────── */
 const ff = (lang: string) => lang === "ar" ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
 
+// Casablanca-Settat is split into 12 prefectures/arrondissements at registration
+// (see PREFECTURES_CS) — "Casablanca-Settat" alone is too coarse to be useful for
+// a jury or a coordinator. Show the prefecture alongside the region wherever a
+// holder's location is displayed.
+const regionDisplay = (profile?: {region?: string; prefecture?: string}): string => {
+  if (!profile?.region) return "";
+  return profile.prefecture ? `${profile.region} — ${profile.prefecture}` : profile.region;
+};
+
 const Btn = ({children, onClick, disabled, outline, small, style = {}}: {
   children: React.ReactNode; onClick?: () => void; disabled?: boolean;
   outline?: boolean; small?: boolean; style?: React.CSSProperties;
@@ -1534,7 +1543,7 @@ SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL
 <body>
 <div class="header">
   <h1>${esc(proj?.projectName||"")}</h1>
-  <p>${T.holder}: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · ${esc(proj?.location||user.profile?.region||"")} · INDH Phase 3</p>
+  <p>${T.holder}: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · ${esc(proj?.location||regionDisplay(user.profile)||"")} · INDH Phase 3</p>
 </div>
 <div class="meta-grid">
   <div class="meta-item"><span class="meta-label">Secteur / القطاع</span><span class="meta-value">${esc(proj?.sector||"")}</span></div>
@@ -1742,7 +1751,7 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
         s.addShape(SH, {x:0,y:5.53,w:10,h:0.1,fill:{color:"2A5CE0"}});
         s.addText(proj?.projectName || "", {x:0.5,y:0.6,w:9,h:1.0,fontSize:30,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
         if (logo?.concept?.tagline) s.addText(`« ${logo.concept.tagline} »`, {x:0.5,y:1.72,w:9,h:0.38,fontSize:14,color:"CCCCCC",align:"center",fontFace:"Arial",italic:true});
-        s.addText(`${proj?.sector||""} · 📍 ${proj?.location||user.profile?.region||""}`, {x:0.5,y:2.18,w:9,h:0.32,fontSize:12,color:"AAAAAA",align:"center",fontFace:"Arial"});
+        s.addText(`${proj?.sector||""} · 📍 ${proj?.location||regionDisplay(user.profile)||""}`, {x:0.5,y:2.18,w:9,h:0.32,fontSize:12,color:"AAAAAA",align:"center",fontFace:"Arial"});
         s.addShape(SH, {x:0.5,y:2.6,w:9,h:0.04,fill:{color:"2A5CE044"}});
         const metricTotal = budget?.items?.reduce((s2: number, x: any)=>s2+(x.total||0),0)||0;
         const chips = [
@@ -1806,7 +1815,7 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
         const relScore = comp?.juryScore?.relevance||0;
         headerBar(s, isAr?"الملاءمة الترابية والإشكالية":isEn?"Territorial Relevance & Problem":"Pertinence Territoriale & Problématique", "2A5CE0", `${relScore}/20`, isAr?"20 نقطة":isEn?"20 pts":"20 pts");
         s.addShape(SH, {x:0.35,y:1.0,w:9.2,h:0.55,fill:{color:"EFF6FF"},line:{color:"2A5CE055",pt:0.8}});
-        s.addText(`📍 ${proj?.location||user.profile?.region||""}`, {x:0.55,y:1.0,w:8.8,h:0.55,fontSize:15,color:"0A0F2C",bold:true,fontFace:"Arial",valign:"middle"});
+        s.addText(`📍 ${proj?.location||regionDisplay(user.profile)||""}`, {x:0.55,y:1.0,w:8.8,h:0.55,fontSize:15,color:"0A0F2C",bold:true,fontFace:"Arial",valign:"middle"});
         if (proj?.localProblem) {
           s.addShape(SH, {x:0.35,y:1.68,w:9.2,h:0.75,fill:{color:"DDEEFF"},line:{color:"2A5CE033",pt:0.5}});
           s.addText(`⚠️ ${clip(proj.localProblem, 160)}`, {x:0.5,y:1.7,w:8.9,h:0.7,fontSize:11.5,color:"0A0F2C",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
@@ -2040,7 +2049,7 @@ body{font-family:${font};font-size:11px;color:#10132A;background:#fff}
 <div class="page">
 <div class="hdr">
   <h1>${esc(proj?.projectName||"")}</h1>
-  <p>${T.holder}: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · ${esc(proj?.location||user.profile?.region||"")}</p>
+  <p>${T.holder}: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · ${esc(proj?.location||regionDisplay(user.profile)||"")}</p>
   <p>${esc(proj?.sector||"")} · INDH Phase 3 · ${esc(proj?.pillar||comp?.pillar||"")}</p>
 </div>
 ${comp ? `<div class="score-strip">
@@ -2057,7 +2066,7 @@ ${comp ? `<div class="score-strip">
   <div class="grid2">
     <div class="field"><div class="lbl">${T.sector}</div><div class="val">${esc(proj?.sector||"")}</div></div>
     <div class="field"><div class="lbl">${T.pillar}</div><div class="val">${esc(proj?.pillar||comp?.pillar||"")}</div></div>
-    <div class="field"><div class="lbl">${T.loc}</div><div class="val">${esc(proj?.location||user.profile?.region||"")}</div></div>
+    <div class="field"><div class="lbl">${T.loc}</div><div class="val">${esc(proj?.location||regionDisplay(user.profile)||"")}</div></div>
     <div class="field"><div class="lbl">${T.struct}</div><div class="val">${esc(proj?.legalStructure||"")}</div></div>
   </div>
 </div>
@@ -2246,7 +2255,7 @@ body{font-family:'Tajawal',sans-serif;font-size:14px;color:#10132A;background:#f
 <div class="page">
 <div class="hdr">
   <h1>${escH(proj?.projectName||"")}</h1>
-  <p>الحامل: ${escH(user.name||"")} ${escH(user.profile?.lastName||"")} · ${escH(proj?.location||user.profile?.region||"")}</p>
+  <p>الحامل: ${escH(user.name||"")} ${escH(user.profile?.lastName||"")} · ${escH(proj?.location||regionDisplay(user.profile)||"")}</p>
   <p>${escH(proj?.sector||"")} · المبادرة الوطنية للتنمية البشرية — المرحلة 3</p>
 </div>
 <div class="meta-strip">
@@ -2435,7 +2444,7 @@ body{font-family:'Tajawal',sans-serif;font-size:13px;color:#0A0F2C;background:#f
 <div class="header">
   <div class="header-title">بنك الأسئلة والأجوبة للجنة التحكيم</div>
   <div class="header-sub">
-    مشروع: ${esc(proj?.projectName||"")} · ${esc(proj?.sector||"")} · ${esc(proj?.location||user.profile?.region||"")}
+    مشروع: ${esc(proj?.projectName||"")} · ${esc(proj?.sector||"")} · ${esc(proj?.location||regionDisplay(user.profile)||"")}
     <br/>الحامل: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · المبادرة الوطنية للتنمية البشرية — المرحلة 3
   </div>
 </div>
@@ -4250,14 +4259,14 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
                   fontSize:"18px", fontWeight:"800", color:WH}}>{(h.name||"?")[0]}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:"17px", fontWeight:"700", color:ND}}>{h.name} {h.profile?.lastName||""}</div>
-                  <div style={{fontSize:"12px", color:GR}}>{h.id} · {h.profile?.region} · {h.profile?.projType}</div>
+                  <div style={{fontSize:"12px", color:GR}}>{h.id} · {regionDisplay(h.profile)} · {h.profile?.projType}</div>
                 </div>
                 <Badge role="holder"/>
               </div>
               <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
                 {[
                   {l:"Age", v:h.profile?.age, i:"📅"}, {l:"Genre", v:h.profile?.gender, i:"👤"},
-                  {l:"Région", v:h.profile?.region, i:"📍"}, {l:"Secteur", v:h.profile?.sector, i:"🏭"},
+                  {l:"Région", v:regionDisplay(h.profile), i:"📍"}, {l:"Secteur", v:h.profile?.sector, i:"🏭"},
                   {l:"Téléphone", v:h.profile?.phone, i:"📞"}, {l:"Type porteur", v:h.profile?.projType, i:"⚖️"},
                 ].filter(x => x.v).map((x, i) => (
                   <div key={i} style={{display:"flex", gap:"8px", alignItems:"center",
@@ -4750,7 +4759,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                   fontSize:"18px", fontWeight:"800", color:WH}}>{(h.name||"?")[0]}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:"17px", fontWeight:"700", color:ND}}>{h.name} {h.profile?.lastName||""}</div>
-                  <div style={{fontSize:"12px", color:GR}}>{h.id} · {h.profile?.region} · {h.profile?.projType}</div>
+                  <div style={{fontSize:"12px", color:GR}}>{h.id} · {regionDisplay(h.profile)} · {h.profile?.projType}</div>
                 </div>
                 <div style={{display:"flex", gap:"6px", flexShrink:0}}>
                   <Badge role="holder"/>
@@ -4763,7 +4772,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
               <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
                 {[
                   {l:"Age", v:h.profile?.age, i:"📅"}, {l:"Genre", v:h.profile?.gender, i:"👤"},
-                  {l:"Région", v:h.profile?.region, i:"📍"}, {l:"Secteur", v:h.profile?.sector, i:"🏭"},
+                  {l:"Région", v:regionDisplay(h.profile), i:"📍"}, {l:"Secteur", v:h.profile?.sector, i:"🏭"},
                   {l:"Email", v:h.profile?.email, i:"📧"}, {l:"Téléphone", v:h.profile?.phone, i:"📞"},
                   {l:"Formation", v:h.profile?.edu, i:"🎓"}, {l:"Type porteur", v:h.profile?.projType, i:"⚖️"},
                 ].filter(x => x.v).map((x, i) => (
@@ -5227,7 +5236,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                         : `Reached step "${h.step||"idea"}"`}
                     </div>
                     {h.proj?.projectName && (
-                      <div style={{fontSize:12, color:GR, marginTop:2}}>{h.proj.projectName} · {h.profile?.region||""}</div>
+                      <div style={{fontSize:12, color:GR, marginTop:2}}>{h.proj.projectName} · {regionDisplay(h.profile)}</div>
                     )}
                   </div>
                   <span style={{fontSize:11, color:GR, whiteSpace:"nowrap", flexShrink:0}}>
