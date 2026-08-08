@@ -1349,6 +1349,25 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     try { const m = txt.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; } catch { return null; }
   };
 
+  // Every JSON-structured generation step (plan, budget, compliance, logo) shares the
+  // same risk as the dialogue step: the model occasionally ignores the "JSON only"
+  // instruction. Retry once with a blunt reminder before surfacing a failure to the
+  // user — this is what turns an occasional model slip into a reliably good result
+  // instead of a manual "try again" click every time.
+  const ensureJson = async (
+    convo: {role: string; content: string}[], system: string, maxTokens?: number
+  ): Promise<any> => {
+    const r = await ai(convo, system, "json", maxTokens);
+    let p = parseJ(r);
+    if (!p) {
+      const retryR = await ai(convo,
+        system + `\n\nIMPORTANT: ta dernière réponse n'était pas un JSON valide. Réponds UNIQUEMENT avec le JSON demandé ci-dessus, sans aucun texte, question ou explication avant ou après.`,
+        "json", maxTokens);
+      p = parseJ(retryR);
+    }
+    return p;
+  };
+
   // BRIEF/QUESTION are meant to be one short plain-text line — strip stray markdown
   // (**, ##, ---, bullet markers) in case the model drifts from the requested format.
   const stripMd = (s: string): string =>
@@ -2455,7 +2474,7 @@ ${axisHTML}
       estimatedBudget: proj?.estimatedBudget,
       idea: idea?.slice(0, 200),
     };
-    const r = await ai(
+    const concept = await ensureJson(
       [{role:"user", content:`Projet INDH Maroc: ${JSON.stringify(projInfo)}`}],
       `Tu es un directeur artistique expert en branding pour micro-entrepreneurs marocains. Tu crées des identités visuelles simples, fortes et culturellement ancrées au Maroc.
 
@@ -2476,10 +2495,7 @@ Règles pour créer une identité VRAIMENT unique à CE projet spécifique:
 6. STYLE DESCRIPTION: 4-6 mots décrivant le positionnement unique (ex: "Artisanat féminin haute qualité", "Service rapide quartier populaire", "Agriculture bio circuit court").
 
 JSON UNIQUEMENT sans markdown:
-{"initials":"2-3 lettres","color1":"#hexcode couleur principale sector-specific","color2":"#hexcode couleur secondaire harmonieuse","colorText":"#FFFFFF ou #0F2233","icon":"emoji activité précise","tagline":"slogan 3-5 mots en ${LL} unique à CE projet","styleDesc":"positionnement 4-6 mots en ${LL}","accentColor":"#hexcode couleur d'accent pour détails"}`,
-      "json"
-    );
-    const concept = parseJ(r);
+{"initials":"2-3 lettres","color1":"#hexcode couleur principale sector-specific","color2":"#hexcode couleur secondaire harmonieuse","colorText":"#FFFFFF ou #0F2233","icon":"emoji activité précise","tagline":"slogan 3-5 mots en ${LL} unique à CE projet","styleDesc":"positionnement 4-6 mots en ${LL}","accentColor":"#hexcode couleur d'accent pour détails"}`);
     if (concept) {
       // Ensure required color fields have safe fallbacks in case AI skips them
       concept.color1     = concept.color1     || Y;
@@ -2720,8 +2736,8 @@ NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON 
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب كل النصوص بالعربية الفصحى السليمة والواضحة. جمل كاملة ومنظمة. لا دارجة مغربية. لا حروف لاتينية داخل النصوص العربية."
       : "";
-    const [r, r2] = await Promise.all([
-      ai([{role: "user", content: `Projet INDH: ${projCtx}`}],
+    const [p, b] = await Promise.all([
+      ensureJson([{role: "user", content: `Projet INDH: ${projCtx}`}],
         `Tu es un expert en montage de projets INDH Phase 3 au Maroc — tu as accompagné des dizaines de porteurs qui ont obtenu leur financement.
 ${INDH_CTX}
 Génère un business plan PERCUTANT qui convaincra le jury INDH. Réponds en ${LL}.${arQuality}
@@ -2736,9 +2752,8 @@ RÈGLES IMPÉRATIVES pour un business plan qui obtient ≥75/100 au jury:
 7. Ne jamais écrire "etc.", "et autres", ou des phrases génériques — toujours concret et local.
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
-{"executiveSummary":"3-4 phrases percutantes pour le jury: problème local chiffré + solution + bénéficiaires précis + CA mensuel attendu","problemStatement":"problème LOCAL précis avec statistiques marocaines réelles (HCP, INDH, etc.) — citation de la zone géographique","solution":"solution concrète, pas à pas, avec les équipements spécifiques achetés et leur utilisation","marketAnalysis":"clientèle cible nommée précisément, taille du marché local estimée en MAD/semaine, concurrents existants et avantage différentiel","businessModel":"prix de vente précis en MAD, volume clients/semaine, CA mensuel estimé, charges fixes mensuelles, marge nette estimée, mois de rentabilité","socialImpact":"nombre EXACT de bénéficiaires directs (femmes/jeunes/familles), revenu supplémentaire mensuel estimé en MAD par bénéficiaire, impact sur la vie quotidienne","operationalPlan":"calendrier détaillé: Mois 1 (achat équipements, aménagement local) → Mois 2 (formation, test produits) → Mois 3 (1ers clients) → Mois 6 (objectif X clients, CA Y MAD) → Mois 12 (CA cible atteint)","indh_alignment":"lien explicite avec l'axe INDH choisi + score estimé sur chaque critère jury avec justification","risks":["Risque commercial: [risque spécifique au secteur au Maroc] → Solution: [action concrète]","Risque financier: [risque précis] → Solution: [mesure préventive]","Risque opérationnel: [risque précis] → Solution: [plan B concret]"],"projections":{"year1":N,"year2":N,"year3":N}}`,
-        "json"),
-      ai([{role: "user", content: `Projet INDH: ${projCtx}`}],
+{"executiveSummary":"3-4 phrases percutantes pour le jury: problème local chiffré + solution + bénéficiaires précis + CA mensuel attendu","problemStatement":"problème LOCAL précis avec statistiques marocaines réelles (HCP, INDH, etc.) — citation de la zone géographique","solution":"solution concrète, pas à pas, avec les équipements spécifiques achetés et leur utilisation","marketAnalysis":"clientèle cible nommée précisément, taille du marché local estimée en MAD/semaine, concurrents existants et avantage différentiel","businessModel":"prix de vente précis en MAD, volume clients/semaine, CA mensuel estimé, charges fixes mensuelles, marge nette estimée, mois de rentabilité","socialImpact":"nombre EXACT de bénéficiaires directs (femmes/jeunes/familles), revenu supplémentaire mensuel estimé en MAD par bénéficiaire, impact sur la vie quotidienne","operationalPlan":"calendrier détaillé: Mois 1 (achat équipements, aménagement local) → Mois 2 (formation, test produits) → Mois 3 (1ers clients) → Mois 6 (objectif X clients, CA Y MAD) → Mois 12 (CA cible atteint)","indh_alignment":"lien explicite avec l'axe INDH choisi + score estimé sur chaque critère jury avec justification","risks":["Risque commercial: [risque spécifique au secteur au Maroc] → Solution: [action concrète]","Risque financier: [risque précis] → Solution: [mesure préventive]","Risque opérationnel: [risque précis] → Solution: [plan B concret]"],"projections":{"year1":N,"year2":N,"year3":N}}`),
+      ensureJson([{role: "user", content: `Projet INDH: ${projCtx}`}],
         `Tu es un expert financier INDH Phase 3 Maroc qui connaît les prix du marché marocain en 2025.
 ${INDH_CTX}
 Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ. Le coût total des équipements peut atteindre ~111 000 MAD (dont 100 000 MAD maximum pris en charge par l'INDH + 10% apport porteur).${arQuality}
@@ -2751,11 +2766,10 @@ RÈGLES IMPÉRATIVES:
 5. Assure-toi que 90% = contribution INDH (plafonnée à 100 000 MAD max) et 10% = apport porteur. Total coût projet doit être entre 55 000 et 111 000 MAD. indhContribution = Math.min(Math.round(total * 0.90), 100000). beneficiaryContribution = total - indhContribution.
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
-{"items":[{"category":"catégorie","item":"désignation exacte avec marque/modèle si pertinent en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`,
-        "json"),
+{"items":[{"category":"catégorie","item":"désignation exacte avec marque/modèle si pertinent en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`),
     ]);
-    const p = parseJ(r); if (p) setPlan(p);
-    const b = parseJ(r2); if (b) setBudget(b);
+    if (p) setPlan(p);
+    if (b) setBudget(b);
     } finally {
       setBusy(false);
     }
@@ -2767,7 +2781,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب نقاط القوة والتوصيات بالعربية الفصحى البسيطة. جمل واضحة وقصيرة."
       : "";
-    const r = await ai(
+    const c = await ensureJson(
       [{role: "user", content: `Projet: ${JSON.stringify(proj)}\nPlan: ${JSON.stringify(plan)}\nBudget: ${JSON.stringify(budget)}`}],
       `Tu es un membre expert du jury INDH Phase 3 Maroc avec 10 ans d'expérience d'évaluation de projets.
 ${INDH_CTX}
@@ -2792,9 +2806,8 @@ Les FORCES doivent citer des éléments SPÉCIFIQUES du dossier (pas générique
 Les RECOMMANDATIONS doivent être des ACTIONS IMMÉDIATES que le porteur peut faire avant de déposer (ex: "Obtenir une lettre de soutien de la commune", "Préciser le nombre exact de clientes par semaine", "Renforcer le plan de formation pratique dans le dossier").
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
-{"eligible":true/false,"score":N,"pillar":"axe INDH Phase 3 exact en ${LL}","strengths":["force SPÉCIFIQUE tirée du dossier 1","force SPÉCIFIQUE 2","force SPÉCIFIQUE 3"],"weaknesses":["faiblesse précise qui coûte des points jury 1","faiblesse 2"],"recommendations":["action immédiate et concrète 1 en ${LL}","action 2","action 3"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`,
-      "json");
-    const c = parseJ(r); if (c) setComp(c);
+{"eligible":true/false,"score":N,"pillar":"axe INDH Phase 3 exact en ${LL}","strengths":["force SPÉCIFIQUE tirée du dossier 1","force SPÉCIFIQUE 2","force SPÉCIFIQUE 3"],"weaknesses":["faiblesse précise qui coûte des points jury 1","faiblesse 2"],"recommendations":["action immédiate et concrète 1 en ${LL}","action 2","action 3"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`);
+    if (c) setComp(c);
     } finally {
       setBusy(false);
     }
