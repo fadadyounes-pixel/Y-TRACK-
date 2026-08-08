@@ -1273,6 +1273,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [logoGenerating, setLogoGenerating] = useState(false);
   const [pendingAttach, setPendingAttach]   = useState<number | null>(null);
   const [suggestions, setSuggestions]       = useState<string[]>(initialState?.suggestions || []);
+  const [qBank, setQBank]                   = useState<(string[] | undefined)[]>(initialState?.qBank || []);
   const [brief, setBrief]                   = useState(initialState?.brief || "");
   const [currentQ, setCurrentQ]             = useState(initialState?.currentQ || "");
   const [dlLang, setDlLang]                 = useState(lang);
@@ -1288,10 +1289,23 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const LL  = lang === "ar" ? "arabe" : lang === "fr" ? "français" : "anglais";
   const MAX_Q = 4;
 
+  // Fixed question set (same 4 topics the jury cares about most: beneficiaries,
+  // local problem, revenue channel, holder experience). The QUESTION TEXT is
+  // always this — never AI-generated — so it can never drift into a vague
+  // paragraph. Only the tap-to-answer OPTIONS are tailored to the project's
+  // nature (sector/idea), via a single upfront AI call in startChat().
+  const FIXED_Q: {fr: string; ar: string; en: string}[] = [
+    {fr: "Qui va bénéficier de votre projet ?", ar: "من سيستفيد من مشروعك؟", en: "Who will benefit from your project?"},
+    {fr: "Quel problème local votre projet résout-il ?", ar: "ما هي المشكلة المحلية التي يحلها مشروعك؟", en: "What local problem does your project solve?"},
+    {fr: "Comment allez-vous vendre et générer des revenus ?", ar: "كيف ستبيع وتحقق دخلاً؟", en: "How will you sell and generate revenue?"},
+    {fr: "Quelle est votre expérience dans ce domaine ?", ar: "ما هي خبرتك في هذا المجال؟", en: "What is your experience in this field?"},
+  ];
+  const fixedQText = (i: number) => FIXED_Q[i][lang as "fr"|"ar"|"en"] || FIXED_Q[i].fr;
+
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
 
   useEffect(() => {
-    if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, logoStyle, docFiles, brief, currentQ, suggestions});
+    if (proj || step !== "idea" || msgs.length > 0) onSaveProject({id: user.id, name: user.name, profile: user.profile, idea, msgs, qN, proj, plan, budget, comp, step, docs, logo, logoStyle, docFiles, brief, currentQ, suggestions, qBank});
   }, [proj, plan, comp, step, logo, logoStyle, docs, msgs, budget, brief, currentQ]);
 
   // Auto-check Business Plan doc (#8) when plan is generated — matches its "Généré automatiquement ✓" label
@@ -2623,36 +2637,38 @@ RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais associa
     const ideaText = (override ?? idea).trim();
     if (!ideaText) return;
     if (override) setIdea(override);
-    // Show idea text immediately as a placeholder brief so the card appears during loading
     const ideaPreview = ideaText.replace(/\n/g, " ").slice(0, 200);
-    setBusy(true); setSuggestions([]); setBrief(ideaPreview); setCurrentQ(""); setStep("dialogue");
+    setBusy(true); setSuggestions([]); setBrief(ideaPreview); setCurrentQ(""); setQBank([]); setStep("dialogue");
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
-    const r = await ai([{role: "user", content: lang === "ar" ? `فكرتي: ${ideaText}` : `Mon idée: ${ideaText}`}],
+    const ideaMsg = [{role: "user", content: lang === "ar" ? `فكرتي: ${ideaText}` : `Mon idée: ${ideaText}`}];
+
+    // One upfront call gets tap-to-answer options for ALL 4 fixed questions,
+    // tailored to this specific idea/sector — no AI round-trip needed per turn.
+    const bank = await ensureJson(ideaMsg,
       `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
 ${INDH_CTX}
-Le porteur vient de partager son idée. Fais 2 choses:
-1. BRIEF: résume en 1-2 phrases MAX ce que tu as compris du projet (secteur + zone si mentionnée). MAX 25 mots.
-2. QUESTION: pose UNE question très courte sur QUI va bénéficier — critère "impact social" (25 pts jury). MAX 12 mots.
-3. SUGGESTIONS: 3 profils de bénéficiaires RÉELS et SPÉCIFIQUES au Maroc. Jamais coopérative/GIE.${arNote}
+Le porteur a partagé son idée: "${ideaText}"
+Pour CHACUNE des 4 questions ci-dessous, propose 3 réponses courtes, réalistes et SPÉCIFIQUES à CETTE idée précise (jamais générique, jamais coopérative/GIE). Réponds en ${LL}.${arNote}
 
-Format STRICT — respecte EXACTEMENT ces 3 lignes:
-BRIEF: [1-2 phrases max en ${LL} — secteur + zone]
-QUESTION: [question directe en ${LL} — max 12 mots]
-SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}]`,
-      "dialogue");
-    let { brief: b, question, suggs } = parseQS(r);
-    if (!question) {
-      // AI failed entirely — bounce back to idea step (toast already shown by ai())
-      setStep("idea"); setBusy(false); setBrief(""); setCurrentQ(""); return;
-    }
-    if (suggs.length === 0) {
-      suggs = await ensureSuggestions(question, b,
-        [{role: "user", content: lang === "ar" ? `فكرتي: ${ideaText}` : `Mon idée: ${ideaText}`}],
-        (v) => { b = v; });
-    }
-    setBrief(b || ideaPreview);
-    setCurrentQ(question);
-    setMsgs([{role: "user", content: ideaText}, {role: "assistant", content: question}]);
+Q1: "${fixedQText(0)}"
+Q2: "${fixedQText(1)}"
+Q3: "${fixedQText(2)}"
+Q4: "${fixedQText(3)}"
+
+Retourne UNIQUEMENT ce JSON valide sans markdown:
+{"q1":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"],"q2":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"],"q3":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"],"q4":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"]}`);
+
+    const bankArr: (string[] | undefined)[] = [1, 2, 3, 4].map(n => {
+      const arr = bank?.[`q${n}`];
+      return Array.isArray(arr) && arr.length ? arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3) : undefined;
+    });
+    setQBank(bankArr);
+
+    // First question's options: use the batch result, or fetch just this one if the batch failed.
+    const suggs = bankArr[0] || await ensureSuggestions(fixedQText(0), "", ideaMsg, () => {});
+    setBrief(ideaPreview);
+    setCurrentQ(fixedQText(0));
+    setMsgs([{role: "user", content: ideaText}, {role: "assistant", content: fixedQText(0)}]);
     setSuggestions(suggs);
     setQN(1); setBusy(false);
   };
@@ -2663,69 +2679,53 @@ SUGGESTIONS: [profil A en ${LL}] | [profil B en ${LL}] | [profil C en ${LL}]`,
     const all = [...msgs, {role: "user", content: msg}];
     setMsgs(all); if (!override) setInp(""); setBusy(true); setSuggestions([]);
     const last = qN >= MAX_Q;
-    const arNote = lang === "ar" ? "\nمهم: استخدم العربية الفصحى البسيطة السليمة، جمل قصيرة، لا دارجة." : "";
-    const questionArc: Record<number, string> = {
-      2: `Q${qN} — PROBLÈME LOCAL: Pose une question TRÈS courte sur le problème concret dans cette zone (chômage, manque de service, produit introuvable). MAX 12 mots. BRIEF: rappelle ce que tu as compris des bénéficiaires. 3 SUGGESTIONS: problèmes locaux précis au Maroc (ex: "Pas de salon dans le douar", "40% jeunes sans emploi", "Aucun atelier à 30km").`,
-      3: `Q${qN} — REVENU: Pose une question TRÈS courte sur le canal de vente et les prix. MAX 12 mots. BRIEF: synthèse bénéficiaires + problème. 3 SUGGESTIONS: canaux concrets marocains (ex: "Souk hebdomadaire + WhatsApp", "Commandes livraison quartier", "Épiceries en dépôt-vente").`,
-      4: `Q${qN} — EXPÉRIENCE: Pose une question TRÈS courte sur la compétence/expérience du porteur. MAX 12 mots. BRIEF: synthèse projet jusqu'ici. 3 SUGGESTIONS: savoir-faire locaux valorisants (ex: "5 ans couture à domicile", "Appris avec ma mère artisane", "Expérience autodidacte dans ce domaine").`,
-    };
-    const arcInstruction = questionArc[qN] || `Q${qN}: Pose une question courte sur pertinence territoriale ou durabilité après INDH. MAX 12 mots. BRIEF: ce que tu as compris. 3 SUGGESTIONS réalistes maroc.`;
 
-    const r = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
-      `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain, tu connais les vrais porteurs marocains.
-${INDH_CTX}
-Idée originale: "${idea}". ${arcInstruction}${arNote}
-${last
-  ? `Maintenant analyse TOUTE la conversation et construis le profil projet le plus PRÉCIS possible.
+    if (!last) {
+      // Next question text is fixed — never AI-generated, so it can't drift.
+      // Its tap-options come from the upfront batch call, or get fetched now if missing.
+      const nextQ = fixedQText(qN);
+      const cached = qBank[qN];
+      const suggs = cached || await ensureSuggestions(nextQ, brief,
+        all.map((m: any) => ({role: m.role, content: m.content})), () => {});
+      setCurrentQ(nextQ);
+      setMsgs((p: any[]) => [...p, {role: "assistant", content: nextQ}]);
+      setSuggestions(suggs);
+      setQN((p: number) => p + 1);
+      setBusy(false);
+      return;
+    }
+
+    // Last question answered — compile the full project profile.
+    let p = await ensureJson(all.map((m: any) => ({role: m.role, content: m.content})),
+      `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
+Analyse TOUTE la conversation et construis le profil projet le plus PRÉCIS possible.
 Retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
-{"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`
-  : `Format STRICT — respecte EXACTEMENT ces 3 lignes:
-BRIEF: [1-2 phrases max en ${LL} qui synthétisent ce que tu as retenu jusqu'ici — max 25 mots]
-QUESTION: [question directe en ${LL} — max 12 mots]
-SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}]`}`,
-      last ? "json" : "dialogue");
-    if (last) {
-      let p = parseJ(r);
-      if (!p) {
-        // Model ignored the JSON-only instruction (e.g. asked a follow-up question instead).
-        // Retry once with a stricter, no-exceptions reminder before giving up.
-        const strictR = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
-          `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
+{"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`);
+    if (!p) {
+      // NE POSE AUCUNE QUESTION reminder didn't work either — last resort retry.
+      const strictR = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
+        `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
 Construis le profil projet le plus précis possible à partir de la conversation ci-dessus, en utilisant ta meilleure estimation pour toute information manquante ou imprécise.
 NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON valide, rien d'autre:
 {"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`,
-          "json");
-        p = parseJ(strictR);
-      }
-      if (!p) {
-        // Still no valid JSON after the stricter retry — stay on dialogue.
-        setBusy(false);
-        showToast(
-          lang === "ar" ? "فشل تحليل مشروعك — أعد المحاولة" :
-          lang === "fr" ? "Analyse du projet échouée — réessayez" :
-          "Project analysis failed — please try again",
-          "error"
-        );
-        return;
-      }
-      setBrief(""); setCurrentQ(""); setSuggestions([]);
-      setMsgs((prev: any[]) => [...prev, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
-      setProj(p);
-      setTimeout(() => setStep("profile"), 1000);
-    } else {
-      let { brief: b, question, suggs } = parseQS(r);
-      if (!question) { setBusy(false); return; } // AI failed — keep current question visible, let user retry
-      if (suggs.length === 0) {
-        suggs = await ensureSuggestions(question, b,
-          all.map((m: any) => ({role: m.role, content: m.content})),
-          (v) => { b = v; });
-      }
-      setBrief(b);
-      setCurrentQ(question);
-      setMsgs((p: any[]) => [...p, {role: "assistant", content: question}]);
-      setSuggestions(suggs);
-      setQN((p: number) => p + 1);
+        "json");
+      p = parseJ(strictR);
     }
+    if (!p) {
+      // Still no valid JSON after the stricter retry — stay on dialogue.
+      setBusy(false);
+      showToast(
+        lang === "ar" ? "فشل تحليل مشروعك — أعد المحاولة" :
+        lang === "fr" ? "Analyse du projet échouée — réessayez" :
+        "Project analysis failed — please try again",
+        "error"
+      );
+      return;
+    }
+    setBrief(""); setCurrentQ(""); setSuggestions([]);
+    setMsgs((prev: any[]) => [...prev, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
+    setProj(p);
+    setTimeout(() => setStep("profile"), 1000);
     setBusy(false);
   };
 
@@ -3039,8 +3039,8 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   <span style={{fontSize: "11px", fontWeight: "800", color: ND, textTransform: "uppercase",
                     letterSpacing: ".5px"}}>
                     {busy
-                      ? (lang === "ar" ? "جاري تحليل مشروعك..." : lang === "fr" ? "Analyse de votre projet en cours..." : "Analyzing your project...")
-                      : (lang === "ar" ? "إليك ما فهمته من مشروعك :" : lang === "fr" ? "Voici ce que j'ai compris de votre projet :" : "Here's what I understood about your project:")}
+                      ? (lang === "ar" ? "جاري التحضير..." : lang === "fr" ? "Préparation en cours..." : "Preparing...")
+                      : (lang === "ar" ? "فكرتك:" : lang === "fr" ? "Votre idée :" : "Your idea:")}
                   </span>
                 </div>
                 <div style={{padding: "13px 16px", background: WH}}>
