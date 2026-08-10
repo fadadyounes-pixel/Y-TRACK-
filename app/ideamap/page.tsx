@@ -196,7 +196,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     photo:"Photo (optionnelle)",
     create:"Créer mon compte →",
     welcome:"Bienvenue,",
-    steps:["Idée","Dialogue","Profil","Plan","Budget","Logo","Conformité","Documents","Dossier"],
+    steps:["Idée","Questions","Profil","Plan","Budget","Logo","Conformité","Documents","Dossier"],
     ideaT:"Décrivez votre idée de projet",
     ideaH:"Secteur, zone géographique, bénéficiaires ciblés, besoins principaux.",
     ideaP:"Ex: Je veux lancer une activité de transformation de produits du terroir dans ma région...",
@@ -256,7 +256,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     photo:"الصورة (اختياري)",
     create:"إنشاء الحساب ←",
     welcome:"مرحباً،",
-    steps:["الفكرة","الحوار","الملف","الخطة","الميزانية","الشعار","الامتثال","الوثائق","الدوسيي"],
+    steps:["الفكرة","الأسئلة","الملف","الخطة","الميزانية","الشعار","الامتثال","الوثائق","الدوسيي"],
     ideaT:"صف فكرة مشروعك",
     ideaH:"القطاع، المنطقة الجغرافية، المستفيدون المستهدفون، الاحتياجات الرئيسية.",
     ideaP:"مثال: أريد إطلاق نشاط لتحويل المنتجات المحلية في منطقتي...",
@@ -316,7 +316,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     photo:"Photo (optional)",
     create:"Create account →",
     welcome:"Welcome,",
-    steps:["Idea","Dialogue","Profile","Plan","Budget","Logo","Compliance","Documents","File"],
+    steps:["Idea","Questions","Profile","Plan","Budget","Logo","Compliance","Documents","File"],
     ideaT:"Describe your project idea",
     ideaH:"Sector, geographic zone, target beneficiaries, main needs.",
     ideaP:"E.g. I want to launch a local product processing activity in my region...",
@@ -494,13 +494,6 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
     </button>
   );
 }
-
-const AdvisorAvatar = ({ size = 28 }: { size?: number }) => (
-  <div style={{width: size, height: size, borderRadius: "50%", flexShrink: 0,
-    background: `linear-gradient(135deg,${Y},${YD})`,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: Math.round(size * 0.48), boxShadow: `0 2px 8px rgba(255,183,3,.35)`}}>🎓</div>
-);
 
 const Dots = () => (
   <div style={{display: "flex", gap: "5px", padding: "6px 0"}}>
@@ -1373,7 +1366,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         const d = await r.json();
         if (d.error) {
           if (attempt < MAX_RETRIES - 1) continue;
-          showToast(lang==="ar"?"المستشار مشغول — جاري إعادة المحاولة...":lang==="fr"?"Conseiller surchargé — nouvelle tentative...":"Advisor busy — retrying automatically...", "error");
+          showToast(lang==="ar"?"الخدمة مشغولة — جاري إعادة المحاولة...":lang==="fr"?"Service surchargé — nouvelle tentative...":"Service busy — retrying automatically...", "error");
           return "";
         }
         return d.content?.[0]?.text || "";
@@ -3022,23 +3015,23 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           </Card>
         )}
 
-        {/* ── DIALOGUE ── */}
+        {/* ── QUESTIONS ── */}
         {step === "dialogue" && (
           <Card>
             {/* Header */}
-            <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px"}}>
-              <AdvisorAvatar size={40}/>
-              <div style={{flex: 1}}>
-                <div style={{fontSize: "10px", color: Y, fontWeight: "700", textTransform: "uppercase",
-                  letterSpacing: ".6px", marginBottom: "2px"}}>
-                  {lang === "ar" ? "مستشار المبادرة الوطنية" : lang === "fr" ? "Conseiller INDH" : "INDH Advisor"}
-                </div>
-                <h2 style={{fontSize: "17px", fontWeight: "700", color: ND}}>{t.dialogT}</h2>
+            <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px"}}>
+              <div style={{width: "46px", height: "46px", borderRadius: "13px", background: YL,
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px",
+                border: `2px solid ${Y}`, flexShrink: 0}}>❓</div>
+              <div>
+                <div style={{fontSize: "11px", color: Y, fontWeight: "700", textTransform: "uppercase",
+                  letterSpacing: ".5px", marginBottom: "2px"}}>{t.q} {qN} {t.of} {MAX_Q}</div>
+                <h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.dialogT}</h2>
               </div>
             </div>
 
             {/* Idea reminder pill */}
-            {idea && <div style={{display:"flex", alignItems:"flex-start", gap:"7px", marginBottom:"14px",
+            {idea && <div style={{display:"flex", alignItems:"flex-start", gap:"7px", marginBottom:"16px",
               padding:"9px 12px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
               <span style={{fontSize:"15px", flexShrink:0}}>💡</span>
               <p style={{fontSize:"11px", color:GR, lineHeight:"1.55", margin:0,
@@ -3048,49 +3041,22 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             </div>}
 
             {/* Progress */}
-            <div style={{marginBottom: "16px"}}>
-              <div style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-                <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>{t.q} {qN} {t.of} {MAX_Q}</span>
-                <span style={{fontSize: "11px", color: N, fontWeight: "800"}}>{Math.round((qN / MAX_Q) * 100)}%</span>
-              </div>
+            <div style={{marginBottom: "18px"}}>
               <PBar pct={(qN / MAX_Q) * 100}/>
             </div>
 
-            {/* Brief — always visible once set (shows during loading and after AI responds) */}
-            {brief && (
-              <div className="im-rise" style={{marginBottom: "14px", borderRadius: "14px",
-                border: `2px solid ${Y}`, overflow: "hidden"}}>
-                <div style={{display: "flex", alignItems: "center", gap: "10px",
-                  padding: "10px 14px", background: Y}}>
-                  <AdvisorAvatar size={32}/>
-                  <span style={{fontSize: "11px", fontWeight: "800", color: ND, textTransform: "uppercase",
-                    letterSpacing: ".5px"}}>
-                    {busy
-                      ? (lang === "ar" ? "جاري التحضير..." : lang === "fr" ? "Préparation en cours..." : "Preparing...")
-                      : (lang === "ar" ? "فكرتك:" : lang === "fr" ? "Votre idée :" : "Your idea:")}
-                  </span>
-                </div>
-                <div style={{padding: "13px 16px", background: WH}}>
-                  <p style={{fontSize: "14px", color: ND, lineHeight: "1.7", margin: 0, fontWeight: "500",
-                    direction: dir as "rtl"|"ltr"}}>{brief}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Busy state */}
+            {/* Busy state — plain loading, no chat framing */}
             {busy && (
-              <div style={{display: "flex", alignItems: "center", gap: "10px",
-                padding: "14px", background: YL, borderRadius: "13px", marginBottom: "14px"}}>
-                <AdvisorAvatar size={28}/>
+              <div style={{display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                padding: "18px", background: YL, borderRadius: "13px", marginBottom: "14px"}}>
                 <Dots/>
               </div>
             )}
 
-            {/* Current question card */}
+            {/* Current question — a plain heading, not a chat bubble */}
             {currentQ && !busy && (
-              <div className="im-rise" style={{padding: "16px 18px", background: ND, borderRadius: "14px",
-                marginBottom: "14px", border: `2px solid ${Y}44`}}>
-                <p style={{fontSize: "15px", fontWeight: "700", color: WH, lineHeight: "1.55",
+              <div className="im-rise" style={{marginBottom: "18px"}}>
+                <p style={{fontSize: "17px", fontWeight: "700", color: ND, lineHeight: "1.5",
                   margin: 0, direction: dir as "rtl"|"ltr"}}>{currentQ}</p>
               </div>
             )}
@@ -3124,7 +3090,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               <input value={inp} onChange={e => !busy && setInp(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && sendMsg()} disabled={busy}
                 placeholder={busy
-                  ? (lang==="ar"?"المستشار يفكر...":lang==="fr"?"Le conseiller réfléchit...":"Advisor is thinking...")
+                  ? (lang==="ar"?"جاري التحميل...":lang==="fr"?"Chargement...":"Loading...")
                   : (lang==="ar"?"أو اكتب إجابتك هنا...":lang==="fr"?"Ou écrivez votre réponse...":"Or type your own answer...")}
                 className={busy ? "busy-pulse" : ""}
                 style={{...fs, flex: 1, fontSize: "13px", opacity: busy ? 0.6 : 1,
