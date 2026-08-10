@@ -202,7 +202,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     ideaP:"Ex: Je veux lancer une activité de transformation de produits du terroir dans ma région...",
     sectorLabel:"Secteurs éligibles INDH",
     next:"Continuer →", loading:"Chargement...",
-    dialogT:"Affinons votre projet", dialogS:"4 questions ciblées pour structurer votre dossier.",
+    dialogT:"Affinons votre projet", dialogS:"Quelques questions ciblées pour structurer votre dossier.",
     ph:"Votre réponse...", send:"Envoyer →",
     q:"Question", of:"sur",
     profileT:"Profil du projet",
@@ -262,7 +262,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     ideaP:"مثال: أريد إطلاق نشاط لتحويل المنتجات المحلية في منطقتي...",
     sectorLabel:"القطاعات المؤهلة للمبادرة",
     next:"متابعة ←", loading:"جاري التحميل...",
-    dialogT:"لنصقل مشروعك معاً", dialogS:"4 أسئلة مستهدفة لهيكلة ملفك.",
+    dialogT:"لنصقل مشروعك معاً", dialogS:"بعض الأسئلة المستهدفة لهيكلة ملفك.",
     ph:"إجابتك...", send:"← إرسال",
     q:"السؤال", of:"من",
     profileT:"ملف المشروع",
@@ -322,7 +322,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     ideaP:"E.g. I want to launch a local product processing activity in my region...",
     sectorLabel:"Eligible INDH sectors",
     next:"Continue →", loading:"Loading...",
-    dialogT:"Let's refine your project", dialogS:"4 targeted questions to structure your application.",
+    dialogT:"Let's refine your project", dialogS:"A few targeted questions to structure your application.",
     ph:"Your answer...", send:"Send →",
     q:"Question", of:"of",
     profileT:"Project Profile",
@@ -1307,19 +1307,46 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
   const LL  = lang === "ar" ? "arabe" : lang === "fr" ? "français" : "anglais";
-  const MAX_Q = 4;
 
-  // Fixed question set (same 4 topics the jury cares about most: beneficiaries,
-  // local problem, revenue channel, holder experience). The QUESTION TEXT is
-  // always this — never AI-generated — so it can never drift into a vague
-  // paragraph. Only the tap-to-answer OPTIONS are tailored to the project's
-  // nature (sector/idea), via a single upfront AI call in startChat().
+  // Fixed question set — a full INDH project fiche's worth of questions (identification,
+  // porteur profile, market/positioning, beneficiaries/impact, financing, sustainability),
+  // in the same spirit as a real project fiche. The QUESTION TEXT is always this — never
+  // AI-generated — so it can never drift into a vague paragraph. Only the tap-to-answer
+  // OPTIONS are tailored to the project's nature (sector/idea), via a single upfront AI
+  // call in startChat().
   const FIXED_Q: {fr: string; ar: string; en: string}[] = [
-    {fr: "Qui va bénéficier de votre projet ?", ar: "من سيستفيد من مشروعك؟", en: "Who will benefit from your project?"},
-    {fr: "Quel problème local votre projet résout-il ?", ar: "ما هي المشكلة المحلية التي يحلها مشروعك؟", en: "What local problem does your project solve?"},
-    {fr: "Comment allez-vous vendre et générer des revenus ?", ar: "كيف ستبيع وتحقق دخلاً؟", en: "How will you sell and generate revenue?"},
+    {fr: "Quel est le nom (ou l'enseigne) de votre projet ?", ar: "ما هو اسم مشروعك (أو علامته التجارية)؟", en: "What is the name (or brand) of your project?"},
+    {fr: "Dans quel secteur d'activité se situe votre projet ?", ar: "في أي قطاع نشاط يندرج مشروعك؟", en: "What sector does your project belong to?"},
+    {fr: "Dans quelle ville, quartier ou douar sera-t-il implanté ?", ar: "في أي مدينة أو حي أو دوار سيقام مشروعك؟", en: "In which city, neighborhood, or village will it be located?"},
+    {fr: "Décrivez en une phrase le concept de votre projet.", ar: "صف فكرة مشروعك في جملة واحدة.", en: "Describe your project's concept in one sentence."},
+    {fr: "Quels produits ou services allez-vous proposer ?", ar: "ما هي المنتجات أو الخدمات التي ستقدمها؟", en: "What products or services will you offer?"},
     {fr: "Quelle est votre expérience dans ce domaine ?", ar: "ما هي خبرتك في هذا المجال؟", en: "What is your experience in this field?"},
+    {fr: "Quelle formation ou compétence spécifique possédez-vous ?", ar: "ما هو التكوين أو المهارة الخاصة التي تمتلكها؟", en: "What specific training or skill do you have?"},
+    {fr: "Avez-vous déjà une clientèle ou des contacts prêts à vous suivre ?", ar: "هل لديك زبائن أو معارف مستعدون لمتابعتك؟", en: "Do you already have clients or contacts ready to follow you?"},
+    {fr: "Qui va bénéficier directement de votre projet ?", ar: "من سيستفيد مباشرة من مشروعك؟", en: "Who will directly benefit from your project?"},
+    {fr: "Combien de personnes seront bénéficiaires directes ?", ar: "كم عدد المستفيدين المباشرين؟", en: "How many people will be direct beneficiaries?"},
+    {fr: "Quel problème local concret votre projet résout-il ?", ar: "ما هي المشكلة المحلية الملموسة التي يحلها مشروعك؟", en: "What concrete local problem does your project solve?"},
+    {fr: "Qui sont vos principaux concurrents dans la zone ?", ar: "من هم أهم منافسيك في المنطقة؟", en: "Who are your main competitors in the area?"},
+    {fr: "Qu'est-ce qui vous différencie de la concurrence ?", ar: "ما الذي يميزك عن المنافسين؟", en: "What sets you apart from the competition?"},
+    {fr: "Comment allez-vous fixer vos prix ?", ar: "كيف ستحدد أسعارك؟", en: "How will you set your prices?"},
+    {fr: "Comment allez-vous attirer et fidéliser vos clients ?", ar: "كيف ستجذب زبائنك وتحافظ عليهم؟", en: "How will you attract and retain customers?"},
+    {fr: "Comment allez-vous vendre et générer des revenus ?", ar: "كيف ستبيع وتحقق دخلاً؟", en: "How will you sell and generate revenue?"},
+    {fr: "Quel volume de clients ou de ventes visez-vous par semaine ?", ar: "ما هو حجم الزبائن أو المبيعات المستهدف أسبوعياً؟", en: "What sales/customer volume are you targeting per week?"},
+    {fr: "Quel équipement principal souhaitez-vous acquérir avec l'appui INDH ?", ar: "ما هو التجهيز الرئيسي الذي تريد اقتناءه بدعم المبادرة الوطنية؟", en: "What main equipment do you want to acquire with INDH support?"},
+    {fr: "Quel est le coût total estimé de votre projet ?", ar: "ما هي الكلفة الإجمالية المقدرة لمشروعك؟", en: "What is the total estimated cost of your project?"},
+    {fr: "Quelle part pouvez-vous apporter vous-même (10%) ?", ar: "كم يمكنك أن تساهم بنفسك (10%)؟", en: "How much can you contribute yourself (10%)?"},
+    {fr: "Quel chiffre d'affaires visez-vous la première année ?", ar: "ما هو رقم المعاملات الذي تستهدفه في السنة الأولى؟", en: "What revenue are you targeting for year one?"},
+    {fr: "Combien d'emplois directs votre projet va-t-il créer ?", ar: "كم من فرصة شغل مباشرة سيخلقها مشروعك؟", en: "How many direct jobs will your project create?"},
+    {fr: "Quel est l'impact social attendu au-delà des emplois ?", ar: "ما هو الأثر الاجتماعي المتوقع بخلاف فرص الشغل؟", en: "What social impact do you expect beyond jobs?"},
+    {fr: "Comment votre projet contribuera-t-il à la vie du quartier ou du douar ?", ar: "كيف سيساهم مشروعك في حياة الحي أو الدوار؟", en: "How will your project contribute to the neighborhood or village?"},
+    {fr: "Combien de clients par jour faut-il pour couvrir vos charges (seuil de rentabilité) ?", ar: "كم عدد الزبائن يومياً لتغطية مصاريفك (عتبة الربحية)؟", en: "How many customers per day do you need to cover your costs (break-even)?"},
+    {fr: "Comment votre projet continuera-t-il après la fin de l'appui INDH ?", ar: "كيف سيستمر مشروعك في العمل بعد انتهاء دعم المبادرة الوطنية؟", en: "How will your project keep running after INDH support ends?"},
+    {fr: "Quel est le principal risque qui pourrait freiner votre projet ?", ar: "ما هو أكبر خطر قد يعرقل مشروعك؟", en: "What is the main risk that could hold your project back?"},
+    {fr: "Comment comptez-vous faire face à ce risque ?", ar: "كيف تنوي مواجهة هذا الخطر؟", en: "How do you plan to handle that risk?"},
+    {fr: "Avez-vous un plan pour faire grandir le projet dans les prochaines années ?", ar: "هل لديك خطة لتطوير المشروع في السنوات القادمة؟", en: "Do you have a plan to grow the project in the coming years?"},
+    {fr: "Pourquoi le jury INDH devrait-il choisir votre projet ?", ar: "لماذا يجب على لجنة المبادرة الوطنية اختيار مشروعك؟", en: "Why should the INDH jury choose your project?"},
   ];
+  const MAX_Q = FIXED_Q.length;
   const fixedQText = (i: number) => FIXED_Q[i][lang as "fr"|"ar"|"en"] || FIXED_Q[i].fr;
 
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
@@ -2662,24 +2689,32 @@ RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais associa
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
     const ideaMsg = [{role: "user", content: lang === "ar" ? `فكرتي: ${ideaText}` : `Mon idée: ${ideaText}`}];
 
-    // One upfront call gets tap-to-answer options for ALL 4 fixed questions,
-    // tailored to this specific idea/sector — no AI round-trip needed per turn.
-    const bank = await ensureJson(ideaMsg,
-      `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
+    // Upfront calls get tap-to-answer options for ALL fixed questions, tailored to this
+    // specific idea/sector — no AI round-trip needed per turn. Split into small chunks
+    // run in parallel (rather than one giant call) so a malformed/truncated response
+    // from the model only costs one chunk's questions, not the whole bank.
+    const CHUNK = 6;
+    const chunks: {fr: string; ar: string; en: string}[][] = [];
+    for (let i = 0; i < FIXED_Q.length; i += CHUNK) chunks.push(FIXED_Q.slice(i, i + CHUNK));
+
+    const chunkResults = await Promise.all(chunks.map((chunk, ci) => {
+      const qLines = chunk.map((_, j) => `Q${j + 1}: "${fixedQText(ci * CHUNK + j)}"`).join("\n");
+      const schema = chunk.map((_, j) => `"q${j + 1}":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"]`).join(",");
+      return ensureJson(ideaMsg,
+        `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
 ${INDH_CTX}
 Le porteur a partagé son idée: "${ideaText}"
-Pour CHACUNE des 4 questions ci-dessous, propose 3 réponses courtes, réalistes et SPÉCIFIQUES à CETTE idée précise (jamais générique, jamais coopérative/GIE). Réponds en ${LL}.${arNote}
+Pour CHACUNE des ${chunk.length} questions ci-dessous, propose 3 réponses courtes, réalistes et SPÉCIFIQUES à CETTE idée précise (jamais générique, jamais coopérative/GIE). Réponds en ${LL}.${arNote}
 
-Q1: "${fixedQText(0)}"
-Q2: "${fixedQText(1)}"
-Q3: "${fixedQText(2)}"
-Q4: "${fixedQText(3)}"
+${qLines}
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
-{"q1":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"],"q2":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"],"q3":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"],"q4":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"]}`);
+{${schema}}`, 1500);
+    }));
 
-    const bankArr: (string[] | undefined)[] = [1, 2, 3, 4].map(n => {
-      const arr = bank?.[`q${n}`];
+    const bankArr: (string[] | undefined)[] = FIXED_Q.map((_, i) => {
+      const ci = Math.floor(i / CHUNK), key = `q${(i % CHUNK) + 1}`;
+      const arr = chunkResults[ci]?.[key];
       return Array.isArray(arr) && arr.length ? arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3) : undefined;
     });
     setQBank(bankArr);
