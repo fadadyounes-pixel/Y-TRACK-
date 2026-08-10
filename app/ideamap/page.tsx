@@ -5062,7 +5062,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                   border:`1px solid ${filterStep ? Y : CD}`, background:filterStep ? YL : WH,
                   fontSize:"11px", fontFamily:ff(lang), color:filterStep ? ND : GR, appearance:"none"}}>
                 <option value="">{lang==="ar"?"كل المراحل":lang==="fr"?"Toutes étapes":"All steps"}</option>
-                {STEPS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                {STEPS_LIST.map((s, i) => <option key={s} value={s}>{t.steps[i]}</option>)}
               </select>
               <button onClick={exportCSV} style={{padding:"10px 14px", borderRadius:"10px",
                 border:`1px solid ${GN}`, background:"transparent", color:GN,
