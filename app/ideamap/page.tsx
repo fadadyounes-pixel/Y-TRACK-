@@ -3006,7 +3006,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                       ))}
                     </div>
                   </div>
-                  {indhBtn(busy ? t.loading : t.next, startChat,
+                  {indhBtn(busy ? t.loading : t.next, () => startChat(),
                     {opacity: (!enough || busy) ? .5 : 1,
                      background: enough && !busy ? `linear-gradient(135deg,${Y},${YD})` : undefined})}
                 </>
