@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
+import { computeMatch, scoreColor, EXP_ORDER, type MatchBreakdown } from '@/lib/matching';
 
 /* ── Types ─────────────────────────────────────────── */
 interface CV {
@@ -19,6 +20,8 @@ interface CV {
   experience: string;
   skills: string[];
   summary: string;
+  educationLevel?: string;
+  languages?: string[];
   error?: string;
 }
 
@@ -34,40 +37,30 @@ interface Job {
   description?: string;
   status: string;
   createdAt?: string;
+  educationLevel?: string;
+  languages?: string[];
 }
 
-interface MatchResult {
-  total: number;
-  skillsPts: number;
-  sectorPts: number;
-  expPts: number;
-  matchedSkills: string[];
+type MatchResult = MatchBreakdown;
+
+interface Application {
+  id: string;
+  candidateId: string;
+  candidateName: string;
+  jobId: string;
+  jobTitle: string;
+  company: string;
+  status: 'Applied' | 'Reviewed' | 'Interview' | 'Hired' | 'Rejected';
+  appliedAt: string;
 }
 
-/* ── Match Algorithm ───────────────────────────────── */
-const EXP_ORDER = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
-
-function computeMatch(cv: CV, job: Job): MatchResult {
-  const jobSkills = (job.skills || []).map(s => s.toLowerCase());
-  const cvSkills = cv.skills || [];
-  const matchedSkills = cvSkills.filter(s =>
-    jobSkills.some(js => js.includes(s.toLowerCase()) || s.toLowerCase().includes(js))
-  );
-  const skillsPts = jobSkills.length > 0 ? Math.round((matchedSkills.length / jobSkills.length) * 60) : 0;
-  const sectorPts = cv.sector === job.sector ? 25 : 0;
-  const expI = EXP_ORDER.indexOf(cv.experience);
-  const jobI = EXP_ORDER.indexOf(job.experience);
-  const diff = expI >= 0 && jobI >= 0 ? Math.abs(expI - jobI) : 3;
-  const expPts = diff === 0 ? 15 : diff === 1 ? 9 : diff === 2 ? 4 : 0;
-  return { total: Math.min(100, skillsPts + sectorPts + expPts), skillsPts, sectorPts, expPts, matchedSkills };
-}
-
-/* ── Color helpers ──────────────────────────────────── */
-function scoreColor(score: number) {
-  if (score >= 70) return { bg: '#d1fae5', color: '#065f46' };
-  if (score >= 50) return { bg: '#dbeafe', color: '#1e40af' };
-  return { bg: '#fee2e2', color: '#991b1b' };
-}
+const APPLICATION_STAGES: { key: Application['status']; label: string; color: string }[] = [
+  { key: 'Applied',   label: 'Candidatures', color: '#6b7280' },
+  { key: 'Reviewed',  label: 'En examen',    color: '#0284c7' },
+  { key: 'Interview', label: 'Entretien',    color: '#d97706' },
+  { key: 'Hired',     label: 'Recruté(e)',   color: '#16a34a' },
+  { key: 'Rejected',  label: 'Non retenu(e)', color: '#dc2626' },
+];
 
 function initials(name: string) {
   return name.split(' ').map(n => n[0] || '').join('').toUpperCase().slice(0, 2) || '?';
@@ -288,9 +281,10 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <ScoreBar label="Compétences" pts={match.skillsPts} max={60} color="#2563eb" />
-                        <ScoreBar label="Secteur" pts={match.sectorPts} max={25} color="#0284c7" />
-                        <ScoreBar label="Expérience" pts={match.expPts} max={15} color="#16a34a" />
+                        <ScoreBar label="Compétences" pts={match.skillsPts} max={40} color="#2563eb" />
+                        <ScoreBar label="Expérience" pts={match.experiencePts} max={30} color="#16a34a" />
+                        <ScoreBar label="Formation" pts={match.educationPts} max={20} color="#0284c7" />
+                        <ScoreBar label="Langues" pts={match.languagePts} max={10} color="#9333ea" />
                       </div>
                       {match.matchedSkills.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.5rem' }}>
@@ -373,9 +367,10 @@ export default function CoordinatorDashboard() {
   const { user, initialized, logout } = useAuth();
   const router = useRouter();
 
-  const [tab, setTab] = useState<'overview' | 'candidates' | 'jobs' | 'matching'>('overview');
+  const [tab, setTab] = useState<'overview' | 'candidates' | 'jobs' | 'matching' | 'applications'>('overview');
   const [cvs, setCvs] = useState<CV[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Candidates tab state
@@ -407,6 +402,7 @@ export default function CoordinatorDashboard() {
       .then(data => {
         if (data.cvs?.length) setCvs(data.cvs.filter((c: CV) => c.status === 'done'));
         if (data.jobs?.length) setJobs(data.jobs);
+        if (data.applications?.length) setApplications(data.applications);
         // Fallback to localStorage cache
         if (!data.cvs?.length) {
           try {
@@ -532,6 +528,15 @@ export default function CoordinatorDashboard() {
   const good = matchRanked.filter(x => x.match.total >= 50 && x.match.total < 70);
   const others = matchRanked.filter(x => x.match.total < 50);
 
+  /* ── Application pipeline ── */
+  function updateApplicationStatus(app: Application, status: Application['status']) {
+    setApplications(p => p.map(a => a.id === app.id ? { ...a, status } : a));
+    fetch('/api/sheets', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'save_application', application: { ...app, status } }),
+    }).catch(() => {});
+  }
+
   /* ── Styles ── */
   const inp: React.CSSProperties = { padding: '0.55rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.85rem', fontFamily: 'inherit', background: 'white' };
   const tabBtn = (active: boolean): React.CSSProperties => ({
@@ -541,10 +546,11 @@ export default function CoordinatorDashboard() {
 
   /* ── Sidebar nav items ── */
   const NAV: { key: typeof tab; icon: string; label: string }[] = [
-    { key: 'overview',   icon: '⊞',  label: 'Vue d\'ensemble' },
-    { key: 'candidates', icon: '👥', label: `Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}` },
-    { key: 'jobs',       icon: '💼', label: `Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}` },
-    { key: 'matching',   icon: '✦',  label: 'Matching IA' },
+    { key: 'overview',     icon: '⊞',  label: 'Vue d\'ensemble' },
+    { key: 'candidates',   icon: '👥', label: `Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}` },
+    { key: 'jobs',         icon: '💼', label: `Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}` },
+    { key: 'matching',     icon: '✦',  label: 'Matching IA' },
+    { key: 'applications', icon: '📨', label: `Candidatures${applications.length > 0 ? ` (${applications.length})` : ''}` },
   ];
 
   return (
@@ -1048,9 +1054,10 @@ export default function CoordinatorDashboard() {
                                   <span style={{ padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: 800, background: '#d1fae5', color: '#065f46', flexShrink: 0 }}>{match.total}%</span>
                                 </div>
                                 <div style={{ marginBottom: '0.5rem' }}>
-                                  <ScoreBar label="Compétences" pts={match.skillsPts} max={60} color="#2563eb" />
-                                  <ScoreBar label="Secteur" pts={match.sectorPts} max={25} color="#0284c7" />
-                                  <ScoreBar label="Expérience" pts={match.expPts} max={15} color="#16a34a" />
+                                  <ScoreBar label="Compétences" pts={match.skillsPts} max={40} color="#2563eb" />
+                                  <ScoreBar label="Expérience" pts={match.experiencePts} max={30} color="#16a34a" />
+                                  <ScoreBar label="Formation" pts={match.educationPts} max={20} color="#0284c7" />
+                                  <ScoreBar label="Langues" pts={match.languagePts} max={10} color="#9333ea" />
                                 </div>
                                 {match.matchedSkills.length > 0 && (
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
@@ -1086,9 +1093,10 @@ export default function CoordinatorDashboard() {
                                   <span style={{ padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: 800, background: '#dbeafe', color: '#1e40af', flexShrink: 0 }}>{match.total}%</span>
                                 </div>
                                 <div>
-                                  <ScoreBar label="Compétences" pts={match.skillsPts} max={60} color="#2563eb" />
-                                  <ScoreBar label="Secteur" pts={match.sectorPts} max={25} color="#0284c7" />
-                                  <ScoreBar label="Expérience" pts={match.expPts} max={15} color="#16a34a" />
+                                  <ScoreBar label="Compétences" pts={match.skillsPts} max={40} color="#2563eb" />
+                                  <ScoreBar label="Expérience" pts={match.experiencePts} max={30} color="#16a34a" />
+                                  <ScoreBar label="Formation" pts={match.educationPts} max={20} color="#0284c7" />
+                                  <ScoreBar label="Langues" pts={match.languagePts} max={10} color="#9333ea" />
                                 </div>
                               </div>
                             );
@@ -1131,6 +1139,74 @@ export default function CoordinatorDashboard() {
                   </div>
                 </div>
               </>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════════════════ APPLICATIONS ══════════════════════════ */}
+        {tab === 'applications' && (
+          <div>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '0.3rem' }}>Suivi des candidatures</h2>
+            <p style={{ fontSize: '0.82rem', color: '#6b7280', marginBottom: '1.25rem' }}>
+              {applications.length} candidature{applications.length !== 1 ? 's' : ''} reçue{applications.length !== 1 ? 's' : ''} sur vos offres
+            </p>
+
+            {applications.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>📨</div>
+                <p style={{ fontWeight: 600, color: '#6b7280' }}>Aucune candidature pour le moment</p>
+                <p style={{ fontSize: '0.82rem', marginTop: '0.25rem' }}>Les candidats qui postulent à vos offres apparaîtront ici.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${APPLICATION_STAGES.length}, 1fr)`, gap: '0.75rem', alignItems: 'start' }}>
+                {APPLICATION_STAGES.map(stage => {
+                  const stageApps = applications.filter(a => a.status === stage.key)
+                    .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
+                  return (
+                    <div key={stage.key} style={{ background: '#f9fafb', borderRadius: '10px', border: '1px solid #f3f4f6', minHeight: '120px' }}>
+                      <div style={{ padding: '0.65rem 0.85rem', borderBottom: `2px solid ${stage.color}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: stage.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{stage.label}</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#9ca3af' }}>{stageApps.length}</span>
+                      </div>
+                      <div style={{ padding: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {stageApps.length === 0 && (
+                          <div style={{ fontSize: '0.72rem', color: '#d1d5db', textAlign: 'center', padding: '0.75rem 0' }}>—</div>
+                        )}
+                        {stageApps.map(app => {
+                          const cv = cvs.find(c => c.id === app.candidateId);
+                          return (
+                            <div key={app.id} style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '0.65rem 0.75rem' }}>
+                              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#111827', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {app.candidateName}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: '#6b7280', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {app.jobTitle} · {app.company}
+                              </div>
+                              <div style={{ fontSize: '0.66rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
+                                {new Date(app.appliedAt).toLocaleDateString('fr-MA')}
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                                <select
+                                  value={app.status}
+                                  onChange={e => updateApplicationStatus(app, e.target.value as Application['status'])}
+                                  style={{ flex: 1, padding: '0.3rem 0.4rem', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '0.68rem', fontFamily: 'inherit', color: '#374151', background: 'white' }}>
+                                  {APPLICATION_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                                </select>
+                                {cv && (
+                                  <button onClick={() => setSelectedCV(cv)} title="Voir le CV"
+                                    style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid #bfdbfe', background: '#EFF6FF', color: '#1B4FD8', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                                    CV
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}

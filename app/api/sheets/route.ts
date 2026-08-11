@@ -12,20 +12,24 @@ const RE_COORD  = /^@[A-Za-z]{2,}COD$/i;
 /* ── GET — read all collections ─────────────────────── */
 export async function GET() {
   try {
-    const [holders, coords, jobs, cvs] = await Promise.all([
+    const [holders, coords, jobs, cvs, coordinators, applications] = await Promise.all([
       redis.get<any[]>("idm_holders"),
       redis.get<string[]>("idm_coords"),
       redis.get<any[]>("tm_jobs"),
       redis.get<any[]>("tm_cvs"),
+      redis.get<any[]>("tm_coordinators"),
+      redis.get<any[]>("tm_applications"),
     ]);
     return NextResponse.json({
       holders: holders || [],
       coords: coords || [],
       jobs: jobs || [],
       cvs: cvs || [],
+      coordinators: coordinators || [],
+      applications: applications || [],
     });
   } catch (err: any) {
-    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], error: err.message });
+    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], coordinators: [], applications: [], error: err.message });
   }
 }
 
@@ -99,6 +103,37 @@ export async function POST(req: NextRequest) {
         ? existing.map((c: any, i: number) => i === idx ? { ...c, ...cv } : c)
         : [...existing, cv];
       await redis.set("tm_cvs", updated);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* TalentMap: upsert single coordinator */
+    if (body.type === "save_coordinator") {
+      const coordinator = body.coordinator;
+      const existing = await redis.get<any[]>("tm_coordinators") || [];
+      const idx = existing.findIndex((c: any) => c.id === coordinator.id);
+      const updated = idx >= 0
+        ? existing.map((c: any, i: number) => i === idx ? { ...c, ...coordinator } : c)
+        : [...existing, coordinator];
+      await redis.set("tm_coordinators", updated);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* TalentMap: delete a coordinator */
+    if (body.type === "delete_coordinator") {
+      const existing = await redis.get<any[]>("tm_coordinators") || [];
+      await redis.set("tm_coordinators", existing.filter((c: any) => c.id !== body.id));
+      return NextResponse.json({ ok: true });
+    }
+
+    /* TalentMap: upsert single job application */
+    if (body.type === "save_application") {
+      const application = body.application;
+      const existing = await redis.get<any[]>("tm_applications") || [];
+      const idx = existing.findIndex((a: any) => a.id === application.id);
+      const updated = idx >= 0
+        ? existing.map((a: any, i: number) => i === idx ? { ...a, ...application } : a)
+        : [...existing, application];
+      await redis.set("tm_applications", updated);
       return NextResponse.json({ ok: true });
     }
 

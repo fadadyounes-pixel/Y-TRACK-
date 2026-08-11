@@ -65,6 +65,8 @@ interface Job {
   skills?: string[];
   description?: string;
   createdAt?: string;
+  educationLevel?: string;
+  languages?: string[];
 }
 
 interface CV {
@@ -76,6 +78,9 @@ interface CV {
   skills?: string[];
   email?: string;
   phone?: string;
+  city?: string;
+  educationLevel?: string;
+  languages?: string[];
   uploadedAt?: string;
 }
 
@@ -260,6 +265,45 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
     URL.revokeObjectURL(url);
   }
 
+  /* ── CSV export ── */
+  function downloadCSV(type: 'Candidates' | 'Jobs' | 'Coordinators') {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    let rows: (string | number)[][] = [];
+    if (type === 'Candidates') {
+      rows = [
+        ['Nom', 'Email', 'Téléphone', 'Ville', 'Secteur', 'Expérience', 'Formation', 'Langues', 'Compétences', 'Score match', 'Inscrit le'],
+        ...cvs.map((c: any) => [
+          c.name || c.fileName || '', c.email || '', c.phone || '', c.city || '',
+          c.sector || '', c.experience || '', c.educationLevel || '',
+          (c.languages || []).join('; '), (c.skills || []).join('; '),
+          c.matchScore != null ? `${c.matchScore}%` : '',
+          c.uploadedAt ? new Date(c.uploadedAt).toLocaleDateString('fr-MA') : '',
+        ]),
+      ];
+    } else if (type === 'Jobs') {
+      rows = [
+        ['Titre', 'Entreprise', 'Secteur', 'Expérience', 'Ville', 'Formation requise', 'Langues requises', 'Compétences', 'Statut', 'Publiée le'],
+        ...jobs.map(j => [
+          j.title, j.company, j.sector, j.experience, j.location,
+          j.educationLevel || '', (j.languages || []).join('; '),
+          (j.skills || []).join('; '), j.status || 'Active',
+          j.createdAt ? new Date(j.createdAt).toLocaleDateString('fr-MA') : '',
+        ]),
+      ];
+    } else {
+      rows = [
+        ['Nom', 'Email', 'Code', 'Créé le'],
+        ...coordinators.map(c => [c.name, c.email, c.code, c.createdAt ? new Date(c.createdAt).toLocaleDateString('fr-MA') : '']),
+      ];
+    }
+    const csv = rows.map(r => r.map(esc).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: `TalentMap_${type}_${new Date().toISOString().slice(0, 10)}.csv` });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   /* ── Sidebar nav ── */
   const NAV: { id: Tab; icon: string; label: string }[] = [
     { id: 'overview',     icon: '📊', label: 'Vue d\'ensemble' },
@@ -290,6 +334,61 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
           </div>
         ))}
         {sorted.length === 0 && <p style={{ fontSize: '0.8rem', color: MUTED }}>Aucune donnée</p>}
+      </div>
+    );
+  }
+
+  /* ── Growth trend — candidates & jobs registered per week, last 8 weeks ── */
+  function weekLabel(weeksBack: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() - weeksBack * 7);
+    return d.toLocaleDateString('fr-MA', { day: '2-digit', month: '2-digit' });
+  }
+
+  function GrowthTrend({ candidates, jobList }: { candidates: CV[]; jobList: Job[] }) {
+    const WEEKS = 8;
+    const now = Date.now();
+    const weekOf = (dateStr?: string): number => {
+      if (!dateStr) return -1;
+      const t = new Date(dateStr).getTime();
+      if (Number.isNaN(t)) return -1;
+      const diffWeeks = Math.floor((now - t) / (7 * 24 * 3600 * 1000));
+      return diffWeeks >= 0 && diffWeeks < WEEKS ? WEEKS - 1 - diffWeeks : -1;
+    };
+    const candBuckets = Array(WEEKS).fill(0);
+    candidates.forEach(c => { const b = weekOf(c.uploadedAt); if (b >= 0) candBuckets[b]++; });
+    const jobBuckets = Array(WEEKS).fill(0);
+    jobList.forEach(j => { const b = weekOf(j.createdAt); if (b >= 0) jobBuckets[b]++; });
+    const max = Math.max(1, ...candBuckets, ...jobBuckets);
+    const hasData = candBuckets.some(n => n > 0) || jobBuckets.some(n => n > 0);
+
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: COBALT, display: 'inline-block' }} />
+            <span style={{ fontSize: '0.72rem', color: MUTED }}>Candidats</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />
+            <span style={{ fontSize: '0.72rem', color: MUTED }}>Offres</span>
+          </div>
+        </div>
+        {!hasData ? (
+          <p style={{ fontSize: '0.8rem', color: MUTED }}>Pas encore assez de données pour une tendance.</p>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 130 }}>
+            {Array.from({ length: WEEKS }).map((_, i) => (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 96 }}>
+                  <div title={`${candBuckets[i]} candidat(s)`} style={{ width: 9, borderRadius: 3, background: COBALT, height: `${Math.max((candBuckets[i] / max) * 100, candBuckets[i] > 0 ? 4 : 0)}%` }} />
+                  <div title={`${jobBuckets[i]} offre(s)`} style={{ width: 9, borderRadius: 3, background: AMBER, height: `${Math.max((jobBuckets[i] / max) * 100, jobBuckets[i] > 0 ? 4 : 0)}%` }} />
+                </div>
+                <span style={{ fontSize: '0.6rem', color: FAINT }}>{weekLabel(WEEKS - 1 - i)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -397,6 +496,22 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                   <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
                     <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Candidats par secteur</h2>
                     <SectorBars items={cvs} key_="sector" />
+                  </div>
+                </div>
+
+                {/* Geography + growth trend */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Offres par ville</h2>
+                    <SectorBars items={jobs} key_="location" />
+                  </div>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Candidats par ville</h2>
+                    <SectorBars items={cvs} key_="city" />
+                  </div>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Tendance d'inscription (8 sem.)</h2>
+                    <GrowthTrend candidates={cvs} jobList={jobs} />
                   </div>
                 </div>
 
@@ -740,11 +855,20 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       <div style={{ fontSize: 32, marginBottom: '0.75rem' }}>{r.icon}</div>
                       <div style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, marginBottom: 4 }}>{r.title}</div>
                       <div style={{ fontSize: '0.8rem', color: MUTED, marginBottom: '1.25rem' }}>{r.desc}</div>
-                      <button onClick={() => generateReport(r.type)} style={{
-                        width: '100%', padding: '0.65rem', borderRadius: 8, border: 'none',
-                        background: r.color, color: WHITE, fontSize: '0.85rem', fontWeight: 700,
-                        cursor: 'pointer', fontFamily: 'inherit',
-                      }}>⬇ Télécharger</button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => generateReport(r.type)} style={{
+                          flex: 1, padding: '0.65rem', borderRadius: 8, border: 'none',
+                          background: r.color, color: WHITE, fontSize: '0.85rem', fontWeight: 700,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                        }}>⬇ HTML</button>
+                        {r.type !== 'Full' && (
+                          <button onClick={() => downloadCSV(r.type as 'Candidates' | 'Jobs' | 'Coordinators')} style={{
+                            flex: 1, padding: '0.65rem', borderRadius: 8, border: `1.5px solid ${r.color}`,
+                            background: WHITE, color: r.color, fontSize: '0.85rem', fontWeight: 700,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                          }}>⬇ CSV</button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

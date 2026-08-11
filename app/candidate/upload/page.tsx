@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '../../../components/Logo';
 import { useAuth } from '../../../contexts/AuthContext';
+import { computeMatch, inferEducationLevel } from '@/lib/matching';
 
 const SKILL_SUGGESTIONS: Record<string, string[]> = {
   Technology:         ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'SQL', 'Docker', 'Git', 'REST APIs', 'SAP'],
@@ -163,21 +164,8 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
 </html>`;
 }
 
-const EXP_ORDER = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
-
-function computeMatch(cv: { skills: string[]; sector: string; experience: string }, job: any): number {
-  const cvSkills = Array.isArray(cv.skills) ? cv.skills : [];
-  const jobSkills: string[] = Array.isArray(job.skills) ? job.skills : [];
-  const overlap = cvSkills.filter(s =>
-    jobSkills.some(js => js.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(js.toLowerCase()))
-  );
-  const skillScore = jobSkills.length === 0 ? 30 : Math.round((overlap.length / jobSkills.length) * 60);
-  const sectorScore = cv.sector === job.sector ? 25 : 0;
-  const cvI = EXP_ORDER.indexOf(cv.experience);
-  const jobI = EXP_ORDER.indexOf(job.experience);
-  const diff = cvI >= 0 && jobI >= 0 ? Math.abs(cvI - jobI) : 2;
-  const expScore = diff === 0 ? 15 : diff === 1 ? 9 : diff === 2 ? 4 : 0;
-  return Math.min(skillScore + sectorScore + expScore, 100);
+function computeMatchScore(cv: { skills: string[]; experience: string; educationLevel?: string; languages?: string[] }, job: any): number {
+  return computeMatch(cv, job).total;
 }
 
 type AIMsgContent = string | Array<{ type: string; [key: string]: unknown }>;
@@ -415,6 +403,10 @@ export default function CandidateUpload() {
   const [precomputedAdaptations, setPrecomputedAdaptations] = useState<Record<string, { summary: string; skills: string[] }>>({});
   const precomputeStarted = useRef<Set<string>>(new Set());
 
+  // Applications — jobs this candidate has applied to, keyed by jobId
+  const [applications, setApplications] = useState<Record<string, { status: string; appliedAt: string }>>({});
+  const [applyingJob, setApplyingJob] = useState<string | null>(null);
+
   // Photo + links from info profile
   const [photo, setPhoto] = useState('');
   const [linkedin, setLinkedin] = useState('');
@@ -472,18 +464,49 @@ export default function CandidateUpload() {
     } catch {}
   }, [user, summary, skills, work, education, targetRoles, certifications, experience]);
 
-  // Load jobs from Redis for matching
+  // Load jobs + this candidate's applications from Redis
   useEffect(() => {
     fetch('/api/sheets')
       .then(r => r.json())
-      .then(data => { if (data.jobs?.length) setCoordJobs(data.jobs); })
+      .then(data => {
+        if (data.jobs?.length) setCoordJobs(data.jobs);
+        if (data.applications?.length && user) {
+          const mine: Record<string, { status: string; appliedAt: string }> = {};
+          data.applications
+            .filter((a: any) => a.candidateId === user.idNumber)
+            .forEach((a: any) => { mine[a.jobId] = { status: a.status, appliedAt: a.appliedAt }; });
+          setApplications(mine);
+        }
+      })
       .catch(() => {
         try {
           const stored = localStorage.getItem('coordinator_jobs');
           if (stored) setCoordJobs(JSON.parse(stored));
         } catch {}
       });
-  }, []);
+  }, [user]);
+
+  function applyToJob(job: any) {
+    if (!user || applications[job.id] || applyingJob) return;
+    setApplyingJob(job.id);
+    const application = {
+      id: `${user.idNumber}_${job.id}`,
+      candidateId: user.idNumber,
+      candidateName: name || user.name,
+      jobId: job.id,
+      jobTitle: job.title,
+      company: job.company,
+      status: 'Applied',
+      appliedAt: new Date().toISOString(),
+    };
+    fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'save_application', application }),
+    })
+      .then(() => setApplications(p => ({ ...p, [job.id]: { status: 'Applied', appliedAt: application.appliedAt } })))
+      .finally(() => setApplyingJob(null));
+  }
 
   // Pre-compute adaptations when entering job step
   const skillsKey = skills.join(',');
@@ -739,6 +762,11 @@ export default function CandidateUpload() {
           skills: finalSkills,
           summary: finalSummary,
           targetRoles: finalRoles,
+          educationLevel: inferEducationLevel(extracted.education?.degree || education.degree),
+          languages: extracted.languages?.length
+            ? extracted.languages.filter((l: string) => LANGUAGES.includes(l))
+            : languages,
+          uploadedAt: new Date().toISOString(),
           fileName: file.name,
           fileSize: `${Math.round(file.size / 1024)} KB`,
         },
@@ -832,7 +860,7 @@ export default function CandidateUpload() {
       fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, fileName: 'Template CV', fileSize: 'N/A' } }),
+        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, educationLevel: inferEducationLevel(education.degree), languages, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
       }).catch(() => {});
       setStep('preview');
       return;
@@ -869,7 +897,7 @@ export default function CandidateUpload() {
     fetch('/api/sheets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, fileName: 'Template CV', fileSize: 'N/A' } }),
+      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, educationLevel: inferEducationLevel(education.degree), languages, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
     }).catch(() => {});
     setGeneratingCV(false);
     setStep('preview');
@@ -1329,7 +1357,7 @@ export default function CandidateUpload() {
                 </div>
               );
               const matches = openJobs
-                .map(j => ({ ...j, score: computeMatch({ skills, sector, experience }, j) }))
+                .map(j => ({ ...j, score: computeMatchScore({ skills, experience, educationLevel: inferEducationLevel(education.degree), languages }, j) }))
                 .sort((a, b) => b.score - a.score);
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1339,6 +1367,12 @@ export default function CandidateUpload() {
                     const scoreColor = j.score >= 70 ? '#15803d' : j.score >= 45 ? '#92400e' : '#6b7280';
                     const scoreBg    = j.score >= 70 ? '#f0fdf4' : j.score >= 45 ? '#fefce8' : '#f9fafb';
                     const scoreBorder = j.score >= 70 ? '#86efac' : j.score >= 45 ? '#fde68a' : '#e5e7eb';
+                    const application = applications[j.id];
+                    const isApplying = applyingJob === j.id;
+                    const APP_STATUS_LABELS: Record<string, string> = {
+                      Applied: '✓ Candidature envoyée', Reviewed: '👀 En cours d\'examen',
+                      Interview: '📅 Entretien programmé', Hired: '🎉 Recruté(e) !', Rejected: 'Non retenu(e)',
+                    };
                     return (
                       <div key={j.id} style={{ background: 'white', borderRadius: '14px', border: `1.5px solid ${scoreBorder}`, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem', background: scoreBg }}>
@@ -1354,7 +1388,19 @@ export default function CandidateUpload() {
                             </div>
                             {j.salary && <div style={{ fontSize: '0.78rem', color: '#059669', fontWeight: 600, marginTop: '0.15rem' }}>💰 {j.salary}</div>}
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0, alignItems: 'flex-end' }}>
+                            {application ? (
+                              <span style={{ padding: '0.5rem 0.9rem', borderRadius: '8px', background: application.status === 'Rejected' ? '#fee2e2' : '#d1fae5', color: application.status === 'Rejected' ? '#991b1b' : '#065f46', fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                                {APP_STATUS_LABELS[application.status] || application.status}
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => applyToJob(j)}
+                                disabled={isApplying}
+                                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: isApplying ? '#e5e7eb' : '#059669', color: isApplying ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '0.8rem', cursor: isApplying ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                                {isApplying ? '⟳ Envoi…' : '📨 Postuler'}
+                              </button>
+                            )}
                             <button
                               onClick={() => adaptCVForJob(j)}
                               disabled={!!adaptingJob}
