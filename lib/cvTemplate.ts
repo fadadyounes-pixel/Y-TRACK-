@@ -152,11 +152,14 @@ function buildCtx(data: CVTemplateData, t: CVTheme): Ctx {
   const avatarHtml = data.photo
     ? `<img src="${e(data.photo)}" alt="Photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
     : e(initials) || '?';
+  // idNumber (CIN) is intentionally not displayed — a national ID number is
+  // sensitive PII that doesn't belong on a document sent to employers. It's
+  // still accepted on CVTemplateData purely as a deterministic seed for
+  // pickStyle() so each candidate's default CV style is stable.
   const contacts = [
     data.email && `✉ ${e(data.email)}`,
     data.phone && `📞 ${e(data.phone)}`,
     data.address && `📍 ${e(data.address)}`,
-    data.idNumber && `🪪 CIN ${e(data.idNumber)}`,
     data.linkedin && `🔗 ${e(data.linkedin)}`,
     data.portfolio && `💻 ${e(data.portfolio)}`,
   ].filter(Boolean) as string[];
@@ -414,7 +417,7 @@ function renderCompact(ctx: Ctx): string {
   const { e, data, t, today, contacts } = ctx;
   // ATS-friendly: no emoji/icons, no photo, minimal color — just a single
   // accent rule so it still reads as branded rather than default black-on-white.
-  const plainContacts = [data.email, data.phone, data.address, data.idNumber ? `CIN ${data.idNumber}` : '', data.linkedin, data.portfolio]
+  const plainContacts = [data.email, data.phone, data.address, data.linkedin, data.portfolio]
     .filter(Boolean).map(c => e(c as string));
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
 *{box-sizing:border-box;margin:0;padding:0}

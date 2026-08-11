@@ -12,7 +12,7 @@ const MOROCCO_HR = `Tu es un expert RH spécialisé dans le marché marocain de 
 Secteurs au Maroc: Technology/Numérique (IBM, Capgemini, CBI), Data Science, Finance/Banque (Attijariwafa, BMCE, CIH, Banque Populaire), BTP/Immobilier, Automobile (Renault-Nissan Tanger, PSA Kénitra), Textile, Tourisme/Hôtellerie, Agro-alimentaire (OCP, Centrale Danone, Cosumar), Énergie renouvelable (MASEN, NAREVA), Santé, Marketing, Design, Operations.
 Diplômes courants: Bac, DUT/BTS (Bac+2), Licence (Bac+3), Master/MBA (Bac+5), Doctorat, OFPPT (TSGE/TSI/TH), Grandes écoles (EHTP, EMI, ENSAM, ENCG, ISCAE, HEM).
 Villes: Casablanca, Rabat, Tanger, Marrakech, Fès, Agadir, Oujda, Kénitra, Meknès.
-CVs marocains: rédigés en français, état civil (CIN, date naissance), accroche professionnelle, expériences en ordre inversé.`;
+CVs marocains: rédigés en français, accroche professionnelle, expériences en ordre inversé. Ne jamais inclure le numéro de CIN sur le CV — donnée d'identité sensible à ne pas exposer à des recruteurs.`;
 
 interface CvEntry {
   id: string;
