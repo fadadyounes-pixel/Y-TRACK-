@@ -1297,6 +1297,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   onLogout: () => void; t: any; onSaveProject: (d: any) => void; initialState?: any;
 }) {
   const [step, setStep]    = useState(initialState?.step || "idea");
+  const stepRef = useRef(step);
+  useEffect(() => { stepRef.current = step; }, [step]);
   const [idea, setIdea]    = useState(initialState?.idea || "");
   const [msgs, setMsgs]    = useState<any[]>(initialState?.msgs || []);
   const [inp, setInp]      = useState("");
@@ -1316,6 +1318,11 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [qBank, setQBank]                   = useState<(string[] | undefined)[]>(initialState?.qBank || []);
   const [brief, setBrief]                   = useState(initialState?.brief || "");
   const [currentQ, setCurrentQ]             = useState(initialState?.currentQ || "");
+  // True once the CURRENTLY shown question's options came from AI tailoring rather
+  // than the instant generic fallback — gates the background-upgrade effect below.
+  const [suggTailored, setSuggTailored]     = useState(false);
+  // True once `proj` was compiled by AI rather than the instant local draft.
+  const [projTailored, setProjTailored]     = useState(true);
   const [dlLang, setDlLang]                 = useState(lang);
   const [pitchBusy, setPitchBusy]           = useState(false);
   const [qaBusy, setQABusy]                 = useState(false);
@@ -1384,6 +1391,15 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   useEffect(() => {
     window.scrollTo({top: 0, behavior: "smooth"});
   }, [step]);
+
+  // Silently upgrade the currently-shown question's tap options from the instant
+  // generic set to AI-tailored ones, if the background batch (started in startChat)
+  // delivers them before the user answers. No-op once the user has moved on.
+  useEffect(() => {
+    if (step !== "dialogue" || suggTailored || qN < 1) return;
+    const tailored = qBank[qN - 1];
+    if (tailored) { setSuggestions(tailored); setSuggTailored(true); }
+  }, [qBank, qN, step, suggTailored]);
 
   // Cancel any pending toast timer on unmount to avoid setState-on-unmounted warning
   useEffect(() => {
@@ -1457,50 +1473,16 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     return p;
   };
 
-  // BRIEF/QUESTION are meant to be one short plain-text line — strip stray markdown
-  // (**, ##, ---, bullet markers) in case the model drifts from the requested format.
-  const stripMd = (s: string): string =>
-    s.replace(/\*\*/g, "").replace(/^#+\s*/gm, "").replace(/^-{3,}\s*$/gm, "")
-     .replace(/^[-•]\s+/gm, "").replace(/\n{2,}/g, " ").replace(/\s+/g, " ").trim();
-
-  const parseQS = (raw: string): { brief: string; question: string; suggs: string[] } => {
-    const bMatch = raw.match(/BRIEF\s*:\s*([\s\S]*?)(?=QUESTION\s*:|SUGGESTIONS\s*:|$)/i);
-    const qMatch = raw.match(/QUESTION\s*:\s*([\s\S]*?)(?=SUGGESTIONS\s*:|BRIEF\s*:|$)/i);
-    const sMatch = raw.match(/SUGGESTIONS\s*:\s*([\s\S]*)/i);
-    const brief = bMatch ? stripMd(bMatch[1]) : "";
-    const question = qMatch ? stripMd(qMatch[1]) : (brief ? "" : stripMd(raw.replace(/SUGGESTIONS\s*:[\s\S]*/i, "")));
-    const suggs = sMatch
-      ? sMatch[1].split(/\|/).map((s: string) => stripMd(s)).filter((s: string) => s.length > 1 && s.length < 120)
-      : [];
-    return { brief, question, suggs };
-  };
-
-  // Porteurs answer by tapping, not typing — a question with no clickable options would
-  // force free-text. Retry up to twice, keeping the same question, forcing suggestions.
-  // If the model still won't comply, fall back to generic tap-only options so the user
-  // is never stuck: the final JSON step is instructed to use its best estimate anyway.
-  const ensureSuggestions = async (
-    question: string, brief: string, convo: {role: string; content: string}[], setBrief: (b: string) => void
-  ): Promise<string[]> => {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const strictR = await ai(convo,
-        `Tu es le Conseiller INDH Phase 3 Maroc.
-Pose EXACTEMENT cette question: "${question}"
-Propose OBLIGATOIREMENT 3 suggestions de réponse courtes et réalistes (jamais coopérative/GIE).
-Format STRICT — respecte EXACTEMENT ces 3 lignes, la ligne SUGGESTIONS est OBLIGATOIRE:
-BRIEF: [1-2 phrases max en ${LL}]
-QUESTION: ${question}
-SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}]`,
-        "dialogue");
-      const retry = parseQS(strictR);
-      if (retry.suggs.length) { setBrief(retry.brief || brief); return retry.suggs; }
-    }
-    return [
-      lang === "ar" ? "استخدم أفضل تقدير" : lang === "fr" ? "Utilisez votre meilleure estimation" : "Use your best estimate",
-      lang === "ar" ? "كما في فكرتي الأصلية" : lang === "fr" ? "Comme dans mon idée de départ" : "As in my original idea",
-      lang === "ar" ? "سأوضح لاحقاً مع مستشار" : lang === "fr" ? "Je préciserai plus tard avec un conseiller" : "I'll clarify later with an advisor",
-    ];
-  };
+  // Tap-options are never worth blocking on a network call for — the question flow
+  // shows this instantly the moment a question appears, then silently upgrades to
+  // AI-tailored options if the background batch (see startChat) delivers them before
+  // the user answers. This is what makes 50+ concurrent users a non-issue for this
+  // step: nobody is ever waiting on AI to proceed, tailoring is a pure enhancement.
+  const genericOptions = (): string[] => [
+    lang === "ar" ? "استخدم أفضل تقدير" : lang === "fr" ? "Utilisez votre meilleure estimation" : "Use your best estimate",
+    lang === "ar" ? "كما في فكرتي الأصلية" : lang === "fr" ? "Comme dans mon idée de départ" : "As in my original idea",
+    lang === "ar" ? "سأكتب إجابتي بنفسي" : lang === "fr" ? "Je préfère écrire ma réponse" : "I'll write my own answer",
+  ];
 
   const dlText = (content: string, name: string) => {
     const url = URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"}));
@@ -2708,31 +2690,42 @@ CRITÈRES JURY INDH — PONDÉRATION OFFICIELLE (100 pts):
 CE QUI CONVAINC LE JURY: profil vulnérable du porteur + chiffres précis + ancrage territorial fort + plan de pérennité concret.
 RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais association, coopérative ou GIE — ces structures ne sont pas éligibles au programme INDH Phase 3 porteurs.`;
 
-  const startChat = async (override?: string) => {
+  const startChat = (override?: string) => {
     const ideaText = (override ?? idea).trim();
     if (!ideaText) return;
     if (override) setIdea(override);
     const ideaPreview = ideaText.replace(/\n/g, " ").slice(0, 200);
-    setBusy(true); setSuggestions([]); setBrief(ideaPreview); setCurrentQ(""); setQBank([]); setStep("dialogue");
+
+    // Show Question 1 immediately with generic tap options — no network wait at all.
+    // AI tailoring happens in the background (below) and silently upgrades the
+    // options in place if it lands before the user answers. This is what keeps the
+    // Questions step responsive regardless of how many other users are hitting the
+    // same AI provider at once: nobody is ever blocked on a network call to proceed.
+    setBusy(false); setSuggTailored(false); setBrief(ideaPreview); setCurrentQ(fixedQText(0));
+    setQBank([]); setStep("dialogue");
+    setMsgs([{role: "user", content: ideaText}, {role: "assistant", content: fixedQText(0)}]);
+    setSuggestions(genericOptions());
+    setQN(1);
+
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
     const ideaMsg = [{role: "user", content: lang === "ar" ? `فكرتي: ${ideaText}` : `Mon idée: ${ideaText}`}];
 
-    // Upfront calls get tap-to-answer options for ALL fixed questions, tailored to this
-    // specific idea/sector — no AI round-trip needed per turn. Split into small chunks
-    // so a malformed/truncated response from the model only costs one chunk's questions,
-    // not the whole bank. Each chunk call already races ~10 providers server-side, so
-    // running all 5 chunks fully in parallel would fire ~50 simultaneous provider
-    // requests from this one user alone — at 50 concurrent users that's ~2 500 requests
-    // hitting the same free-tier rate limits at once. Cap in-flight chunks at 2 to keep
-    // this bounded without meaningfully slowing down any individual user.
+    // Background: fetch AI-tailored options for ALL fixed questions, specific to this
+    // idea/sector. Split into small chunks so a malformed/truncated response only costs
+    // one chunk's questions, not the whole bank, and update qBank progressively as each
+    // chunk resolves rather than waiting for all of them. Each chunk call already races
+    // ~10 providers server-side, so running all 5 chunks fully in parallel would fire
+    // ~50 simultaneous provider requests from this one user alone — at 50 concurrent
+    // users that's ~2 500 requests hitting the same free-tier rate limits at once.
+    // Cap in-flight chunks at 2 to keep this bounded.
     const CHUNK = 6;
     const chunks: {fr: string; ar: string; en: string}[][] = [];
     for (let i = 0; i < FIXED_Q.length; i += CHUNK) chunks.push(FIXED_Q.slice(i, i + CHUNK));
 
-    const chunkResults = await runLimited(chunks.map((chunk, ci) => () => {
+    runLimited(chunks.map((chunk, ci) => async () => {
       const qLines = chunk.map((_, j) => `Q${j + 1}: "${fixedQText(ci * CHUNK + j)}"`).join("\n");
       const schema = chunk.map((_, j) => `"q${j + 1}":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"]`).join(",");
-      return ensureJson(ideaMsg,
+      const bank = await ensureJson(ideaMsg,
         `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
 ${INDH_CTX}
 Le porteur a partagé son idée: "${ideaText}"
@@ -2742,96 +2735,97 @@ ${qLines}
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {${schema}}`, 1500);
-    }), 2);
-
-    const bankArr: (string[] | undefined)[] = FIXED_Q.map((_, i) => {
-      const ci = Math.floor(i / CHUNK), key = `q${(i % CHUNK) + 1}`;
-      const arr = chunkResults[ci]?.[key];
-      return Array.isArray(arr) && arr.length ? arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3) : undefined;
-    });
-    setQBank(bankArr);
-
-    // First question's options: use the batch result, or fetch just this one if the batch failed.
-    const suggs = bankArr[0] || await ensureSuggestions(fixedQText(0), "", ideaMsg, () => {});
-    setBrief(ideaPreview);
-    setCurrentQ(fixedQText(0));
-    setMsgs([{role: "user", content: ideaText}, {role: "assistant", content: fixedQText(0)}]);
-    setSuggestions(suggs);
-    setQN(1); setBusy(false);
+      setQBank(prev => {
+        const next = [...prev];
+        chunk.forEach((_, j) => {
+          const arr = bank?.[`q${j + 1}`];
+          if (Array.isArray(arr) && arr.length) {
+            next[ci * CHUNK + j] = arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3);
+          }
+        });
+        return next;
+      });
+    }), 2).catch(() => {});
   };
 
-  const sendMsg = async (override?: string) => {
+  // Heuristic project profile built directly from the 30 collected answers, no AI
+  // call required. Used both as the instant first draft (upgraded to the AI-compiled
+  // version in the background) and as the last-resort fallback if AI compile fails.
+  const buildLocalProfile = (all: {role: string; content: string}[]) => {
+    const answers = all.filter((m, i) => i > 0 && m.role === "user").map(m => (m.content || "").trim());
+    const numFrom = (s: string | undefined, fallback: number): number => {
+      const digits = (s || "").replace(/[^\d]/g, " ").match(/\d{2,}/);
+      return digits ? parseInt(digits[0], 10) : fallback;
+    };
+    return {
+      projectName: answers[0] || idea.slice(0, 40),
+      sector: answers[1] || user.profile?.sector || (lang === "ar" ? "نشاط ريادي" : lang === "fr" ? "Activité entrepreneuriale" : "Entrepreneurial activity"),
+      legalStructure: lang === "ar" ? "حامل مشروع فردي" : lang === "fr" ? "Porteur individuel" : "Individual holder",
+      location: answers[2] || user.profile?.city || user.profile?.region || "",
+      beneficiaries: numFrom(answers[9], 10),
+      targetProfile: answers[8] || idea.slice(0, 120),
+      localProblem: answers[10] || idea.slice(0, 120),
+      revenueModel: answers[15] || answers[4] || "",
+      holderExperience: answers[5] || "",
+      activities: [answers[4], answers[16], answers[17]].filter(Boolean).slice(0, 3),
+      strengths: [
+        lang === "ar" ? "معرفة ميدانية جيدة بالمنطقة والمستفيدين" : lang === "fr" ? "Bonne connaissance du terrain et des bénéficiaires visés" : "Strong local knowledge of the area and target beneficiaries",
+        lang === "ar" ? "مشروع واضح يستجيب لحاجة محلية محددة" : lang === "fr" ? "Projet clair répondant à un besoin local identifié" : "Clear project addressing an identified local need",
+      ],
+      estimatedBudget: numFrom(answers[18], 70000),
+      pillar: lang === "ar" ? "تحسين الدخل والإدماج الاقتصادي للشباب" : lang === "fr" ? "Amélioration du revenu et inclusion économique des jeunes" : "Income improvement and economic inclusion of youth",
+    };
+  };
+
+  const sendMsg = (override?: string) => {
     const msg = override ?? inp;
     if (!msg.trim() || busy) return;
     const all = [...msgs, {role: "user", content: msg}];
-    setMsgs(all); if (!override) setInp(""); setBusy(true); setSuggestions([]);
+    setMsgs(all); if (!override) setInp("");
     const last = qN >= MAX_Q;
 
     if (!last) {
-      // Next question text is fixed — never AI-generated, so it can't drift.
-      // Its tap-options come from the upfront batch call, or get fetched now if missing.
+      // Next question text is fixed — never AI-generated, so it can't drift. Its
+      // tap-options come from the upfront batch call if it's landed by now, or the
+      // instant generic set otherwise — never a live network wait to advance.
       const nextQ = fixedQText(qN);
       const cached = qBank[qN];
-      const suggs = cached || await ensureSuggestions(nextQ, brief,
-        all.map((m: any) => ({role: m.role, content: m.content})), () => {});
       setCurrentQ(nextQ);
       setMsgs((p: any[]) => [...p, {role: "assistant", content: nextQ}]);
-      setSuggestions(suggs);
+      setSuggestions(cached || genericOptions());
+      setSuggTailored(!!cached);
       setQN((p: number) => p + 1);
-      setBusy(false);
       return;
     }
 
-    // Last question answered — compile the full project profile.
-    let p = await ensureJson(all.map((m: any) => ({role: m.role, content: m.content})),
-      `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
+    // Last question answered — show an instant local draft immediately, then
+    // upgrade to an AI-compiled profile in the background if it lands before the
+    // user moves on. The user is never blocked waiting on this network call.
+    const convo = all.map((m: any) => ({role: m.role, content: m.content}));
+    setBrief(""); setCurrentQ(""); setSuggestions([]);
+    setMsgs((prev: any[]) => [...prev, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
+    setProj(buildLocalProfile(all)); setProjTailored(false);
+    setStep("profile");
+
+    (async () => {
+      let p = await ensureJson(convo,
+        `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
 Analyse TOUTE la conversation et construis le profil projet le plus PRÉCIS possible.
 Retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
 {"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`);
-    if (!p) {
-      // NE POSE AUCUNE QUESTION reminder didn't work either — last resort retry.
-      const strictR = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
-        `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
+      if (!p) {
+        const strictR = await ai(convo,
+          `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
 Construis le profil projet le plus précis possible à partir de la conversation ci-dessus, en utilisant ta meilleure estimation pour toute information manquante ou imprécise.
 NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON valide, rien d'autre:
 {"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`,
-        "json");
-      p = parseJ(strictR);
-    }
-    if (!p) {
-      // Every AI attempt failed — never leave the user stuck on an error. All 30
-      // answers are already sitting right here in the conversation, so build the
-      // profile locally instead of showing a dead-end "advisor unavailable" message.
-      // Lower-quality than the AI-compiled version, but the flow always completes.
-      const answers = all.filter((m: any, i: number) => i > 0 && m.role === "user").map((m: any) => (m.content || "").trim());
-      const numFrom = (s: string | undefined, fallback: number): number => {
-        const digits = (s || "").replace(/[^\d]/g, " ").match(/\d{2,}/);
-        return digits ? parseInt(digits[0], 10) : fallback;
-      };
-      p = {
-        projectName: answers[0] || idea.slice(0, 40),
-        sector: answers[1] || user.profile?.sector || (lang === "ar" ? "نشاط ريادي" : lang === "fr" ? "Activité entrepreneuriale" : "Entrepreneurial activity"),
-        legalStructure: lang === "ar" ? "حامل مشروع فردي" : lang === "fr" ? "Porteur individuel" : "Individual holder",
-        location: answers[2] || user.profile?.city || user.profile?.region || "",
-        beneficiaries: numFrom(answers[9], 10),
-        targetProfile: answers[8] || idea.slice(0, 120),
-        localProblem: answers[10] || idea.slice(0, 120),
-        revenueModel: answers[15] || answers[4] || "",
-        holderExperience: answers[5] || "",
-        activities: [answers[4], answers[16], answers[17]].filter(Boolean).slice(0, 3),
-        strengths: [
-          lang === "ar" ? "معرفة ميدانية جيدة بالمنطقة والمستفيدين" : lang === "fr" ? "Bonne connaissance du terrain et des bénéficiaires visés" : "Strong local knowledge of the area and target beneficiaries",
-          lang === "ar" ? "مشروع واضح يستجيب لحاجة محلية محددة" : lang === "fr" ? "Projet clair répondant à un besoin local identifié" : "Clear project addressing an identified local need",
-        ],
-        estimatedBudget: numFrom(answers[18], 70000),
-        pillar: lang === "ar" ? "تحسين الدخل والإدماج الاقتصادي للشباب" : lang === "fr" ? "Amélioration du revenu et inclusion économique des jeunes" : "Income improvement and economic inclusion of youth",
-      };
-    }
-    setBrief(""); setCurrentQ(""); setSuggestions([]);
-    setMsgs((prev: any[]) => [...prev, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
-    setProj(p);
-    setTimeout(() => setStep("profile"), 1000);
-    setBusy(false);
+          "json");
+        p = parseJ(strictR);
+      }
+      // Only swap the draft for the refined version if the user is still looking at
+      // it — if they've already moved on to Plan/Budget, leave what's already there.
+      if (p && stepRef.current === "profile") { setProj(p); setProjTailored(true); }
+    })().catch(() => {});
   };
 
   const genPlan = async () => {
@@ -3202,6 +3196,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 border: `2px solid ${Y}`, flexShrink: 0}}>📋</div>
               <h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.profileT}</h2>
             </div>
+            {proj && !projTailored && (
+              <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "12px",
+                padding: "8px 12px", background: CR, borderRadius: "9px", border: `1px solid ${CD}`}}>
+                <Dots/>
+                <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>
+                  {lang === "ar" ? "جاري تحسين التفاصيل في الخلفية..." : lang === "fr" ? "Affinement des détails en cours..." : "Refining details in the background..."}
+                </span>
+              </div>
+            )}
             {proj ? (<>
               {[
                 {l: lang === "ar" ? "اسم المشروع" : lang === "fr" ? "Nom du projet" : "Project name", v: proj.projectName, i: "🏢"},
