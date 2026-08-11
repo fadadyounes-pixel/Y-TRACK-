@@ -86,6 +86,26 @@ const ADMIN_CODE = "@adminINDH";
 const RE_HOLDER  = /^[A-Z]{2}\d{3,}$/;
 const RE_COORD   = /^@[A-Za-z]{2,}COD$/i;
 
+// Runs async tasks with at most `limit` in flight at once, preserving each task's
+// result at its original index. Used to cap how many AI calls one user's action fires
+// simultaneously — each call already races ~10 providers server-side, so an unbounded
+// Promise.all over N calls multiplies that fan-out by N. At high concurrent-user load
+// that multiplication is what actually exhausts shared free-tier rate limits across
+// everyone at once, so bounding it per-user keeps the system stable under many users
+// without meaningfully slowing any single user down.
+async function runLimited<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < tasks.length) {
+      const i = next++;
+      results[i] = await tasks[i]();
+    }
+  };
+  await Promise.all(Array.from({length: Math.min(limit, tasks.length)}, worker));
+  return results;
+}
+
 function detectRole(raw: string) {
   if (!raw) return null;
   const v = raw.trim();
@@ -1376,14 +1396,17 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     toastTimerRef.current = setTimeout(() => setToast(null), 4500);
   };
 
-  // Auto-retries up to 3× with exponential back-off before surfacing any error.
-  // The server-side cascade (providers.ts) already tries 4 Groq models + Together
-  // + Gemini + OpenRouter × 2 sweeps, so the client retry is a last safety net.
+  // Auto-retries up to 5× with exponential back-off before surfacing any error.
+  // The server-side cascade (providers.ts) races ~10 providers plus 2 sequential
+  // sweeps, so a client retry only fires when EVERY provider was exhausted at that
+  // instant — likely a shared free-tier rate-limit window (resets in tens of seconds
+  // under many concurrent users, not minutes), so persisting here converts a near-miss
+  // into a success instead of a user-facing "unavailable" message.
   const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue", maxTokens?: number): Promise<string> => {
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 5;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        if (attempt > 0) await new Promise(r => setTimeout(r, 900 * attempt));
+        if (attempt > 0) await new Promise(r => setTimeout(r, Math.min(1000 * attempt, 5000)));
         const r = await fetch("/api/ai", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
@@ -2691,13 +2714,17 @@ RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais associa
 
     // Upfront calls get tap-to-answer options for ALL fixed questions, tailored to this
     // specific idea/sector — no AI round-trip needed per turn. Split into small chunks
-    // run in parallel (rather than one giant call) so a malformed/truncated response
-    // from the model only costs one chunk's questions, not the whole bank.
+    // so a malformed/truncated response from the model only costs one chunk's questions,
+    // not the whole bank. Each chunk call already races ~10 providers server-side, so
+    // running all 5 chunks fully in parallel would fire ~50 simultaneous provider
+    // requests from this one user alone — at 50 concurrent users that's ~2 500 requests
+    // hitting the same free-tier rate limits at once. Cap in-flight chunks at 2 to keep
+    // this bounded without meaningfully slowing down any individual user.
     const CHUNK = 6;
     const chunks: {fr: string; ar: string; en: string}[][] = [];
     for (let i = 0; i < FIXED_Q.length; i += CHUNK) chunks.push(FIXED_Q.slice(i, i + CHUNK));
 
-    const chunkResults = await Promise.all(chunks.map((chunk, ci) => {
+    const chunkResults = await runLimited(chunks.map((chunk, ci) => () => {
       const qLines = chunk.map((_, j) => `Q${j + 1}: "${fixedQText(ci * CHUNK + j)}"`).join("\n");
       const schema = chunk.map((_, j) => `"q${j + 1}":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"]`).join(",");
       return ensureJson(ideaMsg,
@@ -2710,7 +2737,7 @@ ${qLines}
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {${schema}}`, 1500);
-    }));
+    }), 2);
 
     const bankArr: (string[] | undefined)[] = FIXED_Q.map((_, i) => {
       const ci = Math.floor(i / CHUNK), key = `q${(i % CHUNK) + 1}`;
