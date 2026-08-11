@@ -1425,7 +1425,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         return d.content?.[0]?.text || "";
       } catch {
         if (attempt < MAX_RETRIES - 1) continue;
-        showToast(lang==="ar"?"تعذّر الاتصال — تحقق من اتصالك":lang==="fr"?"Connexion impossible — vérifiez votre réseau":"Connection failed — check your network");
+        // Same reasoning as the d.error branch above: every caller already
+        // recovers gracefully on its own, so this would only ever be shown
+        // moments before that recovery quietly finishes the step.
         return "";
       }
     }
