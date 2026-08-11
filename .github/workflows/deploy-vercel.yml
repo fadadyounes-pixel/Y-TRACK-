@@ -50,3 +50,4 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
         run: vercel env ls production --token "$VERCEL_TOKEN" || true
+      # (trigger: re-checking after user-reported Vercel env var changes)
