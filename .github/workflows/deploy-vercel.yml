@@ -50,4 +50,10 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
         run: vercel env ls production --token "$VERCEL_TOKEN" || true
-      # (trigger: re-checking after user-reported Vercel env var changes)
+
+      # Diagnostic only — lists every Vercel project visible to this token, in case
+      # env vars were added to a different project than the one actually deployed.
+      - name: List all Vercel projects visible to this token
+        env:
+          VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
+        run: vercel project ls --token "$VERCEL_TOKEN" || true
