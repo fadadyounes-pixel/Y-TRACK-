@@ -57,3 +57,14 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
         run: vercel project ls --token "$VERCEL_TOKEN" || true
+
+      # Diagnostic only — a second project (y-track-ynip) showed up above, recently
+      # updated. Check whether the user's env vars landed there instead of on the
+      # actually-deployed "y-track" project.
+      - name: Check env vars on y-track-ynip specifically
+        env:
+          VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
+        run: |
+          rm -rf .vercel
+          vercel link --token "$VERCEL_TOKEN" --yes --project y-track-ynip || true
+          vercel env ls production --token "$VERCEL_TOKEN" || true
