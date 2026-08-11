@@ -11,6 +11,7 @@ on:
       - 'package-lock.json'
       - 'next.config*'
       - 'tsconfig.json'
+      - '.github/workflows/deploy-vercel.yml'
   workflow_dispatch:
     inputs:
       vercel_token:
@@ -48,4 +49,4 @@ jobs:
       - name: List configured Production env vars (names only)
         env:
           VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
-        run: vercel env ls production --token "$VERCEL_TOKEN" --yes || true
+        run: vercel env ls production --token "$VERCEL_TOKEN" || true
