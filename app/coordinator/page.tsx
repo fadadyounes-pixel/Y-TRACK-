@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { computeMatch, scoreColor, EXP_ORDER, type MatchBreakdown } from '@/lib/matching';
-import { generateCVHtml, type WorkEntry, type Education } from '@/lib/cvTemplate';
+import { generateCVHtml, type WorkEntry, type Education, type CVStyle } from '@/lib/cvTemplate';
 
 /* ── Types ─────────────────────────────────────────── */
 interface CV {
@@ -36,6 +36,7 @@ interface CV {
   address?: string;
   city?: string;
   idNumber?: string;
+  cvStyle?: CVStyle;
   // Legacy top-level education fields written by the profile page before
   // the CV builder's richer `education` object exists for a candidate.
   diploma?: string;
@@ -133,7 +134,7 @@ function downloadCvPDF(cv: CV) {
     photo: cv.photo,
     linkedin: cv.linkedin,
     portfolio: cv.portfolio,
-  });
+  }, cv.cvStyle);
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);

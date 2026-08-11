@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Logo from '../../../components/Logo';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, inferEducationLevel } from '@/lib/matching';
-import { generateCVHtml, LANG_FLAGS, cleanAIText, type WorkEntry } from '@/lib/cvTemplate';
+import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, CV_LAYOUTS, CV_THEMES, type WorkEntry } from '@/lib/cvTemplate';
 
 const SKILL_SUGGESTIONS: Record<string, string[]> = {
   Technology:         ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'SQL', 'Docker', 'Git', 'REST APIs', 'SAP'],
@@ -257,6 +257,7 @@ export default function CandidateUpload() {
   const [education, setEducation] = useState({ degree: '', institution: '', year: '' });
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [certifications, setCertifications] = useState<string[]>([]);
+  const [cvStyle, setCvStyle] = useState<{ layout: string; theme: string } | null>(null);
 
   // AI template helpers
   const [enhancing, setEnhancing] = useState(false);
@@ -319,6 +320,7 @@ export default function CandidateUpload() {
         if (cv.targetRoles?.length) setTargetRoles(cv.targetRoles);
         if (cv.certifications?.length) setCertifications(cv.certifications);
         if (cv.experience) setExperience(cv.experience);
+        if (cv.cvStyle?.layout && cv.cvStyle?.theme) setCvStyle(cv.cvStyle);
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -328,9 +330,9 @@ export default function CandidateUpload() {
   useEffect(() => {
     if (!user) return;
     try {
-      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience }));
+      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience, cvStyle }));
     } catch {}
-  }, [user, summary, skills, work, education, targetRoles, certifications, experience]);
+  }, [user, summary, skills, work, education, targetRoles, certifications, experience, cvStyle]);
 
   // Load jobs + this candidate's applications from Redis
   useEffect(() => {
@@ -407,11 +409,19 @@ export default function CandidateUpload() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, coordJobs, name, skillsKey]);
 
-  // Live CV HTML
+  // Live CV HTML — cvStyle is null until the candidate picks one, in which case
+  // generateCVHtml deterministically derives a style from their CIN so every
+  // candidate's default CV still differs without requiring a manual choice.
   const cvHtml = useMemo(() => {
     if (!user) return '';
-    return generateCVHtml({ name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio });
-  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio]);
+    return generateCVHtml(
+      { name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio },
+      cvStyle || undefined
+    );
+  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio, cvStyle]);
+
+  const autoStyle = useMemo(() => pickStyle(user?.idNumber || email || name), [user, email, name]);
+  const effectiveStyle = cvStyle || autoStyle;
 
   if (!user || user.role !== 'candidate') return null;
 
@@ -637,6 +647,7 @@ export default function CandidateUpload() {
           languages: extracted.languages?.length
             ? extracted.languages.filter((l: string) => LANGUAGES.includes(l))
             : languages,
+          cvStyle: cvStyle || pickStyle(user!.idNumber),
           uploadedAt: new Date().toISOString(),
           fileName: file.name,
           fileSize: `${Math.round(file.size / 1024)} KB`,
@@ -731,7 +742,7 @@ export default function CandidateUpload() {
       fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
+        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, cvStyle: cvStyle || pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
       }).catch(() => {});
       setStep('preview');
       return;
@@ -768,7 +779,7 @@ export default function CandidateUpload() {
     fetch('/api/sheets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
+      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, cvStyle: cvStyle || pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
     }).catch(() => {});
     setGeneratingCV(false);
     setStep('preview');
@@ -1161,6 +1172,49 @@ export default function CandidateUpload() {
                   {experience} · {sector}
                 </div>
               </div>
+            </div>
+
+            {/* Style picker — 5 layouts × 11 colors so no two candidates' CVs look alike by default */}
+            <div style={{ background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '1.1rem 1.25rem', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827' }}>🎨 Style du CV</span>
+                <button
+                  onClick={() => {
+                    const layout = CV_LAYOUTS[Math.floor(Math.random() * CV_LAYOUTS.length)].id;
+                    const theme = CV_THEMES[Math.floor(Math.random() * CV_THEMES.length)].id;
+                    setCvStyle({ layout, theme });
+                  }}
+                  style={{ fontSize: '0.78rem', color: '#1B4FD8', fontWeight: 700, background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '0.3rem 0.75rem', cursor: 'pointer' }}>
+                  🎲 Surprends-moi
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                {CV_LAYOUTS.map(l => (
+                  <button key={l.id} onClick={() => setCvStyle({ layout: l.id, theme: effectiveStyle.theme })}
+                    title={l.desc}
+                    style={{ padding: '0.4rem 0.85rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                      border: `1.5px solid ${effectiveStyle.layout === l.id ? '#1B4FD8' : '#e5e7eb'}`,
+                      background: effectiveStyle.layout === l.id ? '#EFF6FF' : 'white',
+                      color: effectiveStyle.layout === l.id ? '#1B4FD8' : '#6b7280' }}>
+                    {l.name}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                {CV_THEMES.map(th => (
+                  <button key={th.id} onClick={() => setCvStyle({ layout: effectiveStyle.layout, theme: th.id })}
+                    title={th.name}
+                    style={{ width: '26px', height: '26px', borderRadius: '50%', cursor: 'pointer', flexShrink: 0,
+                      background: `linear-gradient(135deg,${th.dark},${th.accent})`,
+                      border: effectiveStyle.theme === th.id ? '3px solid #111827' : '2px solid white',
+                      boxShadow: effectiveStyle.theme === th.id ? '0 0 0 1px #111827' : '0 0 0 1px #e5e7eb' }} />
+                ))}
+              </div>
+              {!cvStyle && (
+                <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.6rem' }}>
+                  Style attribué automatiquement à votre profil — cliquez pour le personnaliser.
+                </p>
+              )}
             </div>
 
             {/* Action buttons */}
