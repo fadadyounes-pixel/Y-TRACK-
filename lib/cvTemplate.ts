@@ -122,7 +122,11 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
 .edu-entry h4{font-size:.92rem;font-weight:700;color:#0f172a}
 .edu-entry .meta{font-size:.75rem;color:#64748b;margin-top:.2rem}
 .footer{text-align:center;padding:.9rem;font-size:.68rem;color:#94a3b8;border-top:1px solid #f0f4f8;letter-spacing:.04em;background:#f8fafc}
-@media print{body{background:#fff}.page{margin:0;box-shadow:none}}
+@media print{
+  body{background:#fff}
+  .page{margin:0;box-shadow:none}
+  .entry,.edu-entry,.hdr,.sec-title{break-inside:avoid;page-break-inside:avoid}
+}
 </style>
 </head>
 <body>
