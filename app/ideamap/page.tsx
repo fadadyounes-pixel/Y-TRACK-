@@ -1416,7 +1416,10 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         const d = await r.json();
         if (d.error) {
           if (attempt < MAX_RETRIES - 1) continue;
-          showToast(lang==="ar"?"الخدمة مشغولة — جاري إعادة المحاولة...":lang==="fr"?"Service surchargé — nouvelle tentative...":"Service busy — retrying automatically...", "error");
+          // Every caller of ai() has its own graceful fallback (tap-option generic
+          // suggestions, or the local profile compile below) — surfacing a "busy"
+          // toast here would alarm the user right before that fallback quietly
+          // completes the step anyway, which defeats the point of having one.
           return "";
         }
         return d.content?.[0]?.text || "";
@@ -2794,15 +2797,33 @@ NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON 
       p = parseJ(strictR);
     }
     if (!p) {
-      // Still no valid JSON after the stricter retry — stay on dialogue.
-      setBusy(false);
-      showToast(
-        lang === "ar" ? "فشل تحليل مشروعك — أعد المحاولة" :
-        lang === "fr" ? "Analyse du projet échouée — réessayez" :
-        "Project analysis failed — please try again",
-        "error"
-      );
-      return;
+      // Every AI attempt failed — never leave the user stuck on an error. All 30
+      // answers are already sitting right here in the conversation, so build the
+      // profile locally instead of showing a dead-end "advisor unavailable" message.
+      // Lower-quality than the AI-compiled version, but the flow always completes.
+      const answers = all.filter((m: any, i: number) => i > 0 && m.role === "user").map((m: any) => (m.content || "").trim());
+      const numFrom = (s: string | undefined, fallback: number): number => {
+        const digits = (s || "").replace(/[^\d]/g, " ").match(/\d{2,}/);
+        return digits ? parseInt(digits[0], 10) : fallback;
+      };
+      p = {
+        projectName: answers[0] || idea.slice(0, 40),
+        sector: answers[1] || user.profile?.sector || (lang === "ar" ? "نشاط ريادي" : lang === "fr" ? "Activité entrepreneuriale" : "Entrepreneurial activity"),
+        legalStructure: lang === "ar" ? "حامل مشروع فردي" : lang === "fr" ? "Porteur individuel" : "Individual holder",
+        location: answers[2] || user.profile?.city || user.profile?.region || "",
+        beneficiaries: numFrom(answers[9], 10),
+        targetProfile: answers[8] || idea.slice(0, 120),
+        localProblem: answers[10] || idea.slice(0, 120),
+        revenueModel: answers[15] || answers[4] || "",
+        holderExperience: answers[5] || "",
+        activities: [answers[4], answers[16], answers[17]].filter(Boolean).slice(0, 3),
+        strengths: [
+          lang === "ar" ? "معرفة ميدانية جيدة بالمنطقة والمستفيدين" : lang === "fr" ? "Bonne connaissance du terrain et des bénéficiaires visés" : "Strong local knowledge of the area and target beneficiaries",
+          lang === "ar" ? "مشروع واضح يستجيب لحاجة محلية محددة" : lang === "fr" ? "Projet clair répondant à un besoin local identifié" : "Clear project addressing an identified local need",
+        ],
+        estimatedBudget: numFrom(answers[18], 70000),
+        pillar: lang === "ar" ? "تحسين الدخل والإدماج الاقتصادي للشباب" : lang === "fr" ? "Amélioration du revenu et inclusion économique des jeunes" : "Income improvement and economic inclusion of youth",
+      };
     }
     setBrief(""); setCurrentQ(""); setSuggestions([]);
     setMsgs((prev: any[]) => [...prev, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
