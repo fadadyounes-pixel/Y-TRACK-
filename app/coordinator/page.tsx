@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { computeMatch, scoreColor, EXP_ORDER, type MatchBreakdown } from '@/lib/matching';
+import { generateCVHtml, type WorkEntry, type Education } from '@/lib/cvTemplate';
 
 /* ── Types ─────────────────────────────────────────── */
 interface CV {
@@ -22,6 +23,24 @@ interface CV {
   summary: string;
   educationLevel?: string;
   languages?: string[];
+  // Full CV content — persisted by the candidate's CV builder — so the
+  // coordinator's downloadable CV matches what the candidate sees, not a
+  // stripped-down summary.
+  work?: WorkEntry[];
+  education?: Education;
+  certifications?: string[];
+  targetRoles?: string[];
+  photo?: string;
+  linkedin?: string;
+  portfolio?: string;
+  address?: string;
+  city?: string;
+  idNumber?: string;
+  // Legacy top-level education fields written by the profile page before
+  // the CV builder's richer `education` object exists for a candidate.
+  diploma?: string;
+  institution?: string;
+  graduationYear?: string;
   error?: string;
 }
 
@@ -88,61 +107,33 @@ function ScoreBar({ label, pts, max, color }: { label: string; pts: number; max:
 }
 
 /* ── PDF Download ───────────────────────────────────── */
+// Renders the SAME professional template the candidate sees in their own CV
+// builder, so coordinators never get a stripped-down summary sheet missing
+// work experience, education, or certifications.
 function downloadCvPDF(cv: CV) {
-  const skillsHtml = cv.skills.map(s =>
-    `<span style="display:inline-block;padding:3px 10px;margin:3px;border-radius:5px;background:#dbeafe;color:#1e40af;font-size:12px;font-weight:600;">${s}</span>`
-  ).join('');
+  const education: Education = cv.education?.degree
+    ? cv.education
+    : { degree: cv.diploma || '', institution: cv.institution || '', year: cv.graduationYear || '' };
 
-  const html = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8"/>
-<title>CV – ${cv.name || cv.fileName}</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',Arial,sans-serif;color:#111;background:#fff;padding:40px 48px;max-width:760px;margin:0 auto}
-  h1{font-size:26px;font-weight:800;color:#0f172a;margin-bottom:4px}
-  .sub{font-size:13px;color:#6b7280;margin-bottom:16px}
-  .badge{display:inline-block;padding:3px 12px;border-radius:999px;font-size:11px;font-weight:700;margin-right:6px}
-  .badge-blue{background:#eff6ff;color:#1d4ed8}
-  .badge-green{background:#f0fdf4;color:#166534}
-  .divider{border:none;border-top:1px solid #e5e7eb;margin:20px 0}
-  .section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:10px}
-  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px}
-  .info-box{background:#f9fafb;border:1px solid #f3f4f6;border-radius:8px;padding:10px 12px}
-  .info-box .lbl{font-size:10px;color:#9ca3af;font-weight:700;margin-bottom:2px}
-  .info-box .val{font-size:13px;color:#111;font-weight:500}
-  .summary{border-left:3px solid #2563eb;padding:10px 14px;background:#f8faff;border-radius:0 8px 8px 0;font-size:13px;color:#374151;line-height:1.7;font-style:italic}
-  .skills{margin-top:4px}
-  .footer{margin-top:32px;font-size:10px;color:#d1d5db;text-align:center}
-  @media print{body{padding:28px 36px}@page{margin:1cm}}
-</style>
-</head>
-<body>
-  <h1>${cv.name || cv.fileName}</h1>
-  <div class="sub">${cv.fileName}${cv.fileSize ? ' · ' + cv.fileSize : ''}</div>
-  <div>
-    ${cv.sector ? `<span class="badge badge-blue">${cv.sector}</span>` : ''}
-    ${cv.experience ? `<span class="badge badge-green">${cv.experience}</span>` : ''}
-  </div>
-  <hr class="divider"/>
-  ${(cv.email || cv.phone) ? `
-  <div class="section-label">Contact</div>
-  <div class="info-grid">
-    ${cv.email ? `<div class="info-box"><div class="lbl">Email</div><div class="val">${cv.email}</div></div>` : ''}
-    ${cv.phone ? `<div class="info-box"><div class="lbl">Téléphone</div><div class="val">${cv.phone}</div></div>` : ''}
-  </div>
-  <hr class="divider"/>` : ''}
-  ${cv.summary ? `
-  <div class="section-label">Accroche professionnelle</div>
-  <div class="summary">${cv.summary}</div>
-  <hr class="divider"/>` : ''}
-  ${cv.skills.length > 0 ? `
-  <div class="section-label">Compétences</div>
-  <div class="skills">${skillsHtml}</div>` : ''}
-  <div class="footer">Généré par TalentMap · ${new Date().toLocaleDateString('fr-MA')}</div>
-</body>
-</html>`;
+  const html = generateCVHtml({
+    name: cv.name || cv.fileName,
+    email: cv.email || '',
+    phone: cv.phone || '',
+    address: cv.address || cv.city || '',
+    idNumber: cv.idNumber || '',
+    summary: cv.summary,
+    skills: cv.skills,
+    languages: cv.languages || [],
+    experience: cv.experience,
+    sector: cv.sector,
+    work: cv.work || [],
+    education,
+    targetRoles: cv.targetRoles,
+    certifications: cv.certifications,
+    photo: cv.photo,
+    linkedin: cv.linkedin,
+    portfolio: cv.portfolio,
+  });
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
