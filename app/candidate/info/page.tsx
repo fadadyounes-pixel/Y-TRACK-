@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '../../../components/Logo';
 import { useAuth } from '../../../contexts/AuthContext';
+import { isProfileComplete } from '@/lib/profile';
 
 const CITIES = [
   'Casablanca', 'Rabat', 'Marrakech', 'Fès', 'Tanger', 'Agadir', 'Meknès',
@@ -65,6 +66,10 @@ export default function CandidateInfoPage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoErr, setPhotoErr] = useState('');
+  // True when the candidate landed here via the mandatory onboarding gate
+  // (profile was incomplete) rather than choosing to edit an already-complete
+  // profile — only the former auto-advances to the dashboard after saving.
+  const [onboarding, setOnboarding] = useState(false);
 
   /* Guard & load saved data */
   useEffect(() => {
@@ -78,6 +83,7 @@ export default function CandidateInfoPage() {
       if (stored) {
         const parsed = JSON.parse(stored);
         setForm({ ...EMPTY, ...parsed });
+        setOnboarding(!isProfileComplete(parsed));
       } else {
         const parts = user.name.split(' ');
         setForm(p => ({
@@ -86,6 +92,7 @@ export default function CandidateInfoPage() {
           lastName: parts.slice(1).join(' ') || '',
           cin: user.idNumber || '',
         }));
+        setOnboarding(true);
       }
     } catch {}
   }, [user, initialized, router]);
@@ -141,6 +148,11 @@ export default function CandidateInfoPage() {
         body: JSON.stringify({ type: 'save_cv', cv: { ...form, id: user.idNumber, name: `${form.firstName} ${form.lastName}`.trim() || user.name, role: 'candidate' } }),
       }).catch(() => {});
       setSaved(true);
+      // Onboarding gate satisfied — continue straight into the app instead
+      // of leaving the candidate stranded on the info form.
+      if (onboarding && isProfileComplete(form)) {
+        setTimeout(() => router.push('/candidate'), 900);
+      }
     } catch {}
     setSaving(false);
   };
@@ -379,13 +391,18 @@ export default function CandidateInfoPage() {
           >
             {saving ? 'Enregistrement…' : saved ? '✅ Enregistré !' : '💾 Enregistrer'}
           </button>
-          {saved && (
+          {saved && !(onboarding && isProfileComplete(form)) && (
             <Link
               href="/candidate/upload"
               style={{ padding: '0.9rem 2rem', background: 'linear-gradient(135deg,#059669,#10b981)', color: '#fff', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, textDecoration: 'none', display: 'inline-block' }}
             >
               📄 Créer / Mettre à jour mon CV →
             </Link>
+          )}
+          {saved && onboarding && isProfileComplete(form) && (
+            <span style={{ fontSize: '0.85rem', color: '#059669', fontWeight: 600 }}>
+              ↻ Redirection vers votre tableau de bord…
+            </span>
           )}
         </div>
 

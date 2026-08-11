@@ -7,6 +7,7 @@ import Logo from '../../../components/Logo';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, inferEducationLevel } from '@/lib/matching';
 import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, CV_LAYOUTS, CV_THEMES, type WorkEntry } from '@/lib/cvTemplate';
+import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 
 const SKILL_SUGGESTIONS: Record<string, string[]> = {
   Technology:         ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'SQL', 'Docker', 'Git', 'REST APIs', 'SAP'],
@@ -276,6 +277,10 @@ export default function CandidateUpload() {
   const [applications, setApplications] = useState<Record<string, { status: string; appliedAt: string }>>({});
   const [applyingJob, setApplyingJob] = useState<string | null>(null);
 
+  // Set once the mandatory-profile gate below has confirmed access — keeps
+  // the CV builder from flashing before the redirect to /candidate/info fires.
+  const [profileChecked, setProfileChecked] = useState(false);
+
   // Photo + links from info profile
   const [photo, setPhoto] = useState('');
   const [linkedin, setLinkedin] = useState('');
@@ -284,6 +289,10 @@ export default function CandidateUpload() {
   useEffect(() => {
     if (!initialized) return;
     if (!user || user.role !== 'candidate') { router.push('/login'); return; }
+    // Mandatory onboarding gate: candidates must complete their profile
+    // before reaching the CV builder, matching the CareerMap flow.
+    if (!isProfileComplete(loadStoredProfile(user.idNumber))) { router.push('/candidate/info'); return; }
+    setProfileChecked(true);
     setName(user.name);
     setEmail(user.email);
     // Load info profile (photo, linkedin, portfolio, phone, address, sector, languages)
@@ -423,7 +432,7 @@ export default function CandidateUpload() {
   const autoStyle = useMemo(() => pickStyle(user?.idNumber || email || name), [user, email, name]);
   const effectiveStyle = cvStyle || autoStyle;
 
-  if (!user || user.role !== 'candidate') return null;
+  if (!user || user.role !== 'candidate' || !profileChecked) return null;
 
   // ── PDF download — opens browser print dialog directly (no popup) ──────────
   function downloadPDF() {

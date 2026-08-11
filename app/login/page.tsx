@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
+import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 
 const ROLE_ROUTES: Record<UserRole, string> = {
   admin: '/admin',
@@ -78,6 +79,13 @@ export default function LoginPage() {
       const stored = localStorage.getItem('talentmap_user');
       if (stored) {
         const user = JSON.parse(stored);
+        // Candidates must complete their profile before anything else —
+        // send them straight to the info form instead of bouncing through
+        // the dashboard first, mirroring the CareerMap onboarding flow.
+        if (user.role === 'candidate' && !isProfileComplete(loadStoredProfile(user.idNumber))) {
+          router.push('/candidate/info');
+          return;
+        }
         router.push(ROLE_ROUTES[user.role as UserRole] ?? '/');
         return;
       }

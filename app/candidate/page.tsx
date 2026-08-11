@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
+import { isProfileComplete } from '@/lib/profile';
 
 const INK    = '#0B1629';
 const COBALT = '#1B4FD8';
@@ -28,16 +29,18 @@ export default function CandidateDashboard() {
   const [hovered, setHovered] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialized && (!user || user.role !== 'candidate')) router.push('/login');
+    if (initialized && (!user || user.role !== 'candidate')) { router.push('/login'); return; }
+    if (!user) return;
+    let loadedInfo: Record<string, any> | null = null;
+    try { const s = localStorage.getItem(`tm_info_${user.idNumber}`); if (s) loadedInfo = JSON.parse(s); } catch {}
+    try { const c = localStorage.getItem(`tm_cv_${user.idNumber}`);   if (c) setCvData(JSON.parse(c)); } catch {}
+    // Mandatory onboarding gate: candidates must complete their profile
+    // before reaching the dashboard, matching the CareerMap flow.
+    if (!isProfileComplete(loadedInfo)) { router.push('/candidate/info'); return; }
+    setInfo(loadedInfo);
   }, [user, initialized, router]);
 
-  useEffect(() => {
-    if (!user) return;
-    try { const s = localStorage.getItem(`tm_info_${user.idNumber}`); if (s) setInfo(JSON.parse(s)); } catch {}
-    try { const c = localStorage.getItem(`tm_cv_${user.idNumber}`);   if (c) setCvData(JSON.parse(c)); } catch {}
-  }, [user]);
-
-  if (!initialized || !user || user.role !== 'candidate') return null;
+  if (!initialized || !user || user.role !== 'candidate' || !info) return null;
 
   const firstName      = info?.firstName || user.name.split(' ')[0] || 'Candidat';
   const skills: string[] = cvData?.skills || info?.skills || [];
