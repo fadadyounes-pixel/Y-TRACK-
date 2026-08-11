@@ -7,6 +7,7 @@ import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { computeMatch, scoreColor, EXP_ORDER, type MatchBreakdown } from '@/lib/matching';
 import { generateCVHtml, type WorkEntry, type Education, type CVStyle } from '@/lib/cvTemplate';
+import { regionDisplay } from '@/lib/morocco';
 
 /* ── Types ─────────────────────────────────────────── */
 interface CV {
@@ -35,6 +36,8 @@ interface CV {
   portfolio?: string;
   address?: string;
   city?: string;
+  region?: string;
+  prefecture?: string;
   idNumber?: string;
   cvStyle?: CVStyle;
   // Legacy top-level education fields written by the profile page before
@@ -206,25 +209,33 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
 
         <div style={{ padding: '1.25rem 1.5rem', flex: 1 }}>
           {/* Contact */}
-          {(cv.email || cv.phone) && (
-            <section style={{ marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>Contact</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-                {cv.email && (
-                  <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
-                    <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>Email</div>
-                    <div style={{ fontSize: '0.82rem', color: '#111827', fontWeight: 500, marginTop: '2px', wordBreak: 'break-all' }}>{cv.email}</div>
-                  </div>
-                )}
-                {cv.phone && (
-                  <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
-                    <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>Téléphone</div>
-                    <div style={{ fontSize: '0.82rem', color: '#111827', fontWeight: 500, marginTop: '2px' }}>{cv.phone}</div>
-                  </div>
-                )}
+          <section style={{ marginBottom: '1.25rem' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>Contact</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+              <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
+                <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>CIN</div>
+                <div style={{ fontSize: '0.82rem', color: '#111827', fontWeight: 500, marginTop: '2px', fontFamily: 'monospace' }}>{cv.id}</div>
               </div>
-            </section>
-          )}
+              {cv.email && (
+                <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>Email</div>
+                  <div style={{ fontSize: '0.82rem', color: '#111827', fontWeight: 500, marginTop: '2px', wordBreak: 'break-all' }}>{cv.email}</div>
+                </div>
+              )}
+              {cv.phone && (
+                <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>Téléphone</div>
+                  <div style={{ fontSize: '0.82rem', color: '#111827', fontWeight: 500, marginTop: '2px' }}>{cv.phone}</div>
+                </div>
+              )}
+              {regionDisplay(cv.region, cv.prefecture) && (
+                <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>Région</div>
+                  <div style={{ fontSize: '0.82rem', color: '#111827', fontWeight: 500, marginTop: '2px' }}>{regionDisplay(cv.region, cv.prefecture)}</div>
+                </div>
+              )}
+            </div>
+          </section>
 
           {/* Summary */}
           {cv.summary && (

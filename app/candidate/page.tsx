@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { isProfileComplete } from '@/lib/profile';
+import { regionDisplay } from '@/lib/morocco';
 
 const INK    = '#0B1629';
 const COBALT = '#1B4FD8';
@@ -43,6 +44,7 @@ export default function CandidateDashboard() {
   if (!initialized || !user || user.role !== 'candidate' || !info) return null;
 
   const firstName      = info?.firstName || user.name.split(' ')[0] || 'Candidat';
+  const locationLabel  = regionDisplay(info?.region, info?.prefecture);
   const skills: string[] = cvData?.skills || info?.skills || [];
   const hasProfile     = !!info?.phone || !!info?.city;
   const hasCV          = !!(cvData?.skills?.length || cvData?.summary);
@@ -318,6 +320,7 @@ export default function CandidateDashboard() {
               <p style={{ fontWeight: 700, color: TEXT, fontSize: '0.95rem', lineHeight: 1.3 }}>{user.name}</p>
               <p style={{ fontSize: '0.78rem', color: MUTED }}>{user.email}</p>
               <p style={{ fontSize: '0.72rem', color: FAINT, marginTop: '0.1rem' }}>CIN: {user.idNumber}</p>
+              {locationLabel && <p style={{ fontSize: '0.72rem', color: FAINT, marginTop: '0.1rem' }}>📍 {locationLabel}</p>}
             </div>
           </div>
 
