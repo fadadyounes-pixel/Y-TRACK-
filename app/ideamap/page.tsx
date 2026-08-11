@@ -4242,9 +4242,9 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 /* ════════════════════════════════════════════════════════
    COORDINATOR DASHBOARD
 ════════════════════════════════════════════════════════ */
-function CoordDash({lang, setLang, user, onLogout, t, holders}: {
+function CoordDash({lang, setLang, user, onLogout, t, holders, syncError}: {
   lang: string; setLang: (l: string) => void; user: any;
-  onLogout: () => void; t: any; holders: any[];
+  onLogout: () => void; t: any; holders: any[]; syncError?: boolean;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("holders");
@@ -4411,6 +4411,19 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
           <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
         </div>
         <div style={{padding:"32px 40px 48px", maxWidth:860}}>
+          {syncError && (
+            <div style={{display:"flex", alignItems:"flex-start", gap:"10px", padding:"12px 16px",
+              background:"#FBF3EC", border:`1px solid ${RE}66`, borderRadius:"11px", marginBottom:"20px"}}>
+              <span style={{fontSize:"16px"}}>⚠️</span>
+              <span style={{fontSize:"12.5px", color:ND, lineHeight:"1.5"}}>
+                {lang==="ar"
+                  ? "تعذّر الاتصال بقاعدة البيانات المركزية — القائمة أدناه قد لا تعكس كل التسجيلات الفعلية. أبلغ المسؤول عن هذا الخلل."
+                  : lang==="fr"
+                  ? "Connexion à la base de données centrale impossible — la liste ci-dessous peut ne pas refléter toutes les inscriptions réelles. Signalez ceci à l'administrateur."
+                  : "Can't connect to the central database — the list below may not reflect every real registration. Report this to the administrator."}
+              </span>
+            </div>
+          )}
 
           {/* ── Overview ── */}
           {tab === "overview" && (<>
@@ -4713,10 +4726,10 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
 /* ════════════════════════════════════════════════════════
    ADMIN DASHBOARD
 ════════════════════════════════════════════════════════ */
-function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoord, onDelCoord}: {
+function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoord, onDelCoord, syncError}: {
   lang: string; setLang: (l: string) => void; user: any;
   onLogout: () => void; t: any; holders: any[]; coords: string[];
-  onAddCoord: (c: string) => void; onDelCoord: (i: number) => void;
+  onAddCoord: (c: string) => void; onDelCoord: (i: number) => void; syncError?: boolean;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("overview");
@@ -4971,6 +4984,19 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
           <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
         </div>
         <div style={{padding:"32px 40px 48px", maxWidth:900}}>
+          {syncError && (
+            <div style={{display:"flex", alignItems:"flex-start", gap:"10px", padding:"12px 16px",
+              background:"#FBF3EC", border:`1px solid ${RE}66`, borderRadius:"11px", marginBottom:"20px"}}>
+              <span style={{fontSize:"16px"}}>⚠️</span>
+              <span style={{fontSize:"12.5px", color:ND, lineHeight:"1.5"}}>
+                {lang==="ar"
+                  ? "تعذّر الاتصال بقاعدة البيانات (Upstash Redis) — تحقق من متغيرات البيئة في Vercel. القائمة أدناه لا تعكس كل التسجيلات الفعلية."
+                  : lang==="fr"
+                  ? "Connexion à la base de données (Upstash Redis) impossible — vérifiez les variables d'environnement dans Vercel. La liste ci-dessous ne reflète pas toutes les inscriptions réelles."
+                  : "Can't connect to the database (Upstash Redis) — check the environment variables in Vercel. The list below doesn't reflect every real registration."}
+              </span>
+            </div>
+          )}
 
           {/* ── Overview ── */}
           {tab === "overview" && (<>
@@ -5389,6 +5415,11 @@ export default function IdeaMapPage() {
   const [holders, setHolders] = useState<any[]>([]);
   const [coords, setCoords]   = useState<string[]>([]);
   const [syncing, setSyncing] = useState(false);
+  // True when the backing store (Redis via /api/sheets) is unreachable — distinct
+  // from "genuinely zero holders yet". Without this, an admin/coordinator seeing an
+  // empty list has no way to tell a real empty state apart from a broken connection
+  // silently serving nothing to everyone.
+  const [syncError, setSyncError] = useState(false);
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ── Fetch live data from Google Sheets on mount ──────
@@ -5408,6 +5439,7 @@ export default function IdeaMapPage() {
     fetch("/api/sheets")
       .then(r => r.json())
       .then(data => {
+        if (data.error) { setSyncError(true); return; }
         if (data.holders?.length > 0 || data.coords?.length > 0) {
           setHolders(data.holders || []);
           setCoords(data.coords || []);
@@ -5418,7 +5450,7 @@ export default function IdeaMapPage() {
           } catch {}
         }
       })
-      .catch(() => {/* Sheets not configured — localStorage cache stays */})
+      .catch(() => setSyncError(true))
       .finally(() => setSyncing(false));
   }, []);
 
@@ -5531,7 +5563,7 @@ export default function IdeaMapPage() {
   if (user.role === "coord") return <>
     <SyncDot/>
     <CoordDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
-      t={t} holders={holders}/>
+      t={t} holders={holders} syncError={syncError}/>
   </>;
 
   if (user.role === "admin") return <>
@@ -5539,7 +5571,8 @@ export default function IdeaMapPage() {
     <AdminDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
       t={t} holders={holders} coords={coords}
       onAddCoord={onAddCoord}
-      onDelCoord={onDelCoord}/>
+      onDelCoord={onDelCoord}
+      syncError={syncError}/>
   </>;
 
   return null;
