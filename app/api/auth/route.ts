@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || "",
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || "",
-});
+import { readCollection } from "@/lib/redisCollections";
 
 const ADMIN_CODE = "ADMIN001";
 const RE_CANDIDATE = /^[A-Z]{2,3}\d{3,}$/;
@@ -25,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     // Coordinator — check Redis-stored accounts (created by admin)
     if (/^COORD/i.test(normalized)) {
-      const coordinators = await redis.get<any[]>("tm_coordinators") || [];
+      const coordinators = await readCollection<any>("coordinators");
       const found = coordinators.find((c: any) => (c.code || "").toUpperCase() === normalized);
       if (found) {
         return NextResponse.json({

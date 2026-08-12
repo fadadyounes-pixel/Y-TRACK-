@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 // Supports Arabic (ar), French (fr), English (en), Darija (auto-detected).
 // Model: whisper-large-v3-turbo — fastest multilingual ASR on Groq.
 
+export const maxDuration = 30;
+
 export async function POST(request: NextRequest) {
   try {
     const form = await request.formData();
@@ -37,6 +39,7 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: { Authorization: `Bearer ${key}` },
       body: gForm,
+      signal: AbortSignal.timeout(25_000),
     });
 
     if (!res.ok) {
