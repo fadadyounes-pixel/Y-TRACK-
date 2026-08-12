@@ -82,4 +82,15 @@ jobs:
             vercel link --token "$VERCEL_TOKEN" --yes --project "$p" || true
             vercel env ls production --token "$VERCEL_TOKEN" || true
           done
-      # (re-check: latest status ping 16 — user confirmed UPSTASH_REDIS_REST_URL/TOKEN added to y-track Production in dashboard, final confirmation check)
+      # Diagnostic only — the user reported ERR_CONNECTION_TIMED_OUT hitting
+      # www.ideamaponline.org from their browser after the Redis env vars were
+      # added. Check whether the live site is actually reachable and fast from
+      # an independent network (GitHub's runner), to rule out a real outage
+      # vs. a local network/proxy issue on the user's end.
+      - name: Check live site reachability
+        run: |
+          echo "=== HEAD request timing ==="
+          curl -sS -o /dev/null -w "http_code=%{http_code} time_total=%{time_total}s time_connect=%{time_connect}s\n" --max-time 20 https://www.ideamaponline.org/ || echo "curl failed"
+          echo "=== Response headers ==="
+          curl -sS -I --max-time 20 https://www.ideamaponline.org/ || echo "curl failed"
+      # (re-check: latest status ping 17 — checking live site reachability after user reported ERR_CONNECTION_TIMED_OUT)
