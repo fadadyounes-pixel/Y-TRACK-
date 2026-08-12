@@ -117,6 +117,11 @@ jobs:
       # give the user exact steps for fixing the domain's nameservers.
       - name: Look up domain registrar via RDAP
         run: |
-          echo "=== RDAP lookup: ideamaponline.org ==="
-          curl -sS --max-time 20 "https://rdap.org/domain/ideamaponline.org" | python3 -m json.tool || echo "RDAP lookup failed"
-      # (re-check: latest status ping 19 — looking up domain registrar via RDAP through CI's unrestricted network)
+          echo "=== RDAP lookup: ideamaponline.org (follow redirects) ==="
+          curl -sSL --max-time 20 "https://rdap.org/domain/ideamaponline.org" -o /tmp/rdap1.json || echo "curl1 failed"
+          python3 -m json.tool /tmp/rdap1.json 2>&1 || cat /tmp/rdap1.json
+          echo ""
+          echo "=== RDAP lookup: ideamaponline.org (direct PIR registry) ==="
+          curl -sSL --max-time 20 "https://rdap.publicinterestregistry.org/rdap/domain/ideamaponline.org" -o /tmp/rdap2.json || echo "curl2 failed"
+          python3 -m json.tool /tmp/rdap2.json 2>&1 || cat /tmp/rdap2.json
+      # (re-check: latest status ping 20 — fixed RDAP lookup with redirect-follow and direct PIR registry fallback)
