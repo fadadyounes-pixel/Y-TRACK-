@@ -82,4 +82,4 @@ jobs:
             vercel link --token "$VERCEL_TOKEN" --yes --project "$p" || true
             vercel env ls production --token "$VERCEL_TOKEN" || true
           done
-      # (re-check: latest status ping 15 — user worked through Vercel UI on desktop, was on wrong project y-track-ynip, now redirected to correct y-track project)
+      # (re-check: latest status ping 16 — user confirmed UPSTASH_REDIS_REST_URL/TOKEN added to y-track Production in dashboard, final confirmation check)
