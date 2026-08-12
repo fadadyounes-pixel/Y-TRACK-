@@ -117,11 +117,17 @@ jobs:
       # give the user exact steps for fixing the domain's nameservers.
       - name: Look up domain registrar via RDAP
         run: |
-          echo "=== RDAP lookup: ideamaponline.org (follow redirects) ==="
-          curl -sSL --max-time 20 "https://rdap.org/domain/ideamaponline.org" -o /tmp/rdap1.json || echo "curl1 failed"
-          python3 -m json.tool /tmp/rdap1.json 2>&1 || cat /tmp/rdap1.json
+          set +e
+          echo "=== 1) direct PIR (.org registry) RDAP ==="
+          curl -sSL --max-time 10 "https://rdap.publicinterestregistry.org/rdap/domain/ideamaponline.org" -o /tmp/rdap2.json
+          python3 -m json.tool /tmp/rdap2.json 2>&1 || cat /tmp/rdap2.json 2>&1 || echo "(no output)"
           echo ""
-          echo "=== RDAP lookup: ideamaponline.org (direct PIR registry) ==="
-          curl -sSL --max-time 20 "https://rdap.publicinterestregistry.org/rdap/domain/ideamaponline.org" -o /tmp/rdap2.json || echo "curl2 failed"
-          python3 -m json.tool /tmp/rdap2.json 2>&1 || cat /tmp/rdap2.json
-      # (re-check: latest status ping 20 — fixed RDAP lookup with redirect-follow and direct PIR registry fallback)
+          echo "=== 2) rdap.org bootstrap ==="
+          curl -sSL --max-time 10 "https://rdap.org/domain/ideamaponline.org" -o /tmp/rdap1.json
+          python3 -m json.tool /tmp/rdap1.json 2>&1 || cat /tmp/rdap1.json 2>&1 || echo "(no output)"
+          echo ""
+          echo "=== 3) who-dat free WHOIS JSON API ==="
+          curl -sSL --max-time 10 "https://who-dat.as93.net/ideamaponline.org" -o /tmp/whois1.json
+          python3 -m json.tool /tmp/whois1.json 2>&1 || cat /tmp/whois1.json 2>&1 || echo "(no output)"
+          exit 0
+      # (re-check: latest status ping 21 — three independent registrar lookups, non-fatal on individual failures)
