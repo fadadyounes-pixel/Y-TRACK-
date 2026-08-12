@@ -281,10 +281,35 @@ export default function CandidateUpload() {
   // the CV builder from flashing before the redirect to /candidate/info fires.
   const [profileChecked, setProfileChecked] = useState(false);
 
-  // Photo + links from info profile
+  // Photo + links from info profile — photo is optional there, so it can
+  // also be added or changed directly here in the CV builder.
   const [photo, setPhoto] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [portfolio, setPortfolio] = useState('');
+  const [photoErr, setPhotoErr] = useState('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  function handlePhotoUpload(file: File) {
+    setPhotoErr('');
+    if (file.size > 2 * 1024 * 1024) { setPhotoErr('Photo trop lourde — max 2 Mo.'); return; }
+    if (!file.type.startsWith('image/')) { setPhotoErr('Fichier non supporté — JPG, PNG, WebP.'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const dataUrl = e.target?.result as string;
+      setPhoto(dataUrl);
+      // Keep the info profile in sync so the photo persists across the app
+      // (dashboard, future CV edits), not just this one render.
+      if (user) {
+        try {
+          const key = `tm_info_${user.idNumber}`;
+          const stored = localStorage.getItem(key);
+          const info = stored ? JSON.parse(stored) : {};
+          localStorage.setItem(key, JSON.stringify({ ...info, photo: dataUrl }));
+        } catch {}
+      }
+    };
+    reader.readAsDataURL(file);
+  }
 
   useEffect(() => {
     if (!initialized) return;
@@ -1181,6 +1206,36 @@ export default function CandidateUpload() {
                   {experience} · {sector}
                 </div>
               </div>
+            </div>
+
+            {/* Photo — optional on the info page, so it can be added or changed here too */}
+            <div style={{ background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '1.1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1.1rem', flexWrap: 'wrap' }}>
+              <div
+                onClick={() => photoInputRef.current?.click()}
+                style={{ width: '64px', height: '64px', borderRadius: '50%', border: '2.5px dashed #93c5fd', background: photo ? 'transparent' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}
+                title="Cliquez pour ajouter/changer la photo"
+              >
+                {photo ? <img src={photo} alt="Photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '1.5rem' }}>👤</span>}
+              </div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827', marginBottom: '0.3rem' }}>📷 Photo du CV (optionnel)</div>
+                <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                  {photo ? '✅ Photo ajoutée.' : "Non renseignée sur votre profil — vous pouvez l'ajouter ici, uniquement pour ce CV."}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => photoInputRef.current?.click()} style={{ padding: '0.4rem 0.9rem', background: '#EFF6FF', color: '#1B4FD8', border: '1.5px solid #bfdbfe', borderRadius: '7px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                    {photo ? '🔄 Changer' : '📁 Choisir une photo'}
+                  </button>
+                  {photo && (
+                    <button onClick={() => setPhoto('')} style={{ padding: '0.4rem 0.85rem', background: 'transparent', color: '#ef4444', border: '1.5px solid #fca5a5', borderRadius: '7px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
+                      Supprimer
+                    </button>
+                  )}
+                </div>
+                {photoErr && <p style={{ color: '#ef4444', fontSize: '0.76rem', marginTop: '0.35rem' }}>{photoErr}</p>}
+              </div>
+              <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f); e.target.value = ''; }} />
             </div>
 
             {/* Style picker — 5 layouts × 11 colors so no two candidates' CVs look alike by default */}
