@@ -93,4 +93,22 @@ jobs:
           curl -sS -o /dev/null -w "http_code=%{http_code} time_total=%{time_total}s time_connect=%{time_connect}s\n" --max-time 20 https://www.ideamaponline.org/ || echo "curl failed"
           echo "=== Response headers ==="
           curl -sS -I --max-time 20 https://www.ideamaponline.org/ || echo "curl failed"
-      # (re-check: latest status ping 17 — checking live site reachability after user reported ERR_CONNECTION_TIMED_OUT)
+      # Diagnostic only — user reports ERR_CONNECTION_TIMED_OUT on the custom
+      # domain from BOTH wifi and mobile data, which rules out a single local
+      # network issue. Check the domain's verification/config status, and
+      # test the project's default *.vercel.app alias (which bypasses the
+      # custom domain's DNS entirely) so the user has an alternate URL to try
+      # and we can isolate whether this is a custom-domain-specific problem.
+      - name: Inspect domain config and test vercel.app alias
+        env:
+          VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
+        run: |
+          echo "=== Domain inspect: ideamaponline.org ==="
+          vercel domains inspect ideamaponline.org --token "$VERCEL_TOKEN" || true
+          echo "=== Domain inspect: www.ideamaponline.org ==="
+          vercel domains inspect www.ideamaponline.org --token "$VERCEL_TOKEN" || true
+          echo "=== All domains on this account ==="
+          vercel domains ls --token "$VERCEL_TOKEN" || true
+          echo "=== Testing y-track.vercel.app alias ==="
+          curl -sS -o /dev/null -w "http_code=%{http_code} time_total=%{time_total}s\n" --max-time 20 https://y-track.vercel.app/ || echo "curl failed"
+      # (re-check: latest status ping 18 — user reports same timeout on mobile data too, checking domain config)
