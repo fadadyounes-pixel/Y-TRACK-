@@ -38,6 +38,7 @@ interface CV {
   city?: string;
   region?: string;
   prefecture?: string;
+  arrondissement?: string;
   idNumber?: string;
   cvStyle?: CVStyle;
   // Legacy top-level education fields written by the profile page before
@@ -228,10 +229,10 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
                   <div style={{ fontSize: '0.82rem', color: '#111827', fontWeight: 500, marginTop: '2px' }}>{cv.phone}</div>
                 </div>
               )}
-              {regionDisplay(cv.region, cv.prefecture) && (
+              {regionDisplay(cv.region, cv.prefecture, cv.arrondissement) && (
                 <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
                   <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>Région</div>
-                  <div style={{ fontSize: '0.82rem', color: '#111827', fontWeight: 500, marginTop: '2px' }}>{regionDisplay(cv.region, cv.prefecture)}</div>
+                  <div style={{ fontSize: '0.82rem', color: '#111827', fontWeight: 500, marginTop: '2px' }}>{regionDisplay(cv.region, cv.prefecture, cv.arrondissement)}</div>
                 </div>
               )}
             </div>

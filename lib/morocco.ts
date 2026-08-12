@@ -1,15 +1,17 @@
 /**
  * Morocco administrative divisions used across TalentMap's candidate profile.
  *
- * REGIONS is the 12-region 2015 redistricting. Only Casablanca-Settat gets a
- * prefecture/province sub-selector for now — it's the region most candidates
- * are concentrated in, and "Casablanca" alone is too coarse for a recruiter
- * to act on.
+ * Three-level hierarchy for Casablanca-Settat, the region most candidates
+ * are concentrated in (a plain city name is too coarse for a recruiter to
+ * act on there):
  *
- * PREFECTURES_CASABLANCA_SETTAT is verified against official sources (HCP /
- * Ministère de l'Aménagement du Territoire): the region comprises exactly
- * 2 préfectures (Casablanca, Mohammédia) + 7 provinces (Settat, El Jadida,
- * Benslimane, Médiouna, Nouaceur, Berrechid, Sidi Bennour) — 9 subdivisions.
+ *   Région (12, 2015 redistricting)
+ *     └─ Préfecture / Province (Casablanca-Settat only — 9 subdivisions,
+ *        verified against HCP / Ministère de l'Aménagement du Territoire:
+ *        2 préfectures [Casablanca, Mohammédia] + 7 provinces [Settat,
+ *        El Jadida, Benslimane, Médiouna, Nouaceur, Berrechid, Sidi Bennour])
+ *          └─ Arrondissement (Casablanca préfecture only — the city itself
+ *             is split into 8 préfectures d'arrondissements)
  */
 export const REGIONS = [
   'Tanger-Tétouan-Al Hoceïma', 'Oriental', 'Fès-Meknès',
@@ -25,11 +27,23 @@ export const PREFECTURES_CASABLANCA_SETTAT = [
   'Benslimane', 'Médiouna', 'Nouaceur', 'Berrechid', 'Sidi Bennour',
 ];
 
+export const PREFECTURE_CASABLANCA = 'Casablanca';
+
+export const ARRONDISSEMENTS_CASABLANCA = [
+  'Aïn Chock', 'Aïn Sebaâ-Hay Mohammadi', 'Al Fida-Mers Sultan',
+  "Ben M'Sick", 'Casablanca-Anfa', 'Hay Hassani', 'Moulay Rachid', 'Sidi Bernoussi',
+];
+
 export function prefecturesFor(region: string): string[] {
   return region === CASABLANCA_SETTAT ? PREFECTURES_CASABLANCA_SETTAT : [];
 }
 
-export function regionDisplay(region?: string, prefecture?: string): string {
+export function arrondissementsFor(prefecture: string): string[] {
+  return prefecture === PREFECTURE_CASABLANCA ? ARRONDISSEMENTS_CASABLANCA : [];
+}
+
+export function regionDisplay(region?: string, prefecture?: string, arrondissement?: string): string {
   if (!region) return '';
-  return prefecture ? `${region} — ${prefecture}` : region;
+  const parts = [region, prefecture, arrondissement].filter(Boolean);
+  return parts.join(' — ');
 }

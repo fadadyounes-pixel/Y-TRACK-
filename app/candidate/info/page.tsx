@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Logo from '../../../components/Logo';
 import { useAuth } from '../../../contexts/AuthContext';
 import { isProfileComplete } from '@/lib/profile';
-import { REGIONS, CASABLANCA_SETTAT, prefecturesFor } from '@/lib/morocco';
+import { REGIONS, CASABLANCA_SETTAT, PREFECTURE_CASABLANCA, prefecturesFor, arrondissementsFor } from '@/lib/morocco';
 
 const CITIES = [
   'Casablanca', 'Rabat', 'Marrakech', 'Fès', 'Tanger', 'Agadir', 'Meknès',
@@ -39,6 +39,7 @@ interface InfoProfile {
   birthDate: string;
   region: string;
   prefecture: string;
+  arrondissement: string;
   city: string;
   address: string;
   cin: string;
@@ -54,7 +55,7 @@ interface InfoProfile {
 
 const EMPTY: InfoProfile = {
   photo: '', firstName: '', lastName: '', phone: '', birthDate: '',
-  region: '', prefecture: '', city: '', address: '', cin: '', sector: '', experience: '',
+  region: '', prefecture: '', arrondissement: '', city: '', address: '', cin: '', sector: '', experience: '',
   languages: [], linkedin: '', portfolio: '',
   diploma: '', institution: '', graduationYear: '',
 };
@@ -122,7 +123,16 @@ export default function CandidateInfoPage() {
 
   const setRegion = (v: string) => {
     setSaved(false);
-    setForm(p => ({ ...p, region: v, prefecture: v === CASABLANCA_SETTAT ? p.prefecture : '' }));
+    setForm(p => ({
+      ...p, region: v,
+      prefecture: v === CASABLANCA_SETTAT ? p.prefecture : '',
+      arrondissement: v === CASABLANCA_SETTAT ? p.arrondissement : '',
+    }));
+  };
+
+  const setPrefecture = (v: string) => {
+    setSaved(false);
+    setForm(p => ({ ...p, prefecture: v, arrondissement: v === PREFECTURE_CASABLANCA ? p.arrondissement : '' }));
   };
 
   const toggleLang = (l: string) => {
@@ -180,13 +190,15 @@ export default function CandidateInfoPage() {
   const fieldBlock: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 0 };
 
   const needsPrefecture = form.region === CASABLANCA_SETTAT;
+  const needsArrondissement = form.prefecture === PREFECTURE_CASABLANCA;
   const filledCount = [
     form.photo, form.firstName, form.lastName, form.phone, form.city,
     form.cin, form.region, needsPrefecture ? form.prefecture : 'n/a',
+    needsArrondissement ? form.arrondissement : 'n/a',
     form.sector, form.experience, form.languages.length > 0 ? 'ok' : '',
     form.diploma,
   ].filter(Boolean).length;
-  const totalFields = 12;
+  const totalFields = 13;
   const pct = Math.round((filledCount / totalFields) * 100);
 
   return (
@@ -309,9 +321,18 @@ export default function CandidateInfoPage() {
             {form.region === CASABLANCA_SETTAT && (
               <div style={fieldBlock}>
                 <label style={labelStyle}>Préfecture / Province *</label>
-                <select style={{ ...inputStyle(!!form.prefecture), cursor: 'pointer' }} value={form.prefecture} onChange={e => set('prefecture', e.target.value)}>
+                <select style={{ ...inputStyle(!!form.prefecture), cursor: 'pointer' }} value={form.prefecture} onChange={e => setPrefecture(e.target.value)}>
                   <option value="">Sélectionner…</option>
                   {prefecturesFor(form.region).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+            )}
+            {form.prefecture === PREFECTURE_CASABLANCA && (
+              <div style={fieldBlock}>
+                <label style={labelStyle}>Arrondissement *</label>
+                <select style={{ ...inputStyle(!!form.arrondissement), cursor: 'pointer' }} value={form.arrondissement} onChange={e => set('arrondissement', e.target.value)}>
+                  <option value="">Sélectionner…</option>
+                  {arrondissementsFor(form.prefecture).map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
             )}

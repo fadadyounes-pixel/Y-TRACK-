@@ -44,7 +44,7 @@ export default function CandidateDashboard() {
   if (!initialized || !user || user.role !== 'candidate' || !info) return null;
 
   const firstName      = info?.firstName || user.name.split(' ')[0] || 'Candidat';
-  const locationLabel  = regionDisplay(info?.region, info?.prefecture);
+  const locationLabel  = regionDisplay(info?.region, info?.prefecture, info?.arrondissement);
   const skills: string[] = cvData?.skills || info?.skills || [];
   const hasProfile     = !!info?.phone || !!info?.city;
   const hasCV          = !!(cvData?.skills?.length || cvData?.summary);

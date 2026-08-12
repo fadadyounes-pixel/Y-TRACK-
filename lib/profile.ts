@@ -7,7 +7,7 @@
  * set defined here is what /candidate/info uses to compute its own progress
  * bar, so the gate and the form always agree on what "complete" means.
  */
-import { CASABLANCA_SETTAT } from './morocco';
+import { CASABLANCA_SETTAT, PREFECTURE_CASABLANCA } from './morocco';
 
 export interface CandidateProfile {
   firstName?: string;
@@ -17,6 +17,7 @@ export interface CandidateProfile {
   cin?: string;
   region?: string;
   prefecture?: string;
+  arrondissement?: string;
   sector?: string;
   experience?: string;
   diploma?: string;
@@ -26,9 +27,10 @@ export interface CandidateProfile {
 export function isProfileComplete(p: CandidateProfile | null | undefined): boolean {
   if (!p) return false;
   const prefectureOk = p.region === CASABLANCA_SETTAT ? !!p.prefecture : true;
+  const arrondissementOk = p.prefecture === PREFECTURE_CASABLANCA ? !!p.arrondissement : true;
   return !!(
     p.firstName && p.lastName && p.phone && p.city && p.cin && p.region &&
-    prefectureOk &&
+    prefectureOk && arrondissementOk &&
     p.sector && p.experience && p.diploma &&
     p.languages && p.languages.length > 0
   );
