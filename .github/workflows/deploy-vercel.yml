@@ -82,4 +82,4 @@ jobs:
             vercel link --token "$VERCEL_TOKEN" --yes --project "$p" || true
             vercel env ls production --token "$VERCEL_TOKEN" || true
           done
-      # (re-check: latest status ping 13)
+      # (re-check: latest status ping 14 — 4+ hours elapsed, checking for dashboard-only changes)
