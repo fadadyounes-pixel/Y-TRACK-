@@ -998,8 +998,10 @@ const Header = ({lang, setLang, user, onLogout, t}: {
     justifyContent: "space-between", padding: "0 22px",
     boxShadow: "0 2px 16px rgba(15,34,51,.3)", position: "sticky", top: 0, zIndex: 200}}>
     <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
-      <div style={{width: "32px", height: "32px", borderRadius: "8px", background: Y,
-        display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", fontWeight: "900", color: WH}}>I</div>
+      <div style={{width: "32px", height: "32px", borderRadius: "8px", background: NB,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0}}>
+        <img src="/logo-icon.png" alt="" style={{width: "24px", height: "24px", objectFit: "contain"}}/>
+      </div>
       <span style={{fontSize: "17px", fontWeight: "800", color: WH, lineHeight: 1, letterSpacing: "-.3px"}}>IdeaMap</span>
     </div>
     <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
@@ -1067,7 +1069,9 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, se
       display:"flex", alignItems:"center", justifyContent:"space-between"}}>
       <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
         <div style={{width:34, height:34, borderRadius:"9px", background:ND, flexShrink:0,
-          display:"flex", alignItems:"center", justifyContent:"center", fontSize:"15px", fontWeight:"900", color:WH}}>I</div>
+          display:"flex", alignItems:"center", justifyContent:"center"}}>
+          <img src="/logo-icon.png" alt="" style={{width:"25px", height:"25px", objectFit:"contain"}}/>
+        </div>
         <div>
           <div style={{fontSize:"14.5px", fontWeight:"800", color:ND, lineHeight:1.2}}>IdeaMap</div>
           <div style={{fontSize:"10px", color:GR, fontWeight:"500"}}>
@@ -1266,8 +1270,10 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
           padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between",
           position:"sticky", top:0, zIndex:10, boxShadow:"0 2px 20px rgba(0,0,0,.3)"}}>
           <div style={{display:"flex", alignItems:"center", gap:"8px"}}>
-            <div style={{width:"28px", height:"28px", borderRadius:"7px", background:Y,
-              display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", fontWeight:"900", color:WH}}>I</div>
+            <div style={{width:"28px", height:"28px", borderRadius:"7px", background:"rgba(255,255,255,.08)",
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
+              <img src="/logo-icon.png" alt="" style={{width:"21px", height:"21px", objectFit:"contain"}}/>
+            </div>
             <span style={{fontSize:"14px", fontWeight:"800", color:WH}}>IdeaMap</span>
           </div>
           <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
