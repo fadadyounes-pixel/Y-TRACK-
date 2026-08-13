@@ -164,6 +164,196 @@ const PREFECTURES_CS = [
   "Médiouna","Nouaceur","Benslimane","Khouribga","Sidi Bennour",
 ];
 
+// Sector-specific answer choices for the "products/services" and "main equipment"
+// questions in the dialogue flow — shown instantly (no AI call) as real, tappable
+// options tied to the sector the porteur already selected at registration, instead
+// of a generic "use your best estimate" placeholder. Keyed by the exact SECTORS
+// strings above so the lookup is a direct hit from user.profile.sector.
+const SECTOR_SERVICES: Record<string, Record<"fr"|"ar"|"en", string[]>> = {
+  "Agriculture/Élevage": {
+    fr: ["Élevage de volailles ou de bétail pour la vente", "Culture maraîchère et vente de légumes", "Production laitière et dérivés"],
+    ar: ["تربية الدواجن أو الماشية للبيع", "زراعة الخضروات وبيعها", "إنتاج الحليب ومشتقاته"],
+    en: ["Poultry or livestock farming for sale", "Vegetable growing and sale", "Dairy production and derivatives"],
+  },
+  "Artisanat traditionnel": {
+    fr: ["Poterie et céramique artisanale", "Tapis et tissage traditionnel", "Maroquinerie et cuir artisanal"],
+    ar: ["الفخار والخزف التقليدي", "الزرابي والنسيج التقليدي", "صناعة الجلد التقليدية"],
+    en: ["Traditional pottery and ceramics", "Traditional rugs and weaving", "Traditional leather goods"],
+  },
+  "Commerce/Épicerie": {
+    fr: ["Épicerie de proximité (produits de base)", "Vente de produits alimentaires et boissons", "Commerce multi-produits"],
+    ar: ["بقالة القرب (المنتجات الأساسية)", "بيع المواد الغذائية والمشروبات", "تجارة متعددة المنتجات"],
+    en: ["Neighborhood grocery (staples)", "Food and beverage sales", "Multi-product store"],
+  },
+  "Agro-alimentaire": {
+    fr: ["Transformation de produits du terroir (huile, miel...)", "Conserverie et confiture artisanale", "Pâtisserie ou boulangerie traditionnelle"],
+    ar: ["تحويل منتجات المجال (زيت، عسل...)", "تعليب ومربى تقليدي", "حلويات أو مخبزة تقليدية"],
+    en: ["Processing local produce (oil, honey...)", "Canning and artisan jam", "Traditional pastry or bakery"],
+  },
+  "Restauration/Café": {
+    fr: ["Café populaire ou salon de thé", "Restauration rapide (snack, sandwichs)", "Restaurant traditionnel marocain"],
+    ar: ["مقهى شعبي أو صالون شاي", "مطعم وجبات سريعة", "مطعم مغربي تقليدي"],
+    en: ["Popular café or tea salon", "Fast food (snack, sandwiches)", "Traditional Moroccan restaurant"],
+  },
+  "Coiffure/Beauté": {
+    fr: ["Coupe de cheveux, taille de barbe et soins", "Coiffure et esthétique pour femmes", "Salon complet (coiffure + soins + produits)"],
+    ar: ["قص الشعر وتشذيب اللحية والعناية", "تصفيف الشعر والتجميل للنساء", "صالون متكامل (حلاقة + عناية + منتجات)"],
+    en: ["Haircuts, beard trims and grooming", "Hairdressing and beauty for women", "Full salon (hair + skincare + products)"],
+  },
+  "Couture/Vêtement traditionnel": {
+    fr: ["Confection de caftans et vêtements traditionnels", "Couture sur mesure et retouches", "Vente de prêt-à-porter"],
+    ar: ["خياطة القفطان والملابس التقليدية", "خياطة حسب الطلب وتصليحات", "بيع الملابس الجاهزة"],
+    en: ["Caftans and traditional garment making", "Custom tailoring and alterations", "Ready-to-wear clothing sales"],
+  },
+  "Impression/Reprographie": {
+    fr: ["Impression et photocopie", "Cybercafé et services administratifs", "Impression grand format et enseignes"],
+    ar: ["الطباعة والاستنساخ", "سيبر وخدمات إدارية", "طباعة كبيرة الحجم ولافتات"],
+    en: ["Printing and photocopying", "Cybercafé and admin services", "Large-format printing and signage"],
+  },
+  "Design graphique/Communication": {
+    fr: ["Création de logos et identité visuelle", "Community management et réseaux sociaux", "Impression publicitaire et flyers"],
+    ar: ["تصميم الشعارات والهوية البصرية", "إدارة صفحات التواصل الاجتماعي", "طباعة إعلانية ومنشورات"],
+    en: ["Logo and brand identity design", "Social media management", "Advertising print and flyers"],
+  },
+  "Numérique/TIC": {
+    fr: ["Développement de sites web ou d'applications", "Formation en informatique", "Maintenance informatique et réseaux"],
+    ar: ["تطوير مواقع أو تطبيقات إلكترونية", "تكوين في مجال المعلوميات", "صيانة معلوماتية وشبكات"],
+    en: ["Website or app development", "IT training", "Computer and network maintenance"],
+  },
+  "Tourisme rural/Guide": {
+    fr: ["Guide touristique local", "Gîte ou hébergement rural", "Circuits et randonnées organisées"],
+    ar: ["دليل سياحي محلي", "بيت ضيافة أو إيواء قروي", "جولات ومسارات منظمة"],
+    en: ["Local tour guiding", "Rural guesthouse or lodging", "Organized tours and hikes"],
+  },
+  "BTP/Maçonnerie": {
+    fr: ["Travaux de maçonnerie générale", "Carrelage et revêtements", "Peinture et finitions bâtiment"],
+    ar: ["أشغال البناء العامة", "البلاط والتغطية", "الصباغة وتشطيبات البناء"],
+    en: ["General masonry work", "Tiling and flooring", "Painting and building finishing"],
+  },
+  "Éducation/Formation": {
+    fr: ["Soutien scolaire à domicile", "Formation professionnelle courte", "Cours de langues ou d'informatique"],
+    ar: ["الدعم المدرسي بالمنزل", "تكوين مهني قصير", "دروس اللغات أو المعلوميات"],
+    en: ["Home tutoring", "Short vocational training", "Language or computer classes"],
+  },
+  "Pêche/Aquaculture": {
+    fr: ["Pêche artisanale côtière", "Élevage aquacole (poissons, crevettes)", "Transformation et vente de produits de mer"],
+    ar: ["الصيد التقليدي الساحلي", "تربية مائية (أسماك، روبيان)", "تحويل وبيع منتجات البحر"],
+    en: ["Small-scale coastal fishing", "Aquaculture farming (fish, shrimp)", "Processing and selling seafood"],
+  },
+  "Transport/Logistique": {
+    fr: ["Transport de marchandises", "Transport de personnes (taxi, navette)", "Livraison et coursier"],
+    ar: ["نقل البضائع", "نقل الأشخاص (تاكسي، حافلة)", "التوصيل والسعي"],
+    en: ["Goods transport", "Passenger transport (taxi, shuttle)", "Delivery and courier service"],
+  },
+  "Santé/Pharmacie": {
+    fr: ["Parapharmacie et produits de santé", "Services de soins à domicile", "Vente de matériel médical"],
+    ar: ["صيدلية شبه طبية ومنتجات صحية", "خدمات العناية بالمنزل", "بيع المعدات الطبية"],
+    en: ["Parapharmacy and health products", "Home care services", "Medical equipment sales"],
+  },
+  "Réparation/Maintenance": {
+    fr: ["Réparation d'appareils électroménagers", "Réparation de téléphones et électronique", "Mécanique et entretien automobile"],
+    ar: ["إصلاح الأجهزة المنزلية", "إصلاح الهواتف والإلكترونيات", "ميكانيك وصيانة السيارات"],
+    en: ["Home appliance repair", "Phone and electronics repair", "Auto mechanics and maintenance"],
+  },
+  "Événementiel/Traiteur": {
+    fr: ["Traiteur pour événements et mariages", "Organisation et décoration d'événements", "Location de matériel événementiel"],
+    ar: ["تقديم الطعام للمناسبات والأعراس", "تنظيم وتزيين المناسبات", "كراء معدات المناسبات"],
+    en: ["Catering for events and weddings", "Event planning and decoration", "Event equipment rental"],
+  },
+};
+const SECTOR_EQUIPMENT: Record<string, Record<"fr"|"ar"|"en", string[]>> = {
+  "Agriculture/Élevage": {
+    fr: ["Cheptel (animaux) et matériel d'élevage", "Matériel d'irrigation et outils agricoles", "Serre agricole et équipement de culture"],
+    ar: ["قطيع (حيوانات) ومعدات التربية", "معدات السقي وأدوات فلاحية", "بيت بلاستيكي ومعدات الزراعة"],
+    en: ["Livestock and farming equipment", "Irrigation gear and farm tools", "Greenhouse and growing equipment"],
+  },
+  "Artisanat traditionnel": {
+    fr: ["Métier à tisser ou four de poterie", "Outillage artisanal spécialisé", "Matières premières et matériel de finition"],
+    ar: ["نول للنسيج أو فرن للفخار", "أدوات حرفية متخصصة", "مواد أولية ومعدات التشطيب"],
+    en: ["Loom or pottery kiln", "Specialized craft tools", "Raw materials and finishing equipment"],
+  },
+  "Commerce/Épicerie": {
+    fr: ["Rayonnages, frigo et caisse enregistreuse", "Stock initial de marchandises", "Aménagement du local commercial"],
+    ar: ["رفوف وثلاجة وصندوق تسجيل", "مخزون أولي من البضائع", "تجهيز المحل التجاري"],
+    en: ["Shelving, fridge and cash register", "Initial stock of goods", "Fitting out the shop"],
+  },
+  "Agro-alimentaire": {
+    fr: ["Matériel de transformation (presse, four...)", "Emballage et étiquetage", "Chambre froide ou conservation"],
+    ar: ["معدات التحويل (معصرة، فرن...)", "التغليف ووضع الملصقات", "غرفة تبريد أو حفظ"],
+    en: ["Processing equipment (press, oven...)", "Packaging and labeling", "Cold storage / preservation"],
+  },
+  "Restauration/Café": {
+    fr: ["Cuisine équipée (four, plaques, frigo)", "Mobilier et vaisselle", "Machine à café et matériel de service"],
+    ar: ["مطبخ مجهز (فرن، صفيحة، ثلاجة)", "أثاث وأواني", "آلة قهوة ومعدات الخدمة"],
+    en: ["Equipped kitchen (oven, hobs, fridge)", "Furniture and tableware", "Coffee machine and service equipment"],
+  },
+  "Coiffure/Beauté": {
+    fr: ["Fauteuils, miroirs et matériel de coiffure", "Stérilisateur UV et matériel d'hygiène", "Tondeuses, sèche-cheveux et accessoires"],
+    ar: ["كراسي ومرايا ومعدات الحلاقة", "معقم بالأشعة فوق البنفسجية ومعدات النظافة", "آلات حلاقة ومجفف شعر وإكسسوارات"],
+    en: ["Chairs, mirrors and salon equipment", "UV sterilizer and hygiene gear", "Clippers, hairdryers and accessories"],
+  },
+  "Couture/Vêtement traditionnel": {
+    fr: ["Machines à coudre professionnelles", "Tissus et fournitures de couture", "Table de coupe et matériel de finition"],
+    ar: ["آلات خياطة احترافية", "أقمشة ولوازم الخياطة", "طاولة قص ومعدات التشطيب"],
+    en: ["Professional sewing machines", "Fabrics and sewing supplies", "Cutting table and finishing equipment"],
+  },
+  "Impression/Reprographie": {
+    fr: ["Imprimante ou photocopieur professionnel", "Ordinateur et logiciels de conception", "Matériel de reliure et finition"],
+    ar: ["طابعة أو ناسخة احترافية", "حاسوب وبرامج التصميم", "معدات التجليد والتشطيب"],
+    en: ["Professional printer/copier", "Computer and design software", "Binding and finishing equipment"],
+  },
+  "Design graphique/Communication": {
+    fr: ["Ordinateur et logiciels de design", "Appareil photo et matériel de prise de vue", "Imprimante et matériel de présentation"],
+    ar: ["حاسوب وبرامج التصميم", "كاميرا ومعدات التصوير", "طابعة ومعدات العرض"],
+    en: ["Computer and design software", "Camera and shooting equipment", "Printer and presentation equipment"],
+  },
+  "Numérique/TIC": {
+    fr: ["Ordinateurs et matériel informatique", "Connexion internet et serveur", "Logiciels et licences professionnelles"],
+    ar: ["حواسيب ومعدات معلوماتية", "اتصال بالأنترنت وخادوم", "برامج ورخص احترافية"],
+    en: ["Computers and IT equipment", "Internet connection and server", "Professional software licenses"],
+  },
+  "Tourisme rural/Guide": {
+    fr: ["Véhicule ou matériel de transport touristique", "Équipement d'hébergement ou de gîte", "Matériel de randonnée et sécurité"],
+    ar: ["مركبة أو معدات النقل السياحي", "معدات الإيواء أو بيت الضيافة", "معدات التنزه والسلامة"],
+    en: ["Vehicle or tourist transport gear", "Lodging/guesthouse equipment", "Hiking and safety equipment"],
+  },
+  "BTP/Maçonnerie": {
+    fr: ["Outillage de maçonnerie (bétonnière...)", "Échafaudage et matériel de sécurité", "Véhicule utilitaire pour le transport"],
+    ar: ["أدوات البناء (خلاطة الإسمنت...)", "سقالة ومعدات السلامة", "مركبة نفعية للنقل"],
+    en: ["Masonry tools (concrete mixer...)", "Scaffolding and safety equipment", "Utility vehicle for transport"],
+  },
+  "Éducation/Formation": {
+    fr: ["Matériel pédagogique et mobilier", "Ordinateur et supports numériques", "Aménagement d'une salle de formation"],
+    ar: ["معدات تربوية وأثاث", "حاسوب وموارد رقمية", "تجهيز قاعة تكوين"],
+    en: ["Teaching materials and furniture", "Computer and digital resources", "Fitting out a training room"],
+  },
+  "Pêche/Aquaculture": {
+    fr: ["Barque et matériel de pêche", "Bassins ou cages d'élevage aquacole", "Matériel de conservation du poisson"],
+    ar: ["قارب ومعدات الصيد", "أحواض أو أقفاص التربية المائية", "معدات حفظ السمك"],
+    en: ["Boat and fishing gear", "Ponds or aquaculture cages", "Fish preservation equipment"],
+  },
+  "Transport/Logistique": {
+    fr: ["Véhicule utilitaire ou taxi", "Matériel de manutention", "Système de suivi des livraisons"],
+    ar: ["مركبة نفعية أو تاكسي", "معدات المناولة", "نظام تتبع التوصيل"],
+    en: ["Utility vehicle or taxi", "Handling equipment", "Delivery tracking system"],
+  },
+  "Santé/Pharmacie": {
+    fr: ["Aménagement et vitrines de vente", "Matériel médical de base", "Stock initial de produits"],
+    ar: ["تجهيز وواجهات البيع", "معدات طبية أساسية", "مخزون أولي من المنتجات"],
+    en: ["Fit-out and display shelving", "Basic medical equipment", "Initial product stock"],
+  },
+  "Réparation/Maintenance": {
+    fr: ["Outillage spécialisé de réparation", "Pièces de rechange et stock", "Établi et matériel d'atelier"],
+    ar: ["أدوات إصلاح متخصصة", "قطع غيار ومخزون", "منضدة عمل ومعدات الورشة"],
+    en: ["Specialized repair tools", "Spare parts stock", "Workbench and workshop equipment"],
+  },
+  "Événementiel/Traiteur": {
+    fr: ["Matériel de cuisine et service traiteur", "Tentes, chaises et décoration", "Véhicule de transport du matériel"],
+    ar: ["معدات المطبخ وخدمة التقديم", "خيام وكراسي وديكور", "مركبة لنقل المعدات"],
+    en: ["Catering kitchen and service equipment", "Tents, chairs and decoration", "Vehicle to transport equipment"],
+  },
+};
+
 const DOCS = [
   {id:1,name:"Carte d'Identité Nationale (CIN)",desc:"Copies légalisées de tous les membres",req:true,icon:"🪪"},
   {id:2,name:"Statuts de la structure juridique",desc:"Légalisés et enregistrés",req:true,icon:"📜"},
@@ -1473,16 +1663,188 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     return p;
   };
 
-  // Tap-options are never worth blocking on a network call for — the question flow
-  // shows this instantly the moment a question appears, then silently upgrades to
-  // AI-tailored options if the background batch (see startChat) delivers them before
-  // the user answers. This is what makes 50+ concurrent users a non-issue for this
-  // step: nobody is ever waiting on AI to proceed, tailoring is a pure enhancement.
+  // Last-resort fallback only — used when a question index has no local option set
+  // below (shouldn't normally happen, all 30 are covered) and AI tailoring hasn't
+  // landed yet either.
   const genericOptions = (): string[] => [
     lang === "ar" ? "استخدم أفضل تقدير" : lang === "fr" ? "Utilisez votre meilleure estimation" : "Use your best estimate",
     lang === "ar" ? "كما في فكرتي الأصلية" : lang === "fr" ? "Comme dans mon idée de départ" : "As in my original idea",
     lang === "ar" ? "سأكتب إجابتي بنفسي" : lang === "fr" ? "Je préfère écrire ma réponse" : "I'll write my own answer",
   ];
+
+  // Tap-options are never worth blocking on a network call for — the question flow
+  // shows this instantly the moment a question appears, then silently upgrades to
+  // AI-tailored options if the background batch (see startChat) delivers them before
+  // the user answers. This is what makes 50+ concurrent users a non-issue for this
+  // step: nobody is ever waiting on AI to proceed, tailoring is a pure enhancement.
+  //
+  // Unlike the old genericOptions() (meta-choices like "use your best estimate" that
+  // just push the user toward typing anyway), these are REAL, idea/sector-specific
+  // answer choices computed instantly client-side from data already collected at
+  // registration (sector, city, region) and the idea text — no AI call needed, no
+  // wait, and meaningfully less typing than before even in the worst case where the
+  // AI-tailored batch never lands.
+  const localOptionsFor = (qIndex: number, ideaText: string): string[] => {
+    const sector = user.profile?.sector || "";
+    const city = user.profile?.city || user.profile?.region || (lang === "ar" ? "منطقتي" : lang === "fr" ? "ma ville" : "my city");
+    const sectorLabel = sector || (lang === "ar" ? "نشاطي" : lang === "fr" ? "mon activité" : "my activity");
+    const svc = SECTOR_SERVICES[sector]?.[lang as "fr"|"ar"|"en"];
+    const equip = SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"];
+
+    const T: Record<number, Record<"fr"|"ar"|"en", string[]>> = {
+      0: {
+        fr: [`Nommé d'après mon activité (ex: "${sectorLabel} Pro")`, "Nommé d'après mon prénom ou ma famille", "Je préfère écrire mon propre nom de projet"],
+        ar: [`باسم نشاطي (مثال: "${sectorLabel} برو")`, "باسم شخصي أو عائلي", "أفضل كتابة اسم المشروع بنفسي"],
+        en: [`Named after my activity (e.g. "${sectorLabel} Pro")`, "Named after my first name or family name", "I'll write my own project name"],
+      },
+      1: {
+        fr: [sector || "Mon secteur déclaré à l'inscription", "Un secteur proche/complémentaire", "Un autre secteur"],
+        ar: [sector || "القطاع الذي صرحت به عند التسجيل", "قطاع قريب أو مكمل", "قطاع آخر"],
+        en: [sector || "The sector I declared at registration", "A related/complementary sector", "A different sector"],
+      },
+      2: {
+        fr: [`${city}, centre-ville`, `${city}, quartier périphérique`, "Un autre lieu"],
+        ar: [`${city}، وسط المدينة`, `${city}، حي محيطي`, "مكان آخر"],
+        en: [`${city}, city center`, `${city}, outer neighborhood`, "Somewhere else"],
+      },
+      3: {
+        fr: [`Un service de ${sectorLabel} moderne et accessible pour le quartier`, "Une activité basée sur mon expérience personnelle", "Je préfère décrire mon concept moi-même"],
+        ar: [`خدمة ${sectorLabel} عصرية وفي متناول سكان الحي`, "نشاط مبني على خبرتي الشخصية", "أفضل وصف فكرتي بنفسي"],
+        en: [`A modern, accessible ${sectorLabel} service for the neighborhood`, "An activity built on my personal experience", "I'll describe my concept myself"],
+      },
+      4: svc ? { fr: svc, ar: SECTOR_SERVICES[sector].ar, en: SECTOR_SERVICES[sector].en } : {
+        fr: ["Un service ou produit unique et ciblé", "Une gamme de 2 à 3 services complémentaires", "Je préfère décrire mes produits/services moi-même"],
+        ar: ["خدمة أو منتج واحد ومحدد", "مجموعة من 2 إلى 3 خدمات مكملة", "أفضل وصف منتجاتي/خدماتي بنفسي"],
+        en: ["One unique, focused product or service", "A range of 2-3 complementary services", "I'll describe my products/services myself"],
+      },
+      5: {
+        fr: ["Moins d'1 an d'expérience", "1 à 3 ans d'expérience", "Plus de 3 ans d'expérience"],
+        ar: ["أقل من سنة من الخبرة", "من سنة إلى 3 سنوات من الخبرة", "أكثر من 3 سنوات من الخبرة"],
+        en: ["Less than 1 year of experience", "1 to 3 years of experience", "More than 3 years of experience"],
+      },
+      6: {
+        fr: ["Formation professionnelle diplômante", "Formation autodidacte / pratique sur le terrain", "Aucune formation formelle pour l'instant"],
+        ar: ["تكوين مهني بشهادة", "تعلم ذاتي / ممارسة ميدانية", "لا يوجد تكوين رسمي حالياً"],
+        en: ["Certified vocational training", "Self-taught / hands-on field practice", "No formal training yet"],
+      },
+      7: {
+        fr: ["Oui, une base de clients fidèles", "Quelques contacts, pas encore une base solide", "Non, je pars de zéro"],
+        ar: ["نعم، لدي قاعدة زبائن أوفياء", "بعض المعارف، لكن ليس بعد قاعدة قوية", "لا، أبدأ من الصفر"],
+        en: ["Yes, a loyal client base", "A few contacts, not yet a solid base", "No, starting from scratch"],
+      },
+      8: {
+        fr: ["Les jeunes et familles de mon quartier", "Le grand public local", "Une clientèle spécifique (préciser)"],
+        ar: ["شباب وعائلات حيي", "عموم سكان المنطقة", "فئة محددة من الزبائن (التفصيل)"],
+        en: ["Youth and families in my neighborhood", "The general local public", "A specific customer segment (specify)"],
+      },
+      9: {
+        fr: ["Moins de 50 personnes par an", "50 à 200 personnes par an", "Plus de 200 personnes par an"],
+        ar: ["أقل من 50 شخصاً في السنة", "من 50 إلى 200 شخص في السنة", "أكثر من 200 شخص في السنة"],
+        en: ["Fewer than 50 people per year", "50 to 200 people per year", "More than 200 people per year"],
+      },
+      10: {
+        fr: [`Manque d'offre de qualité en ${sectorLabel} dans le quartier`, "Difficulté d'accès local à ce service/produit", "Je préfère décrire le problème moi-même"],
+        ar: [`نقص العرض الجيد في ${sectorLabel} بالحي`, "صعوبة الوصول محلياً لهذه الخدمة/المنتج", "أفضل وصف المشكلة بنفسي"],
+        en: [`Lack of quality ${sectorLabel} options in the neighborhood`, "Difficulty accessing this service/product locally", "I'll describe the problem myself"],
+      },
+      11: {
+        fr: ["Quelques petits commerces similaires", "Peu ou pas de concurrence directe", "Plusieurs concurrents bien établis"],
+        ar: ["بعض المحلات الصغيرة المشابهة", "منافسة قليلة أو منعدمة", "عدة منافسين راسخين"],
+        en: ["A few similar small businesses", "Little to no direct competition", "Several well-established competitors"],
+      },
+      12: {
+        fr: ["Meilleure qualité et hygiène", "Prix plus accessibles", "Service plus rapide et organisé (digital)"],
+        ar: ["جودة ونظافة أفضل", "أسعار في متناول الجميع", "خدمة أسرع ومنظمة (رقمياً)"],
+        en: ["Better quality and hygiene", "More affordable prices", "Faster, better-organized (digital) service"],
+      },
+      13: {
+        fr: ["Prix aligné sur le marché local", "Prix légèrement en dessous pour attirer les clients", "Prix premium justifié par la qualité"],
+        ar: ["سعر يتماشى مع السوق المحلي", "سعر أقل قليلاً لجذب الزبائن", "سعر مرتفع نسبياً مبرر بالجودة"],
+        en: ["Priced in line with the local market", "Slightly below market to attract customers", "Premium pricing justified by quality"],
+      },
+      14: {
+        fr: ["Bouche-à-oreille et réseaux sociaux", "Offres de lancement et fidélité", "Réservation digitale (WhatsApp) et qualité de service"],
+        ar: ["التوصية الشفهية ومواقع التواصل الاجتماعي", "عروض الانطلاق والولاء", "الحجز الرقمي (واتساب) وجودة الخدمة"],
+        en: ["Word of mouth and social media", "Launch offers and loyalty perks", "Digital booking (WhatsApp) and service quality"],
+      },
+      15: {
+        fr: ["Vente directe sur place", "Vente et prestations de service combinées", "Abonnements ou packs"],
+        ar: ["البيع المباشر في المكان", "الجمع بين البيع وتقديم الخدمة", "اشتراكات أو باقات"],
+        en: ["Direct on-site sales", "Combined product + service sales", "Subscriptions or bundles"],
+      },
+      16: {
+        fr: ["Moins de 20 clients/semaine", "20 à 50 clients/semaine", "Plus de 50 clients/semaine"],
+        ar: ["أقل من 20 زبوناً أسبوعياً", "من 20 إلى 50 زبوناً أسبوعياً", "أكثر من 50 زبوناً أسبوعياً"],
+        en: ["Fewer than 20 customers/week", "20 to 50 customers/week", "More than 50 customers/week"],
+      },
+      17: equip ? { fr: equip, ar: SECTOR_EQUIPMENT[sector].ar, en: SECTOR_EQUIPMENT[sector].en } : {
+        fr: ["Équipement professionnel de base", "Aménagement et mobilier du local", "Je préfère décrire l'équipement moi-même"],
+        ar: ["معدات مهنية أساسية", "تجهيز وأثاث المحل", "أفضل وصف المعدات بنفسي"],
+        en: ["Basic professional equipment", "Fit-out and furniture for the premises", "I'll describe the equipment myself"],
+      },
+      18: {
+        fr: ["Moins de 30 000 MAD", "30 000 à 70 000 MAD", "Plus de 70 000 MAD"],
+        ar: ["أقل من 30.000 درهم", "من 30.000 إلى 70.000 درهم", "أكثر من 70.000 درهم"],
+        en: ["Under 30,000 MAD", "30,000 to 70,000 MAD", "Over 70,000 MAD"],
+      },
+      19: {
+        fr: ["Moins de 5 000 MAD", "5 000 à 10 000 MAD", "Plus de 10 000 MAD"],
+        ar: ["أقل من 5.000 درهم", "من 5.000 إلى 10.000 درهم", "أكثر من 10.000 درهم"],
+        en: ["Under 5,000 MAD", "5,000 to 10,000 MAD", "Over 10,000 MAD"],
+      },
+      20: {
+        fr: ["Moins de 100 000 MAD", "100 000 à 200 000 MAD", "Plus de 200 000 MAD"],
+        ar: ["أقل من 100.000 درهم", "من 100.000 إلى 200.000 درهم", "أكثر من 200.000 درهم"],
+        en: ["Under 100,000 MAD", "100,000 to 200,000 MAD", "Over 200,000 MAD"],
+      },
+      21: {
+        fr: ["1 emploi (moi-même)", "2 emplois (moi + 1 assistant)", "3 emplois ou plus"],
+        ar: ["فرصة شغل واحدة (أنا)", "فرصتا شغل (أنا + مساعد)", "3 فرص شغل أو أكثر"],
+        en: ["1 job (myself)", "2 jobs (myself + 1 assistant)", "3 jobs or more"],
+      },
+      22: {
+        fr: ["Formation de jeunes du quartier", "Service de proximité utile aux familles", "Amélioration de l'hygiène ou de la qualité de vie locale"],
+        ar: ["تكوين شباب الحي", "خدمة قرب مفيدة للعائلات", "تحسين النظافة أو جودة الحياة المحلية"],
+        en: ["Training young people locally", "A useful neighborhood service for families", "Improved hygiene or local quality of life"],
+      },
+      23: {
+        fr: [`Dynamiser le commerce local à ${city}`, "Créer un lieu de référence dans le quartier", "Offrir un service qui manquait localement"],
+        ar: [`تنشيط التجارة المحلية في ${city}`, "خلق مكان مرجعي في الحي", "تقديم خدمة كانت تنقص محلياً"],
+        en: [`Boosting local commerce in ${city}`, "Becoming a go-to place in the neighborhood", "Filling a service gap locally"],
+      },
+      24: {
+        fr: ["Moins de 5 clients/jour", "5 à 10 clients/jour", "Plus de 10 clients/jour"],
+        ar: ["أقل من 5 زبائن يومياً", "من 5 إلى 10 زبائن يومياً", "أكثر من 10 زبائن يومياً"],
+        en: ["Fewer than 5 customers/day", "5 to 10 customers/day", "More than 10 customers/day"],
+      },
+      25: {
+        fr: ["Autofinancement par les revenus générés", "Réinvestissement progressif des bénéfices", "Développement de nouveaux services/produits"],
+        ar: ["التمويل الذاتي من الدخل المحقق", "إعادة استثمار تدريجي للأرباح", "تطوير خدمات/منتجات جديدة"],
+        en: ["Self-financed from generated revenue", "Gradual reinvestment of profits", "Developing new products/services"],
+      },
+      26: {
+        fr: ["Concurrence locale", "Fluctuation de la demande / saisonnalité", "Manque de trésorerie au démarrage"],
+        ar: ["المنافسة المحلية", "تذبذب الطلب / الموسمية", "نقص السيولة عند الانطلاق"],
+        en: ["Local competition", "Demand fluctuation / seasonality", "Cash-flow shortage at launch"],
+      },
+      27: {
+        fr: ["Différenciation par la qualité et le prix", "Épargne de précaution et gestion rigoureuse", "Diversification des services"],
+        ar: ["التميز بالجودة والسعر", "ادخار احتياطي وتسيير صارم", "تنويع الخدمات"],
+        en: ["Standing out on quality and price", "Precautionary savings and tight management", "Diversifying services"],
+      },
+      28: {
+        fr: ["Ouvrir un deuxième point de vente", "Élargir la gamme de produits/services", "Recruter et former plus d'employés"],
+        ar: ["فتح نقطة بيع ثانية", "توسيع مجموعة المنتجات/الخدمات", "توظيف وتكوين موظفين إضافيين"],
+        en: ["Opening a second location", "Expanding the product/service range", "Hiring and training more staff"],
+      },
+      29: {
+        fr: ["Projet réaliste porté par une expérience solide", "Fort impact social et création d'emplois", "Rentabilité rapide et faible risque"],
+        ar: ["مشروع واقعي مبني على خبرة قوية", "أثر اجتماعي كبير وخلق فرص شغل", "ربحية سريعة ومخاطرة منخفضة"],
+        en: ["A realistic project backed by solid experience", "Strong social impact and job creation", "Fast profitability and low risk"],
+      },
+    };
+    return T[qIndex]?.[lang as "fr"|"ar"|"en"] || genericOptions();
+  };
 
   const dlText = (content: string, name: string) => {
     const url = URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"}));
@@ -2696,15 +3058,16 @@ RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais associa
     if (override) setIdea(override);
     const ideaPreview = ideaText.replace(/\n/g, " ").slice(0, 200);
 
-    // Show Question 1 immediately with generic tap options — no network wait at all.
-    // AI tailoring happens in the background (below) and silently upgrades the
-    // options in place if it lands before the user answers. This is what keeps the
-    // Questions step responsive regardless of how many other users are hitting the
-    // same AI provider at once: nobody is ever blocked on a network call to proceed.
+    // Show Question 1 immediately with real, idea/sector-specific tap options — no
+    // network wait at all. AI tailoring happens in the background (below) and
+    // silently upgrades the options in place if it lands before the user answers.
+    // This is what keeps the Questions step responsive regardless of how many other
+    // users are hitting the same AI provider at once: nobody is ever blocked on a
+    // network call to proceed.
     setBusy(false); setSuggTailored(false); setBrief(ideaPreview); setCurrentQ(fixedQText(0));
     setQBank([]); setStep("dialogue");
     setMsgs([{role: "user", content: ideaText}, {role: "assistant", content: fixedQText(0)}]);
-    setSuggestions(genericOptions());
+    setSuggestions(localOptionsFor(0, ideaText));
     setQN(1);
 
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
@@ -2787,12 +3150,13 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     if (!last) {
       // Next question text is fixed — never AI-generated, so it can't drift. Its
       // tap-options come from the upfront batch call if it's landed by now, or the
-      // instant generic set otherwise — never a live network wait to advance.
+      // instant idea/sector-specific local set otherwise — never a live network
+      // wait to advance.
       const nextQ = fixedQText(qN);
       const cached = qBank[qN];
       setCurrentQ(nextQ);
       setMsgs((p: any[]) => [...p, {role: "assistant", content: nextQ}]);
-      setSuggestions(cached || genericOptions());
+      setSuggestions(cached || localOptionsFor(qN, idea));
       setSuggTailored(!!cached);
       setQN((p: number) => p + 1);
       return;
