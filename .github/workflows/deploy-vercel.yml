@@ -155,23 +155,28 @@ jobs:
           echo "=== curl errors (if any) ==="
           cat /tmp/loadtest_errors.txt || true
           echo ""
-          python3 -c "
-import sys
-lines = [l.split() for l in open('$OUT') if l.strip()]
-codes = [l[0] for l in lines]
-times = sorted(float(l[1]) for l in lines)
-n = len(times)
-ok = sum(1 for c in codes if c.startswith('2'))
-from collections import Counter
-print('=== Summary ===')
-print(f'Responses received: {n} / $N')
-print('Status code breakdown:', dict(Counter(codes)))
-print(f'Success rate (2xx): {ok}/{n} = {100*ok/n:.1f}%' if n else 'no responses')
-if n:
-    def pct(p):
-        idx = min(n - 1, int(p / 100 * n))
-        return times[idx]
-    print(f'Latency  min={times[0]:.3f}s  p50={pct(50):.3f}s  p90={pct(90):.3f}s  p99={pct(99):.3f}s  max={times[-1]:.3f}s')
-"
+          echo "=== Summary ==="
+          RECEIVED=$(wc -l < "$OUT")
+          echo "Responses received: $RECEIVED / $N"
+          echo "Status code breakdown:"
+          awk '{print $1}' "$OUT" | sort | uniq -c | sort -rn
+          OK=$(awk '$1 ~ /^2/' "$OUT" | wc -l)
+          if [ "$RECEIVED" -gt 0 ]; then
+            echo "Success rate (2xx): $OK/$RECEIVED"
+            echo "Latency percentiles (sorted times):"
+            sort -n -k2,2 -t' ' "$OUT" | awk '{print $2}' > /tmp/loadtest_times.txt
+            N_TIMES=$(wc -l < /tmp/loadtest_times.txt)
+            for P in 50 90 99; do
+              IDX=$(( (P * N_TIMES) / 100 ))
+              [ "$IDX" -ge "$N_TIMES" ] && IDX=$((N_TIMES - 1))
+              [ "$IDX" -lt 0 ] && IDX=0
+              VAL=$(sed -n "$((IDX + 1))p" /tmp/loadtest_times.txt)
+              echo "  p${P} = ${VAL}s"
+            done
+            echo "  min = $(head -1 /tmp/loadtest_times.txt)s"
+            echo "  max = $(tail -1 /tmp/loadtest_times.txt)s"
+          else
+            echo "No responses received at all."
+          fi
           exit 0
       # (re-check: latest status ping 22 — 100-concurrent-request load test against production /ideamap, non-fatal)
