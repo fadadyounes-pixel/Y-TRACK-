@@ -82,7 +82,7 @@ const RE  = "#C0632F";   // Warning      — errors, "En cours", risk indicators
 /* Logo appears only on the login page via /logo-transparent.png */
 
 /* ── AUTH ────────────────────────────────────────────── */
-const ADMIN_CODE = "@adminINDH";
+const ADMIN_CODE = "@mapadmin";
 const RE_HOLDER  = /^[A-Z]{2}\d{3,}$/;
 const RE_COORD   = /^@[A-Za-z]{2,}COD$/i;
 
@@ -5273,7 +5273,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("overview");
-  const [newCoord, setNewCoord] = useState("");
+  const [newCoordName, setNewCoordName] = useState("");
   const [search, setSearch]     = useState("");
   const [filterRegion, setFilterRegion] = useState("");
   const [filterSector, setFilterSector] = useState("");
@@ -5298,6 +5298,18 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
 
   const STEPS_LIST = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
 
+  // Admin creates a coordinator by name only — the actual login code is derived
+  // automatically as "@{NAME}COD" (matching RE_COORD), never typed by hand. Strips
+  // anything that isn't a letter (spaces, accents via NFD stripping, digits) so the
+  // result always satisfies RE_COORD's [A-Za-z]{2,} requirement.
+  const coordCodeFrom = (name: string): string => {
+    const letters = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase().replace(/[^A-Z]/g, "");
+    return letters ? `@${letters}COD` : "";
+  };
+  const newCoordCode = coordCodeFrom(newCoordName);
+  const newCoordValid = RE_COORD.test(newCoordCode) && !coords.includes(newCoordCode);
+
   const filtered = holders.filter(h => {
     const q = search.toLowerCase();
     const matchSearch = !q || (h.name||"").toLowerCase().includes(q) || (h.id||"").toLowerCase().includes(q) || (h.proj?.projectName||"").toLowerCase().includes(q);
@@ -5315,10 +5327,11 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   }, {});
 
   const exportCSV = () => {
-    const cols = ["ID","Nom","Prénom","Email","Téléphone","Age","Genre","Région","Secteur","Type","Projet","Structure","Bénéficiaires","Budget","Axe INDH","Score","Éligible","Étape"];
+    const cols = ["ID","Nom","Prénom","Email","Téléphone","Age","Genre","Région","Préfecture","Arrondissement","Secteur","Type","Projet","Structure","Bénéficiaires","Budget","Axe INDH","Score","Éligible","Étape"];
     const rows = holders.map(h => [
       h.id, h.profile?.lastName||"", h.name||"", h.profile?.email||"", h.profile?.phone||"",
       h.profile?.age||"", h.profile?.gender||"", h.profile?.region||"",
+      h.profile?.prefecture||"", h.profile?.arrondissement||"",
       h.proj?.sector||h.profile?.sector||"", h.profile?.projType||"",
       h.proj?.projectName||"", h.proj?.legalStructure||"", h.proj?.beneficiaries||"",
       h.proj?.estimatedBudget||"", h.proj?.pillar||"",
@@ -5487,10 +5500,10 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
               <button onClick={() => {
                 const h2 = detailH;
                 const rows = [
-                  ["ID","Nom","Prénom","Email","Téléphone","Région","Secteur","Projet","Score","Éligible","Étape"],
-                  [h2.id, h2.profile?.lastName||"", h2.name||"", h2.profile?.email||"",
-                   h2.profile?.phone||"", h2.profile?.region||"", h2.proj?.sector||"",
-                   h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
+                  ["ID","Nom","Prénom","Age","Email","Téléphone","Région","Préfecture","Arrondissement","Secteur","Projet","Score","Éligible","Étape"],
+                  [h2.id, h2.profile?.lastName||"", h2.name||"", h2.profile?.age||"", h2.profile?.email||"",
+                   h2.profile?.phone||"", h2.profile?.region||"", h2.profile?.prefecture||"", h2.profile?.arrondissement||"",
+                   h2.proj?.sector||"", h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
                 ].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(";")).join("\n");
                 const url = URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"}));
                 Object.assign(document.createElement("a"), {href: url, download: `Porteur_${h2.id}.csv`}).click();
@@ -5737,6 +5750,8 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                     <thead>
                       <tr style={{background:THS}}>
                         {[lang==="ar"?"الحامل":"Porteur","CIN",
+                          lang==="ar"?"السن":lang==="fr"?"Âge":"Age",
+                          lang==="ar"?"الموقع":lang==="fr"?"Localisation":"Location",
                           lang==="ar"?"المشروع":"Projet",
                           lang==="ar"?"المرحلة":"Étape",
                           lang==="ar"?"التقدم":"Préparation",
@@ -5766,6 +5781,8 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                               </div>
                             </td>
                             <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{h.id}</td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:12, whiteSpace:"nowrap"}}>{h.profile?.age || "—"}</td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{regionDisplay(h.profile) || "—"}</td>
                             <td style={{padding:"11px 14px", color:GR}}>{h.proj?.projectName||"—"}</td>
                             <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{h.step||"idea"}</td>
                             <td style={{padding:"11px 14px", minWidth:90}}>
@@ -5803,21 +5820,30 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                 <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>➕ {t.addCoord}</span>
               </div>
               <p style={{fontSize:"11px", color:GR, marginBottom:"10px"}}>
-                {lang==="ar"?"الصيغة: @NOMCOD (مثال: @KHALIDCOD)":lang==="fr"?"Format: @NOMCOD (ex: @KHALIDCOD)":"Format: @LASTNAMECOD (e.g. @KHALIDCOD)"}
+                {lang==="ar"?"أدخل اسم المنسق فقط — سيُنشأ رمز الدخول تلقائياً (مثال: \"younes\" ← @YOUNESCOD)":lang==="fr"?"Entrez juste le nom du coordinateur — le code d'accès est généré automatiquement (ex: \"younes\" → @YOUNESCOD)":"Enter just the coordinator's name — the access code is generated automatically (e.g. \"younes\" → @YOUNESCOD)"}
               </p>
               <div style={{display:"flex", gap:"8px"}}>
-                <input value={newCoord} onChange={e => setNewCoord(e.target.value.toUpperCase())}
-                  placeholder="@KHALIDCOD"
-                  style={{flex:1, padding:"11px 14px", borderRadius:"8px", border:`1px solid ${newCoord && RE_COORD.test(newCoord) ? Y : DV}`,
-                    fontSize:"13px", fontFamily:ff(lang), color:N, background:IF, fontWeight:"700", letterSpacing:"1px"}}/>
-                <button onClick={() => {if (RE_COORD.test(newCoord)) {onAddCoord(newCoord); setNewCoord("");}}}
-                  disabled={!RE_COORD.test(newCoord)}
+                <input value={newCoordName} onChange={e => setNewCoordName(e.target.value)}
+                  placeholder={lang==="ar"?"اسم المنسق":lang==="fr"?"Nom du coordinateur":"Coordinator name"}
+                  style={{flex:1, padding:"11px 14px", borderRadius:"8px", border:`1px solid ${newCoordName && newCoordValid ? Y : DV}`,
+                    fontSize:"13px", fontFamily:ff(lang), color:N, background:IF, direction:dir as "rtl"|"ltr"}}/>
+                <button onClick={() => {if (newCoordValid) {onAddCoord(newCoordCode); setNewCoordName("");}}}
+                  disabled={!newCoordValid}
                   style={{padding:"11px 20px", borderRadius:"8px", border:"none", cursor:"pointer",
                     background:ND, color:WH, fontSize:"13px",
-                    fontWeight:"700", fontFamily:ff(lang), opacity: RE_COORD.test(newCoord) ? 1 : .5}}>
+                    fontWeight:"700", fontFamily:ff(lang), opacity: newCoordValid ? 1 : .5}}>
                   {t.add}
                 </button>
               </div>
+              {newCoordName && (
+                <div style={{marginTop:"9px", fontSize:"12px", color: newCoordValid ? GN : RE, fontWeight:700}}>
+                  {newCoordCode
+                    ? (coords.includes(newCoordCode)
+                      ? (lang==="ar"?`⚠️ ${newCoordCode} مستخدم بالفعل`:lang==="fr"?`⚠️ ${newCoordCode} est déjà utilisé`:`⚠️ ${newCoordCode} is already in use`)
+                      : (lang==="ar"?`رمز الدخول: ${newCoordCode}`:lang==="fr"?`Code d'accès : ${newCoordCode}`:`Access code: ${newCoordCode}`))
+                    : (lang==="ar"?"⚠️ يجب أن يحتوي الاسم على حرفين على الأقل":lang==="fr"?"⚠️ Le nom doit contenir au moins 2 lettres":"⚠️ Name must contain at least 2 letters")}
+                </div>
+              )}
             </Card>
             <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
