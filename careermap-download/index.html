@@ -3086,7 +3086,7 @@ function Login({ lang, setLang, onLogin, advisors }) {
     if (role === "advisor") {
       var found = (advisors || []).find(function(a) { return a.code.toLowerCase() === v.toLowerCase(); });
       if (!found) { setErr(ar ? "كود غير صالح." : "Invalid code. Contact the admin."); return; }
-      onLogin({ name:found.name, id:v, role:"advisor" }); return;
+      onLogin({ name:found.name, id:v, role:"advisor", region:found.region||"", prefecture:found.prefecture||"" }); return;
     }
     if (role === "candidate") { onLogin({ name:"", id:v.toUpperCase(), role:"candidate" }); return; }
     setErr(ar ? "كود غير صالح." : "Invalid code. Please try again.");
@@ -4215,108 +4215,207 @@ function AdvisorNotes({ lang, ar }) {
 /* ─── ADVISOR DASHBOARD ──────────────────────────────────────────────────── */
 function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowReport }) {
   var ar = lang === "ar";
-  var [inp, setInp] = useState("");
-  var [err, setErr] = useState("");
+  var [tab, setTab]   = useState("overview");
+  var [search, setSrch] = useState("");
+  var [inp, setInp]   = useState("");
+  var [err, setErr]   = useState("");
   var [found, setFound] = useState(null);
-  var [rpt, setRpt] = useState(null);
+  var [rpt, setRpt]   = useState(null);
   var [indhRpt, setIndhRpt] = useState(null);
+
+  /* ── scope: filter candidates to advisor's region / prefecture ── */
+  var myCands = useMemo(function() {
+    if (!user.region) return cands;
+    return cands.filter(function(c) {
+      var r = (c.profile && c.profile.region) || "";
+      if (r !== user.region) return false;
+      if (user.prefecture) {
+        return ((c.profile && c.profile.prefecture) || "") === user.prefecture;
+      }
+      return true;
+    });
+  }, [cands, user.region, user.prefecture]);
+
+  var total     = myCands.length;
+  var completed = myCands.filter(function(c){ return c.scores && Object.keys(c.scores.h||{}).length>0 && avg(c.scores.s||{})>=45; }).length;
+  var femaleN   = myCands.filter(function(c){ var g=(c.profile&&c.profile.gender)||""; return g==="Female"||g==="Femme"; }).length;
+  var femalePct = total ? Math.round(femaleN/total*100) : 0;
+  var avgEmp    = total ? Math.round(myCands.reduce(function(a,c){ return a+avg(c.scores&&c.scores.s||{}); },0)/total) : 0;
+
+  var list = useMemo(function() {
+    var q = search.toLowerCase();
+    return myCands.filter(function(c){
+      return !q || c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q);
+    }).slice().sort(function(a,b){ return (b.savedAt||"")>(a.savedAt||"")?1:-1; });
+  }, [myCands, search]);
+
+  var scopeLabel = user.region
+    ? (user.prefecture ? user.prefecture + " · " + user.region : user.region)
+    : (lang==="fr"?"Toutes régions":"All regions");
 
   function doEnroll() {
     var v = inp.trim().toUpperCase();
     if (!v) { setErr("Veuillez entrer un code."); return; }
-    var i = cands.findIndex(function(c){
-      return (c.code||"").toUpperCase()===v || c.id.toUpperCase()===v;
-    });
+    var i = cands.findIndex(function(c){ return (c.code||"").toUpperCase()===v||c.id.toUpperCase()===v; });
     if (i < 0) { setFound(null); setErr("Code introuvable."); return; }
     setErr(""); setFound(cands[i]);
   }
 
-  function openRep(role) {
-    if (!found) return;
-    try {
-      var p  = found.profile||{name:found.name,id:found.id,age:"-",gender:"-",edu:"-",region:"-"};
-      var sc = found.scores||{h:{},b:{},s:{}};
-      setRpt({profile:p, scores:sc, role:role});
-    } catch(e){ alert("Erreur: "+e.message); }
+  function openRep(c, role) {
+    var p = c.profile||{name:c.name,id:c.id,age:"-",gender:"-",edu:"-",region:"-"};
+    setRpt({profile:p, scores:c.scores||{h:{},b:{},s:{}}, role:role});
   }
 
+  var TABS = [
+    {id:"overview", label:lang==="fr"?"Vue d'ensemble":"Overview"},
+    {id:"search",   label:lang==="fr"?"Recherche":"Search"},
+  ];
+
+  var kpis = [
+    {label:lang==="fr"?"Bénéficiaires":"Candidates",    v:total,          c:AD_P.teal},
+    {label:lang==="fr"?"Bilans complets":"Completed",   v:completed,      c:AD_P.green},
+    {label:lang==="fr"?"Participation F.":"Female %",   v:femalePct+"%",  c:AD_P.purple},
+    {label:lang==="fr"?"Moy. Emploi":"Avg. Employ.",    v:avgEmp+"%",     c:AD_P.gold},
+  ];
+
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:C.bg }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:AD_P.bg, fontFamily:"Archivo,Arial,sans-serif" }}>
       <TopBar lang={lang} setLang={setLang} user={user} onLogout={onLogout}/>
-      <div style={{ flex:1, overflowY:"auto", padding:"20px 16px" }}>
-        <div style={{ width:"100%", maxWidth:500, margin:"0 auto" }}>
-          <div style={{ textAlign:"center", marginBottom:28 }}>
-            <div style={{ fontSize:36, marginBottom:8 }}>&#x1F454;</div>
-            <h2 className="sy" style={{ fontSize:20, fontWeight:900, color:C.wh, marginBottom:4 }}>
-              {lang==="fr"?"Espace Conseiller":"Advisor Portal"}
-            </h2>
-            <p style={{ fontSize:12, color:C.mu }}>{user.name}</p>
-          </div>
-          <div style={{ background:C.card, borderRadius:16, padding:"22px 20px",
-              border:"1px solid "+C.bdr, marginBottom:14 }}>
-            <p style={{ fontSize:12, color:C.mu, marginBottom:12 }}>
-              {lang==="fr"?"Collez le code du candidat :":"Paste the candidate result code:"}
-            </p>
-            <div style={{ display:"flex", gap:8 }}>
-              <input value={inp}
-                onChange={function(e){setInp(e.target.value);setErr("");setFound(null);}}
-                onKeyDown={function(e){if(e.key==="Enter")doEnroll();}}
-                placeholder="RPT-AB12"
-                style={{ flex:1, padding:"12px 14px", background:"rgba(255,255,255,.06)",
-                  border:"1.5px solid "+(err?C.re:C.bdr), borderRadius:10,
-                  color:C.wh, fontSize:14, letterSpacing:2, fontFamily:"monospace" }}/>
-              <button onClick={doEnroll}
-                style={{ padding:"12px 22px", background:"linear-gradient(135deg,"+C.pu+","+C.pu+"cc)",
-                  color:"#fff", border:"none", borderRadius:10,
-                  fontFamily:"inherit", fontSize:13, fontWeight:800, cursor:"pointer" }}>
-                {lang==="fr"?"Inscrire":"Enroll"}
+
+      {/* ── header ── */}
+      <div style={{ background:"linear-gradient(135deg,#0d1e38,#071228)", borderBottom:"1px solid "+AD_P.border, padding:"14px 18px 0", flexShrink:0 }}>
+        <div style={{ marginBottom:4 }}>
+          <div style={{ fontSize:9, fontWeight:900, color:AD_P.teal, letterSpacing:"2px", textTransform:"uppercase" }}>Espace Conseiller</div>
+          <div style={{ fontSize:16, fontWeight:900, color:AD_P.bright }}>{user.name}</div>
+          <div style={{ fontSize:10, color:AD_P.muted, marginTop:2 }}>{"Zone : "+scopeLabel}</div>
+        </div>
+        <div style={{ display:"flex", gap:0, marginTop:12 }}>
+          {TABS.map(function(t){
+            var active = tab===t.id;
+            return (
+              <button key={t.id} onClick={function(){setTab(t.id);}}
+                style={{ padding:"8px 16px", fontSize:11, fontWeight:700, cursor:"pointer", border:"none", borderBottom:active?"2px solid "+AD_P.teal:"2px solid transparent",
+                  background:"transparent", color:active?AD_P.teal:AD_P.muted, transition:"all .2s" }}>
+                {t.label}
               </button>
-            </div>
-            {err&&<p style={{ color:C.re, fontSize:11, marginTop:8 }}>{err}</p>}
-          </div>
-          {found&&(
-            <div style={{ background:C.card, borderRadius:16, padding:"20px",
-                border:"1.5px solid "+C.teal+"55" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12,
-                  marginBottom:16, paddingBottom:14, borderBottom:"1px solid "+C.bdr }}>
-                <div style={{ width:42, height:42, borderRadius:10, background:C.teal+"22",
-                    border:"1px solid "+C.teal+"44", display:"flex", alignItems:"center",
-                    justifyContent:"center", fontSize:22, flexShrink:0 }}>&#x1F393;</div>
-                <div>
-                  <div style={{ fontWeight:900, fontSize:15, color:C.wh }}>{found.name}</div>
-                  <div style={{ fontSize:10, color:C.mu, fontFamily:"monospace" }}>{found.id}</div>
-                </div>
-              </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                <button onClick={function(){openRep("candidate");}}
-                  style={{ padding:"16px 8px", textAlign:"center",
-                    background:"linear-gradient(135deg,#0369a1,#0284c7)",
-                    color:"#fff", border:"none", borderRadius:12,
-                    fontFamily:"inherit", fontSize:12, fontWeight:800,
-                    cursor:"pointer", lineHeight:1.6 }}>
-                  &#x1F393;<br/>{lang==="fr"?"Rapport Candidat":"Candidate Report"}
-                </button>
-                <button onClick={function(){openRep("advisor");}}
-                  style={{ padding:"16px 8px", textAlign:"center",
-                    background:"linear-gradient(135deg,#dc2626,#b91c1c)",
-                    color:"#fff", border:"none", borderRadius:12,
-                    fontFamily:"inherit", fontSize:12, fontWeight:800,
-                    cursor:"pointer", lineHeight:1.6 }}>
-                  &#x1F512;<br/>{lang==="fr"?"Rapport Conseiller":"Advisor Report"}
-                </button>
-              </div>
-              <button onClick={function(){setIndhRpt(found);}}
-                style={{ marginTop:10, width:"100%", padding:"14px 8px", textAlign:"center",
-                  background:"linear-gradient(135deg,#92400e,#d97706)",
-                  color:"#fff", border:"none", borderRadius:12,
-                  fontFamily:"inherit", fontSize:12, fontWeight:800,
-                  cursor:"pointer", lineHeight:1.6 }}>
-                &#x1F3DB;<br/>{lang==="fr"?"Rapport Orientation INDH":"INDH Orientation Report"}
-              </button>
-            </div>
-          )}
+            );
+          })}
         </div>
       </div>
+
+      <div style={{ flex:1, overflowY:"auto", padding:"16px" }}>
+
+        {/* ── OVERVIEW TAB ── */}
+        {tab==="overview"&&(
+          <div style={{ display:"flex", flexDirection:"column", gap:14, maxWidth:640, margin:"0 auto" }}>
+
+            {/* KPI row */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:10 }}>
+              {kpis.map(function(k){
+                return (
+                  <div key={k.label} style={{ background:AD_P.card, border:"1px solid "+AD_P.border, borderTop:"3px solid "+k.c, borderRadius:12, padding:"14px 16px" }}>
+                    <div style={{ fontSize:10, color:AD_P.muted3, fontWeight:700, letterSpacing:"1px", textTransform:"uppercase", marginBottom:6 }}>{k.label}</div>
+                    <div style={{ fontSize:26, fontWeight:800, color:AD_P.bright }}>{k.v}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* candidate list */}
+            <div style={{ background:AD_P.card, border:"1px solid "+AD_P.border, borderRadius:14, padding:"16px 18px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:AD_P.muted3, textTransform:"uppercase", letterSpacing:"1px" }}>
+                  {lang==="fr"?"Candidats":"Candidates"} ({total})
+                </div>
+                <input value={search} onChange={function(e){setSrch(e.target.value);}}
+                  placeholder={lang==="fr"?"Rechercher…":"Search…"}
+                  style={{ padding:"6px 10px", background:AD_P.deep, border:"1px solid "+AD_P.border, borderRadius:8, color:AD_P.body, fontSize:11, outline:"none", width:140 }}/>
+              </div>
+              {list.length===0&&(
+                <div style={{ textAlign:"center", color:AD_P.muted, fontSize:12, padding:"20px 0" }}>
+                  {lang==="fr"?"Aucun candidat dans votre zone.":"No candidates in your area."}
+                </div>
+              )}
+              {list.map(function(c,i){
+                var ht = ranked(c.scores&&c.scores.h||{});
+                var emp = avg(c.scores&&c.scores.s||{});
+                var empCol = emp>=65?AD_P.green:emp>=45?AD_P.gold:AD_P.red;
+                var hcol = AD_HCOLS[ht[0]]||AD_P.muted;
+                var init = (c.name||"?").trim().split(/\s+/).map(function(w){return w[0]||"";}).join("").slice(0,2).toUpperCase();
+                return (
+                  <div key={c.id||i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:i<list.length-1?"1px solid "+AD_P.border:"none" }}>
+                    <div style={{ width:36, height:36, borderRadius:10, background:hcol+"22", border:"1px solid "+hcol+"44", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:900, color:hcol, flexShrink:0 }}>{init}</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontWeight:700, fontSize:12, color:AD_P.bright, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.name}</div>
+                      <div style={{ fontSize:10, color:AD_P.muted, fontFamily:"monospace" }}>{c.id}{ht[0]&&" · "+ht[0]+(ht[1]?ht[1]:"")}</div>
+                    </div>
+                    {emp>0&&<span style={{ fontSize:10, fontWeight:700, color:empCol }}>{emp+"%"}</span>}
+                    <div style={{ display:"flex", gap:5, flexShrink:0 }}>
+                      <button onClick={function(){openRep(c,"candidate");}}
+                        style={{ padding:"5px 9px", fontSize:9, fontWeight:700, borderRadius:7, border:"none", cursor:"pointer", background:"rgba(3,105,161,.3)", color:"#7dd3fc" }}>
+                        {lang==="fr"?"Rpt":"Rpt"}
+                      </button>
+                      <button onClick={function(){setIndhRpt(c);}}
+                        style={{ padding:"5px 9px", fontSize:9, fontWeight:700, borderRadius:7, border:"none", cursor:"pointer", background:"rgba(146,64,14,.3)", color:"#fbbf24" }}>
+                        INDH
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── SEARCH TAB ── */}
+        {tab==="search"&&(
+          <div style={{ maxWidth:500, margin:"0 auto" }}>
+            <div style={{ background:AD_P.card, border:"1px solid "+AD_P.border, borderRadius:14, padding:"20px", marginBottom:14 }}>
+              <div style={{ fontSize:11, color:AD_P.muted, marginBottom:12 }}>
+                {lang==="fr"?"Entrez le code du candidat :":"Enter the candidate code:"}
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <input value={inp}
+                  onChange={function(e){setInp(e.target.value);setErr("");setFound(null);}}
+                  onKeyDown={function(e){if(e.key==="Enter")doEnroll();}}
+                  placeholder="RPT-AB12"
+                  style={{ flex:1, padding:"11px 13px", background:AD_P.deep, border:"1.5px solid "+(err?AD_P.red:AD_P.border), borderRadius:10, color:AD_P.bright, fontSize:13, letterSpacing:2, fontFamily:"monospace", outline:"none" }}/>
+                <button onClick={doEnroll}
+                  style={{ padding:"11px 20px", background:"linear-gradient(135deg,"+AD_P.purple+",#6d28d9)", color:"#fff", border:"none", borderRadius:10, fontFamily:"inherit", fontSize:12, fontWeight:800, cursor:"pointer" }}>
+                  {lang==="fr"?"Chercher":"Find"}
+                </button>
+              </div>
+              {err&&<p style={{ color:AD_P.red, fontSize:11, marginTop:8 }}>{err}</p>}
+            </div>
+            {found&&(
+              <div style={{ background:AD_P.card, border:"1.5px solid "+AD_P.teal+"55", borderRadius:14, padding:"18px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, paddingBottom:14, borderBottom:"1px solid "+AD_P.border }}>
+                  <div style={{ width:42, height:42, borderRadius:10, background:AD_P.teal+"22", border:"1px solid "+AD_P.teal+"44", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>&#x1F393;</div>
+                  <div>
+                    <div style={{ fontWeight:900, fontSize:14, color:AD_P.bright }}>{found.name}</div>
+                    <div style={{ fontSize:10, color:AD_P.muted, fontFamily:"monospace" }}>{found.id}</div>
+                  </div>
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                  <button onClick={function(){openRep(found,"candidate");}}
+                    style={{ padding:"14px 8px", textAlign:"center", background:"linear-gradient(135deg,#0369a1,#0284c7)", color:"#fff", border:"none", borderRadius:12, fontFamily:"inherit", fontSize:11, fontWeight:800, cursor:"pointer", lineHeight:1.6 }}>
+                    &#x1F393;<br/>{lang==="fr"?"Rapport Candidat":"Candidate Report"}
+                  </button>
+                  <button onClick={function(){openRep(found,"advisor");}}
+                    style={{ padding:"14px 8px", textAlign:"center", background:"linear-gradient(135deg,#dc2626,#b91c1c)", color:"#fff", border:"none", borderRadius:12, fontFamily:"inherit", fontSize:11, fontWeight:800, cursor:"pointer", lineHeight:1.6 }}>
+                    &#x1F512;<br/>{lang==="fr"?"Rapport Conseiller":"Advisor Report"}
+                  </button>
+                </div>
+                <button onClick={function(){setIndhRpt(found);}}
+                  style={{ marginTop:10, width:"100%", padding:"12px 8px", textAlign:"center", background:"linear-gradient(135deg,#92400e,#d97706)", color:"#fff", border:"none", borderRadius:12, fontFamily:"inherit", fontSize:11, fontWeight:800, cursor:"pointer", lineHeight:1.6 }}>
+                  &#x1F3DB;<br/>{lang==="fr"?"Rapport Orientation INDH":"INDH Orientation Report"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {rpt&&<ReportViewer profile={rpt.profile} scores={rpt.scores} role={rpt.role} onClose={function(){setRpt(null);}}/>}
       {indhRpt&&<INDHViewer c={indhRpt} onClose={function(){setIndhRpt(null);}}/>}
     </div>
@@ -4667,6 +4766,8 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   var [sortCol, setSortCol]     = useState("savedAt");
   var [sortDir, setSortDir]     = useState("desc");
   var [newName, setNewName]     = useState("");
+  var [newRegion, setNewRegion] = useState("");
+  var [newPref, setNewPref]     = useState("");
   var [copied, setCopied]       = useState(null);
   var [localReport, setLocalReport] = useState(null);
   var [detailCand, setDetailCand]   = useState(null);
@@ -4706,8 +4807,8 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   }
   function createAdvisor() {
     if (!newName.trim()) return;
-    onAddAdvisor({ name:newName.trim(), code:genCode(newName), createdAt:new Date().toLocaleDateString() });
-    setNewName("");
+    onAddAdvisor({ name:newName.trim(), code:genCode(newName), region:newRegion, prefecture:newRegion==="Casablanca-Settat"?newPref:"", createdAt:new Date().toLocaleDateString() });
+    setNewName(""); setNewRegion(""); setNewPref("");
   }
   function downloadReport(c, role) {
     var p=c.profile||{name:c.name,id:c.id,age:"-",gender:"-",edu:"-",region:"-"};
@@ -5270,8 +5371,22 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
               onKeyDown={function(e){if(e.key==="Enter")createAdvisor();}}
               placeholder="Nom complet du conseiller…"
               style={{flex:1,padding:'10px 13px',background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,color:AD_P.bright,fontSize:12,outline:'none'}}/>
-            <button onClick={createAdvisor} disabled={!newName.trim()}
-              style={{padding:'10px 18px',background:newName.trim()?"linear-gradient(135deg,#7c3aed,#6d28d9)":"rgba(255,255,255,.05)",color:newName.trim()?"#fff":"rgba(255,255,255,.3)",border:'none',borderRadius:10,fontSize:12,fontWeight:800,cursor:newName.trim()?'pointer':'default'}}>
+          </div>
+          <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+            <select value={newRegion} onChange={function(e){setNewRegion(e.target.value);setNewPref("");}}
+              style={{flex:1,minWidth:160,padding:'9px 10px',background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,color:newRegion?AD_P.bright:AD_P.muted,fontSize:12,outline:'none'}}>
+              <option value="">— Région —</option>
+              {MOROCCO_REGIONS.map(function(r){return React.createElement('option',{key:r,value:r},r);})}
+            </select>
+            {newRegion==="Casablanca-Settat"&&(
+              <select value={newPref} onChange={function(e){setNewPref(e.target.value);}}
+                style={{flex:1,minWidth:160,padding:'9px 10px',background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,color:newPref?AD_P.bright:AD_P.muted,fontSize:12,outline:'none'}}>
+                <option value="">— Arrondissement —</option>
+                {CASA_OPTIONS.map(function(p){return React.createElement('option',{key:p,value:p},p);})}
+              </select>
+            )}
+            <button onClick={createAdvisor} disabled={!newName.trim()||!newRegion}
+              style={{padding:'9px 18px',background:(newName.trim()&&newRegion)?"linear-gradient(135deg,#7c3aed,#6d28d9)":"rgba(255,255,255,.05)",color:(newName.trim()&&newRegion)?"#fff":"rgba(255,255,255,.3)",border:'none',borderRadius:10,fontSize:12,fontWeight:800,cursor:(newName.trim()&&newRegion)?'pointer':'default'}}>
               Créer
             </button>
           </div>
@@ -5287,8 +5402,9 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
                   <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(135deg,rgba(124,58,237,.3),rgba(109,40,217,.2))',border:'1.5px solid rgba(124,58,237,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:900,color:'#a78bfa',flexShrink:0}}>{init}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:800,fontSize:13,color:AD_P.bright}}>{a.name}</div>
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3,flexWrap:'wrap'}}>
                       <code style={{fontSize:11,color:'#8b5cf6',fontWeight:700}}>{a.code}</code>
+                      {a.region&&<span style={{fontSize:9,color:AD_P.teal,fontWeight:600}}>{a.prefecture?a.prefecture+" · "+a.region:a.region}</span>}
                       {a.createdAt&&<span style={{fontSize:9,color:AD_P.muted3}}>{a.createdAt}</span>}
                     </div>
                   </div>
