@@ -86,6 +86,16 @@ const ADMIN_CODE = "@mapadmin";
 const RE_HOLDER  = /^[A-Z]{2}\d{3,}$/;
 const RE_COORD   = /^@[A-Za-z]{2,}COD$/i;
 
+// Coordinator entries are stored as {code, name, region, arrondissement, createdAt}.
+// Older records (or the very first save this session) may still be a bare code
+// string — these helpers normalize either shape so the rest of the app never has
+// to branch on it.
+type Coord = {code: string; name: string; region: string; arrondissement: string; createdAt: number | null};
+const normalizeCoord = (c: any): Coord =>
+  typeof c === "string"
+    ? {code: c, name: c.replace(/^@/, "").replace(/COD$/i, ""), region: "", arrondissement: "", createdAt: null}
+    : {code: c.code, name: c.name || c.code.replace(/^@/, "").replace(/COD$/i, ""), region: c.region || "", arrondissement: c.arrondissement || "", createdAt: c.createdAt ?? null};
+
 // Runs async tasks with at most `limit` in flight at once, preserving each task's
 // result at its original index. Used to cap how many AI calls one user's action fires
 // simultaneously — each call already races ~10 providers server-side, so an unbounded
@@ -1128,7 +1138,7 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, se
 ════════════════════════════════════════════════════════ */
 function Login({lang, setLang, t, onLogin, holders, coords}: {
   lang: string; setLang: (l: string) => void; t: any;
-  onLogin: (u: any) => void; holders: any[]; coords: string[];
+  onLogin: (u: any) => void; holders: any[]; coords: Coord[];
 }) {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
@@ -1158,8 +1168,10 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     const normalised = cleanVal.toUpperCase();
     const role = detectRole(normalised);
     if (role === "coord") {
-      if (!coords.includes(normalised)) { setErr(true); return; }
-      onLogin({id:normalised, name:normalised.replace("@","").replace(/COD$/i,""), role:"coord"}); return;
+      const match = coords.find(c => (typeof c === "string" ? c : c.code).toUpperCase() === normalised);
+      if (!match) { setErr(true); return; }
+      const name = typeof match === "string" ? normalised.replace("@","").replace(/COD$/i,"") : (match.name || normalised.replace("@","").replace(/COD$/i,""));
+      onLogin({id:normalised, name, role:"coord"}); return;
     }
     if (role === "holder") {
       const existing = holders.find((h:any) => h.id === normalised);
@@ -5431,19 +5443,30 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError}: {
 /* ════════════════════════════════════════════════════════
    ADMIN DASHBOARD
 ════════════════════════════════════════════════════════ */
-function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoord, onDelCoord, syncError}: {
+function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoord, onDelCoord, onEditCoord, onDelHolder, syncError}: {
   lang: string; setLang: (l: string) => void; user: any;
-  onLogout: () => void; t: any; holders: any[]; coords: string[];
-  onAddCoord: (c: string) => void; onDelCoord: (i: number) => void; syncError?: boolean;
+  onLogout: () => void; t: any; holders: any[]; coords: Coord[];
+  onAddCoord: (c: Coord) => void; onDelCoord: (i: number) => void;
+  onEditCoord: (i: number, patch: Partial<Coord>) => void; onDelHolder: (id: string) => void;
+  syncError?: boolean;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("overview");
   const [newCoordName, setNewCoordName] = useState("");
+  const [newCoordRegion, setNewCoordRegion] = useState("");
+  const [newCoordArr, setNewCoordArr]       = useState("");
+  const [coordEditIdx, setCoordEditIdx]     = useState<number | null>(null);
+  const [coordDelConfirm, setCoordDelConfirm] = useState<number | null>(null);
+  const [copiedCode, setCopiedCode]         = useState("");
   const [search, setSearch]     = useState("");
   const [filterRegion, setFilterRegion] = useState("");
   const [filterSector, setFilterSector] = useState("");
   const [filterStep, setFilterStep]     = useState("");
+  const [filterGender, setFilterGender] = useState("");
+  const [sortKey, setSortKey]   = useState<"name"|"date"|"score">("date");
+  const [sortDir, setSortDir]   = useState<"asc"|"desc">("desc");
   const [detailH, setDetailH]   = useState<any>(null);
+  const [delConfirmId, setDelConfirmId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -5454,11 +5477,13 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   }, [sidebarOpen]);
 
   const ADMIN_NAV = [
-    {id:"overview",  label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
-    {id:"projects",  label: lang==="ar"?"المشاريع":lang==="fr"?"Projets":"Projects"},
-    {id:"coords",    label: lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"},
-    {id:"activity",  label: lang==="ar"?"النشاط":lang==="fr"?"Activité":"Activity"},
-    {id:"settings",  label: lang==="ar"?"الإعدادات":lang==="fr"?"Paramètres":"Settings"},
+    {id:"overview",     label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
+    {id:"demographics", label: lang==="ar"?"الديموغرافيا":lang==="fr"?"Démographie":"Demographics"},
+    {id:"scores",       label: lang==="ar"?"النقاط والمطابقة":lang==="fr"?"Scores & Conformité":"Scores & Compliance"},
+    {id:"projects",     label: lang==="ar"?"المشاريع":lang==="fr"?"Projets":"Projects"},
+    {id:"coords",       label: lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"},
+    {id:"activity",     label: lang==="ar"?"النشاط":lang==="fr"?"Activité":"Activity"},
+    {id:"settings",     label: lang==="ar"?"الإعدادات":lang==="fr"?"Paramètres":"Settings"},
   ];
 
   const STEPS_LIST = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
@@ -5473,7 +5498,21 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
     return letters ? `@${letters}COD` : "";
   };
   const newCoordCode = coordCodeFrom(newCoordName);
-  const newCoordValid = RE_COORD.test(newCoordCode) && !coords.includes(newCoordCode);
+  const newCoordValid = RE_COORD.test(newCoordCode) && !coords.some(c => c.code.toUpperCase() === newCoordCode.toUpperCase());
+  const newCoordShowArr = newCoordRegion === "Casablanca-Settat";
+
+  // Normalizes a raw stored value against a lang-keyed options record (GENDERS,
+  // EDU, OCCUPATION) so holders who registered in different languages still
+  // bucket together — finds which index the value matches in ANY language array,
+  // then returns that index label in the currently-displayed language.
+  const normOpt = (value: string, options: Record<string, string[]>): string => {
+    if (!value) return "";
+    for (const arr of Object.values(options)) {
+      const idx = arr.indexOf(value);
+      if (idx >= 0) return options[lang]?.[idx] || value;
+    }
+    return value;
+  };
 
   const filtered = holders.filter(h => {
     const q = search.toLowerCase();
@@ -5481,7 +5520,14 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
     const matchRegion = !filterRegion || h.profile?.region === filterRegion;
     const matchSector = !filterSector || (h.proj?.sector || h.profile?.sector) === filterSector;
     const matchStep   = !filterStep   || (h.step || "idea") === filterStep;
-    return matchSearch && matchRegion && matchSector && matchStep;
+    const matchGender = !filterGender || normOpt(h.profile?.gender, GENDERS) === filterGender;
+    return matchSearch && matchRegion && matchSector && matchStep && matchGender;
+  }).sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === "name") cmp = (a.name||"").localeCompare(b.name||"");
+    else if (sortKey === "score") cmp = (a.comp?.score||0) - (b.comp?.score||0);
+    else cmp = (a.createdAt||0) - (b.createdAt||0);
+    return sortDir === "asc" ? cmp : -cmp;
   });
 
   const byRegion = holders.reduce((a: Record<string, number>, h: any) => {
@@ -5800,6 +5846,60 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                 {Object.keys(bySector).length === 0 && <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p>}
               </Card>
             </div>
+            {holders.length > 0 && (() => {
+              const STEP_ORDER = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
+              const stepIdx = (h: any) => STEP_ORDER.indexOf(h.step || "idea");
+              const funnel = [
+                {label: lang==="ar"?"مسجلون":lang==="fr"?"Inscrits":"Registered", n: holders.length},
+                {label: lang==="ar"?"فكرة مقدَّمة":lang==="fr"?"Idée soumise":"Idea submitted", n: holders.filter(h => stepIdx(h) >= STEP_ORDER.indexOf("profile")).length},
+                {label: lang==="ar"?"خطة منجزة":lang==="fr"?"Plan généré":"Plan generated", n: holders.filter(h => h.plan).length},
+                {label: lang==="ar"?"ميزانية جاهزة":lang==="fr"?"Budget prêt":"Budget ready", n: holders.filter(h => h.budget).length},
+                {label: lang==="ar"?"دوسييه كامل":lang==="fr"?"Dossier complet":"Complete dossier", n: holders.filter(h => h.step === "export" || h.comp?.eligible).length},
+              ];
+              const AXES = [
+                {key: lang==="ar"?"المحور 1 — التنمية القروية":lang==="fr"?"Axe 1 — Développement rural":"Axis 1 — Rural development", test: (p: string) => /rural|agricole|agriculture|élevage|terroir|irrigation|piste/i.test(p)},
+                {key: lang==="ar"?"المحور 2 — الحد من التفاوتات":lang==="fr"?"Axe 2 — Réduction des inégalités territoriales":"Axis 2 — Territorial inequality", test: (p: string) => /inégalité|périurbain|quartier|proximité|territoria/i.test(p)},
+                {key: lang==="ar"?"المحور 3 — الكرامة الإنسانية":lang==="fr"?"Axe 3 — Dignité humaine":"Axis 3 — Human dignity", test: (p: string) => /dignité|précaire|vulnérable|handicap|âgée/i.test(p)},
+                {key: lang==="ar"?"المحور 4 — برامج أفقية":lang==="fr"?"Axe 4 — Programmes transversaux":"Axis 4 — Transversal programs", test: (p: string) => /jeunesse|formation|entrepreneuriat|numérique|revenu|inclusion|économique/i.test(p)},
+              ];
+              const byAxis: Record<string, number> = {};
+              let uncategorized = 0;
+              holders.forEach(h => {
+                const pillar = h.comp?.pillar || h.proj?.pillar || "";
+                if (!pillar) return;
+                const match = AXES.find(a => a.test(pillar));
+                if (match) byAxis[match.key] = (byAxis[match.key]||0) + 1;
+                else uncategorized++;
+              });
+              if (uncategorized > 0) byAxis[lang==="ar"?"غير مصنف":lang==="fr"?"Non catégorisé":"Uncategorized"] = uncategorized;
+              const AXIS_COLS = [ND,Y,"#8B5CF6","#EC4899","#94A3B8"];
+              return (
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                        🔻 {lang==="ar"?"قمع الإنجاز":lang==="fr"?"Entonnoir de complétion":"Completion funnel"}
+                      </span>
+                    </div>
+                    {funnel.map((f,i) => (
+                      <BarRow key={f.label} label={f.label} n={f.n} total={holders.length}
+                        col={[ND,Y,"#8B5CF6","#EC4899","#22C55E"][i]}/>
+                    ))}
+                  </Card>
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                        🏛️ {lang==="ar"?"محاور المبادرة الوطنية":lang==="fr"?"Axes INDH Phase 3":"INDH Phase 3 axes"}
+                      </span>
+                    </div>
+                    {Object.keys(byAxis).length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p> :
+                      Object.entries(byAxis).sort((a,b) => (b[1] as number)-(a[1] as number)).map(([k,n],i) => (
+                        <BarRow key={k} label={k} n={n as number} total={holders.length} col={AXIS_COLS[i%AXIS_COLS.length]}/>
+                      ))}
+                  </Card>
+                </div>
+              );
+            })()}
             {holders.length === 0 && (
               <Card style={{textAlign:"center", padding:"40px 24px"}}>
                 <svg viewBox="0 0 200 140" style={{width:180, height:126, margin:"0 auto 18px", display:"block"}}>
@@ -5864,6 +5964,170 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
             </Card>}
           </>)}
 
+          {/* ── Demographics ── */}
+          {tab === "demographics" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"الديموغرافيا":lang==="fr"?"Démographie":"Demographics"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {lang==="ar"?"توزيع الحاملين حسب الملف الشخصي":lang==="fr"?"Répartition des porteurs par profil":"Holder breakdown by profile"}
+            </p>
+            {(() => {
+              const byAge = holders.reduce((a: Record<string, number>, h: any) => {
+                const v = h.profile?.age; if (!v) return a; a[v] = (a[v]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const byGender = holders.reduce((a: Record<string, number>, h: any) => {
+                const v = normOpt(h.profile?.gender, GENDERS); if (!v) return a; a[v] = (a[v]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const byEdu = holders.reduce((a: Record<string, number>, h: any) => {
+                const v = normOpt(h.profile?.edu, EDU); if (!v) return a; a[v] = (a[v]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const byOcc = holders.reduce((a: Record<string, number>, h: any) => {
+                const v = normOpt(h.profile?.occupation, OCCUPATION); if (!v) return a; a[v] = (a[v]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const byRegionFull = holders.reduce((a: Record<string, number>, h: any) => {
+                const r = h.profile?.region || "N/A"; a[r] = (a[r]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const COLS = [ND,Y,"#22C55E","#8B5CF6","#EC4899","#14B8A6","#F59E0B"];
+              const panel = (title: string, icon: string, data: Record<string, number>, order?: string[]) => {
+                const entries = order
+                  ? order.filter(k => data[k]).map(k => [k, data[k]] as [string, number])
+                  : Object.entries(data).sort((a,b) => (b[1] as number) - (a[1] as number));
+                return (
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>{icon} {title}</span>
+                    </div>
+                    {entries.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p> :
+                      entries.map(([k,n],i) => (
+                        <BarRow key={k} label={k} n={n as number} total={holders.length} col={COLS[i%COLS.length]}/>
+                      ))}
+                  </Card>
+                );
+              };
+              return (<>
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
+                  {panel(lang==="ar"?"حسب الجهة":lang==="fr"?"Par région":"By region", "📍", byRegionFull)}
+                  {panel(lang==="ar"?"حسب الفئة العمرية":lang==="fr"?"Par tranche d'âge":"By age bracket", "🎂", byAge, AGES)}
+                </div>
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
+                  {panel(lang==="ar"?"حسب الجنس":lang==="fr"?"Par genre":"By gender", "🧑‍🤝‍🧑", byGender, GENDERS[lang])}
+                  {panel(lang==="ar"?"حسب المستوى الدراسي":lang==="fr"?"Par niveau d'études":"By education level", "🎓", byEdu, EDU[lang])}
+                </div>
+                <div style={{display:"grid", gridTemplateColumns:"1fr", gap:14, marginBottom:14}}>
+                  {panel(lang==="ar"?"حسب الوضعية المهنية":lang==="fr"?"Par situation professionnelle":"By professional situation", "💼", byOcc, OCCUPATION[lang])}
+                </div>
+              </>);
+            })()}
+          </>)}
+
+          {/* ── Scores & Compliance ── */}
+          {tab === "scores" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"النقاط والمطابقة":lang==="fr"?"Scores & Conformité":"Scores & Compliance"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {lang==="ar"?"تقييم لجنة المبادرة الوطنية للتنمية البشرية":lang==="fr"?"Évaluation du jury INDH":"INDH jury evaluation"}
+            </p>
+            {(() => {
+              const scored = holders.filter(h => h.comp?.score != null);
+              const eligCount = holders.filter(h => h.comp?.eligible).length;
+              const notEligCount = scored.length - eligCount;
+              const buckets = [
+                {label:"0–39", min:0, max:39, col:RE},
+                {label:"40–59", min:40, max:59, col:"#D97706"},
+                {label:"60–79", min:60, max:79, col:Y},
+                {label:"80–100", min:80, max:100, col:GN},
+              ].map(b => ({...b, n: scored.filter(h => h.comp.score >= b.min && h.comp.score <= b.max).length}));
+              const avgByJury = JURY.map(j => {
+                const vals = scored.filter(h => h.comp?.juryScore?.[j.key] != null).map(h => h.comp.juryScore[j.key]);
+                const avg = vals.length ? vals.reduce((a: number,b: number) => a+b, 0) / vals.length : 0;
+                return {...j, avg};
+              });
+              const top5 = scored.slice().sort((a,b) => (b.comp.score||0) - (a.comp.score||0)).slice(0,5);
+              return (<>
+                <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:14, marginBottom:20}}>
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"دوسييهات مقيّمة":lang==="fr"?"Dossiers évalués":"Evaluated dossiers"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{scored.length}</div>
+                  </div>
+                  <div style={{background:eligCount>0?"#EAF3EF":WH, border:`1px solid ${eligCount>0?GN+"44":CD}`, borderRadius:12, padding:"18px 20px"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"مؤهلون":lang==="fr"?"Éligibles":"Eligible"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:eligCount>0?GN:ND}}>{eligCount}</div>
+                  </div>
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"غير مؤهلين":lang==="fr"?"Non éligibles":"Not eligible"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:notEligCount>0?RE:ND}}>{notEligCount}</div>
+                  </div>
+                </div>
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                        📊 {lang==="ar"?"متوسط نقاط اللجنة حسب المعيار":lang==="fr"?"Score moyen par critère jury":"Average score per jury criterion"}
+                      </span>
+                    </div>
+                    {scored.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p> :
+                      avgByJury.map(j => {
+                        const p = (j.avg / j.w) * 100;
+                        const col = p >= 70 ? GN : p >= 50 ? "#D97706" : RE;
+                        return (
+                          <div key={j.key} style={{marginBottom:"10px"}}>
+                            <div style={{display:"flex", justifyContent:"space-between", marginBottom:"3px"}}>
+                              <span style={{fontSize:"11px", color:N, fontWeight:"500"}}>{j.label}</span>
+                              <span style={{fontSize:"11px", fontWeight:"700", color:ND}}>{j.avg.toFixed(1)}/{j.w}</span>
+                            </div>
+                            <div style={{height:"6px", background:CD, borderRadius:"3px", overflow:"hidden"}}>
+                              <div style={{height:"100%", borderRadius:"3px", background:col, width:`${Math.min(p,100)}%`, transition:"width .5s"}}/>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </Card>
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                        📈 {lang==="ar"?"توزيع النقاط":lang==="fr"?"Distribution des scores":"Score distribution"}
+                      </span>
+                    </div>
+                    {scored.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p> :
+                      buckets.map(b => (
+                        <BarRow key={b.label} label={`${b.label} pts`} n={b.n} total={scored.length} col={b.col}/>
+                      ))}
+                  </Card>
+                </div>
+                {top5.length > 0 && <Card>
+                  <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                    <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                      🏆 {lang==="ar"?"أفضل المشاريع":lang==="fr"?"Top 5 projets":"Top 5 projects"}
+                    </span>
+                  </div>
+                  {top5.map((h,i) => (
+                    <div key={i} onClick={() => setDetailH(h)} style={{display:"flex", alignItems:"center", gap:"10px",
+                      padding:"10px 12px", borderRadius:"10px", cursor:"pointer",
+                      background: i%2===0 ? CR : "transparent", marginBottom:"4px"}}>
+                      <div style={{width:26, height:26, borderRadius:"50%", background: i===0?Y:CD, flexShrink:0,
+                        display:"flex", alignItems:"center", justifyContent:"center", fontSize:"11px", fontWeight:"800", color: i===0?ND:GR}}>
+                        {i+1}
+                      </div>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:"12.5px", fontWeight:"700", color:ND}}>{h.name} {h.profile?.lastName||""}</div>
+                        <div style={{fontSize:"11px", color:GR}}>{h.proj?.projectName || h.proj?.sector || "—"}</div>
+                      </div>
+                      <span style={{fontSize:"13px", fontWeight:"800", color: h.comp.eligible?GN:RE, flexShrink:0}}>{h.comp.score}/100</span>
+                    </div>
+                  ))}
+                </Card>}
+              </>);
+            })()}
+          </>)}
+
           {/* ── Projects ── */}
           {tab === "projects" && (<>
             <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>{t.projects}</h2>
@@ -5896,6 +6160,13 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                 <option value="">{lang==="ar"?"كل المراحل":lang==="fr"?"Toutes étapes":"All steps"}</option>
                 {STEPS_LIST.map((s, i) => <option key={s} value={s}>{t.steps[i]}</option>)}
               </select>
+              <select value={filterGender} onChange={e => setFilterGender(e.target.value)}
+                style={{flex:"1 1 100px", minWidth:"90px", padding:"10px 10px", borderRadius:"10px",
+                  border:`1px solid ${filterGender ? Y : CD}`, background:filterGender ? YL : WH,
+                  fontSize:"11px", fontFamily:ff(lang), color:filterGender ? ND : GR, appearance:"none"}}>
+                <option value="">{lang==="ar"?"كل الأجناس":lang==="fr"?"Tous genres":"All genders"}</option>
+                {GENDERS[lang].map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
               <button onClick={exportCSV} style={{padding:"10px 14px", borderRadius:"10px",
                 border:`1px solid ${GN}`, background:"transparent", color:GN,
                 fontSize:"11px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer", flexShrink:0}}>
@@ -5914,17 +6185,24 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                   <table style={{width:"100%", borderCollapse:"collapse", fontSize:13}}>
                     <thead>
                       <tr style={{background:THS}}>
-                        {[lang==="ar"?"الحامل":"Porteur","CIN",
-                          lang==="ar"?"السن":lang==="fr"?"Âge":"Age",
-                          lang==="ar"?"الموقع":lang==="fr"?"Localisation":"Location",
-                          lang==="ar"?"المشروع":"Projet",
-                          lang==="ar"?"المرحلة":"Étape",
-                          lang==="ar"?"التقدم":"Préparation",
-                          lang==="ar"?"الحالة":"Statut",
+                        {[
+                          {label: lang==="ar"?"الحامل":"Porteur", key:"name" as const},
+                          {label: "CIN", key: null},
+                          {label: lang==="ar"?"السن":lang==="fr"?"Âge":"Age", key: null},
+                          {label: lang==="ar"?"الموقع":lang==="fr"?"Localisation":"Location", key: null},
+                          {label: lang==="ar"?"المشروع":"Projet", key: null},
+                          {label: lang==="ar"?"المرحلة":"Étape", key: null},
+                          {label: lang==="ar"?"النقطة":lang==="fr"?"Score":"Score", key:"score" as const},
+                          {label: lang==="ar"?"التاريخ":lang==="fr"?"Date":"Date", key:"date" as const},
+                          {label: lang==="ar"?"الحالة":"Statut", key: null},
+                          {label: "", key: null},
                         ].map((h2,i) => (
-                          <th key={i} style={{padding:"10px 14px", textAlign:"left", fontSize:10.5,
-                            fontWeight:700, textTransform:"uppercase", letterSpacing:.4, color:GR, whiteSpace:"nowrap"}}>
-                            {h2}
+                          <th key={i}
+                            onClick={h2.key ? () => { if (sortKey === h2.key) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortKey(h2.key as any); setSortDir("desc"); } } : undefined}
+                            style={{padding:"10px 14px", textAlign:"left", fontSize:10.5,
+                            fontWeight:700, textTransform:"uppercase", letterSpacing:.4, color:GR, whiteSpace:"nowrap",
+                            cursor: h2.key ? "pointer" : "default", userSelect:"none"}}>
+                            {h2.label}{h2.key && sortKey === h2.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
                           </th>
                         ))}
                       </tr>
@@ -5950,17 +6228,31 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                             <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{regionDisplay(h.profile) || "—"}</td>
                             <td style={{padding:"11px 14px", color:GR}}>{h.proj?.projectName||"—"}</td>
                             <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{h.step||"idea"}</td>
-                            <td style={{padding:"11px 14px", minWidth:90}}>
-                              <div style={{display:"flex", alignItems:"center", gap:6}}>
-                                <div style={{flex:1, height:5, background:CD, borderRadius:3, overflow:"hidden"}}>
-                                  <div style={{height:"100%", borderRadius:3, background:ND, width:`${pct}%`}}/>
-                                </div>
-                                <span style={{fontSize:11, fontWeight:700, color:ND, flexShrink:0}}>{pct}%</span>
-                              </div>
+                            <td style={{padding:"11px 14px", fontSize:12, fontWeight:700, color: h.comp ? (h.comp.eligible?GN:RE) : GR}}>
+                              {h.comp?.score != null ? `${h.comp.score}/100` : "—"}
+                            </td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:11.5, whiteSpace:"nowrap"}}>
+                              {h.createdAt ? new Date(h.createdAt).toLocaleDateString(lang==="ar"?"ar-MA":lang==="fr"?"fr-FR":"en-GB") : "—"}
                             </td>
                             <td style={{padding:"11px 14px"}}>
                               <span style={{padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700,
                                 background:st.bg, color:st.fg}}>{st.label}</span>
+                            </td>
+                            <td style={{padding:"11px 14px"}} onClick={e => e.stopPropagation()}>
+                              {delConfirmId === h.id ? (
+                                <button onClick={() => { onDelHolder(h.id); setDelConfirmId(null); }}
+                                  style={{padding:"4px 9px", borderRadius:"7px", border:`1px solid ${RE}`,
+                                    background:RE, color:WH, fontSize:10.5, fontWeight:700, fontFamily:ff(lang), cursor:"pointer", whiteSpace:"nowrap"}}>
+                                  {lang==="ar"?"تأكيد؟":lang==="fr"?"Confirmer ?":"Confirm?"}
+                                </button>
+                              ) : (
+                                <button onClick={() => setDelConfirmId(h.id)}
+                                  title={t.delete as string}
+                                  style={{padding:"4px 9px", borderRadius:"7px", border:`1px solid ${CD}`,
+                                    background:"transparent", color:RE, fontSize:12, fontFamily:ff(lang), cursor:"pointer"}}>
+                                  🗑
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );
@@ -5972,7 +6264,6 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
             )}
           </>)}
 
-          {/* ── Coordinators ── */}
           {tab === "coords" && (<>
             <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
               {lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"}
@@ -5980,6 +6271,28 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
             <p style={{fontSize:14, color:GR, marginBottom:24}}>
               {coords.length} {lang==="ar"?"منسق مسجل":lang==="fr"?"coordinateur(s) enregistré(s)":"registered coordinator(s)"}
             </p>
+            <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:14, marginBottom:20}}>
+              <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                  {lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"}
+                </div>
+                <div style={{fontSize:28, fontWeight:800, color:ND}}>{coords.length}</div>
+              </div>
+              <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                  {lang==="ar"?"إجمالي الحاملين":lang==="fr"?"Total porteurs":"Total holders"}
+                </div>
+                <div style={{fontSize:28, fontWeight:800, color:ND}}>{holders.length}</div>
+              </div>
+              <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                  {lang==="ar"?"متوسط الحاملين/منسق":lang==="fr"?"Moy. porteurs/coord.":"Avg holders/coord."}
+                </div>
+                <div style={{fontSize:28, fontWeight:800, color:ND}}>
+                  {coords.length ? Math.round(holders.length / coords.length * 10) / 10 : "—"}
+                </div>
+              </div>
+            </div>
             <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
                 <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>➕ {t.addCoord}</span>
@@ -5987,23 +6300,41 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
               <p style={{fontSize:"11px", color:GR, marginBottom:"10px"}}>
                 {lang==="ar"?"أدخل اسم المنسق فقط — سيُنشأ رمز الدخول تلقائياً (مثال: \"younes\" ← @YOUNESCOD)":lang==="fr"?"Entrez juste le nom du coordinateur — le code d'accès est généré automatiquement (ex: \"younes\" → @YOUNESCOD)":"Enter just the coordinator's name — the access code is generated automatically (e.g. \"younes\" → @YOUNESCOD)"}
               </p>
-              <div style={{display:"flex", gap:"8px"}}>
+              <div style={{display:"flex", gap:"8px", flexWrap:"wrap", marginBottom:"8px"}}>
                 <input value={newCoordName} onChange={e => setNewCoordName(e.target.value)}
                   placeholder={lang==="ar"?"اسم المنسق":lang==="fr"?"Nom du coordinateur":"Coordinator name"}
-                  style={{flex:1, padding:"11px 14px", borderRadius:"8px", border:`1px solid ${newCoordName && newCoordValid ? Y : DV}`,
+                  style={{flex:"2 1 160px", padding:"11px 14px", borderRadius:"8px", border:`1px solid ${newCoordName && newCoordValid ? Y : DV}`,
                     fontSize:"13px", fontFamily:ff(lang), color:N, background:IF, direction:dir as "rtl"|"ltr"}}/>
-                <button onClick={() => {if (newCoordValid) {onAddCoord(newCoordCode); setNewCoordName("");}}}
+                <select value={newCoordRegion}
+                  onChange={e => { setNewCoordRegion(e.target.value); setNewCoordArr(""); }}
+                  style={{flex:"1 1 140px", padding:"11px 10px", borderRadius:"8px", border:`1px solid ${DV}`,
+                    fontSize:"12px", fontFamily:ff(lang), color: newCoordRegion ? N : GR, background:IF, appearance:"none"}}>
+                  <option value="">{lang==="ar"?"الجهة (اختياري)":lang==="fr"?"Région (optionnel)":"Region (optional)"}</option>
+                  {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                {newCoordShowArr && (
+                  <select value={newCoordArr} onChange={e => setNewCoordArr(e.target.value)}
+                    style={{flex:"1 1 140px", padding:"11px 10px", borderRadius:"8px", border:`1px solid ${DV}`,
+                      fontSize:"12px", fontFamily:ff(lang), color: newCoordArr ? N : GR, background:IF, appearance:"none"}}>
+                    <option value="">{lang==="ar"?"العمالة/المقاطعة":lang==="fr"?"Arrondissement":"District"}</option>
+                    {ARRONDISSEMENTS_CASA.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                )}
+                <button onClick={() => {if (newCoordValid) {
+                    onAddCoord({code:newCoordCode, name:newCoordName.trim(), region:newCoordRegion, arrondissement: newCoordShowArr ? newCoordArr : "", createdAt: Date.now()});
+                    setNewCoordName(""); setNewCoordRegion(""); setNewCoordArr("");
+                  }}}
                   disabled={!newCoordValid}
                   style={{padding:"11px 20px", borderRadius:"8px", border:"none", cursor:"pointer",
                     background:ND, color:WH, fontSize:"13px",
-                    fontWeight:"700", fontFamily:ff(lang), opacity: newCoordValid ? 1 : .5}}>
+                    fontWeight:"700", fontFamily:ff(lang), opacity: newCoordValid ? 1 : .5, flexShrink:0}}>
                   {t.add}
                 </button>
               </div>
               {newCoordName && (
-                <div style={{marginTop:"9px", fontSize:"12px", color: newCoordValid ? GN : RE, fontWeight:700}}>
+                <div style={{fontSize:"12px", color: newCoordValid ? GN : RE, fontWeight:700}}>
                   {newCoordCode
-                    ? (coords.includes(newCoordCode)
+                    ? (coords.some(c => c.code.toUpperCase() === newCoordCode.toUpperCase())
                       ? (lang==="ar"?`⚠️ ${newCoordCode} مستخدم بالفعل`:lang==="fr"?`⚠️ ${newCoordCode} est déjà utilisé`:`⚠️ ${newCoordCode} is already in use`)
                       : (lang==="ar"?`رمز الدخول: ${newCoordCode}`:lang==="fr"?`Code d'accès : ${newCoordCode}`:`Access code: ${newCoordCode}`))
                     : (lang==="ar"?"⚠️ يجب أن يحتوي الاسم على حرفين على الأقل":lang==="fr"?"⚠️ Le nom doit contenir au moins 2 lettres":"⚠️ Name must contain at least 2 letters")}
@@ -6015,23 +6346,80 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                 <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>👥 {t.coordList} ({coords.length})</span>
               </div>
               {coords.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{lang==="ar"?"لا يوجد منسقون بعد":lang==="fr"?"Aucun coordinateur ajouté.":"No coordinators added yet."}</p> :
-                coords.map((c: string, i: number) => (
-                  <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px",
-                    borderRadius:"10px", background:CR, border:`1px solid ${CD}`, marginBottom:"7px"}}>
-                    <div style={{width:34, height:34, borderRadius:"50%", background:ND,
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      fontSize:"14px", fontWeight:"800", color:WH}}>{c[1]}</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:"13px", fontWeight:"700", color:ND}}>{c}</div>
-                      <Badge role="coord"/>
+                coords.map((c, i) => {
+                  const zone = [c.arrondissement, c.region].filter(Boolean).join(" · ");
+                  const editing = coordEditIdx === i;
+                  return (
+                  <div key={i} style={{padding:"12px", borderRadius:"10px", background:CR, border:`1px solid ${CD}`, marginBottom:"7px"}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
+                      <div style={{width:34, height:34, borderRadius:"50%", background:ND, flexShrink:0,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        fontSize:"14px", fontWeight:"800", color:WH}}>{(c.name||c.code[1]||"?")[0].toUpperCase()}</div>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:"13px", fontWeight:"700", color:ND}}>{c.name || c.code}</div>
+                        <div style={{fontSize:"11px", color:GR, fontFamily:"monospace"}}>{c.code}</div>
+                        <div style={{display:"flex", alignItems:"center", gap:6, marginTop:3, flexWrap:"wrap"}}>
+                          <Badge role="coord"/>
+                          <span style={{fontSize:"10.5px", color:GR}}>
+                            {zone || (lang==="ar"?"لا توجد منطقة محددة":lang==="fr"?"Zone non assignée":"No zone assigned")}
+                          </span>
+                          {c.createdAt && <span style={{fontSize:"10px", color:GR}}>· {new Date(c.createdAt).toLocaleDateString(lang==="ar"?"ar-MA":lang==="fr"?"fr-FR":"en-GB")}</span>}
+                        </div>
+                      </div>
+                      <div style={{display:"flex", gap:"6px", flexShrink:0}}>
+                        <button onClick={() => { navigator.clipboard?.writeText(c.code).catch(()=>{}); setCopiedCode(c.code); setTimeout(() => setCopiedCode(""), 1500); }}
+                          title={lang==="ar"?"نسخ الرمز":lang==="fr"?"Copier le code":"Copy code"}
+                          style={{padding:"5px 10px", borderRadius:"8px", border:`1px solid ${CD}`,
+                            background:WH, color:ND, fontSize:"11px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
+                          {copiedCode === c.code ? "✓" : "⧉"}
+                        </button>
+                        <button onClick={() => setCoordEditIdx(editing ? null : i)}
+                          title={lang==="ar"?"تعديل":lang==="fr"?"Modifier":"Edit"}
+                          style={{padding:"5px 10px", borderRadius:"8px", border:`1px solid ${CD}`,
+                            background: editing ? YL : WH, color:ND, fontSize:"11px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
+                          ✏️
+                        </button>
+                        {coordDelConfirm === i ? (
+                          <button onClick={() => { onDelCoord(i); setCoordDelConfirm(null); }}
+                            style={{padding:"5px 10px", borderRadius:"8px", border:`1px solid ${RE}`,
+                              background:RE, color:WH, fontSize:"11px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
+                            {lang==="ar"?"تأكيد؟":lang==="fr"?"Confirmer ?":"Confirm?"}
+                          </button>
+                        ) : (
+                          <button onClick={() => setCoordDelConfirm(i)}
+                            style={{padding:"5px 10px", borderRadius:"8px", border:`1px solid ${RE}`,
+                              background:"transparent", color:RE, fontSize:"11px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
+                            {t.delete}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => onDelCoord(i)}
-                      style={{padding:"5px 12px", borderRadius:"8px", border:`1px solid ${RE}`,
-                        background:"transparent", color:RE, fontSize:"11px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
-                      {t.delete}
-                    </button>
+                    {editing && (
+                      <div style={{display:"flex", gap:"8px", marginTop:"10px", paddingTop:"10px", borderTop:`1px solid ${CD}`, flexWrap:"wrap"}}>
+                        <select value={c.region}
+                          onChange={e => onEditCoord(i, {region: e.target.value, arrondissement: e.target.value==="Casablanca-Settat" ? c.arrondissement : ""})}
+                          style={{flex:"1 1 140px", padding:"9px 10px", borderRadius:"8px", border:`1px solid ${DV}`,
+                            fontSize:"12px", fontFamily:ff(lang), color:N, background:WH, appearance:"none"}}>
+                          <option value="">{lang==="ar"?"بدون جهة":lang==="fr"?"Sans région":"No region"}</option>
+                          {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        {c.region === "Casablanca-Settat" && (
+                          <select value={c.arrondissement} onChange={e => onEditCoord(i, {arrondissement: e.target.value})}
+                            style={{flex:"1 1 140px", padding:"9px 10px", borderRadius:"8px", border:`1px solid ${DV}`,
+                              fontSize:"12px", fontFamily:ff(lang), color:N, background:WH, appearance:"none"}}>
+                            <option value="">{lang==="ar"?"بدون مقاطعة":lang==="fr"?"Sans arrondissement":"No district"}</option>
+                            {ARRONDISSEMENTS_CASA.map(a => <option key={a} value={a}>{a}</option>)}
+                          </select>
+                        )}
+                        <button onClick={() => setCoordEditIdx(null)}
+                          style={{padding:"9px 16px", borderRadius:"8px", border:"none", cursor:"pointer",
+                            background:ND, color:WH, fontSize:"12px", fontWeight:"700", fontFamily:ff(lang)}}>
+                          {lang==="ar"?"تم":lang==="fr"?"Terminé":"Done"}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))
+                );})
               }
             </Card>
           </>)}
@@ -6144,7 +6532,7 @@ export default function IdeaMapPage() {
   const [lang, setLang]       = useState("fr");
   const [user, setUser]       = useState<any>(null);
   const [holders, setHolders] = useState<any[]>([]);
-  const [coords, setCoords]   = useState<string[]>([]);
+  const [coords, setCoords]   = useState<Coord[]>([]);
   const [syncing, setSyncing] = useState(false);
   // True when the backing store (Redis via /api/sheets) is unreachable — distinct
   // from "genuinely zero holders yet". Without this, an admin/coordinator seeing an
@@ -6162,7 +6550,7 @@ export default function IdeaMapPage() {
       const h = localStorage.getItem("idm_holders");
       if (h) setHolders(JSON.parse(h));
       const c = localStorage.getItem("idm_coords");
-      if (c) setCoords(JSON.parse(c));
+      if (c) setCoords((JSON.parse(c) as any[]).map(normalizeCoord));
     } catch {}
 
     // Then refresh from Sheets (live source of truth)
@@ -6173,7 +6561,7 @@ export default function IdeaMapPage() {
         if (data.error) { setSyncError(true); return; }
         if (data.holders?.length > 0 || data.coords?.length > 0) {
           setHolders(data.holders || []);
-          setCoords(data.coords || []);
+          setCoords((data.coords || []).map(normalizeCoord));
           // Update localStorage cache
           try {
             localStorage.setItem("idm_holders", JSON.stringify(data.holders || []));
@@ -6209,7 +6597,7 @@ export default function IdeaMapPage() {
   }
 
   /* ── Persist the full coordinator list to Sheets ──── */
-  async function persistCoords(list: string[]) {
+  async function persistCoords(list: Coord[]) {
     try { localStorage.setItem("idm_coords", JSON.stringify(list)); } catch {}
     try {
       await fetch("/api/sheets", {
@@ -6222,7 +6610,7 @@ export default function IdeaMapPage() {
 
   function onLogin(u: any) {
     if (u.isNew) {
-      const newHolder = {id: u.id, name: u.name, profile: u.profile, step: "idea"};
+      const newHolder = {id: u.id, name: u.name, profile: u.profile, step: "idea", createdAt: Date.now()};
       setHolders(p => [...p, newHolder]);
       persistHolder(newHolder);
     }
@@ -6230,6 +6618,19 @@ export default function IdeaMapPage() {
   }
 
   function onLogout() { setUser(null); }
+
+  function onDelHolder(id: string) {
+    setHolders(p => p.filter(h => h.id !== id));
+    try {
+      const cur = JSON.parse(localStorage.getItem("idm_holders") || "[]") as any[];
+      localStorage.setItem("idm_holders", JSON.stringify(cur.filter(h => h.id !== id)));
+    } catch {}
+    fetch("/api/sheets", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({type: "delete_holder", id}),
+    }).catch(() => {});
+  }
 
   function onSaveProject(data: any) {
     setHolders(p => {
@@ -6258,7 +6659,7 @@ export default function IdeaMapPage() {
     }, 2000);
   }
 
-  function onAddCoord(c: string) {
+  function onAddCoord(c: Coord) {
     const next = [...coords, c];
     setCoords(next);
     persistCoords(next);
@@ -6266,6 +6667,12 @@ export default function IdeaMapPage() {
 
   function onDelCoord(i: number) {
     const next = coords.filter((_, x) => x !== i);
+    setCoords(next);
+    persistCoords(next);
+  }
+
+  function onEditCoord(i: number, patch: Partial<Coord>) {
+    const next = coords.map((c, x) => x === i ? {...c, ...patch} : c);
     setCoords(next);
     persistCoords(next);
   }
@@ -6303,6 +6710,8 @@ export default function IdeaMapPage() {
       t={t} holders={holders} coords={coords}
       onAddCoord={onAddCoord}
       onDelCoord={onDelCoord}
+      onEditCoord={onEditCoord}
+      onDelHolder={onDelHolder}
       syncError={syncError}/>
   </>;
 
