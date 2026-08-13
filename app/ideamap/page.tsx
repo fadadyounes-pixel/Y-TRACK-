@@ -1684,12 +1684,78 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   // registration (sector, city, region) and the idea text — no AI call needed, no
   // wait, and meaningfully less typing than before even in the worst case where the
   // AI-tailored batch never lands.
+  // Sector picks WHICH bundle of 3 real choices to show (18 sectors, not just
+  // "Coiffure/Beauté" — every sector in SECTOR_SERVICES/SECTOR_EQUIPMENT has its
+  // own set). But the sector alone can't distinguish a men's barbershop from a
+  // women's beauty salon, or a bakery from a jam-maker within the same sector —
+  // that distinction lives in what the porteur actually wrote as their idea.
+  // reorderByIdea nudges whichever of the 3 options best matches words already
+  // in the idea text to the front, so the flow adapts to the specific PROJECT,
+  // not just its broad category.
+  const STOPWORDS = new Set(["de","du","des","la","le","les","et","ou","en","un","une","à","au","aux","pour","dans","avec","sur","d","l","من","في","على","و","أو","إلى","and","or","for","in","with","on","the","a","an","mon","ma","mes","ce","cette"]);
+  const kwFrom = (s: string): string[] => s.toLowerCase().replace(/[()"„""«»?؟]/g, " ").split(/[\s,\/]+/).filter(w => w.length > 2 && !STOPWORDS.has(w));
+  const EXTRA_HINTS: Record<string, string[][]> = {
+    "Coiffure/Beauté": [
+      ["homme","hommes","barbe","barber","messieurs","رجال","رجل","لحية"],
+      ["femme","femmes","dame","dames","سيدات","نساء","امرأة"],
+      ["complet","tous","famille","عائلة","جميع","متكامل"],
+    ],
+    "Restauration/Café": [
+      ["thé","café","salon","قهوة","شاي"],
+      ["rapide","snack","sandwich","سريع","وجبات"],
+      ["traditionnel","marocain","تقليدي","مغربي"],
+    ],
+    "Agro-alimentaire": [
+      ["huile","miel","terroir","زيت","عسل"],
+      ["confiture","conserve","مربى","تعليب"],
+      ["pâtisserie","boulangerie","حلويات","مخبزة","خبز"],
+    ],
+    "Numérique/TIC": [
+      ["site","application","web","تطبيق","موقع"],
+      ["formation","cours","تكوين","دروس"],
+      ["maintenance","réseau","صيانة","شبكات"],
+    ],
+  };
+  // Scores each of a sector's 3 options against the idea text (checking words
+  // from ALL THREE language variants plus EXTRA_HINTS, so it works regardless of
+  // which language the porteur typed their idea in or the UI is showing) and
+  // returns the best-matching option's index, or -1 if nothing matched. Computed
+  // ONCE per table so the same underlying option is promoted consistently across
+  // fr/ar/en, instead of the display language accidentally picking a different one.
+  const bestOptionIndex = (table: Record<string, Record<"fr"|"ar"|"en", string[]>>, sectorKey: string, ideaText: string): number => {
+    const set = table[sectorKey];
+    if (!set) return -1;
+    const ideaLower = ideaText.toLowerCase();
+    if (!ideaLower.trim()) return -1;
+    const hints = EXTRA_HINTS[sectorKey];
+    const n = set.fr.length;
+    const scores = Array.from({length: n}, (_, i) => {
+      const words = [...kwFrom(set.fr[i]), ...kwFrom(set.ar[i]), ...kwFrom(set.en[i]), ...(hints?.[i] || [])];
+      return words.reduce((s, w) => s + (ideaLower.includes(w) ? 1 : 0), 0);
+    });
+    const best = scores.indexOf(Math.max(...scores));
+    return scores[best] > 0 ? best : -1;
+  };
+  const reorderByIndex = (options: string[] | undefined, bestIdx: number): string[] | undefined => {
+    if (!options || bestIdx <= 0) return options;
+    return [options[bestIdx], ...options.filter((_, i) => i !== bestIdx)];
+  };
+
   const localOptionsFor = (qIndex: number, ideaText: string): string[] => {
     const sector = user.profile?.sector || "";
     const city = user.profile?.city || user.profile?.region || (lang === "ar" ? "منطقتي" : lang === "fr" ? "ma ville" : "my city");
     const sectorLabel = sector || (lang === "ar" ? "نشاطي" : lang === "fr" ? "mon activité" : "my activity");
-    const svc = SECTOR_SERVICES[sector]?.[lang as "fr"|"ar"|"en"];
-    const equip = SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"];
+    const combinedIdea = `${ideaText} ${idea}`;
+    const svcBest = bestOptionIndex(SECTOR_SERVICES, sector, combinedIdea);
+    const equipBest = bestOptionIndex(SECTOR_EQUIPMENT, sector, combinedIdea);
+    const svc = reorderByIndex(SECTOR_SERVICES[sector]?.[lang as "fr"|"ar"|"en"], svcBest);
+    const equip = reorderByIndex(SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"], equipBest);
+    // Short-circuit here rather than threading svc/equip through the trilingual T
+    // table below — they're already resolved for the current `lang`, and stuffing
+    // a single-language array into a {fr,ar,en} record under the wrong key was
+    // exactly the bug that made idea-based reordering silently no-op outside French.
+    if (qIndex === 4 && svc) return svc;
+    if (qIndex === 17 && equip) return equip;
 
     const T: Record<number, Record<"fr"|"ar"|"en", string[]>> = {
       0: {
@@ -1712,7 +1778,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         ar: [`خدمة ${sectorLabel} عصرية وفي متناول سكان الحي`, "نشاط مبني على خبرتي الشخصية", "أفضل وصف فكرتي بنفسي"],
         en: [`A modern, accessible ${sectorLabel} service for the neighborhood`, "An activity built on my personal experience", "I'll describe my concept myself"],
       },
-      4: svc ? { fr: svc, ar: SECTOR_SERVICES[sector].ar, en: SECTOR_SERVICES[sector].en } : {
+      // Reached only when the sector isn't in SECTOR_SERVICES (svc undefined) —
+      // the sector-matched case already returned above.
+      4: {
         fr: ["Un service ou produit unique et ciblé", "Une gamme de 2 à 3 services complémentaires", "Je préfère décrire mes produits/services moi-même"],
         ar: ["خدمة أو منتج واحد ومحدد", "مجموعة من 2 إلى 3 خدمات مكملة", "أفضل وصف منتجاتي/خدماتي بنفسي"],
         en: ["One unique, focused product or service", "A range of 2-3 complementary services", "I'll describe my products/services myself"],
@@ -1777,7 +1845,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         ar: ["أقل من 20 زبوناً أسبوعياً", "من 20 إلى 50 زبوناً أسبوعياً", "أكثر من 50 زبوناً أسبوعياً"],
         en: ["Fewer than 20 customers/week", "20 to 50 customers/week", "More than 50 customers/week"],
       },
-      17: equip ? { fr: equip, ar: SECTOR_EQUIPMENT[sector].ar, en: SECTOR_EQUIPMENT[sector].en } : {
+      // Reached only when the sector isn't in SECTOR_EQUIPMENT (equip undefined) —
+      // the sector-matched case already returned above.
+      17: {
         fr: ["Équipement professionnel de base", "Aménagement et mobilier du local", "Je préfère décrire l'équipement moi-même"],
         ar: ["معدات مهنية أساسية", "تجهيز وأثاث المحل", "أفضل وصف المعدات بنفسي"],
         en: ["Basic professional equipment", "Fit-out and furniture for the premises", "I'll describe the equipment myself"],
