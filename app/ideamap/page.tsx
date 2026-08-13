@@ -1756,13 +1756,13 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     // exactly the bug that made idea-based reordering silently no-op outside French.
     if (qIndex === 4 && svc) return svc;
     if (qIndex === 17 && equip) return equip;
+    // A project name can't be meaningfully suggested — no genuine "choice" exists
+    // between plausible names the way it does for e.g. services or equipment.
+    // Suggesting fake names would be presumptuous, not helpful. This is a direct,
+    // open question: no tap options, straight to the free-text input.
+    if (qIndex === 0) return [];
 
     const T: Record<number, Record<"fr"|"ar"|"en", string[]>> = {
-      0: {
-        fr: [`Nommé d'après mon activité (ex: "${sectorLabel} Pro")`, "Nommé d'après mon prénom ou ma famille", "Je préfère écrire mon propre nom de projet"],
-        ar: [`باسم نشاطي (مثال: "${sectorLabel} برو")`, "باسم شخصي أو عائلي", "أفضل كتابة اسم المشروع بنفسي"],
-        en: [`Named after my activity (e.g. "${sectorLabel} Pro")`, "Named after my first name or family name", "I'll write my own project name"],
-      },
       1: {
         fr: [sector || "Mon secteur déclaré à l'inscription", "Un secteur proche/complémentaire", "Un autre secteur"],
         ar: [sector || "القطاع الذي صرحت به عند التسجيل", "قطاع قريب أو مكمل", "قطاع آخر"],
@@ -3171,9 +3171,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       setQBank(prev => {
         const next = [...prev];
         chunk.forEach((_, j) => {
+          const idx = ci * CHUNK + j;
+          // Question 0 (project name) never gets tap options, from the AI batch
+          // or otherwise — see the matching guard in localOptionsFor. A suggested
+          // name is exactly as presumptuous coming from the AI as it would be
+          // hardcoded, so this is skipped regardless of what the model returns.
+          if (idx === 0) return;
           const arr = bank?.[`q${j + 1}`];
           if (Array.isArray(arr) && arr.length) {
-            next[ci * CHUNK + j] = arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3);
+            next[idx] = arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3);
           }
         });
         return next;
@@ -3739,6 +3745,45 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           const indh = budget?.indhContribution || Math.min(Math.round(total * .90), 100000);
           const bene = budget?.beneficiaryContribution || (total - indh);
           const pct = (indh / 100000) * 100;
+
+          // Equipment and the exact INDH amount requested are precisely the kind of
+          // detail an AI guess shouldn't be the final word on — the porteur needs to
+          // directly edit designation/quantity/price to what they actually intend to
+          // buy. Every edit recomputes total, and the 90/10 INDH split off that new
+          // total, matching the same formula the AI used to seed it.
+          const recompute = (items: any[]) => {
+            const newTotal = items.reduce((s: number, x: any) => s + (x.total || 0), 0);
+            const indhContribution = Math.min(Math.round(newTotal * 0.90), 100000);
+            const beneficiaryContribution = newTotal - indhContribution;
+            return { indhContribution, beneficiaryContribution };
+          };
+          const updateItem = (i: number, field: string, value: any) => {
+            setBudget((prev: any) => {
+              const items = [...(prev?.items || [])];
+              items[i] = { ...items[i], [field]: value };
+              if (field === "quantity" || field === "unitPrice") {
+                items[i].total = (Number(items[i].quantity) || 0) * (Number(items[i].unitPrice) || 0);
+              }
+              return { ...prev, items, ...recompute(items) };
+            });
+          };
+          const removeItem = (i: number) => {
+            setBudget((prev: any) => {
+              const items = (prev?.items || []).filter((_: any, idx: number) => idx !== i);
+              return { ...prev, items, ...recompute(items) };
+            });
+          };
+          const addItem = () => {
+            setBudget((prev: any) => ({
+              ...prev,
+              items: [...(prev?.items || []), {
+                category: lang === "ar" ? "معدات إنتاجية" : lang === "fr" ? "Équipements productifs" : "Productive equipment",
+                item: "", quantity: 1, unitPrice: 0, total: 0,
+              }],
+            }));
+          };
+          const cellInputSt = {padding: "6px 7px", border: `1px solid ${CD}`, borderRadius: "7px",
+            fontSize: "12px", width: "100%", fontFamily: "inherit", background: WH, color: ND, boxSizing: "border-box" as const};
           return (
             <Card>
               <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px"}}>
@@ -3756,28 +3801,34 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 </div>
                 <PBar pct={pct} h={7} color={pct > 100 ? RE : `linear-gradient(90deg,${Y},${YD})`}/>
               </div>
-              {budget?.items?.length > 0 ? (<div style={{marginBottom: "16px"}}>
+              {budget?.items ? (<div style={{marginBottom: "16px"}}>
+                <div style={{fontSize: "11px", color: GR, marginBottom: "8px", lineHeight: 1.5}}>
+                  {lang === "ar" ? "✏️ عدّل التسمية أو الكمية أو السعر لتطابق المعدات التي تنوي شراءها بالفعل." : lang === "fr" ? "✏️ Modifiez la désignation, la quantité ou le prix pour refléter exactement l'équipement que vous comptez acheter." : "✏️ Edit the item, quantity or price to match the exact equipment you intend to buy."}
+                </div>
                 {/* Desktop table */}
                 <div className="budget-tbl" style={{overflowX: "auto"}}>
                   <table style={{width: "100%", borderCollapse: "collapse", fontSize: "12px"}}>
                     <thead><tr style={{background: ND, color: WH}}>
-                      {["Catégorie", "Désignation", "Qté", "PU (MAD)", "Total"].map((h, i) => (
+                      {["Catégorie", "Désignation", "Qté", "PU (MAD)", "Total", ""].map((h, i) => (
                         <th key={i} style={{padding: "9px 8px", textAlign: i < 2 ? (dir === "rtl" ? "right" : "left") : "center",
                           fontSize: "10px", fontWeight: "700", letterSpacing: ".4px"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>{budget.items.map((x: any, i: number) => (
                       <tr key={i} style={{background: i % 2 === 0 ? WH : CR}}>
-                        <td style={{padding: "9px 8px", color: N, fontWeight: "600"}}>{x.category}</td>
-                        <td style={{padding: "9px 8px", color: ND}}>{x.item}</td>
-                        <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{x.quantity}</td>
-                        <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{Number(x.unitPrice || 0).toLocaleString()}</td>
-                        <td style={{padding: "9px 8px", textAlign: "center", fontWeight: "800", color: ND}}>{Number(x.total || 0).toLocaleString()}</td>
+                        <td style={{padding: "6px"}}><input value={x.category || ""} onChange={e => updateItem(i, "category", e.target.value)} style={cellInputSt}/></td>
+                        <td style={{padding: "6px"}}><input value={x.item || ""} onChange={e => updateItem(i, "item", e.target.value)} style={cellInputSt}/></td>
+                        <td style={{padding: "6px", width: "64px"}}><input type="number" min={0} value={x.quantity ?? 0} onChange={e => updateItem(i, "quantity", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, textAlign: "center"}}/></td>
+                        <td style={{padding: "6px", width: "88px"}}><input type="number" min={0} value={x.unitPrice ?? 0} onChange={e => updateItem(i, "unitPrice", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, textAlign: "center"}}/></td>
+                        <td style={{padding: "9px 8px", textAlign: "center", fontWeight: "800", color: ND, whiteSpace: "nowrap"}}>{Number(x.total || 0).toLocaleString()}</td>
+                        <td style={{padding: "6px", textAlign: "center"}}>
+                          <button onClick={() => removeItem(i)} aria-label="Delete" style={{background: "none", border: "none", cursor: "pointer", fontSize: "15px", opacity: .6}}>🗑️</button>
+                        </td>
                       </tr>
                     ))}
                     <tr style={{background: ND, color: WH}}>
                       <td colSpan={4} style={{padding: "10px 8px", fontWeight: "700"}}>{t.total}</td>
-                      <td style={{padding: "10px 8px", textAlign: "center", fontWeight: "800", color: Y}}>{total.toLocaleString()}</td>
+                      <td colSpan={2} style={{padding: "10px 8px", textAlign: "center", fontWeight: "800", color: Y}}>{total.toLocaleString()}</td>
                     </tr></tbody>
                   </table>
                 </div>
@@ -3786,12 +3837,19 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   {budget.items.map((x: any, i: number) => (
                     <div key={i} style={{padding: "12px 14px", background: i % 2 === 0 ? WH : CR,
                       borderRadius: "11px", border: `1px solid ${CD}`}}>
-                      <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "5px"}}>
-                        <span style={{fontSize: "10px", fontWeight: "700", color: Y, textTransform: "uppercase", letterSpacing: ".3px"}}>{x.category}</span>
-                        <span style={{fontSize: "14px", fontWeight: "800", color: ND}}>{Number(x.total || 0).toLocaleString()} <span style={{fontSize: "10px", fontWeight: "500"}}>MAD</span></span>
+                      <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "7px"}}>
+                        <input value={x.category || ""} onChange={e => updateItem(i, "category", e.target.value)}
+                          style={{...cellInputSt, fontSize: "10px", fontWeight: "700", color: Y, textTransform: "uppercase", border: "none", padding: "0", background: "transparent", width: "60%"}}/>
+                        <button onClick={() => removeItem(i)} aria-label="Delete" style={{background: "none", border: "none", cursor: "pointer", fontSize: "15px", opacity: .6}}>🗑️</button>
                       </div>
-                      <div style={{fontSize: "13px", color: ND, marginBottom: "4px"}}>{x.item}</div>
-                      <div style={{fontSize: "11px", color: GR}}>{x.quantity} × {Number(x.unitPrice || 0).toLocaleString()} MAD</div>
+                      <input value={x.item || ""} onChange={e => updateItem(i, "item", e.target.value)} style={{...cellInputSt, marginBottom: "7px"}}/>
+                      <div style={{display: "flex", gap: "8px", alignItems: "center"}}>
+                        <input type="number" min={0} value={x.quantity ?? 0} onChange={e => updateItem(i, "quantity", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, width: "60px", textAlign: "center"}}/>
+                        <span style={{fontSize: "11px", color: GR}}>×</span>
+                        <input type="number" min={0} value={x.unitPrice ?? 0} onChange={e => updateItem(i, "unitPrice", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, width: "80px", textAlign: "center"}}/>
+                        <span style={{fontSize: "11px", color: GR}}>MAD =</span>
+                        <span style={{fontSize: "14px", fontWeight: "800", color: ND, marginInlineStart: "auto"}}>{Number(x.total || 0).toLocaleString()}</span>
+                      </div>
                     </div>
                   ))}
                   <div style={{padding: "12px 14px", background: ND, borderRadius: "11px",
@@ -3800,6 +3858,10 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     <span style={{fontSize: "15px", fontWeight: "800", color: Y}}>{total.toLocaleString()} MAD</span>
                   </div>
                 </div>
+                <button onClick={addItem} style={{marginTop: "10px", width: "100%", padding: "10px", borderRadius: "10px",
+                  border: `1.5px dashed ${CD}`, background: "transparent", color: N, fontSize: "12px", fontWeight: "700", cursor: "pointer"}}>
+                  {lang === "ar" ? "+ إضافة معدة" : lang === "fr" ? "+ Ajouter un équipement" : "+ Add equipment"}
+                </button>
               </div>) : (
                 <div style={{textAlign: "center", padding: "24px 16px"}}>
                   {busy ? <><div style={{display:"flex",justifyContent:"center"}}><Dots/></div></> : <>
