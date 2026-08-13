@@ -3086,7 +3086,7 @@ function Login({ lang, setLang, onLogin, advisors }) {
     if (role === "advisor") {
       var found = (advisors || []).find(function(a) { return a.code.toLowerCase() === v.toLowerCase(); });
       if (!found) { setErr(ar ? "كود غير صالح." : "Invalid code. Contact the admin."); return; }
-      onLogin({ name:found.name, id:v, role:"advisor", region:found.region||"", prefecture:found.prefecture||"" }); return;
+      onLogin({ name:found.name, id:v, role:"advisor", region:found.region||"", prefectures:found.prefectures||(found.prefecture?[found.prefecture]:[]) }); return;
     }
     if (role === "candidate") { onLogin({ name:"", id:v.toUpperCase(), role:"candidate" }); return; }
     setErr(ar ? "كود غير صالح." : "Invalid code. Please try again.");
@@ -4223,18 +4223,17 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
   var [rpt, setRpt]   = useState(null);
   var [indhRpt, setIndhRpt] = useState(null);
 
-  /* ── scope: filter candidates to advisor's region / prefecture ── */
+  /* ── scope: filter candidates to advisor's region / prefectures ── */
   var myCands = useMemo(function() {
     if (!user.region) return cands;
     return cands.filter(function(c) {
       var r = (c.profile && c.profile.region) || "";
       if (r !== user.region) return false;
-      if (user.prefecture) {
-        return ((c.profile && c.profile.prefecture) || "") === user.prefecture;
-      }
-      return true;
+      var prefs = user.prefectures || (user.prefecture ? [user.prefecture] : []);
+      if (prefs.length === 0) return true;
+      return prefs.indexOf((c.profile && c.profile.prefecture) || "") >= 0;
     });
-  }, [cands, user.region, user.prefecture]);
+  }, [cands, user.region, user.prefectures, user.prefecture]);
 
   var total     = myCands.length;
   var completed = myCands.filter(function(c){ return c.scores && Object.keys(c.scores.h||{}).length>0 && avg(c.scores.s||{})>=45; }).length;
@@ -4249,8 +4248,9 @@ function AdvisorDash({ lang, setLang, user, onLogout, cands, onView, onShowRepor
     }).slice().sort(function(a,b){ return (b.savedAt||"")>(a.savedAt||"")?1:-1; });
   }, [myCands, search]);
 
+  var userPrefs = user.prefectures || (user.prefecture ? [user.prefecture] : []);
   var scopeLabel = user.region
-    ? (user.prefecture ? user.prefecture + " · " + user.region : user.region)
+    ? (userPrefs.length ? userPrefs.join(", ") + " · " + user.region : user.region)
     : (lang==="fr"?"Toutes régions":"All regions");
 
   function doEnroll() {
@@ -4756,7 +4756,7 @@ function AD_DonutLegend({items, total}) {
 }
 
 // ── ADMIN DASHBOARD ───────────────────────────────────────────────────────────
-function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onAddAdvisor, onDeleteAdvisor, onDeleteCand, onShowReport }) {
+function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onAddAdvisor, onDeleteAdvisor, onUpdateAdvisor, onDeleteCand, onShowReport }) {
   var [tab, setTab]             = useState("overview");
   var [period, setPeriod]       = useState("all");
   var [search, setSearch]       = useState("");
@@ -4767,7 +4767,8 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   var [sortDir, setSortDir]     = useState("desc");
   var [newName, setNewName]     = useState("");
   var [newRegion, setNewRegion] = useState("");
-  var [newPref, setNewPref]     = useState("");
+  var [newPrefs, setNewPrefs]   = useState([]);
+  var [editAdv, setEditAdv]     = useState(null);
   var [copied, setCopied]       = useState(null);
   var [localReport, setLocalReport] = useState(null);
   var [detailCand, setDetailCand]   = useState(null);
@@ -4807,8 +4808,8 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
   }
   function createAdvisor() {
     if (!newName.trim()) return;
-    onAddAdvisor({ name:newName.trim(), code:genCode(newName), region:newRegion, prefecture:newRegion==="Casablanca-Settat"?newPref:"", createdAt:new Date().toLocaleDateString() });
-    setNewName(""); setNewRegion(""); setNewPref("");
+    onAddAdvisor({ name:newName.trim(), code:genCode(newName), region:newRegion, prefectures:newRegion==="Casablanca-Settat"?newPrefs:[], createdAt:new Date().toLocaleDateString() });
+    setNewName(""); setNewRegion(""); setNewPrefs([]);
   }
   function downloadReport(c, role) {
     var p=c.profile||{name:c.name,id:c.id,age:"-",gender:"-",edu:"-",region:"-"};
@@ -5372,47 +5373,115 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
               placeholder="Nom complet du conseiller…"
               style={{flex:1,padding:'10px 13px',background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,color:AD_P.bright,fontSize:12,outline:'none'}}/>
           </div>
-          <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap'}}>
-            <select value={newRegion} onChange={function(e){setNewRegion(e.target.value);setNewPref("");}}
+          <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'flex-start'}}>
+            <select value={newRegion} onChange={function(e){setNewRegion(e.target.value);setNewPrefs([]);}}
               style={{flex:1,minWidth:160,padding:'9px 10px',background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,color:newRegion?AD_P.bright:AD_P.muted,fontSize:12,outline:'none'}}>
               <option value="">— Région —</option>
               {MOROCCO_REGIONS.map(function(r){return React.createElement('option',{key:r,value:r},r);})}
             </select>
-            {newRegion==="Casablanca-Settat"&&(
-              <select value={newPref} onChange={function(e){setNewPref(e.target.value);}}
-                style={{flex:1,minWidth:160,padding:'9px 10px',background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,color:newPref?AD_P.bright:AD_P.muted,fontSize:12,outline:'none'}}>
-                <option value="">— Arrondissement —</option>
-                {CASA_OPTIONS.map(function(p){return React.createElement('option',{key:p,value:p},p);})}
-              </select>
-            )}
             <button onClick={createAdvisor} disabled={!newName.trim()||!newRegion}
               style={{padding:'9px 18px',background:(newName.trim()&&newRegion)?"linear-gradient(135deg,#7c3aed,#6d28d9)":"rgba(255,255,255,.05)",color:(newName.trim()&&newRegion)?"#fff":"rgba(255,255,255,.3)",border:'none',borderRadius:10,fontSize:12,fontWeight:800,cursor:(newName.trim()&&newRegion)?'pointer':'default'}}>
               Créer
             </button>
           </div>
+          {newRegion==="Casablanca-Settat"&&(
+            <div style={{background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+              <div style={{fontSize:10,color:AD_P.muted3,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:10}}>Arrondissements (un ou plusieurs)</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+                {CASA_OPTIONS.map(function(p){
+                  var chk = newPrefs.indexOf(p)>=0;
+                  return (
+                    <label key={p} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontSize:11,color:chk?AD_P.bright:AD_P.muted,fontWeight:chk?700:400}}>
+                      <input type="checkbox" checked={chk} onChange={function(){
+                        setNewPrefs(function(prev){ return chk?prev.filter(function(x){return x!==p;}):prev.concat([p]); });
+                      }} style={{accentColor:"#7c3aed",width:13,height:13}}/>
+                      {p}
+                    </label>
+                  );
+                })}
+              </div>
+              {newPrefs.length>0&&<p style={{fontSize:10,color:"#8b5cf6",margin:"8px 0 0"}}>{"Sélectionné : "+newPrefs.join(", ")}</p>}
+            </div>
+          )}
           {newName.trim()&&<p style={{fontSize:10,color:"#8b5cf6",margin:'0 0 8px'}}>Code: <strong>{genCode(newName)}</strong></p>}
         </AD_Card>
+
+        {/* ── edit modal ── */}
+        {editAdv!==null&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={function(){setEditAdv(null);}}>
+            <div style={{background:AD_P.card,border:"1px solid "+AD_P.border,borderRadius:18,padding:"24px 22px",width:"100%",maxWidth:420}} onClick={function(e){e.stopPropagation();}}>
+              <div style={{fontWeight:900,color:AD_P.bright,fontSize:15,marginBottom:4}}>{"Modifier : "+editAdv.name}</div>
+              <div style={{fontSize:10,color:"#8b5cf6",marginBottom:16}}>{"Zone actuelle : "+(editAdv.region||"—")}</div>
+              {editAdv.region==="Casablanca-Settat"?(
+                <div>
+                  <div style={{fontSize:10,color:AD_P.muted3,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:10}}>Arrondissements assignés</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:16}}>
+                    {CASA_OPTIONS.map(function(p){
+                      var chk = (editAdv.prefectures||[]).indexOf(p)>=0;
+                      return (
+                        <label key={p} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontSize:11,color:chk?AD_P.bright:AD_P.muted,fontWeight:chk?700:400}}>
+                          <input type="checkbox" checked={chk} onChange={function(){
+                            setEditAdv(function(prev){
+                              var arr = prev.prefectures||[];
+                              var next = chk?arr.filter(function(x){return x!==p;}):arr.concat([p]);
+                              return Object.assign({},prev,{prefectures:next});
+                            });
+                          }} style={{accentColor:"#7c3aed",width:13,height:13}}/>
+                          {p}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {(editAdv.prefectures||[]).length>0&&<p style={{fontSize:10,color:"#8b5cf6",margin:"0 0 14px"}}>{"Sélectionné : "+(editAdv.prefectures||[]).join(", ")}</p>}
+                </div>
+              ):(
+                <p style={{fontSize:11,color:AD_P.muted,marginBottom:16}}>Région entière assignée (pas Casablanca-Settat).</p>
+              )}
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                <button onClick={function(){setEditAdv(null);}}
+                  style={{padding:"8px 16px",background:"rgba(255,255,255,.06)",color:AD_P.muted,border:"1px solid "+AD_P.border,borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                  Annuler
+                </button>
+                <button onClick={function(){onUpdateAdvisor(editAdv.idx,{prefectures:editAdv.prefectures||[]});setEditAdv(null);}}
+                  style={{padding:"8px 18px",background:"linear-gradient(135deg,#7c3aed,#6d28d9)",color:"#fff",border:"none",borderRadius:9,fontSize:12,fontWeight:800,cursor:"pointer"}}>
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {totalAdv>0&&(
           <AD_Card>
             <AD_Label>Équipe conseillers ({totalAdv})</AD_Label>
             {adv.map(function(a,i){
               var init=(a.name||"?").trim().split(/\s+/).map(function(w){return w[0]||"";}).join("").slice(0,2).toUpperCase();
+              var prefs = a.prefectures||(a.prefecture?[a.prefecture]:[]);
               return (
-                <div key={i} style={{display:'flex',alignItems:'center',gap:11,padding:'13px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(139,92,246,.14)',borderRadius:14,marginBottom:8}}>
+                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:11,padding:'13px',background:'rgba(255,255,255,.03)',border:'1px solid rgba(139,92,246,.14)',borderRadius:14,marginBottom:8}}>
                   <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(135deg,rgba(124,58,237,.3),rgba(109,40,217,.2))',border:'1.5px solid rgba(124,58,237,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:900,color:'#a78bfa',flexShrink:0}}>{init}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:800,fontSize:13,color:AD_P.bright}}>{a.name}</div>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3,flexWrap:'wrap'}}>
                       <code style={{fontSize:11,color:'#8b5cf6',fontWeight:700}}>{a.code}</code>
-                      {a.region&&<span style={{fontSize:9,color:AD_P.teal,fontWeight:600}}>{a.prefecture?a.prefecture+" · "+a.region:a.region}</span>}
+                      {a.region&&<span style={{fontSize:9,color:AD_P.teal,fontWeight:600}}>{a.region}</span>}
                       {a.createdAt&&<span style={{fontSize:9,color:AD_P.muted3}}>{a.createdAt}</span>}
                     </div>
+                    {prefs.length>0&&(
+                      <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:6}}>
+                        {prefs.map(function(p){
+                          return <span key={p} style={{fontSize:9,padding:"2px 8px",borderRadius:999,background:"rgba(26,171,170,.12)",color:AD_P.teal,border:"1px solid rgba(26,171,170,.25)",fontWeight:600}}>{p}</span>;
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <div style={{display:'flex',gap:6,flexShrink:0}}>
+                  <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
                     <button onClick={function(){copyCode(a.code);}}
                       style={{padding:'6px 11px',borderRadius:8,fontSize:10,fontWeight:700,cursor:'pointer',background:copied===a.code?'rgba(34,197,94,.15)':'rgba(255,255,255,.05)',color:copied===a.code?'#22c55e':'rgba(255,255,255,.4)',border:'1px solid '+(copied===a.code?'rgba(34,197,94,.25)':'rgba(255,255,255,.08)')}}>
                       {copied===a.code?"✓":"Copier"}
                     </button>
+                    <button onClick={function(){setEditAdv({idx:i,name:a.name,region:a.region||"",prefectures:prefs.slice()});}}
+                      style={{padding:'6px 10px',background:'rgba(124,58,237,.12)',color:'#a78bfa',border:'1px solid rgba(124,58,237,.25)',borderRadius:8,fontSize:10,fontWeight:700,cursor:'pointer'}}>✏️</button>
                     <button onClick={function(){if(!window.confirm('Supprimer "'+a.name+'"?'))return;onDeleteAdvisor(i);}}
                       style={{padding:'6px 10px',background:'rgba(239,68,68,.1)',color:'#ef4444',border:'1px solid rgba(239,68,68,.2)',borderRadius:8,fontSize:10,fontWeight:700,cursor:'pointer'}}>🗑</button>
                   </div>
@@ -7158,6 +7227,14 @@ function App() {
           _db.collection("advisors").doc(adv._docId).delete().catch(function(e){ alert("Error deleting: " + e.message); });
         } else {
           setAdvisors(function(p){ return p.filter(function(_,x){ return x!==i; }); });
+        }
+      }}
+      onUpdateAdvisor={function(i, updates){
+        var adv = advisors[i];
+        if (_db && adv && adv._docId) {
+          _db.collection("advisors").doc(adv._docId).update(updates).catch(function(e){ alert("Error updating: " + e.message); });
+        } else {
+          setAdvisors(function(p){ return p.map(function(a,x){ return x===i ? Object.assign({},a,updates) : a; }); });
         }
       }}
       onShowReport={showReport}/>
