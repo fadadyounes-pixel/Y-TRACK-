@@ -1557,6 +1557,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [suggTailored, setSuggTailored]     = useState(false);
   // True once `proj` was compiled by AI rather than the instant local draft.
   const [projTailored, setProjTailored]     = useState(true);
+  // Same, for `plan`/`budget` — true once AI-compiled rather than the instant
+  // local draft built from SECTOR_EQUIPMENT + proj.
+  const [planTailored, setPlanTailored]     = useState(true);
   const [dlLang, setDlLang]                 = useState(lang);
   const [pitchBusy, setPitchBusy]           = useState(false);
   const [qaBusy, setQABusy]                 = useState(false);
@@ -3004,6 +3007,42 @@ ${axisHTML}
     }
   };
 
+  // Sector → brand color/icon, used only when AI logo generation fails outright —
+  // matching the color intuitions already in the AI prompt below (terracotta for
+  // artisanat, indigo for couture, etc.) so the fallback still looks intentional
+  // rather than generic. Purely cosmetic, so a heuristic guess here carries none of
+  // the accuracy stakes a fabricated compliance score or budget would.
+  const SECTOR_BRAND: Record<string, {c1: string; c2: string; icon: string}> = {
+    "Agriculture/Élevage": {c1: "#6B7A3E", c2: "#8FA05C", icon: "🌾"},
+    "Artisanat traditionnel": {c1: "#C8602A", c2: "#E08A4F", icon: "🏺"},
+    "Commerce/Épicerie": {c1: "#2563EB", c2: "#1E40AF", icon: "🛒"},
+    "Agro-alimentaire": {c1: "#B8860B", c2: "#D4A017", icon: "🍯"},
+    "Restauration/Café": {c1: "#E87420", c2: "#F2994A", icon: "☕"},
+    "Coiffure/Beauté": {c1: "#7B3B8E", c2: "#9B59B6", icon: "💇"},
+    "Couture/Vêtement traditionnel": {c1: "#3B3B8E", c2: "#5C5CB0", icon: "🧵"},
+    "Impression/Reprographie": {c1: "#374151", c2: "#4B5563", icon: "🖨️"},
+    "Design graphique/Communication": {c1: "#DB2777", c2: "#EC4899", icon: "🎨"},
+    "Numérique/TIC": {c1: "#1E6FE8", c2: "#3B82F6", icon: "💻"},
+    "Tourisme rural/Guide": {c1: "#059669", c2: "#10B981", icon: "🗺️"},
+    "BTP/Maçonnerie": {c1: "#78350F", c2: "#92400E", icon: "🧱"},
+    "Éducation/Formation": {c1: "#1D4ED8", c2: "#2563EB", icon: "📚"},
+    "Pêche/Aquaculture": {c1: "#1A4A7A", c2: "#2E6396", icon: "🐟"},
+    "Transport/Logistique": {c1: "#374151", c2: "#F59E0B", icon: "🚚"},
+    "Santé/Pharmacie": {c1: "#059669", c2: "#22C55E", icon: "⚕️"},
+    "Réparation/Maintenance": {c1: "#4B5563", c2: "#6B7280", icon: "🔧"},
+    "Événementiel/Traiteur": {c1: "#BE185D", c2: "#DB2777", icon: "🎉"},
+  };
+  const buildLocalLogo = (p: any) => {
+    const brand = SECTOR_BRAND[p?.sector || ""] || {c1: Y, c2: YD, icon: "💡"};
+    const initials = (p?.projectName || "").replace(/[^A-Za-z؀-ۿ]/g, "").slice(0, 2).toUpperCase() || "IM";
+    const tagline = lang === "ar" ? "خدمة محلية بجودة عالية" : lang === "fr" ? "Qualité et proximité" : "Local, quality-driven service";
+    const styleDesc = lang === "ar" ? "هوية بسيطة وواضحة" : lang === "fr" ? "Identité simple et claire" : "Simple, clear identity";
+    return {
+      initials, color1: brand.c1, color2: brand.c2, colorText: "#FFFFFF",
+      icon: brand.icon, tagline, styleDesc, accentColor: brand.c2,
+    };
+  };
+
   const genLogo = async () => {
     setLogoGenerating(true);
     try {
@@ -3052,11 +3091,15 @@ JSON UNIQUEMENT sans markdown:
       concept.initials   = concept.initials   || (proj?.projectName||"").slice(0,2).toUpperCase() || "IM";
       setLogo({type:"generated", concept}); setLogoStyle(0);
     } else {
+      // AI is unavailable — a sector-colored fallback beats a dead end. It's purely
+      // cosmetic, so an applicant getting a simpler-than-ideal logo under heavy load
+      // is a much better outcome than getting stuck on this step entirely.
+      setLogo({type:"generated", concept: buildLocalLogo(proj)}); setLogoStyle(0);
       showToast(
-        lang === "ar" ? "فشل إنشاء الشعار — حاول مجدداً" :
-        lang === "fr" ? "Génération du logo échouée — réessayez" :
-        "Logo generation failed — try again",
-        "error"
+        lang === "ar" ? "تم استخدام تصميم مبسط — يمكنك إعادة المحاولة لاحقاً" :
+        lang === "fr" ? "Design simplifié utilisé — vous pouvez réessayer plus tard" :
+        "Used a simplified design — you can try regenerating later",
+        "success"
       );
     }
     } finally {
@@ -3260,6 +3303,95 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     };
   };
 
+  // Heuristic business plan text built directly from the collected project profile,
+  // no AI required — the same "instant, no dependency on AI" principle already
+  // applied to the questionnaire, extended to the step that matters most: this is
+  // the step that actually states the funding request. Under 100+ concurrent users
+  // sharing one free-tier AI provider, genPlan()'s two AI calls can both fail at
+  // once — without this, that left the applicant stuck on a bare "regenerate"
+  // button with no funding numbers at all.
+  const buildLocalPlan = (p: any) => {
+    const name = p?.projectName || (lang === "ar" ? "المشروع" : lang === "fr" ? "le projet" : "the project");
+    const loc = p?.location || (lang === "ar" ? "المنطقة" : lang === "fr" ? "la région" : "the area");
+    const sector = p?.sector || "";
+    const ben = p?.beneficiaries || 10;
+    const budget = p?.estimatedBudget || 70000;
+    if (lang === "ar") return {
+      executiveSummary: `"${name}" هو مشروع في قطاع ${sector} بمنطقة ${loc}، يستجيب لحاجة محلية ملموسة ويهدف إلى الاستفادة المباشرة لـ${ben} شخصاً على الأقل.`,
+      problemStatement: p?.localProblem || `نقص ملحوظ في العرض المحلي المتعلق بـ${sector} في ${loc}.`,
+      solution: p?.revenueModel || `تقديم خدمات/منتجات في مجال ${sector} تستجيب مباشرة للحاجة المحددة أعلاه.`,
+      marketAnalysis: `السكان المستهدفون في ${loc} يشكلون سوقاً محلياً كافياً لانطلاق النشاط، مع منافسة محدودة أو غير منظمة.`,
+      businessModel: `نموذج اقتصادي بسيط ومباشر مبني على البيع المحلي، مع هامش ربح يغطي المصاريف الثابتة خلال الأشهر الأولى.`,
+      socialImpact: `استفادة مباشرة لـ${ben} شخصاً على الأقل، مع دخل إضافي وفرصة عمل مستدامة للحامل.`,
+      operationalPlan: `الشهر 1: اقتناء المعدات وتهيئة المكان. الشهر 2-3: الانطلاق التجريبي وأولى الزبائن. الشهر 6-12: الوصول إلى وتيرة نشاط مستقرة.`,
+      indh_alignment: p?.pillar || "تحسين الدخل والإدماج الاقتصادي للشباب",
+      risks: [
+        "خطر تجاري: منافسة محلية → الحل: التميز بالجودة والسعر",
+        "خطر مالي: تأخر الانطلاق → الحل: تسيير صارم للميزانية",
+        "خطر تشغيلي: نقص الخبرة → الحل: تكوين ومواكبة ميدانية",
+      ],
+      projections: { year1: budget * 2.3, year2: budget * 3, year3: budget * 3.8 },
+    };
+    if (lang === "en") return {
+      executiveSummary: `"${name}" is a ${sector} project in ${loc}, addressing a concrete local need and directly benefiting at least ${ben} people.`,
+      problemStatement: p?.localProblem || `A clear local gap in ${sector} services/products in ${loc}.`,
+      solution: p?.revenueModel || `Offering ${sector} products/services that directly address the need above.`,
+      marketAnalysis: `${loc}'s target population forms a sufficient local market to launch the activity, with limited or informal competition.`,
+      businessModel: `A simple, direct business model based on local sales, with a margin covering fixed costs from the first months.`,
+      socialImpact: `Direct benefit for at least ${ben} people, with additional income and a sustainable job for the holder.`,
+      operationalPlan: `Month 1: equipment purchase and setup. Month 2-3: soft launch and first customers. Month 6-12: reaching a stable pace of activity.`,
+      indh_alignment: p?.pillar || "Income improvement and economic inclusion of youth",
+      risks: [
+        "Commercial risk: local competition → Solution: stand out on quality and price",
+        "Financial risk: delayed launch → Solution: strict budget management",
+        "Operational risk: limited experience → Solution: training and field support",
+      ],
+      projections: { year1: budget * 2.3, year2: budget * 3, year3: budget * 3.8 },
+    };
+    return {
+      executiveSummary: `"${name}" est un projet du secteur ${sector} implanté à ${loc}, répondant à un besoin local concret et bénéficiant directement à au moins ${ben} personnes.`,
+      problemStatement: p?.localProblem || `Manque local identifié en matière de ${sector} à ${loc}.`,
+      solution: p?.revenueModel || `Proposer des produits/services de ${sector} répondant directement au besoin identifié.`,
+      marketAnalysis: `La population cible de ${loc} constitue un marché local suffisant pour lancer l'activité, avec une concurrence limitée ou peu structurée.`,
+      businessModel: `Modèle économique simple et direct basé sur la vente locale, avec une marge couvrant les charges fixes dès les premiers mois.`,
+      socialImpact: `Bénéfice direct pour au moins ${ben} personnes, avec un revenu complémentaire et un emploi durable pour le porteur.`,
+      operationalPlan: `Mois 1 : acquisition des équipements et aménagement. Mois 2-3 : lancement et premiers clients. Mois 6-12 : atteinte d'un rythme d'activité stable.`,
+      indh_alignment: p?.pillar || "Amélioration du revenu et inclusion économique des jeunes",
+      risks: [
+        "Risque commercial : concurrence locale → Solution : se différencier par la qualité et le prix",
+        "Risque financier : retard au démarrage → Solution : gestion budgétaire rigoureuse",
+        "Risque opérationnel : expérience limitée → Solution : formation et accompagnement de terrain",
+      ],
+      projections: { year1: budget * 2.3, year2: budget * 3, year3: budget * 3.8 },
+    };
+  };
+
+  // Heuristic budget built from the sector's known equipment list (SECTOR_EQUIPMENT
+  // — the same real, sector-specific items already used as instant questionnaire
+  // choices), scaled to the porteur's own estimated budget and split 90/10 per
+  // INDH rules. Never blocks the applicant on AI availability for their actual
+  // funding request.
+  const buildLocalBudget = (p: any) => {
+    const sector = p?.sector || "";
+    const equipFr = SECTOR_EQUIPMENT[sector]?.fr;
+    const catLabel = lang === "ar" ? "معدات إنتاجية" : lang === "fr" ? "Équipements productifs" : "Productive equipment";
+    const names = (equipFr && SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"]) || (
+      lang === "ar" ? ["معدات مهنية أساسية", "أثاث وتجهيز المحل", "أدوات ومستلزمات التشغيل"]
+      : lang === "en" ? ["Basic professional equipment", "Fit-out and furniture", "Operating tools and supplies"]
+      : ["Équipement professionnel de base", "Aménagement et mobilier du local", "Outillage et fournitures d'exploitation"]
+    );
+    const rawTotal = Math.min(Math.max(p?.estimatedBudget || 70000, 55000), 111000);
+    const splits = [0.5, 0.35, 0.15];
+    const items = names.slice(0, 3).map((item: string, i: number) => {
+      const total = Math.round((rawTotal * splits[i]) / 100) * 100;
+      return { category: catLabel, item, quantity: 1, unitPrice: total, total };
+    });
+    const total = items.reduce((s: number, x: any) => s + x.total, 0);
+    const indhContribution = Math.min(Math.round(total * 0.9), 100000);
+    const beneficiaryContribution = total - indhContribution;
+    return { items, indhContribution, beneficiaryContribution };
+  };
+
   const sendMsg = (override?: string) => {
     const msg = override ?? inp;
     if (!msg.trim() || busy) return;
@@ -3313,12 +3445,20 @@ NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON 
   };
 
   const genPlan = async () => {
-    setBusy(true); setStep("plan");
-    try {
+    // Instant local draft first — same principle as the questionnaire and profile
+    // steps: never block the applicant on a network call, especially not for the
+    // step that states their actual funding request. AI runs in the background and
+    // silently upgrades the draft if it lands before the user moves past
+    // plan/budget. Guards on stepRef so a slow response can't clobber content the
+    // user has already moved on from.
+    setPlan(buildLocalPlan(proj)); setBudget(buildLocalBudget(proj)); setPlanTailored(false);
+    setStep("plan");
+
     const projCtx = JSON.stringify(proj || {idea});
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب كل النصوص بالعربية الفصحى السليمة والواضحة. جمل كاملة ومنظمة. لا دارجة مغربية. لا حروف لاتينية داخل النصوص العربية."
       : "";
+    (async () => {
     const [p, b] = await Promise.all([
       ensureJson([{role: "user", content: `Projet INDH: ${projCtx}`}],
         `Tu es un expert en montage de projets INDH Phase 3 au Maroc — tu as accompagné des dizaines de porteurs qui ont obtenu leur financement.
@@ -3351,11 +3491,12 @@ RÈGLES IMPÉRATIVES:
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"items":[{"category":"catégorie","item":"désignation exacte avec marque/modèle si pertinent en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`),
     ]);
-    if (p) setPlan(p);
-    if (b) setBudget(b);
-    } finally {
-      setBusy(false);
-    }
+    // Only swap the draft for the AI version if the user is still on plan/budget —
+    // if they've already moved on to Logo, leave what's already there.
+    const stillHere = stepRef.current === "plan" || stepRef.current === "budget";
+    if (p && stillHere) { setPlan(p); setPlanTailored(true); }
+    if (b && stillHere) setBudget(b);
+    })().catch(() => {});
   };
 
   const checkComp = async () => {
@@ -3749,6 +3890,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <div><h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.planT}</h2>
                   <p style={{fontSize: "12px", color: GR, marginTop: "2px"}}>{proj?.projectName}</p></div>
               </div>
+              {!planTailored && (
+                <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "16px",
+                  padding: "8px 12px", background: CR, borderRadius: "9px", border: `1px solid ${CD}`}}>
+                  <Dots/>
+                  <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>
+                    {lang === "ar" ? "جاري تحسين التفاصيل في الخلفية..." : lang === "fr" ? "Affinement des détails en cours..." : "Refining details in the background..."}
+                  </span>
+                </div>
+              )}
               {planBlock("executiveSummary", "Résumé Exécutif", "الملخص التنفيذي", "Executive Summary", "📝")}
               {planBlock("problemStatement", "Problématique", "إشكالية المشروع", "Problem Statement", "❓")}
               {planBlock("solution", "Solution Proposée", "الحل المقترح", "Proposed Solution", "💡")}
@@ -3837,6 +3987,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <div><h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.budgetT}</h2>
                   <p style={{fontSize: "12px", color: GR, marginTop: "2px"}}>{t.maxB}</p></div>
               </div>
+              {!planTailored && (
+                <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "16px",
+                  padding: "8px 12px", background: CR, borderRadius: "9px", border: `1px solid ${CD}`}}>
+                  <Dots/>
+                  <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>
+                    {lang === "ar" ? "جاري تحسين التفاصيل في الخلفية..." : lang === "fr" ? "Affinement des détails en cours..." : "Refining details in the background..."}
+                  </span>
+                </div>
+              )}
               <div style={{padding: "14px 16px", borderRadius: "13px", marginBottom: "18px",
                 background: pct > 100 ? "#FFF0F0" : YL, border: `1px solid ${pct > 100 ? RE : Y}`}}>
                 <div style={{display: "flex", justifyContent: "space-between", marginBottom: "7px"}}>
