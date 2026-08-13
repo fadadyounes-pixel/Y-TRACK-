@@ -163,6 +163,14 @@ const PREFECTURES_CS = [
   "Casablanca","Mohammedia","El Jadida","Settat","Berrechid",
   "Médiouna","Nouaceur","Benslimane","Khouribga","Sidi Bennour",
 ];
+// Casablanca itself (one entry in PREFECTURES_CS above) is further split into 8
+// préfectures d'arrondissements — a coordinator or jury needs that level of detail
+// for anyone who picked "Casablanca", the same way PREFECTURES_CS narrows down
+// "Casablanca-Settat".
+const ARRONDISSEMENTS_CASA = [
+  "Anfa","Aïn Chock","Aïn Sebaâ-Hay Mohammadi","Al Fida-Mers Sultan",
+  "Ben M'Sick","Hay Hassani","Moulay Rachid","Sidi Bernoussi",
+];
 
 // Sector-specific answer choices for the "products/services" and "main equipment"
 // questions in the dialogue flow — shown instantly (no AI call) as real, tappable
@@ -401,6 +409,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     city:"Ville",
     region:"Région",
     prefecture:"Préfecture",
+    arrondissement:"Arrondissement",
     sector:"Secteur d'activité envisagé",
     projType:"Type de porteur",
     photo:"Photo (optionnelle)",
@@ -461,6 +470,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     city:"المدينة",
     region:"الجهة",
     prefecture:"العمالة / الإقليم",
+    arrondissement:"المقاطعة",
     sector:"قطاع النشاط المنشود",
     projType:"نوع الحامل",
     photo:"الصورة (اختياري)",
@@ -521,6 +531,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     city:"City",
     region:"Region",
     prefecture:"Prefecture",
+    arrondissement:"District",
     sector:"Target sector",
     projType:"Holder type",
     photo:"Photo (optional)",
@@ -565,13 +576,15 @@ const TX: Record<string, Record<string, string | string[]>> = {
 /* ── SHARED UI ───────────────────────────────────────── */
 const ff = (lang: string) => lang === "ar" ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
 
-// Casablanca-Settat is split into 12 prefectures/arrondissements at registration
-// (see PREFECTURES_CS) — "Casablanca-Settat" alone is too coarse to be useful for
-// a jury or a coordinator. Show the prefecture alongside the region wherever a
+// Casablanca-Settat is split into 10 prefectures/provinces at registration (see
+// PREFECTURES_CS), and Casablanca itself further into 8 préfectures d'arrondissements
+// (see ARRONDISSEMENTS_CASA) — "Casablanca-Settat" alone is too coarse to be useful
+// for a jury or a coordinator. Show the most precise level available wherever a
 // holder's location is displayed.
-const regionDisplay = (profile?: {region?: string; prefecture?: string}): string => {
+const regionDisplay = (profile?: {region?: string; prefecture?: string; arrondissement?: string}): string => {
   if (!profile?.region) return "";
-  return profile.prefecture ? `${profile.region} — ${profile.prefecture}` : profile.region;
+  const parts = [profile.region, profile.prefecture, profile.arrondissement].filter(Boolean);
+  return parts.join(" — ");
 };
 
 const Btn = ({children, onClick, disabled, outline, small, style = {}}: {
@@ -1116,10 +1129,11 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
   const [mode, setMode]       = useState<null | "new">(null);
-  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", city: "", region: "", prefecture: "", sector: "", projType: "", photo: ""});
+  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", city: "", region: "", prefecture: "", arrondissement: "", sector: "", projType: "", photo: ""});
   const [formErr, setFormErr] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prefRef   = useRef<HTMLDivElement>(null);
+  const arrRef    = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
 
   /* ── Live role detection ── */
@@ -1152,12 +1166,23 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   };
 
   const showPrefecture = form.region === "Casablanca-Settat";
+  // Casablanca (one of the 10 PREFECTURES_CS options) is itself split into 8
+  // préfectures d'arrondissements — only relevant once that specific prefecture
+  // is picked, not for the region's 9 other prefectures/provinces.
+  const showArrondissement = showPrefecture && form.prefecture === "Casablanca";
 
   useEffect(() => {
     if (!showPrefecture || !prefRef.current) return;
     const id = setTimeout(() => prefRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
     return () => clearTimeout(id);
   }, [showPrefecture]);
+
+  useEffect(() => {
+    if (!showArrondissement && form.arrondissement) { setForm(p => ({...p, arrondissement: ""})); return; }
+    if (!showArrondissement || !arrRef.current) return;
+    const id = setTimeout(() => arrRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
+    return () => clearTimeout(id);
+  }, [showArrondissement]);
 
   const REQUIRED_FIELDS: Array<{key: keyof typeof form; label: Record<string,string>}> = [
     {key:"firstName",  label:{fr:"Prénom",ar:"الاسم الشخصي",en:"First name"}},
@@ -1171,11 +1196,15 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     {key:"sector",     label:{fr:"Secteur",ar:"القطاع",en:"Sector"}},
     {key:"projType",   label:{fr:"Type de porteur",ar:"نوع الحامل",en:"Holder type"}},
   ];
-  const allRequired = showPrefecture
-    ? [...REQUIRED_FIELDS, {key:"prefecture" as keyof typeof form, label:{fr:"Préfecture",ar:"العمالة",en:"Prefecture"}}]
-    : REQUIRED_FIELDS;
-  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "prefecture").length + (showPrefecture ? 1 : 0);
-  const filledCount  = Object.entries(form).filter(([k,v]) => k !== "photo" && (k !== "prefecture" || showPrefecture) && !!v).length;
+  const allRequired = [
+    ...REQUIRED_FIELDS,
+    ...(showPrefecture ? [{key:"prefecture" as keyof typeof form, label:{fr:"Préfecture",ar:"العمالة",en:"Prefecture"}}] : []),
+    ...(showArrondissement ? [{key:"arrondissement" as keyof typeof form, label:{fr:"Arrondissement",ar:"المقاطعة",en:"District"}}] : []),
+  ];
+  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "prefecture" && k !== "arrondissement").length
+    + (showPrefecture ? 1 : 0) + (showArrondissement ? 1 : 0);
+  const filledCount  = Object.entries(form).filter(([k,v]) =>
+    k !== "photo" && (k !== "prefecture" || showPrefecture) && (k !== "arrondissement" || showArrondissement) && !!v).length;
   const fillPct      = Math.round((filledCount / TOTAL_FIELDS) * 100);
   const isEmailValid = (v:string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
@@ -1303,7 +1332,22 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
             {showPrefecture && (
               <div ref={prefRef} style={{animation:"fadeUp .3s ease both"}}>
                 <label style={lStyle}>{t.prefecture}</label>
-                {dSel("prefecture", PREFECTURES_CS, t.prefecture as string)}
+                <select value={form.prefecture}
+                  onChange={e => {setForm(p=>({...p, prefecture:e.target.value, arrondissement:""})); setFormErr([]);}}
+                  style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
+                    border:`1.5px solid ${form.prefecture ? Y : "rgba(28,58,92,.8)"}`,
+                    background:"rgba(255,255,255,.04)", fontSize:"13px",
+                    fontFamily:ff(lang), color:form.prefecture ? WH : "rgba(255,255,255,.3)",
+                    direction:dir as "rtl"|"ltr", appearance:"none", cursor:"pointer", transition:"all .2s"}}>
+                  <option value="" style={{background:"#0f2233"}}>{t.prefecture}</option>
+                  {PREFECTURES_CS.map(o => <option key={o} value={o} style={{background:"#0f2233"}}>{o}</option>)}
+                </select>
+              </div>
+            )}
+            {showArrondissement && (
+              <div ref={arrRef} style={{animation:"fadeUp .3s ease both"}}>
+                <label style={lStyle}>{t.arrondissement}</label>
+                {dSel("arrondissement", ARRONDISSEMENTS_CASA, t.arrondissement as string)}
               </div>
             )}
             {regSec("💼", lang==="ar"?"المشروع":lang==="fr"?"Projet":"Project")}
