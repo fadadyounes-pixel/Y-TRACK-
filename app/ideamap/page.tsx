@@ -82,7 +82,7 @@ const RE  = "#C0632F";   // Warning      — errors, "En cours", risk indicators
 /* Logo appears only on the login page via /logo-transparent.png */
 
 /* ── AUTH ────────────────────────────────────────────── */
-const ADMIN_CODE = "@adminINDH";
+const ADMIN_CODE = "@mapadmin";
 const RE_HOLDER  = /^[A-Z]{2}\d{3,}$/;
 const RE_COORD   = /^@[A-Za-z]{2,}COD$/i;
 
@@ -163,6 +163,204 @@ const PREFECTURES_CS = [
   "Casablanca","Mohammedia","El Jadida","Settat","Berrechid",
   "Médiouna","Nouaceur","Benslimane","Khouribga","Sidi Bennour",
 ];
+// Casablanca itself (one entry in PREFECTURES_CS above) is further split into 8
+// préfectures d'arrondissements — a coordinator or jury needs that level of detail
+// for anyone who picked "Casablanca", the same way PREFECTURES_CS narrows down
+// "Casablanca-Settat".
+const ARRONDISSEMENTS_CASA = [
+  "Anfa","Aïn Chock","Aïn Sebaâ-Hay Mohammadi","Al Fida-Mers Sultan",
+  "Ben M'Sick","Hay Hassani","Moulay Rachid","Sidi Bernoussi",
+];
+
+// Sector-specific answer choices for the "products/services" and "main equipment"
+// questions in the dialogue flow — shown instantly (no AI call) as real, tappable
+// options tied to the sector the porteur already selected at registration, instead
+// of a generic "use your best estimate" placeholder. Keyed by the exact SECTORS
+// strings above so the lookup is a direct hit from user.profile.sector.
+const SECTOR_SERVICES: Record<string, Record<"fr"|"ar"|"en", string[]>> = {
+  "Agriculture/Élevage": {
+    fr: ["Élevage de volailles ou de bétail pour la vente", "Culture maraîchère et vente de légumes", "Production laitière et dérivés"],
+    ar: ["تربية الدواجن أو الماشية للبيع", "زراعة الخضروات وبيعها", "إنتاج الحليب ومشتقاته"],
+    en: ["Poultry or livestock farming for sale", "Vegetable growing and sale", "Dairy production and derivatives"],
+  },
+  "Artisanat traditionnel": {
+    fr: ["Poterie et céramique artisanale", "Tapis et tissage traditionnel", "Maroquinerie et cuir artisanal"],
+    ar: ["الفخار والخزف التقليدي", "الزرابي والنسيج التقليدي", "صناعة الجلد التقليدية"],
+    en: ["Traditional pottery and ceramics", "Traditional rugs and weaving", "Traditional leather goods"],
+  },
+  "Commerce/Épicerie": {
+    fr: ["Épicerie de proximité (produits de base)", "Vente de produits alimentaires et boissons", "Commerce multi-produits"],
+    ar: ["بقالة القرب (المنتجات الأساسية)", "بيع المواد الغذائية والمشروبات", "تجارة متعددة المنتجات"],
+    en: ["Neighborhood grocery (staples)", "Food and beverage sales", "Multi-product store"],
+  },
+  "Agro-alimentaire": {
+    fr: ["Transformation de produits du terroir (huile, miel...)", "Conserverie et confiture artisanale", "Pâtisserie ou boulangerie traditionnelle"],
+    ar: ["تحويل منتجات المجال (زيت، عسل...)", "تعليب ومربى تقليدي", "حلويات أو مخبزة تقليدية"],
+    en: ["Processing local produce (oil, honey...)", "Canning and artisan jam", "Traditional pastry or bakery"],
+  },
+  "Restauration/Café": {
+    fr: ["Café populaire ou salon de thé", "Restauration rapide (snack, sandwichs)", "Restaurant traditionnel marocain"],
+    ar: ["مقهى شعبي أو صالون شاي", "مطعم وجبات سريعة", "مطعم مغربي تقليدي"],
+    en: ["Popular café or tea salon", "Fast food (snack, sandwiches)", "Traditional Moroccan restaurant"],
+  },
+  "Coiffure/Beauté": {
+    fr: ["Coupe de cheveux, taille de barbe et soins", "Coiffure et esthétique pour femmes", "Salon complet (coiffure + soins + produits)"],
+    ar: ["قص الشعر وتشذيب اللحية والعناية", "تصفيف الشعر والتجميل للنساء", "صالون متكامل (حلاقة + عناية + منتجات)"],
+    en: ["Haircuts, beard trims and grooming", "Hairdressing and beauty for women", "Full salon (hair + skincare + products)"],
+  },
+  "Couture/Vêtement traditionnel": {
+    fr: ["Confection de caftans et vêtements traditionnels", "Couture sur mesure et retouches", "Vente de prêt-à-porter"],
+    ar: ["خياطة القفطان والملابس التقليدية", "خياطة حسب الطلب وتصليحات", "بيع الملابس الجاهزة"],
+    en: ["Caftans and traditional garment making", "Custom tailoring and alterations", "Ready-to-wear clothing sales"],
+  },
+  "Impression/Reprographie": {
+    fr: ["Impression et photocopie", "Cybercafé et services administratifs", "Impression grand format et enseignes"],
+    ar: ["الطباعة والاستنساخ", "سيبر وخدمات إدارية", "طباعة كبيرة الحجم ولافتات"],
+    en: ["Printing and photocopying", "Cybercafé and admin services", "Large-format printing and signage"],
+  },
+  "Design graphique/Communication": {
+    fr: ["Création de logos et identité visuelle", "Community management et réseaux sociaux", "Impression publicitaire et flyers"],
+    ar: ["تصميم الشعارات والهوية البصرية", "إدارة صفحات التواصل الاجتماعي", "طباعة إعلانية ومنشورات"],
+    en: ["Logo and brand identity design", "Social media management", "Advertising print and flyers"],
+  },
+  "Numérique/TIC": {
+    fr: ["Développement de sites web ou d'applications", "Formation en informatique", "Maintenance informatique et réseaux"],
+    ar: ["تطوير مواقع أو تطبيقات إلكترونية", "تكوين في مجال المعلوميات", "صيانة معلوماتية وشبكات"],
+    en: ["Website or app development", "IT training", "Computer and network maintenance"],
+  },
+  "Tourisme rural/Guide": {
+    fr: ["Guide touristique local", "Gîte ou hébergement rural", "Circuits et randonnées organisées"],
+    ar: ["دليل سياحي محلي", "بيت ضيافة أو إيواء قروي", "جولات ومسارات منظمة"],
+    en: ["Local tour guiding", "Rural guesthouse or lodging", "Organized tours and hikes"],
+  },
+  "BTP/Maçonnerie": {
+    fr: ["Travaux de maçonnerie générale", "Carrelage et revêtements", "Peinture et finitions bâtiment"],
+    ar: ["أشغال البناء العامة", "البلاط والتغطية", "الصباغة وتشطيبات البناء"],
+    en: ["General masonry work", "Tiling and flooring", "Painting and building finishing"],
+  },
+  "Éducation/Formation": {
+    fr: ["Soutien scolaire à domicile", "Formation professionnelle courte", "Cours de langues ou d'informatique"],
+    ar: ["الدعم المدرسي بالمنزل", "تكوين مهني قصير", "دروس اللغات أو المعلوميات"],
+    en: ["Home tutoring", "Short vocational training", "Language or computer classes"],
+  },
+  "Pêche/Aquaculture": {
+    fr: ["Pêche artisanale côtière", "Élevage aquacole (poissons, crevettes)", "Transformation et vente de produits de mer"],
+    ar: ["الصيد التقليدي الساحلي", "تربية مائية (أسماك، روبيان)", "تحويل وبيع منتجات البحر"],
+    en: ["Small-scale coastal fishing", "Aquaculture farming (fish, shrimp)", "Processing and selling seafood"],
+  },
+  "Transport/Logistique": {
+    fr: ["Transport de marchandises", "Transport de personnes (taxi, navette)", "Livraison et coursier"],
+    ar: ["نقل البضائع", "نقل الأشخاص (تاكسي، حافلة)", "التوصيل والسعي"],
+    en: ["Goods transport", "Passenger transport (taxi, shuttle)", "Delivery and courier service"],
+  },
+  "Santé/Pharmacie": {
+    fr: ["Parapharmacie et produits de santé", "Services de soins à domicile", "Vente de matériel médical"],
+    ar: ["صيدلية شبه طبية ومنتجات صحية", "خدمات العناية بالمنزل", "بيع المعدات الطبية"],
+    en: ["Parapharmacy and health products", "Home care services", "Medical equipment sales"],
+  },
+  "Réparation/Maintenance": {
+    fr: ["Réparation d'appareils électroménagers", "Réparation de téléphones et électronique", "Mécanique et entretien automobile"],
+    ar: ["إصلاح الأجهزة المنزلية", "إصلاح الهواتف والإلكترونيات", "ميكانيك وصيانة السيارات"],
+    en: ["Home appliance repair", "Phone and electronics repair", "Auto mechanics and maintenance"],
+  },
+  "Événementiel/Traiteur": {
+    fr: ["Traiteur pour événements et mariages", "Organisation et décoration d'événements", "Location de matériel événementiel"],
+    ar: ["تقديم الطعام للمناسبات والأعراس", "تنظيم وتزيين المناسبات", "كراء معدات المناسبات"],
+    en: ["Catering for events and weddings", "Event planning and decoration", "Event equipment rental"],
+  },
+};
+const SECTOR_EQUIPMENT: Record<string, Record<"fr"|"ar"|"en", string[]>> = {
+  "Agriculture/Élevage": {
+    fr: ["Cheptel (animaux) et matériel d'élevage", "Matériel d'irrigation et outils agricoles", "Serre agricole et équipement de culture"],
+    ar: ["قطيع (حيوانات) ومعدات التربية", "معدات السقي وأدوات فلاحية", "بيت بلاستيكي ومعدات الزراعة"],
+    en: ["Livestock and farming equipment", "Irrigation gear and farm tools", "Greenhouse and growing equipment"],
+  },
+  "Artisanat traditionnel": {
+    fr: ["Métier à tisser ou four de poterie", "Outillage artisanal spécialisé", "Matières premières et matériel de finition"],
+    ar: ["نول للنسيج أو فرن للفخار", "أدوات حرفية متخصصة", "مواد أولية ومعدات التشطيب"],
+    en: ["Loom or pottery kiln", "Specialized craft tools", "Raw materials and finishing equipment"],
+  },
+  "Commerce/Épicerie": {
+    fr: ["Rayonnages, frigo et caisse enregistreuse", "Stock initial de marchandises", "Aménagement du local commercial"],
+    ar: ["رفوف وثلاجة وصندوق تسجيل", "مخزون أولي من البضائع", "تجهيز المحل التجاري"],
+    en: ["Shelving, fridge and cash register", "Initial stock of goods", "Fitting out the shop"],
+  },
+  "Agro-alimentaire": {
+    fr: ["Matériel de transformation (presse, four...)", "Emballage et étiquetage", "Chambre froide ou conservation"],
+    ar: ["معدات التحويل (معصرة، فرن...)", "التغليف ووضع الملصقات", "غرفة تبريد أو حفظ"],
+    en: ["Processing equipment (press, oven...)", "Packaging and labeling", "Cold storage / preservation"],
+  },
+  "Restauration/Café": {
+    fr: ["Cuisine équipée (four, plaques, frigo)", "Mobilier et vaisselle", "Machine à café et matériel de service"],
+    ar: ["مطبخ مجهز (فرن، صفيحة، ثلاجة)", "أثاث وأواني", "آلة قهوة ومعدات الخدمة"],
+    en: ["Equipped kitchen (oven, hobs, fridge)", "Furniture and tableware", "Coffee machine and service equipment"],
+  },
+  "Coiffure/Beauté": {
+    fr: ["Fauteuils, miroirs et matériel de coiffure", "Stérilisateur UV et matériel d'hygiène", "Tondeuses, sèche-cheveux et accessoires"],
+    ar: ["كراسي ومرايا ومعدات الحلاقة", "معقم بالأشعة فوق البنفسجية ومعدات النظافة", "آلات حلاقة ومجفف شعر وإكسسوارات"],
+    en: ["Chairs, mirrors and salon equipment", "UV sterilizer and hygiene gear", "Clippers, hairdryers and accessories"],
+  },
+  "Couture/Vêtement traditionnel": {
+    fr: ["Machines à coudre professionnelles", "Tissus et fournitures de couture", "Table de coupe et matériel de finition"],
+    ar: ["آلات خياطة احترافية", "أقمشة ولوازم الخياطة", "طاولة قص ومعدات التشطيب"],
+    en: ["Professional sewing machines", "Fabrics and sewing supplies", "Cutting table and finishing equipment"],
+  },
+  "Impression/Reprographie": {
+    fr: ["Imprimante ou photocopieur professionnel", "Ordinateur et logiciels de conception", "Matériel de reliure et finition"],
+    ar: ["طابعة أو ناسخة احترافية", "حاسوب وبرامج التصميم", "معدات التجليد والتشطيب"],
+    en: ["Professional printer/copier", "Computer and design software", "Binding and finishing equipment"],
+  },
+  "Design graphique/Communication": {
+    fr: ["Ordinateur et logiciels de design", "Appareil photo et matériel de prise de vue", "Imprimante et matériel de présentation"],
+    ar: ["حاسوب وبرامج التصميم", "كاميرا ومعدات التصوير", "طابعة ومعدات العرض"],
+    en: ["Computer and design software", "Camera and shooting equipment", "Printer and presentation equipment"],
+  },
+  "Numérique/TIC": {
+    fr: ["Ordinateurs et matériel informatique", "Connexion internet et serveur", "Logiciels et licences professionnelles"],
+    ar: ["حواسيب ومعدات معلوماتية", "اتصال بالأنترنت وخادوم", "برامج ورخص احترافية"],
+    en: ["Computers and IT equipment", "Internet connection and server", "Professional software licenses"],
+  },
+  "Tourisme rural/Guide": {
+    fr: ["Véhicule ou matériel de transport touristique", "Équipement d'hébergement ou de gîte", "Matériel de randonnée et sécurité"],
+    ar: ["مركبة أو معدات النقل السياحي", "معدات الإيواء أو بيت الضيافة", "معدات التنزه والسلامة"],
+    en: ["Vehicle or tourist transport gear", "Lodging/guesthouse equipment", "Hiking and safety equipment"],
+  },
+  "BTP/Maçonnerie": {
+    fr: ["Outillage de maçonnerie (bétonnière...)", "Échafaudage et matériel de sécurité", "Véhicule utilitaire pour le transport"],
+    ar: ["أدوات البناء (خلاطة الإسمنت...)", "سقالة ومعدات السلامة", "مركبة نفعية للنقل"],
+    en: ["Masonry tools (concrete mixer...)", "Scaffolding and safety equipment", "Utility vehicle for transport"],
+  },
+  "Éducation/Formation": {
+    fr: ["Matériel pédagogique et mobilier", "Ordinateur et supports numériques", "Aménagement d'une salle de formation"],
+    ar: ["معدات تربوية وأثاث", "حاسوب وموارد رقمية", "تجهيز قاعة تكوين"],
+    en: ["Teaching materials and furniture", "Computer and digital resources", "Fitting out a training room"],
+  },
+  "Pêche/Aquaculture": {
+    fr: ["Barque et matériel de pêche", "Bassins ou cages d'élevage aquacole", "Matériel de conservation du poisson"],
+    ar: ["قارب ومعدات الصيد", "أحواض أو أقفاص التربية المائية", "معدات حفظ السمك"],
+    en: ["Boat and fishing gear", "Ponds or aquaculture cages", "Fish preservation equipment"],
+  },
+  "Transport/Logistique": {
+    fr: ["Véhicule utilitaire ou taxi", "Matériel de manutention", "Système de suivi des livraisons"],
+    ar: ["مركبة نفعية أو تاكسي", "معدات المناولة", "نظام تتبع التوصيل"],
+    en: ["Utility vehicle or taxi", "Handling equipment", "Delivery tracking system"],
+  },
+  "Santé/Pharmacie": {
+    fr: ["Aménagement et vitrines de vente", "Matériel médical de base", "Stock initial de produits"],
+    ar: ["تجهيز وواجهات البيع", "معدات طبية أساسية", "مخزون أولي من المنتجات"],
+    en: ["Fit-out and display shelving", "Basic medical equipment", "Initial product stock"],
+  },
+  "Réparation/Maintenance": {
+    fr: ["Outillage spécialisé de réparation", "Pièces de rechange et stock", "Établi et matériel d'atelier"],
+    ar: ["أدوات إصلاح متخصصة", "قطع غيار ومخزون", "منضدة عمل ومعدات الورشة"],
+    en: ["Specialized repair tools", "Spare parts stock", "Workbench and workshop equipment"],
+  },
+  "Événementiel/Traiteur": {
+    fr: ["Matériel de cuisine et service traiteur", "Tentes, chaises et décoration", "Véhicule de transport du matériel"],
+    ar: ["معدات المطبخ وخدمة التقديم", "خيام وكراسي وديكور", "مركبة لنقل المعدات"],
+    en: ["Catering kitchen and service equipment", "Tents, chairs and decoration", "Vehicle to transport equipment"],
+  },
+};
 
 const DOCS = [
   {id:1,name:"Carte d'Identité Nationale (CIN)",desc:"Copies légalisées de tous les membres",req:true,icon:"🪪"},
@@ -211,6 +409,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     city:"Ville",
     region:"Région",
     prefecture:"Préfecture",
+    arrondissement:"Arrondissement",
     sector:"Secteur d'activité envisagé",
     projType:"Type de porteur",
     photo:"Photo (optionnelle)",
@@ -271,6 +470,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     city:"المدينة",
     region:"الجهة",
     prefecture:"العمالة / الإقليم",
+    arrondissement:"المقاطعة",
     sector:"قطاع النشاط المنشود",
     projType:"نوع الحامل",
     photo:"الصورة (اختياري)",
@@ -331,6 +531,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     city:"City",
     region:"Region",
     prefecture:"Prefecture",
+    arrondissement:"District",
     sector:"Target sector",
     projType:"Holder type",
     photo:"Photo (optional)",
@@ -375,13 +576,15 @@ const TX: Record<string, Record<string, string | string[]>> = {
 /* ── SHARED UI ───────────────────────────────────────── */
 const ff = (lang: string) => lang === "ar" ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
 
-// Casablanca-Settat is split into 12 prefectures/arrondissements at registration
-// (see PREFECTURES_CS) — "Casablanca-Settat" alone is too coarse to be useful for
-// a jury or a coordinator. Show the prefecture alongside the region wherever a
+// Casablanca-Settat is split into 10 prefectures/provinces at registration (see
+// PREFECTURES_CS), and Casablanca itself further into 8 préfectures d'arrondissements
+// (see ARRONDISSEMENTS_CASA) — "Casablanca-Settat" alone is too coarse to be useful
+// for a jury or a coordinator. Show the most precise level available wherever a
 // holder's location is displayed.
-const regionDisplay = (profile?: {region?: string; prefecture?: string}): string => {
+const regionDisplay = (profile?: {region?: string; prefecture?: string; arrondissement?: string}): string => {
   if (!profile?.region) return "";
-  return profile.prefecture ? `${profile.region} — ${profile.prefecture}` : profile.region;
+  const parts = [profile.region, profile.prefecture, profile.arrondissement].filter(Boolean);
+  return parts.join(" — ");
 };
 
 const Btn = ({children, onClick, disabled, outline, small, style = {}}: {
@@ -926,10 +1129,11 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
   const [mode, setMode]       = useState<null | "new">(null);
-  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", city: "", region: "", prefecture: "", sector: "", projType: "", photo: ""});
+  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", city: "", region: "", prefecture: "", arrondissement: "", sector: "", projType: "", photo: ""});
   const [formErr, setFormErr] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prefRef   = useRef<HTMLDivElement>(null);
+  const arrRef    = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
 
   /* ── Live role detection ── */
@@ -962,12 +1166,23 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   };
 
   const showPrefecture = form.region === "Casablanca-Settat";
+  // Casablanca (one of the 10 PREFECTURES_CS options) is itself split into 8
+  // préfectures d'arrondissements — only relevant once that specific prefecture
+  // is picked, not for the region's 9 other prefectures/provinces.
+  const showArrondissement = showPrefecture && form.prefecture === "Casablanca";
 
   useEffect(() => {
     if (!showPrefecture || !prefRef.current) return;
     const id = setTimeout(() => prefRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
     return () => clearTimeout(id);
   }, [showPrefecture]);
+
+  useEffect(() => {
+    if (!showArrondissement && form.arrondissement) { setForm(p => ({...p, arrondissement: ""})); return; }
+    if (!showArrondissement || !arrRef.current) return;
+    const id = setTimeout(() => arrRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
+    return () => clearTimeout(id);
+  }, [showArrondissement]);
 
   const REQUIRED_FIELDS: Array<{key: keyof typeof form; label: Record<string,string>}> = [
     {key:"firstName",  label:{fr:"Prénom",ar:"الاسم الشخصي",en:"First name"}},
@@ -981,11 +1196,15 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     {key:"sector",     label:{fr:"Secteur",ar:"القطاع",en:"Sector"}},
     {key:"projType",   label:{fr:"Type de porteur",ar:"نوع الحامل",en:"Holder type"}},
   ];
-  const allRequired = showPrefecture
-    ? [...REQUIRED_FIELDS, {key:"prefecture" as keyof typeof form, label:{fr:"Préfecture",ar:"العمالة",en:"Prefecture"}}]
-    : REQUIRED_FIELDS;
-  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "prefecture").length + (showPrefecture ? 1 : 0);
-  const filledCount  = Object.entries(form).filter(([k,v]) => k !== "photo" && (k !== "prefecture" || showPrefecture) && !!v).length;
+  const allRequired = [
+    ...REQUIRED_FIELDS,
+    ...(showPrefecture ? [{key:"prefecture" as keyof typeof form, label:{fr:"Préfecture",ar:"العمالة",en:"Prefecture"}}] : []),
+    ...(showArrondissement ? [{key:"arrondissement" as keyof typeof form, label:{fr:"Arrondissement",ar:"المقاطعة",en:"District"}}] : []),
+  ];
+  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "prefecture" && k !== "arrondissement").length
+    + (showPrefecture ? 1 : 0) + (showArrondissement ? 1 : 0);
+  const filledCount  = Object.entries(form).filter(([k,v]) =>
+    k !== "photo" && (k !== "prefecture" || showPrefecture) && (k !== "arrondissement" || showArrondissement) && !!v).length;
   const fillPct      = Math.round((filledCount / TOTAL_FIELDS) * 100);
   const isEmailValid = (v:string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
@@ -1113,7 +1332,22 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
             {showPrefecture && (
               <div ref={prefRef} style={{animation:"fadeUp .3s ease both"}}>
                 <label style={lStyle}>{t.prefecture}</label>
-                {dSel("prefecture", PREFECTURES_CS, t.prefecture as string)}
+                <select value={form.prefecture}
+                  onChange={e => {setForm(p=>({...p, prefecture:e.target.value, arrondissement:""})); setFormErr([]);}}
+                  style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
+                    border:`1.5px solid ${form.prefecture ? Y : "rgba(28,58,92,.8)"}`,
+                    background:"rgba(255,255,255,.04)", fontSize:"13px",
+                    fontFamily:ff(lang), color:form.prefecture ? WH : "rgba(255,255,255,.3)",
+                    direction:dir as "rtl"|"ltr", appearance:"none", cursor:"pointer", transition:"all .2s"}}>
+                  <option value="" style={{background:"#0f2233"}}>{t.prefecture}</option>
+                  {PREFECTURES_CS.map(o => <option key={o} value={o} style={{background:"#0f2233"}}>{o}</option>)}
+                </select>
+              </div>
+            )}
+            {showArrondissement && (
+              <div ref={arrRef} style={{animation:"fadeUp .3s ease both"}}>
+                <label style={lStyle}>{t.arrondissement}</label>
+                {dSel("arrondissement", ARRONDISSEMENTS_CASA, t.arrondissement as string)}
               </div>
             )}
             {regSec("💼", lang==="ar"?"المشروع":lang==="fr"?"Projet":"Project")}
@@ -1323,6 +1557,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [suggTailored, setSuggTailored]     = useState(false);
   // True once `proj` was compiled by AI rather than the instant local draft.
   const [projTailored, setProjTailored]     = useState(true);
+  // Same, for `plan`/`budget` — true once AI-compiled rather than the instant
+  // local draft built from SECTOR_EQUIPMENT + proj.
+  const [planTailored, setPlanTailored]     = useState(true);
   const [dlLang, setDlLang]                 = useState(lang);
   const [pitchBusy, setPitchBusy]           = useState(false);
   const [qaBusy, setQABusy]                 = useState(false);
@@ -1473,16 +1710,258 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     return p;
   };
 
-  // Tap-options are never worth blocking on a network call for — the question flow
-  // shows this instantly the moment a question appears, then silently upgrades to
-  // AI-tailored options if the background batch (see startChat) delivers them before
-  // the user answers. This is what makes 50+ concurrent users a non-issue for this
-  // step: nobody is ever waiting on AI to proceed, tailoring is a pure enhancement.
+  // Last-resort fallback only — used when a question index has no local option set
+  // below (shouldn't normally happen, all 30 are covered) and AI tailoring hasn't
+  // landed yet either.
   const genericOptions = (): string[] => [
     lang === "ar" ? "استخدم أفضل تقدير" : lang === "fr" ? "Utilisez votre meilleure estimation" : "Use your best estimate",
     lang === "ar" ? "كما في فكرتي الأصلية" : lang === "fr" ? "Comme dans mon idée de départ" : "As in my original idea",
     lang === "ar" ? "سأكتب إجابتي بنفسي" : lang === "fr" ? "Je préfère écrire ma réponse" : "I'll write my own answer",
   ];
+
+  // Tap-options are never worth blocking on a network call for — the question flow
+  // shows this instantly the moment a question appears, then silently upgrades to
+  // AI-tailored options if the background batch (see startChat) delivers them before
+  // the user answers. This is what makes 50+ concurrent users a non-issue for this
+  // step: nobody is ever waiting on AI to proceed, tailoring is a pure enhancement.
+  //
+  // Unlike the old genericOptions() (meta-choices like "use your best estimate" that
+  // just push the user toward typing anyway), these are REAL, idea/sector-specific
+  // answer choices computed instantly client-side from data already collected at
+  // registration (sector, city, region) and the idea text — no AI call needed, no
+  // wait, and meaningfully less typing than before even in the worst case where the
+  // AI-tailored batch never lands.
+  // Sector picks WHICH bundle of 3 real choices to show (18 sectors, not just
+  // "Coiffure/Beauté" — every sector in SECTOR_SERVICES/SECTOR_EQUIPMENT has its
+  // own set). But the sector alone can't distinguish a men's barbershop from a
+  // women's beauty salon, or a bakery from a jam-maker within the same sector —
+  // that distinction lives in what the porteur actually wrote as their idea.
+  // reorderByIdea nudges whichever of the 3 options best matches words already
+  // in the idea text to the front, so the flow adapts to the specific PROJECT,
+  // not just its broad category.
+  const STOPWORDS = new Set(["de","du","des","la","le","les","et","ou","en","un","une","à","au","aux","pour","dans","avec","sur","d","l","من","في","على","و","أو","إلى","and","or","for","in","with","on","the","a","an","mon","ma","mes","ce","cette"]);
+  const kwFrom = (s: string): string[] => s.toLowerCase().replace(/[()"„""«»?؟]/g, " ").split(/[\s,\/]+/).filter(w => w.length > 2 && !STOPWORDS.has(w));
+  const EXTRA_HINTS: Record<string, string[][]> = {
+    "Coiffure/Beauté": [
+      ["homme","hommes","barbe","barber","messieurs","رجال","رجل","لحية"],
+      ["femme","femmes","dame","dames","سيدات","نساء","امرأة"],
+      ["complet","tous","famille","عائلة","جميع","متكامل"],
+    ],
+    "Restauration/Café": [
+      ["thé","café","salon","قهوة","شاي"],
+      ["rapide","snack","sandwich","سريع","وجبات"],
+      ["traditionnel","marocain","تقليدي","مغربي"],
+    ],
+    "Agro-alimentaire": [
+      ["huile","miel","terroir","زيت","عسل"],
+      ["confiture","conserve","مربى","تعليب"],
+      ["pâtisserie","boulangerie","حلويات","مخبزة","خبز"],
+    ],
+    "Numérique/TIC": [
+      ["site","application","web","تطبيق","موقع"],
+      ["formation","cours","تكوين","دروس"],
+      ["maintenance","réseau","صيانة","شبكات"],
+    ],
+  };
+  // Scores each of a sector's 3 options against the idea text (checking words
+  // from ALL THREE language variants plus EXTRA_HINTS, so it works regardless of
+  // which language the porteur typed their idea in or the UI is showing) and
+  // returns the best-matching option's index, or -1 if nothing matched. Computed
+  // ONCE per table so the same underlying option is promoted consistently across
+  // fr/ar/en, instead of the display language accidentally picking a different one.
+  const bestOptionIndex = (table: Record<string, Record<"fr"|"ar"|"en", string[]>>, sectorKey: string, ideaText: string): number => {
+    const set = table[sectorKey];
+    if (!set) return -1;
+    const ideaLower = ideaText.toLowerCase();
+    if (!ideaLower.trim()) return -1;
+    const hints = EXTRA_HINTS[sectorKey];
+    const n = set.fr.length;
+    const scores = Array.from({length: n}, (_, i) => {
+      const words = [...kwFrom(set.fr[i]), ...kwFrom(set.ar[i]), ...kwFrom(set.en[i]), ...(hints?.[i] || [])];
+      return words.reduce((s, w) => s + (ideaLower.includes(w) ? 1 : 0), 0);
+    });
+    const best = scores.indexOf(Math.max(...scores));
+    return scores[best] > 0 ? best : -1;
+  };
+  const reorderByIndex = (options: string[] | undefined, bestIdx: number): string[] | undefined => {
+    if (!options || bestIdx <= 0) return options;
+    return [options[bestIdx], ...options.filter((_, i) => i !== bestIdx)];
+  };
+
+  const localOptionsFor = (qIndex: number, ideaText: string): string[] => {
+    const sector = user.profile?.sector || "";
+    const city = user.profile?.city || user.profile?.region || (lang === "ar" ? "منطقتي" : lang === "fr" ? "ma ville" : "my city");
+    const sectorLabel = sector || (lang === "ar" ? "نشاطي" : lang === "fr" ? "mon activité" : "my activity");
+    const combinedIdea = `${ideaText} ${idea}`;
+    const svcBest = bestOptionIndex(SECTOR_SERVICES, sector, combinedIdea);
+    const equipBest = bestOptionIndex(SECTOR_EQUIPMENT, sector, combinedIdea);
+    const svc = reorderByIndex(SECTOR_SERVICES[sector]?.[lang as "fr"|"ar"|"en"], svcBest);
+    const equip = reorderByIndex(SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"], equipBest);
+    // Short-circuit here rather than threading svc/equip through the trilingual T
+    // table below — they're already resolved for the current `lang`, and stuffing
+    // a single-language array into a {fr,ar,en} record under the wrong key was
+    // exactly the bug that made idea-based reordering silently no-op outside French.
+    if (qIndex === 4 && svc) return svc;
+    if (qIndex === 17 && equip) return equip;
+    // A project name can't be meaningfully suggested — no genuine "choice" exists
+    // between plausible names the way it does for e.g. services or equipment.
+    // Suggesting fake names would be presumptuous, not helpful. This is a direct,
+    // open question: no tap options, straight to the free-text input.
+    if (qIndex === 0) return [];
+
+    const T: Record<number, Record<"fr"|"ar"|"en", string[]>> = {
+      1: {
+        fr: [sector || "Mon secteur déclaré à l'inscription", "Un secteur proche/complémentaire", "Un autre secteur"],
+        ar: [sector || "القطاع الذي صرحت به عند التسجيل", "قطاع قريب أو مكمل", "قطاع آخر"],
+        en: [sector || "The sector I declared at registration", "A related/complementary sector", "A different sector"],
+      },
+      2: {
+        fr: [`${city}, centre-ville`, `${city}, quartier périphérique`, "Un autre lieu"],
+        ar: [`${city}، وسط المدينة`, `${city}، حي محيطي`, "مكان آخر"],
+        en: [`${city}, city center`, `${city}, outer neighborhood`, "Somewhere else"],
+      },
+      3: {
+        fr: [`Un service de ${sectorLabel} moderne et accessible pour le quartier`, "Une activité basée sur mon expérience personnelle", "Je préfère décrire mon concept moi-même"],
+        ar: [`خدمة ${sectorLabel} عصرية وفي متناول سكان الحي`, "نشاط مبني على خبرتي الشخصية", "أفضل وصف فكرتي بنفسي"],
+        en: [`A modern, accessible ${sectorLabel} service for the neighborhood`, "An activity built on my personal experience", "I'll describe my concept myself"],
+      },
+      // Reached only when the sector isn't in SECTOR_SERVICES (svc undefined) —
+      // the sector-matched case already returned above.
+      4: {
+        fr: ["Un service ou produit unique et ciblé", "Une gamme de 2 à 3 services complémentaires", "Je préfère décrire mes produits/services moi-même"],
+        ar: ["خدمة أو منتج واحد ومحدد", "مجموعة من 2 إلى 3 خدمات مكملة", "أفضل وصف منتجاتي/خدماتي بنفسي"],
+        en: ["One unique, focused product or service", "A range of 2-3 complementary services", "I'll describe my products/services myself"],
+      },
+      5: {
+        fr: ["Moins d'1 an d'expérience", "1 à 3 ans d'expérience", "Plus de 3 ans d'expérience"],
+        ar: ["أقل من سنة من الخبرة", "من سنة إلى 3 سنوات من الخبرة", "أكثر من 3 سنوات من الخبرة"],
+        en: ["Less than 1 year of experience", "1 to 3 years of experience", "More than 3 years of experience"],
+      },
+      6: {
+        fr: ["Formation professionnelle diplômante", "Formation autodidacte / pratique sur le terrain", "Aucune formation formelle pour l'instant"],
+        ar: ["تكوين مهني بشهادة", "تعلم ذاتي / ممارسة ميدانية", "لا يوجد تكوين رسمي حالياً"],
+        en: ["Certified vocational training", "Self-taught / hands-on field practice", "No formal training yet"],
+      },
+      7: {
+        fr: ["Oui, une base de clients fidèles", "Quelques contacts, pas encore une base solide", "Non, je pars de zéro"],
+        ar: ["نعم، لدي قاعدة زبائن أوفياء", "بعض المعارف، لكن ليس بعد قاعدة قوية", "لا، أبدأ من الصفر"],
+        en: ["Yes, a loyal client base", "A few contacts, not yet a solid base", "No, starting from scratch"],
+      },
+      8: {
+        fr: ["Les jeunes et familles de mon quartier", "Le grand public local", "Une clientèle spécifique (préciser)"],
+        ar: ["شباب وعائلات حيي", "عموم سكان المنطقة", "فئة محددة من الزبائن (التفصيل)"],
+        en: ["Youth and families in my neighborhood", "The general local public", "A specific customer segment (specify)"],
+      },
+      9: {
+        fr: ["Moins de 50 personnes par an", "50 à 200 personnes par an", "Plus de 200 personnes par an"],
+        ar: ["أقل من 50 شخصاً في السنة", "من 50 إلى 200 شخص في السنة", "أكثر من 200 شخص في السنة"],
+        en: ["Fewer than 50 people per year", "50 to 200 people per year", "More than 200 people per year"],
+      },
+      10: {
+        fr: [`Manque d'offre de qualité en ${sectorLabel} dans le quartier`, "Difficulté d'accès local à ce service/produit", "Je préfère décrire le problème moi-même"],
+        ar: [`نقص العرض الجيد في ${sectorLabel} بالحي`, "صعوبة الوصول محلياً لهذه الخدمة/المنتج", "أفضل وصف المشكلة بنفسي"],
+        en: [`Lack of quality ${sectorLabel} options in the neighborhood`, "Difficulty accessing this service/product locally", "I'll describe the problem myself"],
+      },
+      11: {
+        fr: ["Quelques petits commerces similaires", "Peu ou pas de concurrence directe", "Plusieurs concurrents bien établis"],
+        ar: ["بعض المحلات الصغيرة المشابهة", "منافسة قليلة أو منعدمة", "عدة منافسين راسخين"],
+        en: ["A few similar small businesses", "Little to no direct competition", "Several well-established competitors"],
+      },
+      12: {
+        fr: ["Meilleure qualité et hygiène", "Prix plus accessibles", "Service plus rapide et organisé (digital)"],
+        ar: ["جودة ونظافة أفضل", "أسعار في متناول الجميع", "خدمة أسرع ومنظمة (رقمياً)"],
+        en: ["Better quality and hygiene", "More affordable prices", "Faster, better-organized (digital) service"],
+      },
+      13: {
+        fr: ["Prix aligné sur le marché local", "Prix légèrement en dessous pour attirer les clients", "Prix premium justifié par la qualité"],
+        ar: ["سعر يتماشى مع السوق المحلي", "سعر أقل قليلاً لجذب الزبائن", "سعر مرتفع نسبياً مبرر بالجودة"],
+        en: ["Priced in line with the local market", "Slightly below market to attract customers", "Premium pricing justified by quality"],
+      },
+      14: {
+        fr: ["Bouche-à-oreille et réseaux sociaux", "Offres de lancement et fidélité", "Réservation digitale (WhatsApp) et qualité de service"],
+        ar: ["التوصية الشفهية ومواقع التواصل الاجتماعي", "عروض الانطلاق والولاء", "الحجز الرقمي (واتساب) وجودة الخدمة"],
+        en: ["Word of mouth and social media", "Launch offers and loyalty perks", "Digital booking (WhatsApp) and service quality"],
+      },
+      15: {
+        fr: ["Vente directe sur place", "Vente et prestations de service combinées", "Abonnements ou packs"],
+        ar: ["البيع المباشر في المكان", "الجمع بين البيع وتقديم الخدمة", "اشتراكات أو باقات"],
+        en: ["Direct on-site sales", "Combined product + service sales", "Subscriptions or bundles"],
+      },
+      16: {
+        fr: ["Moins de 20 clients/semaine", "20 à 50 clients/semaine", "Plus de 50 clients/semaine"],
+        ar: ["أقل من 20 زبوناً أسبوعياً", "من 20 إلى 50 زبوناً أسبوعياً", "أكثر من 50 زبوناً أسبوعياً"],
+        en: ["Fewer than 20 customers/week", "20 to 50 customers/week", "More than 50 customers/week"],
+      },
+      // Reached only when the sector isn't in SECTOR_EQUIPMENT (equip undefined) —
+      // the sector-matched case already returned above.
+      17: {
+        fr: ["Équipement professionnel de base", "Aménagement et mobilier du local", "Je préfère décrire l'équipement moi-même"],
+        ar: ["معدات مهنية أساسية", "تجهيز وأثاث المحل", "أفضل وصف المعدات بنفسي"],
+        en: ["Basic professional equipment", "Fit-out and furniture for the premises", "I'll describe the equipment myself"],
+      },
+      18: {
+        fr: ["Moins de 30 000 MAD", "30 000 à 70 000 MAD", "Plus de 70 000 MAD"],
+        ar: ["أقل من 30.000 درهم", "من 30.000 إلى 70.000 درهم", "أكثر من 70.000 درهم"],
+        en: ["Under 30,000 MAD", "30,000 to 70,000 MAD", "Over 70,000 MAD"],
+      },
+      19: {
+        fr: ["Moins de 5 000 MAD", "5 000 à 10 000 MAD", "Plus de 10 000 MAD"],
+        ar: ["أقل من 5.000 درهم", "من 5.000 إلى 10.000 درهم", "أكثر من 10.000 درهم"],
+        en: ["Under 5,000 MAD", "5,000 to 10,000 MAD", "Over 10,000 MAD"],
+      },
+      20: {
+        fr: ["Moins de 100 000 MAD", "100 000 à 200 000 MAD", "Plus de 200 000 MAD"],
+        ar: ["أقل من 100.000 درهم", "من 100.000 إلى 200.000 درهم", "أكثر من 200.000 درهم"],
+        en: ["Under 100,000 MAD", "100,000 to 200,000 MAD", "Over 200,000 MAD"],
+      },
+      21: {
+        fr: ["1 emploi (moi-même)", "2 emplois (moi + 1 assistant)", "3 emplois ou plus"],
+        ar: ["فرصة شغل واحدة (أنا)", "فرصتا شغل (أنا + مساعد)", "3 فرص شغل أو أكثر"],
+        en: ["1 job (myself)", "2 jobs (myself + 1 assistant)", "3 jobs or more"],
+      },
+      22: {
+        fr: ["Formation de jeunes du quartier", "Service de proximité utile aux familles", "Amélioration de l'hygiène ou de la qualité de vie locale"],
+        ar: ["تكوين شباب الحي", "خدمة قرب مفيدة للعائلات", "تحسين النظافة أو جودة الحياة المحلية"],
+        en: ["Training young people locally", "A useful neighborhood service for families", "Improved hygiene or local quality of life"],
+      },
+      23: {
+        fr: [`Dynamiser le commerce local à ${city}`, "Créer un lieu de référence dans le quartier", "Offrir un service qui manquait localement"],
+        ar: [`تنشيط التجارة المحلية في ${city}`, "خلق مكان مرجعي في الحي", "تقديم خدمة كانت تنقص محلياً"],
+        en: [`Boosting local commerce in ${city}`, "Becoming a go-to place in the neighborhood", "Filling a service gap locally"],
+      },
+      24: {
+        fr: ["Moins de 5 clients/jour", "5 à 10 clients/jour", "Plus de 10 clients/jour"],
+        ar: ["أقل من 5 زبائن يومياً", "من 5 إلى 10 زبائن يومياً", "أكثر من 10 زبائن يومياً"],
+        en: ["Fewer than 5 customers/day", "5 to 10 customers/day", "More than 10 customers/day"],
+      },
+      25: {
+        fr: ["Autofinancement par les revenus générés", "Réinvestissement progressif des bénéfices", "Développement de nouveaux services/produits"],
+        ar: ["التمويل الذاتي من الدخل المحقق", "إعادة استثمار تدريجي للأرباح", "تطوير خدمات/منتجات جديدة"],
+        en: ["Self-financed from generated revenue", "Gradual reinvestment of profits", "Developing new products/services"],
+      },
+      26: {
+        fr: ["Concurrence locale", "Fluctuation de la demande / saisonnalité", "Manque de trésorerie au démarrage"],
+        ar: ["المنافسة المحلية", "تذبذب الطلب / الموسمية", "نقص السيولة عند الانطلاق"],
+        en: ["Local competition", "Demand fluctuation / seasonality", "Cash-flow shortage at launch"],
+      },
+      27: {
+        fr: ["Différenciation par la qualité et le prix", "Épargne de précaution et gestion rigoureuse", "Diversification des services"],
+        ar: ["التميز بالجودة والسعر", "ادخار احتياطي وتسيير صارم", "تنويع الخدمات"],
+        en: ["Standing out on quality and price", "Precautionary savings and tight management", "Diversifying services"],
+      },
+      28: {
+        fr: ["Ouvrir un deuxième point de vente", "Élargir la gamme de produits/services", "Recruter et former plus d'employés"],
+        ar: ["فتح نقطة بيع ثانية", "توسيع مجموعة المنتجات/الخدمات", "توظيف وتكوين موظفين إضافيين"],
+        en: ["Opening a second location", "Expanding the product/service range", "Hiring and training more staff"],
+      },
+      29: {
+        fr: ["Projet réaliste porté par une expérience solide", "Fort impact social et création d'emplois", "Rentabilité rapide et faible risque"],
+        ar: ["مشروع واقعي مبني على خبرة قوية", "أثر اجتماعي كبير وخلق فرص شغل", "ربحية سريعة ومخاطرة منخفضة"],
+        en: ["A realistic project backed by solid experience", "Strong social impact and job creation", "Fast profitability and low risk"],
+      },
+    };
+    return T[qIndex]?.[lang as "fr"|"ar"|"en"] || genericOptions();
+  };
 
   const dlText = (content: string, name: string) => {
     const url = URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"}));
@@ -2528,6 +3007,42 @@ ${axisHTML}
     }
   };
 
+  // Sector → brand color/icon, used only when AI logo generation fails outright —
+  // matching the color intuitions already in the AI prompt below (terracotta for
+  // artisanat, indigo for couture, etc.) so the fallback still looks intentional
+  // rather than generic. Purely cosmetic, so a heuristic guess here carries none of
+  // the accuracy stakes a fabricated compliance score or budget would.
+  const SECTOR_BRAND: Record<string, {c1: string; c2: string; icon: string}> = {
+    "Agriculture/Élevage": {c1: "#6B7A3E", c2: "#8FA05C", icon: "🌾"},
+    "Artisanat traditionnel": {c1: "#C8602A", c2: "#E08A4F", icon: "🏺"},
+    "Commerce/Épicerie": {c1: "#2563EB", c2: "#1E40AF", icon: "🛒"},
+    "Agro-alimentaire": {c1: "#B8860B", c2: "#D4A017", icon: "🍯"},
+    "Restauration/Café": {c1: "#E87420", c2: "#F2994A", icon: "☕"},
+    "Coiffure/Beauté": {c1: "#7B3B8E", c2: "#9B59B6", icon: "💇"},
+    "Couture/Vêtement traditionnel": {c1: "#3B3B8E", c2: "#5C5CB0", icon: "🧵"},
+    "Impression/Reprographie": {c1: "#374151", c2: "#4B5563", icon: "🖨️"},
+    "Design graphique/Communication": {c1: "#DB2777", c2: "#EC4899", icon: "🎨"},
+    "Numérique/TIC": {c1: "#1E6FE8", c2: "#3B82F6", icon: "💻"},
+    "Tourisme rural/Guide": {c1: "#059669", c2: "#10B981", icon: "🗺️"},
+    "BTP/Maçonnerie": {c1: "#78350F", c2: "#92400E", icon: "🧱"},
+    "Éducation/Formation": {c1: "#1D4ED8", c2: "#2563EB", icon: "📚"},
+    "Pêche/Aquaculture": {c1: "#1A4A7A", c2: "#2E6396", icon: "🐟"},
+    "Transport/Logistique": {c1: "#374151", c2: "#F59E0B", icon: "🚚"},
+    "Santé/Pharmacie": {c1: "#059669", c2: "#22C55E", icon: "⚕️"},
+    "Réparation/Maintenance": {c1: "#4B5563", c2: "#6B7280", icon: "🔧"},
+    "Événementiel/Traiteur": {c1: "#BE185D", c2: "#DB2777", icon: "🎉"},
+  };
+  const buildLocalLogo = (p: any) => {
+    const brand = SECTOR_BRAND[p?.sector || ""] || {c1: Y, c2: YD, icon: "💡"};
+    const initials = (p?.projectName || "").replace(/[^A-Za-z؀-ۿ]/g, "").slice(0, 2).toUpperCase() || "IM";
+    const tagline = lang === "ar" ? "خدمة محلية بجودة عالية" : lang === "fr" ? "Qualité et proximité" : "Local, quality-driven service";
+    const styleDesc = lang === "ar" ? "هوية بسيطة وواضحة" : lang === "fr" ? "Identité simple et claire" : "Simple, clear identity";
+    return {
+      initials, color1: brand.c1, color2: brand.c2, colorText: "#FFFFFF",
+      icon: brand.icon, tagline, styleDesc, accentColor: brand.c2,
+    };
+  };
+
   const genLogo = async () => {
     setLogoGenerating(true);
     try {
@@ -2576,11 +3091,15 @@ JSON UNIQUEMENT sans markdown:
       concept.initials   = concept.initials   || (proj?.projectName||"").slice(0,2).toUpperCase() || "IM";
       setLogo({type:"generated", concept}); setLogoStyle(0);
     } else {
+      // AI is unavailable — a sector-colored fallback beats a dead end. It's purely
+      // cosmetic, so an applicant getting a simpler-than-ideal logo under heavy load
+      // is a much better outcome than getting stuck on this step entirely.
+      setLogo({type:"generated", concept: buildLocalLogo(proj)}); setLogoStyle(0);
       showToast(
-        lang === "ar" ? "فشل إنشاء الشعار — حاول مجدداً" :
-        lang === "fr" ? "Génération du logo échouée — réessayez" :
-        "Logo generation failed — try again",
-        "error"
+        lang === "ar" ? "تم استخدام تصميم مبسط — يمكنك إعادة المحاولة لاحقاً" :
+        lang === "fr" ? "Design simplifié utilisé — vous pouvez réessayer plus tard" :
+        "Used a simplified design — you can try regenerating later",
+        "success"
       );
     }
     } finally {
@@ -2696,15 +3215,16 @@ RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais associa
     if (override) setIdea(override);
     const ideaPreview = ideaText.replace(/\n/g, " ").slice(0, 200);
 
-    // Show Question 1 immediately with generic tap options — no network wait at all.
-    // AI tailoring happens in the background (below) and silently upgrades the
-    // options in place if it lands before the user answers. This is what keeps the
-    // Questions step responsive regardless of how many other users are hitting the
-    // same AI provider at once: nobody is ever blocked on a network call to proceed.
+    // Show Question 1 immediately with real, idea/sector-specific tap options — no
+    // network wait at all. AI tailoring happens in the background (below) and
+    // silently upgrades the options in place if it lands before the user answers.
+    // This is what keeps the Questions step responsive regardless of how many other
+    // users are hitting the same AI provider at once: nobody is ever blocked on a
+    // network call to proceed.
     setBusy(false); setSuggTailored(false); setBrief(ideaPreview); setCurrentQ(fixedQText(0));
     setQBank([]); setStep("dialogue");
     setMsgs([{role: "user", content: ideaText}, {role: "assistant", content: fixedQText(0)}]);
-    setSuggestions(genericOptions());
+    setSuggestions(localOptionsFor(0, ideaText));
     setQN(1);
 
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
@@ -2738,9 +3258,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       setQBank(prev => {
         const next = [...prev];
         chunk.forEach((_, j) => {
+          const idx = ci * CHUNK + j;
+          // Question 0 (project name) never gets tap options, from the AI batch
+          // or otherwise — see the matching guard in localOptionsFor. A suggested
+          // name is exactly as presumptuous coming from the AI as it would be
+          // hardcoded, so this is skipped regardless of what the model returns.
+          if (idx === 0) return;
           const arr = bank?.[`q${j + 1}`];
           if (Array.isArray(arr) && arr.length) {
-            next[ci * CHUNK + j] = arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3);
+            next[idx] = arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3);
           }
         });
         return next;
@@ -2777,6 +3303,95 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     };
   };
 
+  // Heuristic business plan text built directly from the collected project profile,
+  // no AI required — the same "instant, no dependency on AI" principle already
+  // applied to the questionnaire, extended to the step that matters most: this is
+  // the step that actually states the funding request. Under 100+ concurrent users
+  // sharing one free-tier AI provider, genPlan()'s two AI calls can both fail at
+  // once — without this, that left the applicant stuck on a bare "regenerate"
+  // button with no funding numbers at all.
+  const buildLocalPlan = (p: any) => {
+    const name = p?.projectName || (lang === "ar" ? "المشروع" : lang === "fr" ? "le projet" : "the project");
+    const loc = p?.location || (lang === "ar" ? "المنطقة" : lang === "fr" ? "la région" : "the area");
+    const sector = p?.sector || "";
+    const ben = p?.beneficiaries || 10;
+    const budget = p?.estimatedBudget || 70000;
+    if (lang === "ar") return {
+      executiveSummary: `"${name}" هو مشروع في قطاع ${sector} بمنطقة ${loc}، يستجيب لحاجة محلية ملموسة ويهدف إلى الاستفادة المباشرة لـ${ben} شخصاً على الأقل.`,
+      problemStatement: p?.localProblem || `نقص ملحوظ في العرض المحلي المتعلق بـ${sector} في ${loc}.`,
+      solution: p?.revenueModel || `تقديم خدمات/منتجات في مجال ${sector} تستجيب مباشرة للحاجة المحددة أعلاه.`,
+      marketAnalysis: `السكان المستهدفون في ${loc} يشكلون سوقاً محلياً كافياً لانطلاق النشاط، مع منافسة محدودة أو غير منظمة.`,
+      businessModel: `نموذج اقتصادي بسيط ومباشر مبني على البيع المحلي، مع هامش ربح يغطي المصاريف الثابتة خلال الأشهر الأولى.`,
+      socialImpact: `استفادة مباشرة لـ${ben} شخصاً على الأقل، مع دخل إضافي وفرصة عمل مستدامة للحامل.`,
+      operationalPlan: `الشهر 1: اقتناء المعدات وتهيئة المكان. الشهر 2-3: الانطلاق التجريبي وأولى الزبائن. الشهر 6-12: الوصول إلى وتيرة نشاط مستقرة.`,
+      indh_alignment: p?.pillar || "تحسين الدخل والإدماج الاقتصادي للشباب",
+      risks: [
+        "خطر تجاري: منافسة محلية → الحل: التميز بالجودة والسعر",
+        "خطر مالي: تأخر الانطلاق → الحل: تسيير صارم للميزانية",
+        "خطر تشغيلي: نقص الخبرة → الحل: تكوين ومواكبة ميدانية",
+      ],
+      projections: { year1: budget * 2.3, year2: budget * 3, year3: budget * 3.8 },
+    };
+    if (lang === "en") return {
+      executiveSummary: `"${name}" is a ${sector} project in ${loc}, addressing a concrete local need and directly benefiting at least ${ben} people.`,
+      problemStatement: p?.localProblem || `A clear local gap in ${sector} services/products in ${loc}.`,
+      solution: p?.revenueModel || `Offering ${sector} products/services that directly address the need above.`,
+      marketAnalysis: `${loc}'s target population forms a sufficient local market to launch the activity, with limited or informal competition.`,
+      businessModel: `A simple, direct business model based on local sales, with a margin covering fixed costs from the first months.`,
+      socialImpact: `Direct benefit for at least ${ben} people, with additional income and a sustainable job for the holder.`,
+      operationalPlan: `Month 1: equipment purchase and setup. Month 2-3: soft launch and first customers. Month 6-12: reaching a stable pace of activity.`,
+      indh_alignment: p?.pillar || "Income improvement and economic inclusion of youth",
+      risks: [
+        "Commercial risk: local competition → Solution: stand out on quality and price",
+        "Financial risk: delayed launch → Solution: strict budget management",
+        "Operational risk: limited experience → Solution: training and field support",
+      ],
+      projections: { year1: budget * 2.3, year2: budget * 3, year3: budget * 3.8 },
+    };
+    return {
+      executiveSummary: `"${name}" est un projet du secteur ${sector} implanté à ${loc}, répondant à un besoin local concret et bénéficiant directement à au moins ${ben} personnes.`,
+      problemStatement: p?.localProblem || `Manque local identifié en matière de ${sector} à ${loc}.`,
+      solution: p?.revenueModel || `Proposer des produits/services de ${sector} répondant directement au besoin identifié.`,
+      marketAnalysis: `La population cible de ${loc} constitue un marché local suffisant pour lancer l'activité, avec une concurrence limitée ou peu structurée.`,
+      businessModel: `Modèle économique simple et direct basé sur la vente locale, avec une marge couvrant les charges fixes dès les premiers mois.`,
+      socialImpact: `Bénéfice direct pour au moins ${ben} personnes, avec un revenu complémentaire et un emploi durable pour le porteur.`,
+      operationalPlan: `Mois 1 : acquisition des équipements et aménagement. Mois 2-3 : lancement et premiers clients. Mois 6-12 : atteinte d'un rythme d'activité stable.`,
+      indh_alignment: p?.pillar || "Amélioration du revenu et inclusion économique des jeunes",
+      risks: [
+        "Risque commercial : concurrence locale → Solution : se différencier par la qualité et le prix",
+        "Risque financier : retard au démarrage → Solution : gestion budgétaire rigoureuse",
+        "Risque opérationnel : expérience limitée → Solution : formation et accompagnement de terrain",
+      ],
+      projections: { year1: budget * 2.3, year2: budget * 3, year3: budget * 3.8 },
+    };
+  };
+
+  // Heuristic budget built from the sector's known equipment list (SECTOR_EQUIPMENT
+  // — the same real, sector-specific items already used as instant questionnaire
+  // choices), scaled to the porteur's own estimated budget and split 90/10 per
+  // INDH rules. Never blocks the applicant on AI availability for their actual
+  // funding request.
+  const buildLocalBudget = (p: any) => {
+    const sector = p?.sector || "";
+    const equipFr = SECTOR_EQUIPMENT[sector]?.fr;
+    const catLabel = lang === "ar" ? "معدات إنتاجية" : lang === "fr" ? "Équipements productifs" : "Productive equipment";
+    const names = (equipFr && SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"]) || (
+      lang === "ar" ? ["معدات مهنية أساسية", "أثاث وتجهيز المحل", "أدوات ومستلزمات التشغيل"]
+      : lang === "en" ? ["Basic professional equipment", "Fit-out and furniture", "Operating tools and supplies"]
+      : ["Équipement professionnel de base", "Aménagement et mobilier du local", "Outillage et fournitures d'exploitation"]
+    );
+    const rawTotal = Math.min(Math.max(p?.estimatedBudget || 70000, 55000), 111000);
+    const splits = [0.5, 0.35, 0.15];
+    const items = names.slice(0, 3).map((item: string, i: number) => {
+      const total = Math.round((rawTotal * splits[i]) / 100) * 100;
+      return { category: catLabel, item, quantity: 1, unitPrice: total, total };
+    });
+    const total = items.reduce((s: number, x: any) => s + x.total, 0);
+    const indhContribution = Math.min(Math.round(total * 0.9), 100000);
+    const beneficiaryContribution = total - indhContribution;
+    return { items, indhContribution, beneficiaryContribution };
+  };
+
   const sendMsg = (override?: string) => {
     const msg = override ?? inp;
     if (!msg.trim() || busy) return;
@@ -2787,12 +3402,13 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     if (!last) {
       // Next question text is fixed — never AI-generated, so it can't drift. Its
       // tap-options come from the upfront batch call if it's landed by now, or the
-      // instant generic set otherwise — never a live network wait to advance.
+      // instant idea/sector-specific local set otherwise — never a live network
+      // wait to advance.
       const nextQ = fixedQText(qN);
       const cached = qBank[qN];
       setCurrentQ(nextQ);
       setMsgs((p: any[]) => [...p, {role: "assistant", content: nextQ}]);
-      setSuggestions(cached || genericOptions());
+      setSuggestions(cached || localOptionsFor(qN, idea));
       setSuggTailored(!!cached);
       setQN((p: number) => p + 1);
       return;
@@ -2829,12 +3445,20 @@ NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON 
   };
 
   const genPlan = async () => {
-    setBusy(true); setStep("plan");
-    try {
+    // Instant local draft first — same principle as the questionnaire and profile
+    // steps: never block the applicant on a network call, especially not for the
+    // step that states their actual funding request. AI runs in the background and
+    // silently upgrades the draft if it lands before the user moves past
+    // plan/budget. Guards on stepRef so a slow response can't clobber content the
+    // user has already moved on from.
+    setPlan(buildLocalPlan(proj)); setBudget(buildLocalBudget(proj)); setPlanTailored(false);
+    setStep("plan");
+
     const projCtx = JSON.stringify(proj || {idea});
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب كل النصوص بالعربية الفصحى السليمة والواضحة. جمل كاملة ومنظمة. لا دارجة مغربية. لا حروف لاتينية داخل النصوص العربية."
       : "";
+    (async () => {
     const [p, b] = await Promise.all([
       ensureJson([{role: "user", content: `Projet INDH: ${projCtx}`}],
         `Tu es un expert en montage de projets INDH Phase 3 au Maroc — tu as accompagné des dizaines de porteurs qui ont obtenu leur financement.
@@ -2867,11 +3491,12 @@ RÈGLES IMPÉRATIVES:
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"items":[{"category":"catégorie","item":"désignation exacte avec marque/modèle si pertinent en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`),
     ]);
-    if (p) setPlan(p);
-    if (b) setBudget(b);
-    } finally {
-      setBusy(false);
-    }
+    // Only swap the draft for the AI version if the user is still on plan/budget —
+    // if they've already moved on to Logo, leave what's already there.
+    const stillHere = stepRef.current === "plan" || stepRef.current === "budget";
+    if (p && stillHere) { setPlan(p); setPlanTailored(true); }
+    if (b && stillHere) setBudget(b);
+    })().catch(() => {});
   };
 
   const checkComp = async () => {
@@ -3265,6 +3890,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <div><h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.planT}</h2>
                   <p style={{fontSize: "12px", color: GR, marginTop: "2px"}}>{proj?.projectName}</p></div>
               </div>
+              {!planTailored && (
+                <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "16px",
+                  padding: "8px 12px", background: CR, borderRadius: "9px", border: `1px solid ${CD}`}}>
+                  <Dots/>
+                  <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>
+                    {lang === "ar" ? "جاري تحسين التفاصيل في الخلفية..." : lang === "fr" ? "Affinement des détails en cours..." : "Refining details in the background..."}
+                  </span>
+                </div>
+              )}
               {planBlock("executiveSummary", "Résumé Exécutif", "الملخص التنفيذي", "Executive Summary", "📝")}
               {planBlock("problemStatement", "Problématique", "إشكالية المشروع", "Problem Statement", "❓")}
               {planBlock("solution", "Solution Proposée", "الحل المقترح", "Proposed Solution", "💡")}
@@ -3305,6 +3939,45 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           const indh = budget?.indhContribution || Math.min(Math.round(total * .90), 100000);
           const bene = budget?.beneficiaryContribution || (total - indh);
           const pct = (indh / 100000) * 100;
+
+          // Equipment and the exact INDH amount requested are precisely the kind of
+          // detail an AI guess shouldn't be the final word on — the porteur needs to
+          // directly edit designation/quantity/price to what they actually intend to
+          // buy. Every edit recomputes total, and the 90/10 INDH split off that new
+          // total, matching the same formula the AI used to seed it.
+          const recompute = (items: any[]) => {
+            const newTotal = items.reduce((s: number, x: any) => s + (x.total || 0), 0);
+            const indhContribution = Math.min(Math.round(newTotal * 0.90), 100000);
+            const beneficiaryContribution = newTotal - indhContribution;
+            return { indhContribution, beneficiaryContribution };
+          };
+          const updateItem = (i: number, field: string, value: any) => {
+            setBudget((prev: any) => {
+              const items = [...(prev?.items || [])];
+              items[i] = { ...items[i], [field]: value };
+              if (field === "quantity" || field === "unitPrice") {
+                items[i].total = (Number(items[i].quantity) || 0) * (Number(items[i].unitPrice) || 0);
+              }
+              return { ...prev, items, ...recompute(items) };
+            });
+          };
+          const removeItem = (i: number) => {
+            setBudget((prev: any) => {
+              const items = (prev?.items || []).filter((_: any, idx: number) => idx !== i);
+              return { ...prev, items, ...recompute(items) };
+            });
+          };
+          const addItem = () => {
+            setBudget((prev: any) => ({
+              ...prev,
+              items: [...(prev?.items || []), {
+                category: lang === "ar" ? "معدات إنتاجية" : lang === "fr" ? "Équipements productifs" : "Productive equipment",
+                item: "", quantity: 1, unitPrice: 0, total: 0,
+              }],
+            }));
+          };
+          const cellInputSt = {padding: "6px 7px", border: `1px solid ${CD}`, borderRadius: "7px",
+            fontSize: "12px", width: "100%", fontFamily: "inherit", background: WH, color: ND, boxSizing: "border-box" as const};
           return (
             <Card>
               <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px"}}>
@@ -3314,6 +3987,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <div><h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.budgetT}</h2>
                   <p style={{fontSize: "12px", color: GR, marginTop: "2px"}}>{t.maxB}</p></div>
               </div>
+              {!planTailored && (
+                <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "16px",
+                  padding: "8px 12px", background: CR, borderRadius: "9px", border: `1px solid ${CD}`}}>
+                  <Dots/>
+                  <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>
+                    {lang === "ar" ? "جاري تحسين التفاصيل في الخلفية..." : lang === "fr" ? "Affinement des détails en cours..." : "Refining details in the background..."}
+                  </span>
+                </div>
+              )}
               <div style={{padding: "14px 16px", borderRadius: "13px", marginBottom: "18px",
                 background: pct > 100 ? "#FFF0F0" : YL, border: `1px solid ${pct > 100 ? RE : Y}`}}>
                 <div style={{display: "flex", justifyContent: "space-between", marginBottom: "7px"}}>
@@ -3322,28 +4004,34 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 </div>
                 <PBar pct={pct} h={7} color={pct > 100 ? RE : `linear-gradient(90deg,${Y},${YD})`}/>
               </div>
-              {budget?.items?.length > 0 ? (<div style={{marginBottom: "16px"}}>
+              {budget?.items ? (<div style={{marginBottom: "16px"}}>
+                <div style={{fontSize: "11px", color: GR, marginBottom: "8px", lineHeight: 1.5}}>
+                  {lang === "ar" ? "✏️ عدّل التسمية أو الكمية أو السعر لتطابق المعدات التي تنوي شراءها بالفعل." : lang === "fr" ? "✏️ Modifiez la désignation, la quantité ou le prix pour refléter exactement l'équipement que vous comptez acheter." : "✏️ Edit the item, quantity or price to match the exact equipment you intend to buy."}
+                </div>
                 {/* Desktop table */}
                 <div className="budget-tbl" style={{overflowX: "auto"}}>
                   <table style={{width: "100%", borderCollapse: "collapse", fontSize: "12px"}}>
                     <thead><tr style={{background: ND, color: WH}}>
-                      {["Catégorie", "Désignation", "Qté", "PU (MAD)", "Total"].map((h, i) => (
+                      {["Catégorie", "Désignation", "Qté", "PU (MAD)", "Total", ""].map((h, i) => (
                         <th key={i} style={{padding: "9px 8px", textAlign: i < 2 ? (dir === "rtl" ? "right" : "left") : "center",
                           fontSize: "10px", fontWeight: "700", letterSpacing: ".4px"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>{budget.items.map((x: any, i: number) => (
                       <tr key={i} style={{background: i % 2 === 0 ? WH : CR}}>
-                        <td style={{padding: "9px 8px", color: N, fontWeight: "600"}}>{x.category}</td>
-                        <td style={{padding: "9px 8px", color: ND}}>{x.item}</td>
-                        <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{x.quantity}</td>
-                        <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{Number(x.unitPrice || 0).toLocaleString()}</td>
-                        <td style={{padding: "9px 8px", textAlign: "center", fontWeight: "800", color: ND}}>{Number(x.total || 0).toLocaleString()}</td>
+                        <td style={{padding: "6px"}}><input value={x.category || ""} onChange={e => updateItem(i, "category", e.target.value)} style={cellInputSt}/></td>
+                        <td style={{padding: "6px"}}><input value={x.item || ""} onChange={e => updateItem(i, "item", e.target.value)} style={cellInputSt}/></td>
+                        <td style={{padding: "6px", width: "64px"}}><input type="number" min={0} value={x.quantity ?? 0} onChange={e => updateItem(i, "quantity", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, textAlign: "center"}}/></td>
+                        <td style={{padding: "6px", width: "88px"}}><input type="number" min={0} value={x.unitPrice ?? 0} onChange={e => updateItem(i, "unitPrice", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, textAlign: "center"}}/></td>
+                        <td style={{padding: "9px 8px", textAlign: "center", fontWeight: "800", color: ND, whiteSpace: "nowrap"}}>{Number(x.total || 0).toLocaleString()}</td>
+                        <td style={{padding: "6px", textAlign: "center"}}>
+                          <button onClick={() => removeItem(i)} aria-label="Delete" style={{background: "none", border: "none", cursor: "pointer", fontSize: "15px", opacity: .6}}>🗑️</button>
+                        </td>
                       </tr>
                     ))}
                     <tr style={{background: ND, color: WH}}>
                       <td colSpan={4} style={{padding: "10px 8px", fontWeight: "700"}}>{t.total}</td>
-                      <td style={{padding: "10px 8px", textAlign: "center", fontWeight: "800", color: Y}}>{total.toLocaleString()}</td>
+                      <td colSpan={2} style={{padding: "10px 8px", textAlign: "center", fontWeight: "800", color: Y}}>{total.toLocaleString()}</td>
                     </tr></tbody>
                   </table>
                 </div>
@@ -3352,12 +4040,19 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   {budget.items.map((x: any, i: number) => (
                     <div key={i} style={{padding: "12px 14px", background: i % 2 === 0 ? WH : CR,
                       borderRadius: "11px", border: `1px solid ${CD}`}}>
-                      <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "5px"}}>
-                        <span style={{fontSize: "10px", fontWeight: "700", color: Y, textTransform: "uppercase", letterSpacing: ".3px"}}>{x.category}</span>
-                        <span style={{fontSize: "14px", fontWeight: "800", color: ND}}>{Number(x.total || 0).toLocaleString()} <span style={{fontSize: "10px", fontWeight: "500"}}>MAD</span></span>
+                      <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "7px"}}>
+                        <input value={x.category || ""} onChange={e => updateItem(i, "category", e.target.value)}
+                          style={{...cellInputSt, fontSize: "10px", fontWeight: "700", color: Y, textTransform: "uppercase", border: "none", padding: "0", background: "transparent", width: "60%"}}/>
+                        <button onClick={() => removeItem(i)} aria-label="Delete" style={{background: "none", border: "none", cursor: "pointer", fontSize: "15px", opacity: .6}}>🗑️</button>
                       </div>
-                      <div style={{fontSize: "13px", color: ND, marginBottom: "4px"}}>{x.item}</div>
-                      <div style={{fontSize: "11px", color: GR}}>{x.quantity} × {Number(x.unitPrice || 0).toLocaleString()} MAD</div>
+                      <input value={x.item || ""} onChange={e => updateItem(i, "item", e.target.value)} style={{...cellInputSt, marginBottom: "7px"}}/>
+                      <div style={{display: "flex", gap: "8px", alignItems: "center"}}>
+                        <input type="number" min={0} value={x.quantity ?? 0} onChange={e => updateItem(i, "quantity", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, width: "60px", textAlign: "center"}}/>
+                        <span style={{fontSize: "11px", color: GR}}>×</span>
+                        <input type="number" min={0} value={x.unitPrice ?? 0} onChange={e => updateItem(i, "unitPrice", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, width: "80px", textAlign: "center"}}/>
+                        <span style={{fontSize: "11px", color: GR}}>MAD =</span>
+                        <span style={{fontSize: "14px", fontWeight: "800", color: ND, marginInlineStart: "auto"}}>{Number(x.total || 0).toLocaleString()}</span>
+                      </div>
                     </div>
                   ))}
                   <div style={{padding: "12px 14px", background: ND, borderRadius: "11px",
@@ -3366,6 +4061,10 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     <span style={{fontSize: "15px", fontWeight: "800", color: Y}}>{total.toLocaleString()} MAD</span>
                   </div>
                 </div>
+                <button onClick={addItem} style={{marginTop: "10px", width: "100%", padding: "10px", borderRadius: "10px",
+                  border: `1.5px dashed ${CD}`, background: "transparent", color: N, fontSize: "12px", fontWeight: "700", cursor: "pointer"}}>
+                  {lang === "ar" ? "+ إضافة معدة" : lang === "fr" ? "+ Ajouter un équipement" : "+ Add equipment"}
+                </button>
               </div>) : (
                 <div style={{textAlign: "center", padding: "24px 16px"}}>
                   {busy ? <><div style={{display:"flex",justifyContent:"center"}}><Dots/></div></> : <>
@@ -4733,7 +5432,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("overview");
-  const [newCoord, setNewCoord] = useState("");
+  const [newCoordName, setNewCoordName] = useState("");
   const [search, setSearch]     = useState("");
   const [filterRegion, setFilterRegion] = useState("");
   const [filterSector, setFilterSector] = useState("");
@@ -4758,6 +5457,18 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
 
   const STEPS_LIST = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
 
+  // Admin creates a coordinator by name only — the actual login code is derived
+  // automatically as "@{NAME}COD" (matching RE_COORD), never typed by hand. Strips
+  // anything that isn't a letter (spaces, accents via NFD stripping, digits) so the
+  // result always satisfies RE_COORD's [A-Za-z]{2,} requirement.
+  const coordCodeFrom = (name: string): string => {
+    const letters = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase().replace(/[^A-Z]/g, "");
+    return letters ? `@${letters}COD` : "";
+  };
+  const newCoordCode = coordCodeFrom(newCoordName);
+  const newCoordValid = RE_COORD.test(newCoordCode) && !coords.includes(newCoordCode);
+
   const filtered = holders.filter(h => {
     const q = search.toLowerCase();
     const matchSearch = !q || (h.name||"").toLowerCase().includes(q) || (h.id||"").toLowerCase().includes(q) || (h.proj?.projectName||"").toLowerCase().includes(q);
@@ -4775,10 +5486,11 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   }, {});
 
   const exportCSV = () => {
-    const cols = ["ID","Nom","Prénom","Email","Téléphone","Age","Genre","Région","Secteur","Type","Projet","Structure","Bénéficiaires","Budget","Axe INDH","Score","Éligible","Étape"];
+    const cols = ["ID","Nom","Prénom","Email","Téléphone","Age","Genre","Région","Préfecture","Arrondissement","Secteur","Type","Projet","Structure","Bénéficiaires","Budget","Axe INDH","Score","Éligible","Étape"];
     const rows = holders.map(h => [
       h.id, h.profile?.lastName||"", h.name||"", h.profile?.email||"", h.profile?.phone||"",
       h.profile?.age||"", h.profile?.gender||"", h.profile?.region||"",
+      h.profile?.prefecture||"", h.profile?.arrondissement||"",
       h.proj?.sector||h.profile?.sector||"", h.profile?.projType||"",
       h.proj?.projectName||"", h.proj?.legalStructure||"", h.proj?.beneficiaries||"",
       h.proj?.estimatedBudget||"", h.proj?.pillar||"",
@@ -4947,10 +5659,10 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
               <button onClick={() => {
                 const h2 = detailH;
                 const rows = [
-                  ["ID","Nom","Prénom","Email","Téléphone","Région","Secteur","Projet","Score","Éligible","Étape"],
-                  [h2.id, h2.profile?.lastName||"", h2.name||"", h2.profile?.email||"",
-                   h2.profile?.phone||"", h2.profile?.region||"", h2.proj?.sector||"",
-                   h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
+                  ["ID","Nom","Prénom","Age","Email","Téléphone","Région","Préfecture","Arrondissement","Secteur","Projet","Score","Éligible","Étape"],
+                  [h2.id, h2.profile?.lastName||"", h2.name||"", h2.profile?.age||"", h2.profile?.email||"",
+                   h2.profile?.phone||"", h2.profile?.region||"", h2.profile?.prefecture||"", h2.profile?.arrondissement||"",
+                   h2.proj?.sector||"", h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
                 ].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(";")).join("\n");
                 const url = URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"}));
                 Object.assign(document.createElement("a"), {href: url, download: `Porteur_${h2.id}.csv`}).click();
@@ -5197,6 +5909,8 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                     <thead>
                       <tr style={{background:THS}}>
                         {[lang==="ar"?"الحامل":"Porteur","CIN",
+                          lang==="ar"?"السن":lang==="fr"?"Âge":"Age",
+                          lang==="ar"?"الموقع":lang==="fr"?"Localisation":"Location",
                           lang==="ar"?"المشروع":"Projet",
                           lang==="ar"?"المرحلة":"Étape",
                           lang==="ar"?"التقدم":"Préparation",
@@ -5226,6 +5940,8 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                               </div>
                             </td>
                             <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{h.id}</td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:12, whiteSpace:"nowrap"}}>{h.profile?.age || "—"}</td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{regionDisplay(h.profile) || "—"}</td>
                             <td style={{padding:"11px 14px", color:GR}}>{h.proj?.projectName||"—"}</td>
                             <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{h.step||"idea"}</td>
                             <td style={{padding:"11px 14px", minWidth:90}}>
@@ -5263,21 +5979,30 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                 <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>➕ {t.addCoord}</span>
               </div>
               <p style={{fontSize:"11px", color:GR, marginBottom:"10px"}}>
-                {lang==="ar"?"الصيغة: @NOMCOD (مثال: @KHALIDCOD)":lang==="fr"?"Format: @NOMCOD (ex: @KHALIDCOD)":"Format: @LASTNAMECOD (e.g. @KHALIDCOD)"}
+                {lang==="ar"?"أدخل اسم المنسق فقط — سيُنشأ رمز الدخول تلقائياً (مثال: \"younes\" ← @YOUNESCOD)":lang==="fr"?"Entrez juste le nom du coordinateur — le code d'accès est généré automatiquement (ex: \"younes\" → @YOUNESCOD)":"Enter just the coordinator's name — the access code is generated automatically (e.g. \"younes\" → @YOUNESCOD)"}
               </p>
               <div style={{display:"flex", gap:"8px"}}>
-                <input value={newCoord} onChange={e => setNewCoord(e.target.value.toUpperCase())}
-                  placeholder="@KHALIDCOD"
-                  style={{flex:1, padding:"11px 14px", borderRadius:"8px", border:`1px solid ${newCoord && RE_COORD.test(newCoord) ? Y : DV}`,
-                    fontSize:"13px", fontFamily:ff(lang), color:N, background:IF, fontWeight:"700", letterSpacing:"1px"}}/>
-                <button onClick={() => {if (RE_COORD.test(newCoord)) {onAddCoord(newCoord); setNewCoord("");}}}
-                  disabled={!RE_COORD.test(newCoord)}
+                <input value={newCoordName} onChange={e => setNewCoordName(e.target.value)}
+                  placeholder={lang==="ar"?"اسم المنسق":lang==="fr"?"Nom du coordinateur":"Coordinator name"}
+                  style={{flex:1, padding:"11px 14px", borderRadius:"8px", border:`1px solid ${newCoordName && newCoordValid ? Y : DV}`,
+                    fontSize:"13px", fontFamily:ff(lang), color:N, background:IF, direction:dir as "rtl"|"ltr"}}/>
+                <button onClick={() => {if (newCoordValid) {onAddCoord(newCoordCode); setNewCoordName("");}}}
+                  disabled={!newCoordValid}
                   style={{padding:"11px 20px", borderRadius:"8px", border:"none", cursor:"pointer",
                     background:ND, color:WH, fontSize:"13px",
-                    fontWeight:"700", fontFamily:ff(lang), opacity: RE_COORD.test(newCoord) ? 1 : .5}}>
+                    fontWeight:"700", fontFamily:ff(lang), opacity: newCoordValid ? 1 : .5}}>
                   {t.add}
                 </button>
               </div>
+              {newCoordName && (
+                <div style={{marginTop:"9px", fontSize:"12px", color: newCoordValid ? GN : RE, fontWeight:700}}>
+                  {newCoordCode
+                    ? (coords.includes(newCoordCode)
+                      ? (lang==="ar"?`⚠️ ${newCoordCode} مستخدم بالفعل`:lang==="fr"?`⚠️ ${newCoordCode} est déjà utilisé`:`⚠️ ${newCoordCode} is already in use`)
+                      : (lang==="ar"?`رمز الدخول: ${newCoordCode}`:lang==="fr"?`Code d'accès : ${newCoordCode}`:`Access code: ${newCoordCode}`))
+                    : (lang==="ar"?"⚠️ يجب أن يحتوي الاسم على حرفين على الأقل":lang==="fr"?"⚠️ Le nom doit contenir au moins 2 lettres":"⚠️ Name must contain at least 2 letters")}
+                </div>
+              )}
             </Card>
             <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
