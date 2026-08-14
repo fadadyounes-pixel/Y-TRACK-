@@ -839,13 +839,15 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
     if (!override) setInp("");
     setBusy(true);
     let replied = false;
-    for (let attempt = 0; attempt < 3 && !replied; attempt++) {
+    // See the ai() helper's comment on MAX_RETRIES for why this stays at 2, not more —
+    // the server's own provider cascade already retries exhaustively within 45s.
+    for (let attempt = 0; attempt < 2 && !replied; attempt++) {
       try {
-        if (attempt > 0) await new Promise(r => setTimeout(r, 800 * attempt));
+        if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
         const r = await fetch("/api/ai", {
           method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({messages: history, system: sys, task:"dialogue"}),
-          signal: AbortSignal.timeout(65_000),
+          signal: AbortSignal.timeout(50_000),
         });
         const d = await r.json();
         const text = d.content?.[0]?.text || "";
@@ -1674,15 +1676,22 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   // under many concurrent users, not minutes), so persisting here converts a near-miss
   // into a success instead of a user-facing "unavailable" message.
   const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue", maxTokens?: number): Promise<string> => {
-    const MAX_RETRIES = 5;
+    // The server's own rafiq() cascade already races/retries across ~15-20 provider
+    // attempts internally within a firm 45s deadline (see providers.ts) — one call
+    // here already represents an exhaustive attempt. Retrying that whole cascade many
+    // times client-side (previously 5x at 65s each, compounding to ~11 minutes when
+    // stacked with ensureJson's own retry) just makes a stuck user stare at a spinner
+    // far longer than any single call could ever plausibly need. Two attempts is
+    // enough to smooth over one transient blip without multiplying the wait.
+    const MAX_RETRIES = 2;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        if (attempt > 0) await new Promise(r => setTimeout(r, Math.min(1000 * attempt, 5000)));
+        if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
         const r = await fetch("/api/ai", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({messages, system, task, ...(maxTokens ? {max_tokens: maxTokens} : {})}),
-          signal: AbortSignal.timeout(65_000),
+          signal: AbortSignal.timeout(50_000),
         });
         const d = await r.json();
         if (d.error) {
