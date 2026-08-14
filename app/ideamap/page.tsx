@@ -5872,7 +5872,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                 else uncategorized++;
               });
               if (uncategorized > 0) byAxis[lang==="ar"?"غير مصنف":lang==="fr"?"Non catégorisé":"Uncategorized"] = uncategorized;
-              const AXIS_COLS = [ND,Y,"#8B5CF6","#EC4899","#94A3B8"];
+              const AXIS_COLS = [ND,Y,"#8B5CF6","#EC4899",GR];
               return (
                 <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
                   <Card style={{marginBottom:0}}>
@@ -6076,7 +6076,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                     {scored.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p> :
                       avgByJury.map(j => {
                         const p = (j.avg / j.w) * 100;
-                        const col = p >= 70 ? GN : p >= 50 ? "#D97706" : RE;
+                        const col = p >= 70 ? Y : p >= 50 ? "#F59E0B" : RE;
                         return (
                           <div key={j.key} style={{marginBottom:"10px"}}>
                             <div style={{display:"flex", justifyContent:"space-between", marginBottom:"3px"}}>
