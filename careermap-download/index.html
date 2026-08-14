@@ -1502,7 +1502,7 @@ function buildReportHTML(profile, scores, role, reportLang) {
   var cvChips = [];
   cvChips.push((isAr?'الرمز':isEn?'Code':'Code') + ': ' + candId);
   if (rawRegion) cvChips.push((isAr?'الجهة':isEn?'Region':'Région') + ': ' + rawRegion);
-  if (rawRegion === 'Casablanca-Settat' && profile.prefecture) cvChips.push((isAr?'العمالة':isEn?'District':'Arrondissement') + ': ' + profile.prefecture);
+  if (rawRegion === 'Casablanca-Settat' && profile.prefecture) cvChips.push((isAr?'العمالة':isEn?'District':'Préfecture') + ': ' + profile.prefecture);
   if (profile.edu) cvChips.push((isAr?'المستوى':isEn?'Profile':'Profil') + ': ' + profile.edu);
   if (profile.age) cvChips.push(profile.age + (isAr?' سنة':isEn?' yrs':' ans'));
   cvChips.push((isAr?'التاريخ':isEn?'Date':'Date') + ': ' + date);
@@ -2311,7 +2311,7 @@ function buildINDHReportHTML(c, lang) {
   var rawReg = profile.region || '';
   indhChips.push((isAr?'الرمز':isEn?'Code':'Code') + ': ' + candId);
   if (rawReg) indhChips.push((isAr?'الجهة':isEn?'Region':'Région') + ': ' + rawReg);
-  if (rawReg === 'Casablanca-Settat' && profile.prefecture) indhChips.push((isAr?'العمالة':isEn?'District':'Arrondissement') + ': ' + profile.prefecture);
+  if (rawReg === 'Casablanca-Settat' && profile.prefecture) indhChips.push((isAr?'العمالة':isEn?'District':'Préfecture') + ': ' + profile.prefecture);
   if (profile.edu) indhChips.push((isAr?'المستوى':isEn?'Profile':'Profil') + ': ' + profile.edu);
   if (profile.age) indhChips.push(profile.age + (isAr?' سنة':isEn?' yrs':' ans'));
   indhChips.push((isAr?'التاريخ':isEn?'Date':'Date') + ': ' + dateStr);
@@ -5382,7 +5382,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
             {newRegion==="Casablanca-Settat"&&(
               <select value={newPref} onChange={function(e){setNewPref(e.target.value);}}
                 style={{flex:1,minWidth:160,padding:'9px 10px',background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,color:newPref?AD_P.bright:AD_P.muted,fontSize:12,outline:'none'}}>
-                <option value="">— Arrondissement —</option>
+                <option value="">— Préfecture —</option>
                 {CASA_OPTIONS.map(function(p){return React.createElement('option',{key:p,value:p},p);})}
               </select>
             )}
@@ -5402,7 +5402,7 @@ function AdminDash({ lang, setLang, user, onLogout, cands, onView, advisors, onA
               <div style={{fontSize:10,color:"#8b5cf6",marginBottom:14}}>{"Région : "+(editAdv.region||"—")}</div>
               {editAdv.region==="Casablanca-Settat"?(
                 <div style={{marginBottom:16}}>
-                  <div style={{fontSize:10,color:AD_P.muted3,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:8}}>Arrondissement assigné</div>
+                  <div style={{fontSize:10,color:AD_P.muted3,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:8}}>Préfecture assignée</div>
                   <select value={editAdv.prefecture||""} onChange={function(e){setEditAdv(function(prev){return Object.assign({},prev,{prefecture:e.target.value});});}}
                     style={{width:"100%",padding:"10px 12px",background:AD_P.deep,border:"1px solid "+AD_P.border,borderRadius:10,color:(editAdv.prefecture)?AD_P.bright:AD_P.muted,fontSize:12,outline:"none"}}>
                     <option value="">— Aucun (région entière) —</option>

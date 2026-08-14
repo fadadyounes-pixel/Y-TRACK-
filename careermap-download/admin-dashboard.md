@@ -120,18 +120,18 @@ Affichée en permanence en haut de chaque onglet :
 ### Ajouter un conseiller
 1. Saisir le **nom complet**
 2. Choisir la **région** (12 régions du Maroc)
-3. Si **Casablanca-Settat** : choisir l'**arrondissement** assigné
+3. Si **Casablanca-Settat** : choisir l'**préfecture** assigné
 4. Cliquer **Créer** → le code est généré automatiquement (`@nomADV`)
 
 ### Modifier un conseiller (✏️)
 - Clic sur le bouton ✏️ sur la carte du conseiller
-- Modifier l'arrondissement assigné depuis la liste déroulante
+- Modifier l'préfecture assigné depuis la liste déroulante
 - Enregistrer → mis à jour en temps réel (Firestore)
 
 ### Carte conseiller
-- Initiales · Nom · Code · Zone (arrondissement · région) · Date de création
+- Initiales · Nom · Code · Zone (préfecture · région) · Date de création
 - **Copier** : copie le code dans le presse-papiers
-- **✏️** : modifier l'arrondissement
+- **✏️** : modifier l'préfecture
 - **🗑** : supprimer (confirmation requise)
 
 ---
@@ -202,7 +202,7 @@ Deux formats disponibles pour chaque candidat :
 
 ### Rapport Candidat
 - Version destinée au bénéficiaire
-- Couverture : fond dégradé sombre, logo CareerMap, nom, chips (code, région, arrondissement si Casablanca-Settat, niveau, âge, date)
+- Couverture : fond dégradé sombre, logo CareerMap, nom, chips (code, région, préfecture si Casablanca-Settat, niveau, âge, date)
 - Contenu : profil Holland, personnalité Big Five, scores d'employabilité, recommandations
 
 ### Rapport Conseiller
