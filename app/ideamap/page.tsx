@@ -4699,7 +4699,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   comp: eAr?"تقرير الامتثال":eEn?"Compliance Report":"Rapport de Conformité",
                   chk: eAr?"قائمة الوثائق":eEn?"Docs Checklist":"Checklist Documents",
                   guide: eAr?"دليل التقديم":eEn?"Submission Guide":"Guide de Soumission",
-                  jury: eAr?"عرض أمام اللجنة (7 شرائح)":eEn?"Jury Presentation — 7 slides":"Présentation Jury — 7 diapositives",
+                  jury: eAr?"عرض أمام اللجنة (9 شرائح)":eEn?"Jury Presentation — 9 slides":"Présentation Jury — 9 diapositives",
                   execSum: eAr?"الملخص التنفيذي":eEn?"EXECUTIVE SUMMARY":"RÉSUMÉ EXÉCUTIF",
                   problem: eAr?"إشكالية المشروع":eEn?"PROBLEM STATEMENT":"PROBLÉMATIQUE",
                   solution: eAr?"الحل المقترح":eEn?"SOLUTION":"SOLUTION",
