@@ -14,7 +14,7 @@ export async function GET() {
   try {
     const [holders, coords, jobs, cvs] = await Promise.all([
       redis.get<any[]>("idm_holders"),
-      redis.get<string[]>("idm_coords"),
+      redis.get<any[]>("idm_coords"),
       redis.get<any[]>("tm_jobs"),
       redis.get<any[]>("tm_cvs"),
     ]);
@@ -49,13 +49,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    /* IdeaMap: replace coordinator list */
+    /* IdeaMap: replace coordinator list — entries are either a plain code string
+       (legacy) or {code, name, region, arrondissement, createdAt} objects. */
     if (body.type === "save_coords") {
       const coords = body.coords;
-      if (!Array.isArray(coords) || coords.some((c: unknown) => typeof c !== "string" || !RE_COORD.test(c))) {
+      const validEntry = (c: unknown) =>
+        typeof c === "string" ? RE_COORD.test(c)
+        : (c && typeof c === "object" && typeof (c as any).code === "string" && RE_COORD.test((c as any).code));
+      if (!Array.isArray(coords) || coords.some((c: unknown) => !validEntry(c))) {
         return NextResponse.json({ ok: false, error: "Invalid coords" }, { status: 400 });
       }
       await redis.set("idm_coords", coords);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* IdeaMap: delete a holder */
+    if (body.type === "delete_holder") {
+      const existing = await redis.get<any[]>("idm_holders") || [];
+      await redis.set("idm_holders", existing.filter((h: any) => h.id !== body.id));
       return NextResponse.json({ ok: true });
     }
 
