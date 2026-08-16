@@ -208,7 +208,7 @@ async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast
 }
 
 // Groq: tries every free model in sequence until one succeeds.
-async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
+export async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("GROQ_API_KEY");
   if (!key) throw new Error("no GROQ_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
@@ -236,7 +236,7 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
 
 // Cerebras: 1000–2000 tok/s on LPU hardware — fastest free inference available.
 // 1M tokens/day free, no credit card. Best for real-time dialogue & suggestions.
-async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
+export async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("CEREBRAS_API_KEY");
   if (!key) throw new Error("no CEREBRAS_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
@@ -292,7 +292,7 @@ async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): 
 // Mistral La Plateforme: ~1B tokens/month free.
 // Best French + Arabic bilingual models — essential for INDH Morocco (French & Arabic official languages).
 // mistral-small-latest scores highest on French/Arabic benchmarks among free-tier models.
-async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+export async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("MISTRAL_API_KEY");
   if (!key) throw new Error("no MISTRAL_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
