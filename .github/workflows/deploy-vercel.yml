@@ -42,6 +42,70 @@ jobs:
           VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
         run: vercel --token "$VERCEL_TOKEN" --prod --yes
 
+      # Diagnostic only — confirms the app/ideamap/layout.tsx title override (PR #66)
+      # is actually live on production. middleware.ts transparently rewrites every
+      # path on ideamaponline.org (including "/") to /ideamap, so BOTH URLs below
+      # are expected to read "IdeaMap" — that's correct, not a bug. TalentMap is a
+      # fully separate domain (talentmaponline.org) untouched by this change, so
+      # that's the one that must still read "TalentMap" unchanged.
+      #
+      # IMPORTANT: this step must run BEFORE the 100-concurrent-request load test
+      # further down in this job. Evidence from a prior run: the load test hit
+      # /ideamap 100 times concurrently and got 100/100 clean 200s, then the title
+      # checks running immediately after (same job, same runner IP, seconds later)
+      # got Vercel's bot-protection challenge page every time. That points to the
+      # load test itself tripping Vercel's Attack Challenge Mode for the rest of
+      # the job — so checking titles first, before any bulk traffic, avoids it.
+      - name: Verify browser tab titles on production (TalentMap vs IdeaMap)
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+          echo "=== Title of https://www.talentmaponline.org/ (TalentMap — must stay unchanged) ==="
+          curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.talentmaponline.org/ -o /tmp/talentmap.html -w "http_code=%{http_code}\n"
+          grep -oE '<title>[^<]*</title>' /tmp/talentmap.html || echo "no title found (see status code above)"
+          echo ""
+          echo "=== Title of https://www.ideamaponline.org/ (rewritten to /ideamap — must read IdeaMap) ==="
+          curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.ideamaponline.org/ -o /tmp/root.html -w "http_code=%{http_code}\n"
+          grep -oE '<title>[^<]*</title>' /tmp/root.html || echo "no title found (see status code above)"
+          echo ""
+          echo "=== Title of https://www.ideamaponline.org/ideamap (must read IdeaMap) ==="
+          curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.ideamaponline.org/ideamap -o /tmp/ideamap.html -w "http_code=%{http_code}\n"
+          grep -oE '<title>[^<]*</title>' /tmp/ideamap.html || echo "no title found (see status code above)"
+
+      # Diagnostic only — same title check as above but via a real headless browser
+      # (Playwright, already a project dependency) instead of curl, in case curl's
+      # request fingerprint alone (independent of the load-test-ordering fix above)
+      # is ever the trigger rather than request volume. Kept as a second, differently-
+      # shaped check for the same evidence, still running before the load test.
+      - name: Verify browser tab titles on production via headless browser
+        run: |
+          npx playwright install --with-deps chromium
+          node -e "
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+            const urls = [
+              'https://www.talentmaponline.org/',
+              'https://www.ideamaponline.org/',
+              'https://www.ideamaponline.org/ideamap',
+            ];
+            for (const url of urls) {
+              try {
+                const resp = await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+                await page.waitForTimeout(5000);
+                console.log('=== ' + url + ' ===');
+                console.log('initial_status=' + (resp ? resp.status() : 'null'));
+                console.log('final_url=' + page.url());
+                console.log('title=' + (await page.title()));
+              } catch (e) {
+                console.log('=== ' + url + ' ===');
+                console.log('ERROR: ' + e.message);
+              }
+            }
+            await browser.close();
+          })();
+          "
+
       # Diagnostic only — lists which env var NAMES exist in the Production
       # environment (never values). Used to confirm whether any AI provider
       # key is actually configured, since the app's AI cascade is otherwise
@@ -197,70 +261,4 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"task":"fast","messages":[{"role":"user","content":"Reply with exactly: OK"}],"system":"Reply with exactly the word OK, nothing else."}' \
             -w "\nhttp_code=%{http_code} time=%{time_total}s\n" --max-time 30 || echo "curl failed"
-      # Diagnostic only — confirms the app/ideamap/layout.tsx title override (PR #66)
-      # is actually live on production. middleware.ts transparently rewrites every
-      # path on ideamaponline.org (including "/") to /ideamap, so BOTH URLs below
-      # are expected to read "IdeaMap" — that's correct, not a bug. TalentMap is a
-      # fully separate domain (talentmaponline.org) untouched by this change, so
-      # that's the one that must still read "TalentMap" unchanged.
-      - name: Verify browser tab titles on production (TalentMap vs IdeaMap)
-        run: |
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-          echo "=== Title of https://www.talentmaponline.org/ (TalentMap — must stay unchanged) ==="
-          curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.talentmaponline.org/ -o /tmp/talentmap.html -w "http_code=%{http_code}\n"
-          grep -oE '<title>[^<]*</title>' /tmp/talentmap.html || echo "no title found (see status code above)"
-          echo ""
-          echo "=== Title of https://www.ideamaponline.org/ (rewritten to /ideamap — must read IdeaMap) ==="
-          curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.ideamaponline.org/ -o /tmp/root.html -w "http_code=%{http_code}\n"
-          grep -oE '<title>[^<]*</title>' /tmp/root.html || echo "no title found (see status code above)"
-          echo ""
-          echo "=== Title of https://www.ideamaponline.org/ideamap (must read IdeaMap) ==="
-          curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.ideamaponline.org/ideamap -o /tmp/ideamap.html -w "http_code=%{http_code}\n"
-          grep -oE '<title>[^<]*</title>' /tmp/ideamap.html || echo "no title found (see status code above)"
-      # Diagnostic only — the plain-curl check above keeps hitting Vercel's bot-protection
-      # challenge page on ideamaponline.org (http_code=403, "Vercel Security Checkpoint").
-      # A first attempt at this same headless-browser check (with waitUntil:'domcontentloaded')
-      # also got the 403 challenge page — but that was reading the title too early, before
-      # the challenge page's own client-side JS had time to solve the check and redirect to
-      # real content. This version waits for the network to go idle and gives the redirect a
-      # few extra seconds, then logs the final URL/title so we can tell whether the challenge
-      # actually cleared.
-      - name: Verify browser tab titles on production via headless browser
-        run: |
-          npx playwright install --with-deps chromium
-          node -e "
-          const { chromium } = require('playwright');
-          (async () => {
-            const browser = await chromium.launch();
-            const page = await browser.newPage();
-            const urls = [
-              'https://www.talentmaponline.org/',
-              'https://www.ideamaponline.org/',
-              'https://www.ideamaponline.org/ideamap',
-              // The custom domain ideamaponline.org appears to have Vercel's Attack
-              // Challenge Mode enabled specifically (four different request styles all
-              // got the challenge page, with no redirect even after a networkidle+5s
-              // wait). The *.vercel.app alias serves the exact same deployment/build
-              // but is a different domain, so it should not be subject to that same
-              // per-domain challenge. /ideamap is a normal Next.js route independent of
-              // the ideamaponline.org-only middleware rewrite, so hitting it directly on
-              // the alias renders the identical page + title as production IdeaMap.
-              'https://y-track.vercel.app/ideamap',
-            ];
-            for (const url of urls) {
-              try {
-                const resp = await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
-                await page.waitForTimeout(5000);
-                console.log('=== ' + url + ' ===');
-                console.log('initial_status=' + (resp ? resp.status() : 'null'));
-                console.log('final_url=' + page.url());
-                console.log('title=' + (await page.title()));
-              } catch (e) {
-                console.log('=== ' + url + ' ===');
-                console.log('ERROR: ' + e.message);
-              }
-            }
-            await browser.close();
-          })();
-          "
-      # (re-check: latest status ping 30 — add a Playwright headless-browser title check, since curl can never pass Vercel's JS-based bot challenge no matter the User-Agent, non-fatal)
+      # (re-check: latest status ping 31 — moved both title-verification steps to run right after "Deploy to Vercel", before the 100-concurrent-request load test, since evidence points to the load test itself tripping Vercel's Attack Challenge Mode for the rest of the job, non-fatal)
