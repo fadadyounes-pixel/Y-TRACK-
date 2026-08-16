@@ -206,4 +206,4 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"diagProviders":true,"messages":[{"role":"user","content":"Reply with exactly: OK"}],"system":"Reply with exactly the word OK, nothing else."}' \
             -w "\nhttp_code=%{http_code} time=%{time_total}s\n" --max-time 60 || echo "curl failed"
-      # (re-check: latest status ping 24 — temporary provider-isolation diagnostic, non-fatal)
+      # (re-check: latest status ping 25 — retrigger after run 31917450825 appeared stuck on "Deploy to Vercel", non-fatal)
