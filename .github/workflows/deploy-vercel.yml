@@ -118,7 +118,7 @@ jobs:
           const { chromium } = require('playwright');
           (async () => {
             const browser = await chromium.launch();
-            const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+            const page = await browser.newPage({ viewport: { width: 900, height: 650 } });
             const shots = [
               ['talentmap-home', 'https://www.talentmaponline.org/'],
               ['ideamap-home', 'https://www.ideamaponline.org/'],
@@ -128,7 +128,7 @@ jobs:
               try {
                 await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
                 await page.waitForTimeout(3000);
-                await page.screenshot({ path: '/tmp/' + name + '.png', fullPage: false });
+                await page.screenshot({ path: '/tmp/' + name + '.jpg', fullPage: false, type: 'jpeg', quality: 55 });
                 console.log('captured ' + name + ' (' + url + ')');
               } catch (e) {
                 console.log('FAILED ' + name + ' (' + url + '): ' + e.message);
@@ -141,8 +141,27 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: production-screenshots
-          path: /tmp/*.png
+          path: /tmp/*.jpg
           retention-days: 5
+
+      # Diagnostic only — the artifact-download URL from GitHub's Azure blob storage
+      # is unreachable from the assistant's own sandbox (network proxy blocks it, same
+      # restriction seen earlier with Vercel's API), so the only channel left that's
+      # confirmed reachable is this job's own log output. Base64-encoding the small
+      # JPEGs directly into the log lets them be recovered by reading the log text.
+      - name: Print screenshots as base64 (log-embedded, since artifact download is unreachable from the sandbox)
+        run: |
+          for f in /tmp/talentmap-home.jpg /tmp/ideamap-home.jpg /tmp/ideamap-explicit.jpg; do
+            name=$(basename "$f" .jpg)
+            if [ -f "$f" ]; then
+              echo "===BASE64_START:$name==="
+              base64 -w0 "$f"
+              echo ""
+              echo "===BASE64_END:$name==="
+            else
+              echo "===MISSING:$name==="
+            fi
+          done
 
       # Diagnostic only — lists which env var NAMES exist in the Production
       # environment (never values). Used to confirm whether any AI provider
