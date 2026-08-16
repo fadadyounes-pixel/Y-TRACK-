@@ -106,6 +106,44 @@ jobs:
           })();
           "
 
+      # Diagnostic only — the user has repeatedly asked whether the live site is
+      # "well done" / actually opens correctly, but hasn't yet checked their own
+      # browser. Rather than keep asking, capture real full-page screenshots of
+      # production right now so the user (and this session) can see the literal
+      # rendered output directly, instead of relying on a title string or a status
+      # code as a proxy for "it looks right."
+      - name: Screenshot production pages
+        run: |
+          node -e "
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+            const shots = [
+              ['talentmap-home', 'https://www.talentmaponline.org/'],
+              ['ideamap-home', 'https://www.ideamaponline.org/'],
+              ['ideamap-explicit', 'https://www.ideamaponline.org/ideamap'],
+            ];
+            for (const [name, url] of shots) {
+              try {
+                await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+                await page.waitForTimeout(3000);
+                await page.screenshot({ path: '/tmp/' + name + '.png', fullPage: false });
+                console.log('captured ' + name + ' (' + url + ')');
+              } catch (e) {
+                console.log('FAILED ' + name + ' (' + url + '): ' + e.message);
+              }
+            }
+            await browser.close();
+          })();
+          "
+      - name: Upload production screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-screenshots
+          path: /tmp/*.png
+          retention-days: 5
+
       # Diagnostic only — lists which env var NAMES exist in the Production
       # environment (never values). Used to confirm whether any AI provider
       # key is actually configured, since the app's AI cascade is otherwise
