@@ -71,6 +71,31 @@ jobs:
           curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.ideamaponline.org/ideamap -o /tmp/ideamap.html -w "http_code=%{http_code}\n"
           grep -oE '<title>[^<]*</title>' /tmp/ideamap.html || echo "no title found (see status code above)"
 
+      # Diagnostic only — user's device just got ERR_CONNECTION_ABORTED on
+      # https://www.ideamaponline.org/, a different and more specific failure
+      # than the earlier blank-page/timeout symptom: it means a connection was
+      # established and then actively cut, which can point to a TLS handshake
+      # problem, a bad/expiring certificate, a DNS record resolving to a stale
+      # or wrong IP, or carrier-level interference — none of which the existing
+      # title/screenshot checks (which only look at successful 200 responses)
+      # would catch. This runner's network path is completely different from
+      # the user's mobile carrier's, so a clean result here doesn't fully rule
+      # out a carrier-specific issue, but it does rule out anything wrong with
+      # the domain's DNS/TLS/Vercel config itself, which the user CAN fix.
+      - name: Check TLS certificate + DNS resolution for both domains
+        run: |
+          for host in www.ideamaponline.org www.talentmaponline.org; do
+            echo "=== DNS resolution: $host ==="
+            getent hosts "$host" || echo "resolution failed"
+            echo ""
+            echo "=== TLS certificate: $host ==="
+            echo | openssl s_client -connect "$host:443" -servername "$host" 2>/dev/null | openssl x509 -noout -subject -issuer -dates 2>&1 || echo "TLS handshake/cert read failed"
+            echo ""
+            echo "=== curl verbose handshake summary: $host ==="
+            curl -sS -o /dev/null --max-time 20 -w "http_code=%{http_code} time_appconnect=%{time_appconnect}s time_connect=%{time_connect}s\n" "https://$host/" 2>&1 || echo "curl failed"
+            echo ""
+          done
+
       # Diagnostic only — same title check as above but via a real headless browser
       # (Playwright, already a project dependency) instead of curl, in case curl's
       # request fingerprint alone (independent of the load-test-ordering fix above)
