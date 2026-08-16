@@ -1477,8 +1477,10 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
       <div className="im-rise" style={{width:"100%", maxWidth:400, position:"relative", zIndex:5, display:"flex",
         flexDirection:"column", alignItems:"center"}}>
 
-        {/* Logo above card */}
-        <img src="/logo-transparent.png" alt="IdeaMap"
+        {/* Logo above card — a right-sized/compressed copy (36KB vs. the 320KB
+            full-res source), since this is the single largest request on the
+            whole login page and a plain <img> with no responsive sizing */}
+        <img src="/logo-login.png" alt="IdeaMap"
           style={{width:270, maxWidth:"100%", objectFit:"contain", marginBottom:18}}/>
 
         {/* White card */}

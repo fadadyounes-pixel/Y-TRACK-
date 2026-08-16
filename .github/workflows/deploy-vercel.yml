@@ -106,6 +106,29 @@ jobs:
           })();
           "
 
+      # Diagnostic only — the user's own screenshot showed a broken-image icon
+      # (browser's fallback for a failed <img> load) next to the logo on the
+      # IdeaMap login page, right after they'd also shown a page that was still
+      # loading on a weak mobile signal. app/ideamap/page.tsx:1481 referenced
+      # /logo-transparent.png directly via a plain <img> tag, no Next.js image
+      # optimization, no responsive sizing — the source file is 1254x1254 /
+      # ~320KB despite being displayed at only 270px wide, making it the single
+      # largest request on the whole login page and the one most likely to
+      # time out on a weak connection. Fixed by pointing the login page at a
+      # new right-sized/quantized /logo-login.png (810x810, ~36KB) instead —
+      # this step confirms the new asset is genuinely served and small, and
+      # that the original /logo-transparent.png (still used elsewhere: PWA
+      # manifest icons, TalentMap's shared apple-touch-icon) is untouched.
+      - name: Check logo assets (size, headers, load time) after right-sizing the login logo
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+          for asset in logo-login.png logo-transparent.png logo-icon.png; do
+            echo "=== $asset ==="
+            curl -sS -o /dev/null -A "$UA" --max-time 20 \
+              -w "http_code=%{http_code} size_download=%{size_download} time_total=%{time_total}s time_starttransfer=%{time_starttransfer}s\n" \
+              "https://www.ideamaponline.org/$asset" || echo "curl failed"
+          done
+
       # Diagnostic only — the user has repeatedly asked whether the live site is
       # "well done" / actually opens correctly, but hasn't yet checked their own
       # browser. Rather than keep asking, capture real full-page screenshots of
