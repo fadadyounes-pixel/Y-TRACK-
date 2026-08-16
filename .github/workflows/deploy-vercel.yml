@@ -198,17 +198,23 @@ jobs:
             -d '{"task":"fast","messages":[{"role":"user","content":"Reply with exactly: OK"}],"system":"Reply with exactly the word OK, nothing else."}' \
             -w "\nhttp_code=%{http_code} time=%{time_total}s\n" --max-time 30 || echo "curl failed"
       # Diagnostic only — confirms the app/ideamap/layout.tsx title override (PR #66)
-      # is actually live on production: TalentMap's root page must still read
-      # "TalentMap" (untouched, shared layout), while /ideamap must now read
-      # "IdeaMap" instead of inheriting the shared title.
+      # is actually live on production. middleware.ts transparently rewrites every
+      # path on ideamaponline.org (including "/") to /ideamap, so BOTH URLs below
+      # are expected to read "IdeaMap" — that's correct, not a bug. TalentMap is a
+      # fully separate domain (talentmaponline.org) untouched by this change, so
+      # that's the one that must still read "TalentMap" unchanged.
       - name: Verify browser tab titles on production (TalentMap vs IdeaMap)
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-          echo "=== Title of https://www.ideamaponline.org/ (TalentMap — must stay unchanged) ==="
+          echo "=== Title of https://www.talentmaponline.org/ (TalentMap — must stay unchanged) ==="
+          curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.talentmaponline.org/ -o /tmp/talentmap.html -w "http_code=%{http_code}\n"
+          grep -oE '<title>[^<]*</title>' /tmp/talentmap.html || echo "no title found (see status code above)"
+          echo ""
+          echo "=== Title of https://www.ideamaponline.org/ (rewritten to /ideamap — must read IdeaMap) ==="
           curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.ideamaponline.org/ -o /tmp/root.html -w "http_code=%{http_code}\n"
           grep -oE '<title>[^<]*</title>' /tmp/root.html || echo "no title found (see status code above)"
           echo ""
-          echo "=== Title of https://www.ideamaponline.org/ideamap (must now read IdeaMap) ==="
+          echo "=== Title of https://www.ideamaponline.org/ideamap (must read IdeaMap) ==="
           curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.ideamaponline.org/ideamap -o /tmp/ideamap.html -w "http_code=%{http_code}\n"
           grep -oE '<title>[^<]*</title>' /tmp/ideamap.html || echo "no title found (see status code above)"
-      # (re-check: latest status ping 28 — retry title check with a browser User-Agent, since the bare curl UA got a Vercel bot-protection challenge page instead of real content, non-fatal)
+      # (re-check: latest status ping 29 — swap the TalentMap comparison URL to talentmaponline.org, the actual TalentMap production domain, since ideamaponline.org's root is intentionally rewritten to /ideamap by middleware.ts and was never TalentMap in production, non-fatal)
