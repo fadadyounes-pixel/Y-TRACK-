@@ -179,4 +179,22 @@ jobs:
             echo "No responses received at all."
           fi
           exit 0
-      # (re-check: latest status ping 22 — 100-concurrent-request load test against production /ideamap, non-fatal)
+      # Diagnostic only — CEREBRAS_API_KEY and MISTRAL_API_KEY were just added in the
+      # Vercel dashboard (production env vars) for AI-provider redundancy alongside the
+      # existing GROQ_API_KEY. This step never touches the raw key values (this is a
+      # public repo, so no secret may ever appear in workflow inputs or logs) — it only
+      # confirms (a) Vercel's latest production deployment succeeded after the env var
+      # change, and (b) the live /api/ai cascade still responds correctly end-to-end.
+      - name: Verify latest production deployment and AI endpoint health
+        env:
+          VERCEL_TOKEN: ${{ inputs.vercel_token || secrets.VERCEL_TOKEN }}
+        run: |
+          echo "=== Latest production deployments ==="
+          vercel ls y-track --token "$VERCEL_TOKEN" --prod 2>&1 | head -10 || true
+          echo ""
+          echo "=== Live /api/ai health check (no secrets involved, just a trivial prompt) ==="
+          curl -sS -X POST https://www.ideamaponline.org/api/ai \
+            -H "Content-Type: application/json" \
+            -d '{"task":"fast","messages":[{"role":"user","content":"Reply with exactly: OK"}],"system":"Reply with exactly the word OK, nothing else."}' \
+            -w "\nhttp_code=%{http_code} time=%{time_total}s\n" --max-time 30 || echo "curl failed"
+      # (re-check: latest status ping 23 — verify prod deployment + /api/ai health after adding Cerebras/Mistral keys, non-fatal)
