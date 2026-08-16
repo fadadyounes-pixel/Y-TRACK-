@@ -197,4 +197,15 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"task":"fast","messages":[{"role":"user","content":"Reply with exactly: OK"}],"system":"Reply with exactly the word OK, nothing else."}' \
             -w "\nhttp_code=%{http_code} time=%{time_total}s\n" --max-time 30 || echo "curl failed"
-      # (re-check: latest status ping 26 — confirmed Groq auth is currently failing (401) in production while Mistral works; Cerebras inconclusive, non-fatal)
+      # Diagnostic only — confirms the app/ideamap/layout.tsx title override (PR #66)
+      # is actually live on production: TalentMap's root page must still read
+      # "TalentMap" (untouched, shared layout), while /ideamap must now read
+      # "IdeaMap" instead of inheriting the shared title.
+      - name: Verify browser tab titles on production (TalentMap vs IdeaMap)
+        run: |
+          echo "=== Title of https://www.ideamaponline.org/ (TalentMap — must stay unchanged) ==="
+          curl -sS --max-time 20 https://www.ideamaponline.org/ | grep -oE '<title>[^<]*</title>' || echo "no title found"
+          echo ""
+          echo "=== Title of https://www.ideamaponline.org/ideamap (must now read IdeaMap) ==="
+          curl -sS --max-time 20 https://www.ideamaponline.org/ideamap | grep -oE '<title>[^<]*</title>' || echo "no title found"
+      # (re-check: latest status ping 27 — verify TalentMap vs IdeaMap browser titles on production, non-fatal)
