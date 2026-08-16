@@ -237,6 +237,15 @@ jobs:
               'https://www.talentmaponline.org/',
               'https://www.ideamaponline.org/',
               'https://www.ideamaponline.org/ideamap',
+              // The custom domain ideamaponline.org appears to have Vercel's Attack
+              // Challenge Mode enabled specifically (four different request styles all
+              // got the challenge page, with no redirect even after a networkidle+5s
+              // wait). The *.vercel.app alias serves the exact same deployment/build
+              // but is a different domain, so it should not be subject to that same
+              // per-domain challenge. /ideamap is a normal Next.js route independent of
+              // the ideamaponline.org-only middleware rewrite, so hitting it directly on
+              // the alias renders the identical page + title as production IdeaMap.
+              'https://y-track.vercel.app/ideamap',
             ];
             for (const url of urls) {
               try {
