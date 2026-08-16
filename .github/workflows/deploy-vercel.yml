@@ -197,4 +197,13 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"task":"fast","messages":[{"role":"user","content":"Reply with exactly: OK"}],"system":"Reply with exactly the word OK, nothing else."}' \
             -w "\nhttp_code=%{http_code} time=%{time_total}s\n" --max-time 30 || echo "curl failed"
-      # (re-check: latest status ping 23 — verify prod deployment + /api/ai health after adding Cerebras/Mistral keys, non-fatal)
+      # TEMPORARY — calls the diagProviders diagnostic added in this same PR chain to
+      # confirm Cerebras/Mistral authenticate directly (bypassing the race that Groq
+      # would otherwise win). Remove alongside the app-side diagnostic once confirmed.
+      - name: Verify Cerebras/Mistral authenticate directly (temporary)
+        run: |
+          curl -sS -X POST https://www.ideamaponline.org/api/ai \
+            -H "Content-Type: application/json" \
+            -d '{"diagProviders":true,"messages":[{"role":"user","content":"Reply with exactly: OK"}],"system":"Reply with exactly the word OK, nothing else."}' \
+            -w "\nhttp_code=%{http_code} time=%{time_total}s\n" --max-time 60 || echo "curl failed"
+      # (re-check: latest status ping 24 — temporary provider-isolation diagnostic, non-fatal)
