@@ -243,6 +243,36 @@ jobs:
             echo "No responses received at all."
           fi
           exit 0
+      # Diagnostic only — user reported (live, in their own browser) that the site
+      # "still shows talentmap" and "is not open" for IdeaMap, despite the prior
+      # CI run (31944968366, 11:40 UTC) confirming clean 200s and correct titles
+      # via both curl and headless Playwright. Since nothing has changed in the
+      # deployed code since that run, the leading hypotheses are (a) a CDN/edge
+      # cache serving a stale response to the user specifically, or (b) a DNS/ISP
+      # propagation issue on the user's own network — neither of which a same-shape
+      # repeat of the earlier check would distinguish. This step adds: apex
+      # (non-www) domains, HEAD requests showing cache/CDN headers (x-vercel-cache,
+      # age, cache-control), and a cache-busted GET (unique query string) that
+      # cannot be served from any cache, on all four hostnames.
+      - name: Live status right now — cache headers + apex domains + cache-busted fetch
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+          BUST=$(date +%s)
+          for url in \
+            "https://ideamaponline.org/" \
+            "https://www.ideamaponline.org/" \
+            "https://ideamaponline.org/ideamap" \
+            "https://www.ideamaponline.org/ideamap" \
+            "https://talentmaponline.org/" \
+            "https://www.talentmaponline.org/"; do
+            echo "=== HEAD $url ==="
+            curl -sS -I -A "$UA" --max-time 20 "$url" || echo "curl failed"
+            echo ""
+            echo "=== Cache-busted GET ${url}?_cb=$BUST (title only) ==="
+            curl -sS -A "$UA" --max-time 20 "${url}?_cb=$BUST" -o /tmp/cb.html -w "http_code=%{http_code}\n"
+            grep -oE '<title>[^<]*</title>' /tmp/cb.html || echo "no title found (see status code above)"
+            echo ""
+          done
       # Diagnostic only — CEREBRAS_API_KEY and MISTRAL_API_KEY were just added in the
       # Vercel dashboard (production env vars) for AI-provider redundancy alongside the
       # existing GROQ_API_KEY. This step never touches the raw key values (this is a
