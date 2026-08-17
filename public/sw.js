@@ -40,10 +40,14 @@ self.addEventListener('fetch', e => {
   // API calls: network-only — don't cache, let app handle errors via toast
   if (url.pathname.startsWith('/api/')) return;
 
-  // Navigation (full page): network-first, fall back to cached shell
+  // Navigation (full page): network-first, fall back to cached shell.
+  // A bare fetch() here has no ceiling on mobile networks where a request can
+  // stall without ever erroring or completing — the .catch() fallback below
+  // would then never run, leaving the page blank and "loading" indefinitely.
+  // Bounding the fetch with a timeout guarantees the fallback is always reached.
   if (request.mode === 'navigate') {
     e.respondWith(
-      fetch(request)
+      fetch(request, { signal: AbortSignal.timeout(10000) })
         .then(res => {
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(request, clone));
@@ -62,11 +66,13 @@ self.addEventListener('fetch', e => {
   }
 
   // Static assets (JS, CSS, fonts, images): stale-while-revalidate
-  // Serve from cache immediately, refresh in background
+  // Serve from cache immediately, refresh in background. Same stall risk as
+  // above when there's no cached copy yet (first load) — bound it too so an
+  // uncached asset request can't hang forever on a bad connection.
   e.respondWith(
     caches.open(CACHE).then(cache =>
       cache.match(request).then(cached => {
-        const network = fetch(request).then(res => {
+        const network = fetch(request, { signal: AbortSignal.timeout(8000) }).then(res => {
           if (res.ok) cache.put(request, res.clone());
           return res;
         }).catch(() => cached);
