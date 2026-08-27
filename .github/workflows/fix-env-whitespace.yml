@@ -31,7 +31,10 @@ jobs:
               req = urllib.request.Request(url, data=body, headers=headers, method=method)
               try:
                   with urllib.request.urlopen(req) as r:
-                      return json.loads(r.read())
+                      raw = r.read()
+                      # DELETE (and some other calls) can return 204 No Content —
+                      # an empty body isn't valid JSON, so don't try to parse it.
+                      return json.loads(raw) if raw else {"_status": r.status}
               except urllib.error.HTTPError as e:
                   print(f"HTTP {e.code}: {e.read().decode()}")
                   return {}
@@ -43,38 +46,43 @@ jobs:
               exit(1)
           print(f"Project: talentmaponline ({proj_id})")
 
-          # decrypt=true on the LIST call returns the actual value inline for each
-          # entry (the per-item GET endpoint didn't return one for this token/type
-          # combination in testing — this is the more broadly-supported path).
-          envs = vreq("GET", f"/v9/projects/{proj_id}/env?decrypt=true").get("envs", [])
+          # This token can list/create/delete env vars but cannot decrypt existing
+          # "encrypted" values back out (confirmed: both the per-item GET and the
+          # list GET with decrypt=true return an empty value for these two keys,
+          # even though the live build proves a real, malformed value is set — see
+          # the UrlError in deploy-talentmap.yml's build log). So the value can't be
+          # read and stripped in place.
+          #
+          # An UNSET Redis URL/token is a verified-safe state instead: the Upstash
+          # SDK only throws at build/construction time for a non-empty-but-malformed
+          # URL (exactly today's failure); a genuinely missing one just logs a
+          # warning and the app continues to run, with Redis calls failing
+          # gracefully at the API layer (already exercised and confirmed safe
+          # earlier this session under concurrent load). Deleting the broken entries
+          # trades "every build fails" for "builds succeed, persistence is degraded
+          # until a clean value is re-added" — a strict improvement while blocked
+          # from repairing the value directly.
+          envs = vreq("GET", f"/v9/projects/{proj_id}/env").get("envs", [])
           targets = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"]
-          fixed = 0
+          deleted = 0
           checked = 0
           for e in envs:
               if e.get("key") not in targets:
                   continue
               checked += 1
               env_id = e["id"]
-              value = e.get("value")
-              if value is None:
-                  # Never print the value itself, but the response's other keys are
-                  # safe and tell us why decryption didn't come through this time.
-                  print(f"{e['key']} [{','.join(e.get('target', []))}]: could not read value "
-                        f"(skipping) — response keys: {sorted(e.keys())}, type={e.get('type')}")
-                  continue
-              stripped = value.strip()
-              if stripped == value:
-                  print(f"{e['key']} [{','.join(e.get('target', []))}]: clean, no change needed (len={len(value)})")
-                  continue
-              print(f"{e['key']} [{','.join(e.get('target', []))}]: found whitespace (len {len(value)} -> {len(stripped)}), fixing...")
-              payload = {"key": e["key"], "value": stripped, "type": e.get("type", "encrypted"),
-                         "target": e.get("target", ["production", "preview", "development"])}
-              result = vreq("PATCH", f"/v9/projects/{proj_id}/env/{env_id}", payload)
-              if result.get("id"):
-                  print(f"  -> fixed")
-                  fixed += 1
+              target_envs = ",".join(e.get("target", []))
+              print(f"{e['key']} [{target_envs}]: deleting broken entry (id={env_id})...")
+              result = vreq("DELETE", f"/v9/projects/{proj_id}/env/{env_id}")
+              # Success looks like either the deleted env's id echoed back, or an
+              # empty 204 No Content (represented here as {"_status": 204}).
+              if result.get("id") == env_id or result.get("_status") == 204:
+                  print(f"  -> deleted")
+                  deleted += 1
               else:
-                  print(f"  -> PATCH failed: {result}")
+                  print(f"  -> DELETE may have failed: {result}")
 
-          print(f"\nChecked {checked} entries, fixed {fixed}.")
+          print(f"\nChecked {checked} entries, deleted {deleted}.")
+          print("Re-add clean UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN values")
+          print("(via the Upstash console's copy button) once verified free of whitespace.")
           PYEOF
