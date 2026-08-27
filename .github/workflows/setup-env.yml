@@ -14,6 +14,8 @@ jobs:
           U_TKN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
           GROQ: ${{ secrets.GROQ_API_KEY }}
           GEMINI: ${{ secrets.GEMINI_API_KEY }}
+          CEREBRAS: ${{ secrets.CEREBRAS_API_KEY }}
+          NVIDIA: ${{ secrets.NVIDIA_API_KEY }}
         run: |
           python3 - <<'PYEOF'
 import os, json, urllib.request
@@ -36,17 +38,28 @@ def vreq(method, path, data=None):
         return {}
 
 projects = vreq("GET", "/v9/projects").get("projects", [])
-proj_id = next((p["id"] for p in projects if "y-track" in p.get("name","").lower()), None)
-if not proj_id and projects:
-    proj_id = projects[0]["id"]
+# Must match the actual "talentmaponline" project — NOT any "y-track" project.
+# Y-TRACK is this monorepo's name and matches several unrelated projects
+# (y-track, y-track-ynip); talentmaponline.org is served by its own dedicated
+# Vercel project (see deploy-talentmap.yml), which is the one whose env vars
+# actually need to be correct for the live site to build.
+proj_id = next((p["id"] for p in projects if p.get("name","").lower() == "talentmaponline"), None)
 if not proj_id:
-    print("ERROR: No Vercel project found")
+    print("ERROR: No Vercel project named 'talentmaponline' found")
+    print("Available projects: " + ", ".join(p.get("name","?") for p in projects))
     exit(1)
-print(f"Project: {proj_id}")
+print(f"Project: talentmaponline ({proj_id})")
 
 existing = {e["key"]: e["id"] for e in vreq("GET", f"/v9/projects/{proj_id}/env").get("envs", [])}
 
 def upsert(key, value):
+    # Strip whitespace/newlines — a stray trailing newline from copy-pasting a
+    # secret (terminal output, a .env file, etc.) produces an otherwise-invisible
+    # value that fails validation at build time (e.g. the Upstash Redis SDK
+    # rejects a URL with a trailing newline). Stripping here means this script
+    # can never reproduce that failure mode, regardless of how the GitHub
+    # secret itself was entered.
+    value = (value or "").strip()
     if not value:
         print(f"Skip {key} (not provided)")
         return
@@ -63,5 +76,7 @@ upsert("UPSTASH_REDIS_REST_URL",   os.environ.get('U_URL',''))
 upsert("UPSTASH_REDIS_REST_TOKEN", os.environ.get('U_TKN',''))
 upsert("GROQ_API_KEY",             os.environ.get('GROQ',''))
 upsert("GEMINI_API_KEY",           os.environ.get('GEMINI',''))
+upsert("CEREBRAS_API_KEY",         os.environ.get('CEREBRAS',''))
+upsert("NVIDIA_API_KEY",           os.environ.get('NVIDIA',''))
 print("Done!")
 PYEOF
