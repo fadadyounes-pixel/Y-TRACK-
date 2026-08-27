@@ -169,14 +169,9 @@ const GENDERS: Record<string, string[]> = {
   ar:["ذكر","أنثى","آخر"],
   en:["Male","Female","Other"],
 };
-const PREFECTURES_CS = [
-  "Casablanca","Mohammedia","El Jadida","Settat","Berrechid",
-  "Médiouna","Nouaceur","Benslimane","Khouribga","Sidi Bennour",
-];
-// Casablanca itself (one entry in PREFECTURES_CS above) is further split into 8
-// préfectures d'arrondissements — a coordinator or jury needs that level of detail
-// for anyone who picked "Casablanca", the same way PREFECTURES_CS narrows down
-// "Casablanca-Settat".
+// Casablanca-Settat is further split into 8 préfectures d'arrondissements — a
+// coordinator or jury needs that level of detail, and "Casablanca-Settat" alone
+// is too coarse to be useful. Shown directly once that region is picked.
 const ARRONDISSEMENTS_CASA = [
   "Anfa","Aïn Chock","Aïn Sebaâ-Hay Mohammadi","Al Fida-Mers Sultan",
   "Ben M'Sick","Hay Hassani","Moulay Rachid","Sidi Bernoussi",
@@ -416,9 +411,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     marital:"Situation familiale",
     edu:"Niveau d'études",
     occupation:"Situation professionnelle",
-    city:"Ville",
     region:"Région",
-    prefecture:"Préfecture",
     arrondissement:"Arrondissement",
     sector:"Secteur d'activité envisagé",
     projType:"Type de porteur",
@@ -477,9 +470,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     marital:"الوضع العائلي",
     edu:"المستوى الدراسي",
     occupation:"الوضع المهني",
-    city:"المدينة",
     region:"الجهة",
-    prefecture:"العمالة / الإقليم",
     arrondissement:"المقاطعة",
     sector:"قطاع النشاط المنشود",
     projType:"نوع الحامل",
@@ -538,9 +529,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     marital:"Marital status",
     edu:"Education level",
     occupation:"Occupation status",
-    city:"City",
     region:"Region",
-    prefecture:"Prefecture",
     arrondissement:"District",
     sector:"Target sector",
     projType:"Holder type",
@@ -586,9 +575,8 @@ const TX: Record<string, Record<string, string | string[]>> = {
 /* ── SHARED UI ───────────────────────────────────────── */
 const ff = (lang: string) => lang === "ar" ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
 
-// Casablanca-Settat is split into 10 prefectures/provinces at registration (see
-// PREFECTURES_CS), and Casablanca itself further into 8 préfectures d'arrondissements
-// (see ARRONDISSEMENTS_CASA) — "Casablanca-Settat" alone is too coarse to be useful
+// Casablanca-Settat is further split into 8 préfectures d'arrondissements (see
+// ARRONDISSEMENTS_CASA) — "Casablanca-Settat" alone is too coarse to be useful
 // for a jury or a coordinator. Show the most precise level available wherever a
 // holder's location is displayed.
 const regionDisplay = (profile?: {region?: string; prefecture?: string; arrondissement?: string}): string => {
@@ -1145,10 +1133,9 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
   const [mode, setMode]       = useState<null | "new">(null);
-  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", city: "", region: "", prefecture: "", arrondissement: "", sector: "", projType: "", photo: ""});
+  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", region: "", arrondissement: "", sector: "", projType: "", photo: ""});
   const [formErr, setFormErr] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const prefRef   = useRef<HTMLDivElement>(null);
   const arrRef    = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
 
@@ -1183,17 +1170,9 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     setErr(true);
   };
 
-  const showPrefecture = form.region === "Casablanca-Settat";
-  // Casablanca (one of the 10 PREFECTURES_CS options) is itself split into 8
-  // préfectures d'arrondissements — only relevant once that specific prefecture
-  // is picked, not for the region's 9 other prefectures/provinces.
-  const showArrondissement = showPrefecture && form.prefecture === "Casablanca";
-
-  useEffect(() => {
-    if (!showPrefecture || !prefRef.current) return;
-    const id = setTimeout(() => prefRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
-    return () => clearTimeout(id);
-  }, [showPrefecture]);
+  // Casablanca-Settat is split into 8 préfectures d'arrondissements — shown
+  // directly once that region is picked, no intermediate step.
+  const showArrondissement = form.region === "Casablanca-Settat";
 
   useEffect(() => {
     if (!showArrondissement && form.arrondissement) { setForm(p => ({...p, arrondissement: ""})); return; }
@@ -1216,13 +1195,12 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   ];
   const allRequired = [
     ...REQUIRED_FIELDS,
-    ...(showPrefecture ? [{key:"prefecture" as keyof typeof form, label:{fr:"Préfecture",ar:"العمالة",en:"Prefecture"}}] : []),
     ...(showArrondissement ? [{key:"arrondissement" as keyof typeof form, label:{fr:"Arrondissement",ar:"المقاطعة",en:"District"}}] : []),
   ];
-  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "prefecture" && k !== "arrondissement").length
-    + (showPrefecture ? 1 : 0) + (showArrondissement ? 1 : 0);
+  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "arrondissement").length
+    + (showArrondissement ? 1 : 0);
   const filledCount  = Object.entries(form).filter(([k,v]) =>
-    k !== "photo" && (k !== "prefecture" || showPrefecture) && (k !== "arrondissement" || showArrondissement) && !!v).length;
+    k !== "photo" && (k !== "arrondissement" || showArrondissement) && !!v).length;
   const fillPct      = Math.round((filledCount / TOTAL_FIELDS) * 100);
   const isEmailValid = (v:string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
@@ -1333,37 +1311,19 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
             </div>
             <div><label style={lStyle}>{t.occupation}</label>{dSel("occupation", OCCUPATION[lang], t.occupation as string)}</div>
             {regSec("📍", lang==="ar"?"الموقع":lang==="fr"?"Localisation":"Location")}
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
-              <div><label style={lStyle}>{t.city}</label>{dInp("city", t.city as string)}</div>
-              <div>
-                <label style={lStyle}>{t.region}</label>
-                <select value={form.region}
-                  onChange={e => {setForm(p=>({...p, region:e.target.value, prefecture:""})); setFormErr([]);}}
-                  style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
-                    border:`1.5px solid ${form.region ? Y : "rgba(28,58,92,.8)"}`,
-                    background:"rgba(255,255,255,.04)", fontSize:"13px",
-                    fontFamily:ff(lang), color:form.region ? WH : "rgba(255,255,255,.3)",
-                    direction:dir as "rtl"|"ltr", appearance:"none", cursor:"pointer", transition:"all .2s"}}>
-                  <option value="" style={{background:"#0f2233"}}>{t.region}</option>
-                  {REGIONS.map(o => <option key={o} value={o} style={{background:"#0f2233"}}>{o}</option>)}
-                </select>
-              </div>
+            <div>
+              <label style={lStyle}>{t.region}</label>
+              <select value={form.region}
+                onChange={e => {setForm(p=>({...p, region:e.target.value, arrondissement:""})); setFormErr([]);}}
+                style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
+                  border:`1.5px solid ${form.region ? Y : "rgba(28,58,92,.8)"}`,
+                  background:"rgba(255,255,255,.04)", fontSize:"13px",
+                  fontFamily:ff(lang), color:form.region ? WH : "rgba(255,255,255,.3)",
+                  direction:dir as "rtl"|"ltr", appearance:"none", cursor:"pointer", transition:"all .2s"}}>
+                <option value="" style={{background:"#0f2233"}}>{t.region}</option>
+                {REGIONS.map(o => <option key={o} value={o} style={{background:"#0f2233"}}>{o}</option>)}
+              </select>
             </div>
-            {showPrefecture && (
-              <div ref={prefRef} style={{animation:"fadeUp .3s ease both"}}>
-                <label style={lStyle}>{t.prefecture}</label>
-                <select value={form.prefecture}
-                  onChange={e => {setForm(p=>({...p, prefecture:e.target.value, arrondissement:""})); setFormErr([]);}}
-                  style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
-                    border:`1.5px solid ${form.prefecture ? Y : "rgba(28,58,92,.8)"}`,
-                    background:"rgba(255,255,255,.04)", fontSize:"13px",
-                    fontFamily:ff(lang), color:form.prefecture ? WH : "rgba(255,255,255,.3)",
-                    direction:dir as "rtl"|"ltr", appearance:"none", cursor:"pointer", transition:"all .2s"}}>
-                  <option value="" style={{background:"#0f2233"}}>{t.prefecture}</option>
-                  {PREFECTURES_CS.map(o => <option key={o} value={o} style={{background:"#0f2233"}}>{o}</option>)}
-                </select>
-              </div>
-            )}
             {showArrondissement && (
               <div ref={arrRef} style={{animation:"fadeUp .3s ease both"}}>
                 <label style={lStyle}>{t.arrondissement}</label>
