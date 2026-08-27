@@ -43,10 +43,10 @@ jobs:
               exit(1)
           print(f"Project: talentmaponline ({proj_id})")
 
-          # Every entry (one per key x target-environment) — inspect each independently
-          # since Vercel stores production/preview/development values as separate rows
-          # under the same key.
-          envs = vreq("GET", f"/v9/projects/{proj_id}/env").get("envs", [])
+          # decrypt=true on the LIST call returns the actual value inline for each
+          # entry (the per-item GET endpoint didn't return one for this token/type
+          # combination in testing — this is the more broadly-supported path).
+          envs = vreq("GET", f"/v9/projects/{proj_id}/env?decrypt=true").get("envs", [])
           targets = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"]
           fixed = 0
           checked = 0
@@ -55,12 +55,12 @@ jobs:
                   continue
               checked += 1
               env_id = e["id"]
-              # The list endpoint doesn't include decrypted values for "encrypted" type —
-              # fetch this one entry directly with decrypt=true to read the real value.
-              detail = vreq("GET", f"/v9/projects/{proj_id}/env/{env_id}?decrypt=true")
-              value = detail.get("value")
+              value = e.get("value")
               if value is None:
-                  print(f"{e['key']} [{','.join(e.get('target', []))}]: could not read value (skipping)")
+                  # Never print the value itself, but the response's other keys are
+                  # safe and tell us why decryption didn't come through this time.
+                  print(f"{e['key']} [{','.join(e.get('target', []))}]: could not read value "
+                        f"(skipping) — response keys: {sorted(e.keys())}, type={e.get('type')}")
                   continue
               stripped = value.strip()
               if stripped == value:
