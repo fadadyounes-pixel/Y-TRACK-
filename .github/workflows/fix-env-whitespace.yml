@@ -1,0 +1,80 @@
+name: Fix Vercel Env Whitespace
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/fix-env-whitespace.yml'
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Strip whitespace/newlines from talentmaponline env vars
+        shell: bash
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, urllib.request
+
+          TOKEN = os.environ.get('VT', '')
+          if not TOKEN:
+              print('ERROR: VERCEL_TOKEN secret is missing')
+              exit(1)
+
+          def vreq(method, path, data=None):
+              url = f"https://api.vercel.com{path}"
+              headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+              body = json.dumps(data).encode() if data else None
+              req = urllib.request.Request(url, data=body, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  print(f"HTTP {e.code}: {e.read().decode()}")
+                  return {}
+
+          projects = vreq("GET", "/v9/projects").get("projects", [])
+          proj_id = next((p["id"] for p in projects if p.get("name","").lower() == "talentmaponline"), None)
+          if not proj_id:
+              print("ERROR: No Vercel project named 'talentmaponline' found")
+              exit(1)
+          print(f"Project: talentmaponline ({proj_id})")
+
+          # Every entry (one per key x target-environment) — inspect each independently
+          # since Vercel stores production/preview/development values as separate rows
+          # under the same key.
+          envs = vreq("GET", f"/v9/projects/{proj_id}/env").get("envs", [])
+          targets = ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"]
+          fixed = 0
+          checked = 0
+          for e in envs:
+              if e.get("key") not in targets:
+                  continue
+              checked += 1
+              env_id = e["id"]
+              # The list endpoint doesn't include decrypted values for "encrypted" type —
+              # fetch this one entry directly with decrypt=true to read the real value.
+              detail = vreq("GET", f"/v9/projects/{proj_id}/env/{env_id}?decrypt=true")
+              value = detail.get("value")
+              if value is None:
+                  print(f"{e['key']} [{','.join(e.get('target', []))}]: could not read value (skipping)")
+                  continue
+              stripped = value.strip()
+              if stripped == value:
+                  print(f"{e['key']} [{','.join(e.get('target', []))}]: clean, no change needed (len={len(value)})")
+                  continue
+              print(f"{e['key']} [{','.join(e.get('target', []))}]: found whitespace (len {len(value)} -> {len(stripped)}), fixing...")
+              payload = {"key": e["key"], "value": stripped, "type": e.get("type", "encrypted"),
+                         "target": e.get("target", ["production", "preview", "development"])}
+              result = vreq("PATCH", f"/v9/projects/{proj_id}/env/{env_id}", payload)
+              if result.get("id"):
+                  print(f"  -> fixed")
+                  fixed += 1
+              else:
+                  print(f"  -> PATCH failed: {result}")
+
+          print(f"\nChecked {checked} entries, fixed {fixed}.")
+          PYEOF
