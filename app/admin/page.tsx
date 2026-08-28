@@ -69,6 +69,7 @@ interface Job {
   createdAt?: string;
   educationLevel?: string;
   languages?: string[];
+  postedBy?: { id: string; name: string; code: string };
 }
 
 interface CV {
@@ -81,6 +82,17 @@ interface CV {
   email?: string;
   phone?: string;
   city?: string;
+  region?: string;
+  cin?: string;
+  birthDate?: string;
+  diploma?: string;
+  institution?: string;
+  graduationYear?: string;
+  linkedin?: string;
+  portfolio?: string;
+  targetRoles?: string[];
+  certifications?: string[];
+  work?: { company?: string; title?: string }[];
   educationLevel?: string;
   languages?: string[];
   uploadedAt?: string;
@@ -145,6 +157,7 @@ export default function AdminDashboard() {
   const [cvSearch, setCvSearch]           = useState('');
   const [jobSectorFilter, setJobSector]   = useState('');
   const [cvSectorFilter, setCvSector]     = useState('');
+  const [expandedCv, setExpandedCv]       = useState<string | null>(null);
 
   useEffect(() => {
     if (initialized && (!user || user.role !== 'admin')) router.push('/login');
@@ -720,7 +733,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                         <thead>
                           <tr style={{ background: '#f9fafb' }}>
-                            {['Titre', 'Entreprise', 'Secteur', 'Expérience', 'Ville', 'Compétences', 'Statut', ''].map(h => (
+                            {['Titre', 'Entreprise', 'Secteur', 'Expérience', 'Ville', 'Compétences', 'Publiée par', 'Statut', ''].map(h => (
                               <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: MUTED, whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
@@ -742,6 +755,9 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                                   ))}
                                   {(j.skills || []).length > 3 && <span style={{ color: MUTED, fontSize: '0.68rem' }}>+{(j.skills || []).length - 3}</span>}
                                 </div>
+                              </td>
+                              <td style={{ padding: '0.85rem 1rem', color: MUTED, fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                {j.postedBy?.name || j.postedBy?.code || <span style={{ fontStyle: 'italic', color: FAINT }}>Inconnu</span>}
                               </td>
                               <td style={{ padding: '0.85rem 1rem' }}>
                                 <Badge label={j.status || 'Active'} color={j.status === 'Fermé' ? RED : GREEN} bg={j.status === 'Fermé' ? LRED : LGREEN} />
@@ -814,21 +830,51 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                               </div>
                             </div>
                           </div>
-                          {c.matchScore !== undefined && c.matchScore > 0 && (
-                            <span style={{ background: c.matchScore >= 70 ? LGREEN : LBLUE, color: c.matchScore >= 70 ? GREEN : BLUE, borderRadius: 9999, padding: '0.25rem 0.85rem', fontSize: '0.82rem', fontWeight: 800, flexShrink: 0 }}>
-                              {c.matchScore}% match
-                            </span>
-                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            {c.matchScore !== undefined && c.matchScore > 0 && (
+                              <span style={{ background: c.matchScore >= 70 ? LGREEN : LBLUE, color: c.matchScore >= 70 ? GREEN : BLUE, borderRadius: 9999, padding: '0.25rem 0.85rem', fontSize: '0.82rem', fontWeight: 800 }}>
+                                {c.matchScore}% match
+                              </span>
+                            )}
+                            <button onClick={() => setExpandedCv(p => p === c.id ? null : c.id)} style={{ padding: '0.3rem 0.75rem', borderRadius: 7, border: `1px solid ${BORDER}`, background: WHITE, color: COBALT, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                              {expandedCv === c.id ? 'Réduire ▲' : 'Détails ▼'}
+                            </button>
+                          </div>
                         </div>
                         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
                           {c.sector && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Secteur</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.sector}</div></div>}
                           {c.experience && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Expérience</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.experience}</div></div>}
+                          {(c.city || c.region) && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Localisation</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{[c.city, c.region].filter(Boolean).join(' · ')}</div></div>}
                         </div>
                         {c.skills?.length > 0 && (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                             {c.skills.map((s: string) => (
                               <span key={s} style={{ background: LBLUE, color: BLUE, borderRadius: 4, padding: '0.15rem 0.55rem', fontSize: '0.7rem', fontWeight: 600 }}>{s}</span>
                             ))}
+                          </div>
+                        )}
+
+                        {expandedCv === c.id && (
+                          <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: `1px solid ${BORDER}`, display: 'flex', flexWrap: 'wrap', gap: '1.5rem 2rem' }}>
+                            {c.cin && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>CIN</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.cin}</div></div>}
+                            {c.birthDate && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Naissance</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.birthDate}</div></div>}
+                            {(c.diploma || c.institution || c.graduationYear) && (
+                              <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Formation</span>
+                                <div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>
+                                  {[c.diploma, c.institution, c.graduationYear].filter(Boolean).join(' · ')}
+                                </div>
+                              </div>
+                            )}
+                            {c.languages?.length > 0 && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Langues</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.languages.join(', ')}</div></div>}
+                            {c.work?.length > 0 && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Expériences pro.</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.work.length} poste{c.work.length > 1 ? 's' : ''} renseigné{c.work.length > 1 ? 's' : ''}</div></div>}
+                            {c.targetRoles?.length > 0 && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Postes visés</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.targetRoles.join(', ')}</div></div>}
+                            {c.certifications?.length > 0 && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Certifications</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.certifications.join(', ')}</div></div>}
+                            {(c.linkedin || c.portfolio) && (
+                              <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Liens</span>
+                                <div style={{ fontSize: '0.82rem', color: COBALT, fontWeight: 600 }}>{[c.linkedin, c.portfolio].filter(Boolean).join(' · ')}</div>
+                              </div>
+                            )}
+                            {c.uploadedAt && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Dernière mise à jour</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{new Date(c.uploadedAt).toLocaleDateString('fr-MA')}</div></div>}
                           </div>
                         )}
                       </div>

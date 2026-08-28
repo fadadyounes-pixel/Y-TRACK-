@@ -21,6 +21,7 @@ interface Job {
   createdAt: string;
   educationLevel?: string;
   languages?: string[];
+  postedBy?: { id: string; name: string; code: string };
 }
 
 const INITIAL_JOBS: Job[] = [
@@ -136,6 +137,7 @@ export default function CoordinatorJobs() {
         title, company, sector, experience, location, salary, skills, description, status: 'Open',
         createdAt: new Date().toISOString().slice(0, 10),
         educationLevel, languages: jobLanguages,
+        postedBy: { id: user!.id, name: user!.name || user!.idNumber, code: user!.idNumber },
       };
       setJobs(p => [newJob, ...p]);
     }
@@ -342,6 +344,9 @@ export default function CoordinatorJobs() {
                     <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{j.company} · {j.sector} · {j.experience}</div>
                     <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.2rem' }}>
                       📍 {j.location}{j.salary ? ` · 💰 ${j.salary}` : ''}{j.createdAt ? ` · 📅 ${j.createdAt}` : ''}
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: '#9ca3af', marginTop: '0.2rem' }}>
+                      👤 Publiée par {j.postedBy?.name || j.postedBy?.code || 'coordinateur inconnu (offre créée avant ce suivi)'}
                     </div>
                     {(j.educationLevel || (j.languages && j.languages.length > 0)) && (
                       <div style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '0.2rem' }}>
