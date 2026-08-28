@@ -19,7 +19,9 @@ function detectRole(val: string): DetectedRole {
   if (!val.trim()) return null;
   const v = val.trim().toUpperCase();
   if (/^ADMIN/i.test(v)) return 'admin';
-  if (/^COORD/i.test(v)) return 'coordinator';
+  // Coordinator codes are NAME+COR+digits (e.g. BENALICOR4821); the legacy
+  // COORD-prefixed shape still authenticates too, so keep hinting on it.
+  if (/COR\d{3,}$/i.test(v) || /^COORD/i.test(v)) return 'coordinator';
   // Moroccan CIN shape: exactly 2 uppercase letters + 4-or-more digits (e.g. AB1234) —
   // must mirror RE_CANDIDATE in app/api/auth/route.ts, the actual auth gate.
   if (/^[A-Z]{2}\d{4,}$/.test(v)) return 'candidate';
@@ -39,7 +41,7 @@ const TX = {
     tagline: 'Votre carrière, cartographiée.',
     sub:     'Entrez votre code d\'accès pour continuer.',
     label:   'Code d\'accès',
-    ph:      'ex: AB1234 ou COORD...',
+    ph:      'ex: AB1234 ou NOMCOR...',
     error:   'Code non reconnu. Vérifiez et réessayez.',
     cont:    'Continuer',
     hint:    'Contactez votre conseiller pour obtenir votre code.',
@@ -48,7 +50,7 @@ const TX = {
     tagline: 'Your career, mapped.',
     sub:     'Enter your access code to continue.',
     label:   'Access Code',
-    ph:      'e.g. AB1234 or COORD...',
+    ph:      'e.g. AB1234 or NAMECOR...',
     error:   'Unrecognized code. Please check and try again.',
     cont:    'Continue',
     hint:    'Contact your advisor to get your access code.',

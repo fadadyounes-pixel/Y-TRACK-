@@ -1460,6 +1460,11 @@ export default function CandidateUpload() {
                               {j.location ? ` · 📍 ${j.location}` : ''}
                             </div>
                             {j.salary && <div style={{ fontSize: '0.78rem', color: '#059669', fontWeight: 600, marginTop: '0.15rem' }}>💰 {j.salary}</div>}
+                            {(j.educationLevel || j.languages?.length > 0) && (
+                              <div style={{ fontSize: '0.76rem', color: '#6b7280', marginTop: '0.15rem' }}>
+                                {j.educationLevel ? `🎓 ${j.educationLevel}` : ''}{j.educationLevel && j.languages?.length ? ' · ' : ''}{j.languages?.length ? `🗣 ${j.languages.join(', ')}` : ''}
+                              </div>
+                            )}
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0, alignItems: 'flex-end' }}>
                             {application ? (
@@ -1483,8 +1488,14 @@ export default function CandidateUpload() {
                           </div>
                         </div>
 
+                        {j.description && (
+                          <p style={{ padding: '0.7rem 1.25rem 0', margin: 0, fontSize: '0.83rem', color: '#374151', lineHeight: 1.6, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                            {j.description}
+                          </p>
+                        )}
+
                         {j.skills?.length > 0 && (
-                          <div style={{ padding: '0.6rem 1.25rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                          <div style={{ padding: '0.6rem 1.25rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', borderTop: j.description ? 'none' : '1px solid rgba(0,0,0,0.05)' }}>
                             {j.skills.map((s: string) => {
                               const matched = skills.some(cs => cs.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(cs.toLowerCase()));
                               return <span key={s} style={{ padding: '0.12rem 0.6rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: 600, background: matched ? '#EFF6FF' : '#f3f4f6', color: matched ? '#1B4FD8' : '#9ca3af', border: `1px solid ${matched ? '#bfdbfe' : '#e5e7eb'}` }}>{matched ? '✓ ' : ''}{s}</span>;

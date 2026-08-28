@@ -19,27 +19,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Coordinator — check Redis-stored accounts (created by admin)
-    if (/^COORD/i.test(normalized)) {
-      const coordinators = await readCollection<any>("coordinators");
-      const found = coordinators.find((c: any) => (c.code || "").toUpperCase() === normalized);
-      if (found) {
-        return NextResponse.json({
-          ok: true,
-          user: { id: found.id, idNumber: found.code, name: found.name, email: found.email, role: "coordinator" },
-        });
-      }
-      // Hardcoded fallback — default demo coordinator
-      if (normalized === "COORD001") {
-        return NextResponse.json({
-          ok: true,
-          user: { id: "2", idNumber: "COORD001", name: "Sara Coordinator", email: "sara@talentmap.ma", role: "coordinator" },
-        });
-      }
-      return NextResponse.json({ ok: false });
-    }
-
-    // Candidate — any valid CIN-style code
+    // Candidate — any valid CIN-style code. Checked before the coordinator
+    // lookup since it's a cheap regex test with no Redis round-trip.
     if (RE_CANDIDATE.test(normalized)) {
       return NextResponse.json({
         ok: true,
@@ -50,6 +31,26 @@ export async function POST(req: NextRequest) {
           email: `${normalized.toLowerCase()}@talentmap.ma`,
           role: "candidate",
         },
+      });
+    }
+
+    // Coordinator — matched by exact stored code, whatever shape the admin
+    // assigned it (current convention: NAME+COR+digits, e.g. BENALICOR4821).
+    // Not gated on a hardcoded prefix, so it stays valid if the naming
+    // convention changes again later.
+    const coordinators = await readCollection<any>("coordinators");
+    const found = coordinators.find((c: any) => (c.code || "").toUpperCase() === normalized);
+    if (found) {
+      return NextResponse.json({
+        ok: true,
+        user: { id: found.id, idNumber: found.code, name: found.name, email: found.email, role: "coordinator" },
+      });
+    }
+    // Hardcoded fallback — default demo coordinator
+    if (normalized === "COORD001") {
+      return NextResponse.json({
+        ok: true,
+        user: { id: "2", idNumber: "COORD001", name: "Sara Coordinator", email: "sara@talentmap.ma", role: "coordinator" },
       });
     }
 

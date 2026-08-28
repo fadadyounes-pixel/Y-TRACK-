@@ -34,10 +34,12 @@ const LPURP  = '#EDE9FE';
 const PTEXT  = '#4C1D95';
 
 /* ── Helpers ── */
+// Coordinator code shape: NAME + COR + 4 digits (e.g. BENALICOR4821) — mirrors
+// the same name+role-suffix convention used for coordinator codes elsewhere.
 function genCode(name: string): string {
-  const base = name.trim().toUpperCase().split(/\s+/).pop()?.slice(0, 6).replace(/[^A-Z]/g, '') || 'COORD';
+  const base = name.trim().toUpperCase().split(/\s+/).pop()?.slice(0, 6).replace(/[^A-Z]/g, '') || 'COR';
   const digits = String(Math.floor(1000 + Math.random() * 9000));
-  return `COORD${base}${digits}`;
+  return `${base}COR${digits}`;
 }
 
 function uid(): string {
@@ -672,7 +674,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                 <div style={{ marginTop: '1rem', padding: '0.9rem 1.1rem', background: LBLUE, borderRadius: 10, border: `1px solid ${BLUE}22` }}>
                   <div style={{ fontSize: '0.8rem', color: NAVY, fontWeight: 600, marginBottom: 3 }}>ℹ️ Comment se connecter ?</div>
                   <div style={{ fontSize: '0.78rem', color: MUTED }}>
-                    Le coordinateur va sur la page de connexion et saisit son code d'accès (ex: <code style={{ fontFamily: 'monospace', background: WHITE, padding: '1px 5px', borderRadius: 4 }}>COORDBENALI1234</code>).
+                    Le coordinateur va sur la page de connexion et saisit son code d'accès (ex: <code style={{ fontFamily: 'monospace', background: WHITE, padding: '1px 5px', borderRadius: 4 }}>BENALICOR4821</code>).
                     Il sera automatiquement redirigé vers son tableau de bord.
                   </div>
                 </div>
