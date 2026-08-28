@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../../components/Logo';
+import { REGIONS, CASABLANCA_SETTAT, prefecturesFor, regionDisplay } from '@/lib/morocco';
 
 /* ── Design tokens ── */
 const INK    = '#0B1629';
@@ -54,6 +55,12 @@ interface Coordinator {
   email: string;
   code: string;
   createdAt: string;
+  // Geographic zone the admin assigns this coordinator to. Unset (the
+  // default) means the coordinator's dashboard shows candidates from every
+  // region — assigning a zone is opt-in, it never restricts anyone unless
+  // the admin deliberately sets it.
+  region?: string;
+  prefecture?: string;
 }
 
 interface Job {
@@ -149,8 +156,13 @@ export default function AdminDashboard() {
   /* Coordinator form */
   const [newName, setNewName]   = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newRegion, setNewRegion] = useState('');
+  const [newPrefecture, setNewPrefecture] = useState('');
   const [saving, setSaving]     = useState(false);
   const [savedCode, setSavedCode] = useState('');
+  const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
+  const [editRegion, setEditRegion] = useState('');
+  const [editPrefecture, setEditPrefecture] = useState('');
 
   /* Filters */
   const [jobSearch, setJobSearch]         = useState('');
@@ -188,6 +200,8 @@ export default function AdminDashboard() {
       id: uid(), name: newName.trim(),
       email: newEmail.trim() || `${newName.trim().toLowerCase().replace(/\s+/g, '.')}@talentmap.ma`,
       code, createdAt: new Date().toISOString(),
+      region: newRegion,
+      prefecture: newRegion === CASABLANCA_SETTAT ? newPrefecture : '',
     };
     try {
       await fetch('/api/sheets', {
@@ -196,9 +210,25 @@ export default function AdminDashboard() {
       });
       setCoordinators(p => [...p, coord]);
       setSavedCode(code);
-      setNewName(''); setNewEmail('');
+      setNewName(''); setNewEmail(''); setNewRegion(''); setNewPrefecture('');
     } catch {}
     setSaving(false);
+  }
+
+  async function saveCoordinatorZone(c: Coordinator) {
+    const updated: Coordinator = {
+      ...c,
+      region: editRegion,
+      prefecture: editRegion === CASABLANCA_SETTAT ? editPrefecture : '',
+    };
+    setCoordinators(p => p.map(x => x.id === c.id ? updated : x));
+    setEditingZoneId(null);
+    try {
+      await fetch('/api/sheets', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'save_coordinator', coordinator: updated }),
+      });
+    } catch {}
   }
 
   async function deleteCoordinator(id: string) {
@@ -583,7 +613,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                 {/* Add form */}
                 <div style={{ background: WHITE, borderRadius: 10, padding: '1.5rem', border: `1px solid ${BORDER}`, marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
                   <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Ajouter un coordinateur</h2>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.75rem', alignItems: 'end' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', alignItems: 'end', marginBottom: '0.75rem' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: INK, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Nom complet *</label>
                       <input
@@ -601,6 +631,28 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                         style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: '#F9FAFB', boxSizing: 'border-box', outline: 'none' }}
                       />
                     </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: INK, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Zone — région (optionnel)</label>
+                      <select
+                        value={newRegion} onChange={e => { setNewRegion(e.target.value); setNewPrefecture(''); }}
+                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: newRegion ? TEXT : MUTED, background: '#F9FAFB', boxSizing: 'border-box', outline: 'none', cursor: 'pointer' }}
+                      >
+                        <option value="">Toutes régions</option>
+                        {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    {newRegion === CASABLANCA_SETTAT && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: INK, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Préfecture</label>
+                        <select
+                          value={newPrefecture} onChange={e => setNewPrefecture(e.target.value)}
+                          style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: newPrefecture ? TEXT : MUTED, background: '#F9FAFB', boxSizing: 'border-box', outline: 'none', cursor: 'pointer' }}
+                        >
+                          <option value="">Toute la région</option>
+                          {prefecturesFor(newRegion).map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                    )}
                     <button
                       onClick={addCoordinator}
                       disabled={saving || !newName.trim()}
@@ -612,6 +664,9 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       }}
                     >{saving ? '⏳ Création…' : '+ Créer le compte'}</button>
                   </div>
+                  <p style={{ fontSize: '0.75rem', color: MUTED }}>
+                    💡 Sans zone assignée, le coordinateur voit tous les candidats. Avec une zone, son tableau de bord se filtre automatiquement sur cette région (ou préfecture).
+                  </p>
 
                   {/* Success — show generated code */}
                   {savedCode && (
@@ -645,7 +700,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                         <thead>
                           <tr style={{ background: '#f9fafb' }}>
-                            {['Coordinateur', 'Email', 'Code d\'accès', 'Créé le', 'Actions'].map(h => (
+                            {['Coordinateur', 'Email', 'Code d\'accès', 'Zone', 'Créé le', 'Actions'].map(h => (
                               <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: MUTED, whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
@@ -665,6 +720,37 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                                   <code style={{ background: LBLUE, borderRadius: 5, padding: '0.2rem 0.6rem', fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 700, color: NAVY, letterSpacing: '0.06em' }}>{c.code}</code>
                                   <CopyBtn text={c.code} />
                                 </div>
+                              </td>
+                              <td style={{ padding: '0.8rem 1rem', minWidth: 190 }}>
+                                {editingZoneId === c.id ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <select value={editRegion} onChange={e => { setEditRegion(e.target.value); setEditPrefecture(''); }}
+                                      style={{ padding: '0.3rem 0.5rem', borderRadius: 6, border: `1px solid ${BORDER}`, fontSize: '0.78rem', fontFamily: 'inherit', color: TEXT, background: WHITE, cursor: 'pointer' }}>
+                                      <option value="">Toutes régions</option>
+                                      {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                    {editRegion === CASABLANCA_SETTAT && (
+                                      <select value={editPrefecture} onChange={e => setEditPrefecture(e.target.value)}
+                                        style={{ padding: '0.3rem 0.5rem', borderRadius: 6, border: `1px solid ${BORDER}`, fontSize: '0.78rem', fontFamily: 'inherit', color: TEXT, background: WHITE, cursor: 'pointer' }}>
+                                        <option value="">Toute la région</option>
+                                        {prefecturesFor(editRegion).map(p => <option key={p} value={p}>{p}</option>)}
+                                      </select>
+                                    )}
+                                    <div style={{ display: 'flex', gap: 4 }}>
+                                      <button onClick={() => saveCoordinatorZone(c)} style={{ padding: '0.25rem 0.6rem', borderRadius: 5, border: 'none', background: GREEN, color: WHITE, fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>✓ Enregistrer</button>
+                                      <button onClick={() => setEditingZoneId(null)} style={{ padding: '0.25rem 0.6rem', borderRadius: 5, border: `1px solid ${BORDER}`, background: WHITE, color: MUTED, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ fontSize: '0.8rem', color: c.region ? TEXT : FAINT, fontStyle: c.region ? 'normal' : 'italic' }}>
+                                      {c.region ? regionDisplay(c.region, c.prefecture) : 'Toutes régions'}
+                                    </span>
+                                    <button onClick={() => { setEditingZoneId(c.id); setEditRegion(c.region || ''); setEditPrefecture(c.prefecture || ''); }}
+                                      title="Modifier la zone"
+                                      style={{ padding: '0.15rem 0.4rem', borderRadius: 5, border: `1px solid ${BORDER}`, background: WHITE, color: MUTED, fontSize: '0.7rem', cursor: 'pointer' }}>✏️</button>
+                                  </div>
+                                )}
                               </td>
                               <td style={{ padding: '0.8rem 1rem', color: MUTED, fontSize: '0.8rem' }}>
                                 {new Date(c.createdAt).toLocaleDateString('fr-MA')}

@@ -371,7 +371,7 @@ export default function CoordinatorDashboard() {
   const { user, initialized, logout } = useAuth();
   const router = useRouter();
 
-  const [tab, setTab] = useState<'overview' | 'candidates' | 'jobs' | 'matching' | 'applications'>('overview');
+  const [tab, setTab] = useState<'overview' | 'candidates' | 'jobs' | 'matching' | 'applications' | 'search'>('overview');
   const [cvs, setCvs] = useState<CV[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -392,6 +392,12 @@ export default function CoordinatorDashboard() {
   const [matchJob, setMatchJob] = useState<string>('');
   const [aiInsights, setAiInsights] = useState<{ topPick: string; rationale: string; gaps: string[]; questions: string[] } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Search tab state — looks up any candidate by exact ID, bypassing the
+  // coordinator's zone filter (mirrors CareerMap's "Recherche" tab).
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchResult, setSearchResult] = useState<CV | 'not-found' | null>(null);
 
   useEffect(() => {
     if (initialized && (!user || user.role !== 'coordinator')) router.push('/login');
@@ -432,9 +438,23 @@ export default function CoordinatorDashboard() {
       .finally(() => setLoading(false));
   }, [user]);
 
+  // Candidates within the coordinator's assigned zone (region/prefecture) —
+  // optional, set by the admin. Unassigned coordinators see everyone, so
+  // this only ever narrows what's shown, never on its own initiative.
+  // Scoped to Overview stats + the Candidates tab, matching how CareerMap's
+  // advisor dashboard scopes its candidate list; Matching IA and the
+  // applications pipeline stay unfiltered since a candidate from anywhere
+  // can apply to a coordinator's (unzoned) job postings.
+  const zoneCvs = useMemo(() => {
+    if (!user) return cvs;
+    if (user.prefecture) return cvs.filter(c => c.prefecture === user.prefecture);
+    if (user.region) return cvs.filter(c => c.region === user.region);
+    return cvs;
+  }, [cvs, user]);
+
   /* ── Derived stats ── */
   const stats = useMemo(() => {
-    const doneCvs = cvs.filter(c => c.status === 'done');
+    const doneCvs = zoneCvs.filter(c => c.status === 'done');
     const openJobs = jobs.filter(j => j.status === 'Open' || j.status === 'open');
     let totalMatchScore = 0, matchCount = 0;
     doneCvs.forEach(cv => {
@@ -453,13 +473,13 @@ export default function CoordinatorDashboard() {
       return count;
     })();
     return { totalCvs: doneCvs.length, openJobs: openJobs.length, avgScore, excellentMatches };
-  }, [cvs, jobs]);
+  }, [zoneCvs, jobs]);
 
   /* ── Top matches for overview ── */
   const topMatches = useMemo(() => {
     const openJobs = jobs.filter(j => j.status === 'Open' || j.status === 'open');
     const result: { cv: CV; bestJob: Job; bestMatch: MatchResult; bestScore: number }[] = [];
-    cvs.filter(c => c.status === 'done').forEach(cv => {
+    zoneCvs.filter(c => c.status === 'done').forEach(cv => {
       let bestScore = 0, bestJob: Job | null = null, bestMatch: MatchResult | null = null;
       openJobs.forEach(job => {
         const m = computeMatch(cv, job);
@@ -468,12 +488,12 @@ export default function CoordinatorDashboard() {
       if (bestJob && bestMatch) result.push({ cv, bestJob, bestMatch, bestScore });
     });
     return result.sort((a, b) => b.bestScore - a.bestScore).slice(0, 8);
-  }, [cvs, jobs]);
+  }, [zoneCvs, jobs]);
 
   /* ── Candidates filters ── */
-  const sectors = useMemo(() => ['All', ...Array.from(new Set(cvs.map(c => c.sector).filter(Boolean)))], [cvs]);
+  const sectors = useMemo(() => ['All', ...Array.from(new Set(zoneCvs.map(c => c.sector).filter(Boolean)))], [zoneCvs]);
   const filteredCvs = useMemo(() => {
-    return cvs.filter(cv => {
+    return zoneCvs.filter(cv => {
       const q = search.toLowerCase();
       const matchQ = !q || (cv.name || '').toLowerCase().includes(q) ||
         cv.skills.some(s => s.toLowerCase().includes(q)) ||
@@ -482,7 +502,7 @@ export default function CoordinatorDashboard() {
       const matchE = filterExp === 'All' || cv.experience === filterExp;
       return matchQ && matchS && matchE;
     });
-  }, [cvs, search, filterSector, filterExp]);
+  }, [zoneCvs, search, filterSector, filterExp]);
 
   if (!initialized || !user || user.role !== 'coordinator') return null;
 
@@ -541,6 +561,27 @@ export default function CoordinatorDashboard() {
     }).catch(() => {});
   }
 
+  /* ── Search any candidate by ID, ignoring the zone filter ── */
+  async function handleSearch() {
+    const q = searchQuery.trim().toUpperCase();
+    if (!q) return;
+    setSearching(true);
+    setSearchResult(null);
+    try {
+      // Prefer the already-loaded full list (no zone scoping applied to
+      // `cvs` itself) so a match doesn't need a fresh round-trip.
+      const local = cvs.find(c => c.id.toUpperCase() === q && c.status === 'done');
+      if (local) { setSearchResult(local); setSearching(false); return; }
+      const res = await fetch('/api/sheets');
+      const data = await res.json();
+      const found = (data.cvs || []).find((c: CV) => c.id.toUpperCase() === q && c.status === 'done');
+      setSearchResult(found || 'not-found');
+    } catch {
+      setSearchResult('not-found');
+    }
+    setSearching(false);
+  }
+
   /* ── Styles ── */
   const inp: React.CSSProperties = { padding: '0.55rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.85rem', fontFamily: 'inherit', background: 'white' };
   const tabBtn = (active: boolean): React.CSSProperties => ({
@@ -551,10 +592,11 @@ export default function CoordinatorDashboard() {
   /* ── Sidebar nav items ── */
   const NAV: { key: typeof tab; icon: string; label: string }[] = [
     { key: 'overview',     icon: '⊞',  label: 'Vue d\'ensemble' },
-    { key: 'candidates',   icon: '👥', label: `Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}` },
+    { key: 'candidates',   icon: '👥', label: `Candidats${zoneCvs.length > 0 ? ` (${zoneCvs.length})` : ''}` },
     { key: 'jobs',         icon: '💼', label: `Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}` },
     { key: 'matching',     icon: '✦',  label: 'Matching IA' },
     { key: 'applications', icon: '📨', label: `Candidatures${applications.length > 0 ? ` (${applications.length})` : ''}` },
+    { key: 'search',       icon: '🔎', label: 'Recherche' },
   ];
 
   return (
@@ -574,6 +616,9 @@ export default function CoordinatorDashboard() {
         <div style={{ margin: '0.75rem 0.875rem', padding: '0.6rem 0.875rem', borderRadius: '8px', background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '2px' }}>Coordinateur</div>
           <div style={{ fontSize: '0.825rem', fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.id}</div>
+          <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,.45)', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            📍 Zone : {user.region ? regionDisplay(user.region, user.prefecture) : 'Toutes régions'}
+          </div>
         </div>
 
         {/* Nav items */}
@@ -784,6 +829,11 @@ export default function CoordinatorDashboard() {
                 <Link href="/coordinator/upload" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                   📁 Importer des CVs (20+ en simultané)
                 </Link>
+              </div>
+            ) : zoneCvs.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📍</div>
+                <p style={{ fontWeight: 700, color: '#374151' }}>Aucun candidat dans votre zone.</p>
               </div>
             ) : (
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -1212,6 +1262,72 @@ export default function CoordinatorDashboard() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ══════════════════════════ RECHERCHE ══════════════════════════ */}
+        {tab === 'search' && (
+          <div>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '0.3rem' }}>Recherche</h2>
+            <p style={{ fontSize: '0.82rem', color: '#6b7280', marginBottom: '1.25rem' }}>
+              Retrouvez n'importe quel candidat par son identifiant (CIN), même en dehors de votre zone.
+            </p>
+
+            <div className="card" style={{ maxWidth: '480px', marginBottom: '1.5rem' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.5rem' }}>Identifiant du candidat</label>
+              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                <input
+                  value={searchQuery}
+                  onChange={e => { setSearchQuery(e.target.value.toUpperCase()); setSearchResult(null); }}
+                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  placeholder="ex: AB1234"
+                  style={{ flex: 1, padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #e5e7eb', fontSize: '0.9rem', fontFamily: 'monospace', letterSpacing: '0.04em', color: '#111827' }}
+                />
+                <button
+                  onClick={handleSearch}
+                  disabled={searching || !searchQuery.trim()}
+                  style={{ padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', background: searching || !searchQuery.trim() ? '#93c5fd' : '#1B4FD8', color: 'white', fontSize: '0.85rem', fontWeight: 700, cursor: searching || !searchQuery.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                >{searching ? '⏳ …' : 'Chercher'}</button>
+              </div>
+            </div>
+
+            {searchResult === 'not-found' && (
+              <div className="card" style={{ maxWidth: '480px', textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔎</div>
+                <p style={{ fontWeight: 600, color: '#6b7280' }}>Code introuvable.</p>
+              </div>
+            )}
+
+            {searchResult && searchResult !== 'not-found' && (() => {
+              const cv = searchResult;
+              const av = avatarColor(cv.name || cv.fileName);
+              return (
+                <div className="card" style={{ maxWidth: '480px', padding: '1.25rem 1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: av.bg, color: av.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 800, flexShrink: 0 }}>
+                      {initials(cv.name || cv.fileName)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: '#111827' }}>{cv.name || cv.fileName}</div>
+                      <div style={{ fontSize: '0.78rem', color: '#9ca3af', fontFamily: 'monospace' }}>{cv.id}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.1rem' }}>
+                    {cv.sector && <span style={{ padding: '0.15rem 0.6rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: 700, background: '#eff6ff', color: '#1d4ed8' }}>{cv.sector}</span>}
+                    {cv.experience && <span style={{ padding: '0.15rem 0.6rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: 700, background: '#f0fdf4', color: '#166534' }}>{cv.experience}</span>}
+                    {(cv.region || cv.city) && <span style={{ padding: '0.15rem 0.6rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: 700, background: '#f3f4f6', color: '#374151' }}>{regionDisplay(cv.region || '', cv.prefecture) || cv.city}</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.6rem' }}>
+                    <button onClick={() => setSelectedCV(cv)} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: 'none', background: '#1B4FD8', color: 'white', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+                      📄 Voir le CV
+                    </button>
+                    <button onClick={() => downloadCvPDF(cv)} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1.5px solid #bfdbfe', background: '#EFF6FF', color: '#1B4FD8', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+                      ⬇ PDF
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
