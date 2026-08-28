@@ -299,65 +299,26 @@ jobs:
           curl -sSL --max-time 10 "https://who-dat.as93.net/ideamaponline.org" -o /tmp/whois1.json
           python3 -m json.tool /tmp/whois1.json 2>&1 || cat /tmp/whois1.json 2>&1 || echo "(no output)"
           exit 0
-      # Diagnostic only — the "100+ concurrent users" resilience goal has been
-      # addressed at the code level (PR #55: local instant fallbacks, capped
-      # in-flight AI calls, no client polling) but was never verified against
-      # the live production site. Run a bounded, read-only concurrency test
-      # here (this runner has real internet access, unlike the assistant's
-      # sandbox) to get real evidence: 100 concurrent GET requests against the
-      # production /ideamap page, no AI calls and no writes, so this is safe
-      # (trivial load for any CDN, no cost, no data mutation) and reports
-      # success rate + latency percentiles.
-      - name: Load test — 100 concurrent requests to production /ideamap
-        run: |
-          set +e
-          URL="https://www.ideamaponline.org/ideamap"
-          N=100
-          OUT=/tmp/loadtest_results.txt
-          : > "$OUT"
-          echo "=== Firing $N concurrent GET requests at $URL ==="
-          seq 1 $N | xargs -P $N -I{} curl -sS -o /dev/null \
-            -w "%{http_code} %{time_total}\n" --max-time 30 "$URL" >> "$OUT" 2>/tmp/loadtest_errors.txt
-          echo "=== Raw results ($(wc -l < "$OUT") responses received out of $N requests) ==="
-          cat "$OUT"
-          echo ""
-          echo "=== curl errors (if any) ==="
-          cat /tmp/loadtest_errors.txt || true
-          echo ""
-          echo "=== Summary ==="
-          RECEIVED=$(wc -l < "$OUT")
-          echo "Responses received: $RECEIVED / $N"
-          echo "Status code breakdown:"
-          awk '{print $1}' "$OUT" | sort | uniq -c | sort -rn
-          OK=$(awk '$1 ~ /^2/' "$OUT" | wc -l)
-          if [ "$RECEIVED" -gt 0 ]; then
-            echo "Success rate (2xx): $OK/$RECEIVED"
-            echo "Latency percentiles (sorted times):"
-            sort -n -k2,2 -t' ' "$OUT" | awk '{print $2}' > /tmp/loadtest_times.txt
-            N_TIMES=$(wc -l < /tmp/loadtest_times.txt)
-            for P in 50 90 99; do
-              IDX=$(( (P * N_TIMES) / 100 ))
-              [ "$IDX" -ge "$N_TIMES" ] && IDX=$((N_TIMES - 1))
-              [ "$IDX" -lt 0 ] && IDX=0
-              VAL=$(sed -n "$((IDX + 1))p" /tmp/loadtest_times.txt)
-              echo "  p${P} = ${VAL}s"
-            done
-            echo "  min = $(head -1 /tmp/loadtest_times.txt)s"
-            echo "  max = $(tail -1 /tmp/loadtest_times.txt)s"
-          else
-            echo "No responses received at all."
-          fi
-          exit 0
-      # Diagnostic only — the static-page load test above proves Vercel's CDN can
-      # serve /ideamap trivially under concurrency, but that's not where 100
-      # simultaneous real users would actually strain the app: every AI-backed
-      # step (business plan, budget, compliance check, jury Q&A) hits /api/ai,
-      # which fans out across provider keys (Groq/Cerebras/Mistral/etc, see
-      # rafiq() in app/api/ai/providers.ts) with real per-provider rate limits.
-      # This fires 100 concurrent requests at /api/ai itself — the actual
-      # bottleneck — using a trivial low-token prompt (same one the existing
-      # single-call health check below uses) to keep cost/quota impact minimal
-      # while still exercising the real concurrent-request path end to end.
+      # Diagnostic only — the real bottleneck under 100 simultaneous real users
+      # isn't the static /ideamap page (Vercel's CDN serves that trivially) —
+      # it's every AI-backed step (business plan, budget, compliance check,
+      # jury Q&A), which hits /api/ai and fans out across provider keys
+      # (Groq/Cerebras/Mistral/etc, see rafiq() in app/api/ai/providers.ts)
+      # with real per-provider rate limits. This fires 100 concurrent requests
+      # at /api/ai itself using a trivial low-token prompt (same one the
+      # existing single-call health check further below uses) to keep
+      # cost/quota impact minimal while still exercising the real path.
+      #
+      # IMPORTANT: this runs BEFORE the static-page load test below, not
+      # after. First attempt had it running second — evidence: the /ideamap
+      # burst (100/100 success, clean) ran first, then this step, run
+      # immediately after from the same runner IP, got 100/100 responses
+      # back as `403 Vercel Security Checkpoint` in under a second each —
+      # Vercel's Attack Challenge Mode tripped by the *first* burst blocking
+      # everything after it in the same job, not a real capacity failure
+      # (same pattern already diagnosed for the title-check steps earlier).
+      # Firing the AI test first, before any other 100-request burst from
+      # this runner, gives it a clean shot at real production behavior.
       - name: Load test — 100 concurrent requests to production /api/ai
         run: |
           set +e
@@ -396,6 +357,56 @@ jobs:
             done
             echo "  min = $(head -1 /tmp/aiload_times.txt)s"
             echo "  max = $(tail -1 /tmp/aiload_times.txt)s"
+          else
+            echo "No responses received at all."
+          fi
+          exit 0
+      # Diagnostic only — the "100+ concurrent users" resilience goal has been
+      # addressed at the code level (PR #55: local instant fallbacks, capped
+      # in-flight AI calls, no client polling) but was never verified against
+      # the live production site. Run a bounded, read-only concurrency test
+      # here (this runner has real internet access, unlike the assistant's
+      # sandbox) to get real evidence: 100 concurrent GET requests against the
+      # production /ideamap page, no AI calls and no writes, so this is safe
+      # (trivial load for any CDN, no cost, no data mutation) and reports
+      # success rate + latency percentiles. Runs AFTER the /api/ai test above
+      # for the reason explained in that step's comment.
+      - name: Load test — 100 concurrent requests to production /ideamap
+        run: |
+          set +e
+          URL="https://www.ideamaponline.org/ideamap"
+          N=100
+          OUT=/tmp/loadtest_results.txt
+          : > "$OUT"
+          echo "=== Firing $N concurrent GET requests at $URL ==="
+          seq 1 $N | xargs -P $N -I{} curl -sS -o /dev/null \
+            -w "%{http_code} %{time_total}\n" --max-time 30 "$URL" >> "$OUT" 2>/tmp/loadtest_errors.txt
+          echo "=== Raw results ($(wc -l < "$OUT") responses received out of $N requests) ==="
+          cat "$OUT"
+          echo ""
+          echo "=== curl errors (if any) ==="
+          cat /tmp/loadtest_errors.txt || true
+          echo ""
+          echo "=== Summary ==="
+          RECEIVED=$(wc -l < "$OUT")
+          echo "Responses received: $RECEIVED / $N"
+          echo "Status code breakdown:"
+          awk '{print $1}' "$OUT" | sort | uniq -c | sort -rn
+          OK=$(awk '$1 ~ /^2/' "$OUT" | wc -l)
+          if [ "$RECEIVED" -gt 0 ]; then
+            echo "Success rate (2xx): $OK/$RECEIVED"
+            echo "Latency percentiles (sorted times):"
+            sort -n -k2,2 -t' ' "$OUT" | awk '{print $2}' > /tmp/loadtest_times.txt
+            N_TIMES=$(wc -l < /tmp/loadtest_times.txt)
+            for P in 50 90 99; do
+              IDX=$(( (P * N_TIMES) / 100 ))
+              [ "$IDX" -ge "$N_TIMES" ] && IDX=$((N_TIMES - 1))
+              [ "$IDX" -lt 0 ] && IDX=0
+              VAL=$(sed -n "$((IDX + 1))p" /tmp/loadtest_times.txt)
+              echo "  p${P} = ${VAL}s"
+            done
+            echo "  min = $(head -1 /tmp/loadtest_times.txt)s"
+            echo "  max = $(tail -1 /tmp/loadtest_times.txt)s"
           else
             echo "No responses received at all."
           fi
