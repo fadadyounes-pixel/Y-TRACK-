@@ -1,1115 +1,1672 @@
 "use client";
-
-import { useState } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 
-// ── DATA ──────────────────────────────────────────────────────────────────────
+/* ── CSS injection ──────────────────────────────────────────── */
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#03060D;--bg1:#070D1A;--bg2:#0C1423;--bg3:#11192E;--bg4:#16213E;
+  --border:rgba(255,255,255,.06);--border-h:rgba(255,255,255,.12);--border-glow:rgba(59,130,246,.35);
+  --text:#DDE6F5;--text2:#94A3B8;--text3:#4B6080;
+  --blue:#3B82F6;--cyan:#06B6D4;--green:#10B981;--amber:#F59E0B;--red:#EF4444;--purple:#A78BFA;--pink:#F472B6;
+  --glow-blue:0 0 20px rgba(59,130,246,.25);--glow-cyan:0 0 20px rgba(6,182,212,.2);
+  --r-sm:6px;--r-md:10px;--r-lg:16px;--r-xl:22px;
+  --f-head:'Syne',sans-serif;--f-body:'DM Sans',sans-serif;--f-mono:'DM Mono',monospace;
+}
+html,body{height:100%;background:var(--bg0);color:var(--text);font-family:var(--f-body)}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:rgba(59,130,246,.3);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:rgba(59,130,246,.55)}
+
+@keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+@keyframes glow{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes pulseRing{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.1);opacity:.9}}
+@keyframes countUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes slideLeft{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* Layout */
+.xc{display:flex;height:100vh;overflow:hidden;background:var(--bg0)}
+
+/* Sidebar */
+.sb{
+  width:236px;flex-shrink:0;height:100vh;background:linear-gradient(180deg,var(--bg1) 0%,var(--bg0) 100%);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+}
+.sb::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(59,130,246,.4),transparent);
+}
+.sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border)}
+.sb-logo-mark{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,#3B82F6,#06B6D4);
+  font-family:var(--f-head);font-weight:800;font-size:14px;color:#fff;
+  box-shadow:0 4px 16px rgba(59,130,246,.4),0 0 0 1px rgba(59,130,246,.25);
+  margin-right:10px;letter-spacing:-0.5px;
+}
+.sb-logo-txt{font-family:var(--f-head);font-weight:700;font-size:15px;
+  background:linear-gradient(135deg,#DDE6F5,#94A3B8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sb-logo-sub{font-size:10px;color:var(--text3);font-family:var(--f-mono);margin-top:1px}
+.sb-nav{flex:1;padding:10px 10px;overflow-y:auto}
+.sb-section{font-family:var(--f-mono);font-size:9px;font-weight:500;letter-spacing:1.2px;
+  color:var(--text3);text-transform:uppercase;padding:14px 12px 6px}
+.la{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r-md);
+  cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);
+  transition:all .18s;border:1px solid transparent;margin-bottom:2px;
+  position:relative;user-select:none;
+}
+.la:hover{background:rgba(255,255,255,.04);color:var(--text);border-color:var(--border)}
+.la.act{
+  background:linear-gradient(135deg,rgba(59,130,246,.18),rgba(6,182,212,.08));
+  border-color:rgba(59,130,246,.28);color:#fff;font-weight:600;
+  box-shadow:0 2px 12px rgba(59,130,246,.12),inset 0 1px 0 rgba(255,255,255,.06);
+}
+.la.act::before{
+  content:'';position:absolute;left:0;top:25%;width:3px;height:50%;
+  background:linear-gradient(180deg,var(--blue),var(--cyan));
+  border-radius:0 2px 2px 0;box-shadow:0 0 8px rgba(59,130,246,.6);
+}
+.la-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;
+  justify-content:center;font-size:15px;flex-shrink:0;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);transition:all .18s}
+.la.act .la-ic{background:linear-gradient(135deg,rgba(59,130,246,.25),rgba(6,182,212,.15));border-color:rgba(59,130,246,.35)}
+.sb-footer{padding:14px 10px;border-top:1px solid var(--border)}
+.sb-user{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-md);
+  background:rgba(255,255,255,.03);border:1px solid var(--border);cursor:pointer;
+  transition:border-color .2s;
+}
+.sb-user:hover{border-color:var(--border-h)}
+.sb-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,#3B82F6,#A78BFA);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.sb-uname{font-size:12px;font-weight:600;color:var(--text)}
+.sb-urole{font-size:10px;color:var(--text3)}
+
+/* Main area */
+.main{flex:1;overflow-y:auto;background:var(--bg0);display:flex;flex-direction:column;min-width:0}
+.topbar{
+  padding:16px 24px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(180deg,var(--bg1),var(--bg0));
+  position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);
+}
+.topbar-left h1{font-family:var(--f-head);font-size:18px;font-weight:700;color:var(--text)}
+.topbar-left p{font-size:12px;color:var(--text3);margin-top:1px}
+.content{padding:24px;flex:1;animation:fadeIn .3s ease}
+
+/* KPI Cards */
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
+.kc{
+  background:linear-gradient(135deg,var(--bg2),var(--bg3));
+  border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:20px;position:relative;overflow:hidden;
+  transition:transform .22s,box-shadow .22s;cursor:default;
+  --kc-color:#3B82F6;
+}
+.kc::before{
+  content:'';position:absolute;inset:-1px;border-radius:calc(var(--r-lg) + 1px);padding:1px;
+  background:linear-gradient(135deg,var(--kc-color,#3B82F6),transparent 60%);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  opacity:0;transition:opacity .22s;pointer-events:none;
+}
+.kc:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.kc:hover::before{opacity:.65}
+.kc-glow{
+  position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;
+  background:var(--kc-color,#3B82F6);opacity:.08;filter:blur(24px);pointer-events:none;
+}
+.kc-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.kc-icon{
+  width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;background:rgba(255,255,255,.05);border:1px solid var(--border);
+}
+.kc-badge{font-size:10px;font-family:var(--f-mono);padding:3px 8px;border-radius:20px;font-weight:500}
+.kc-val{font-family:var(--f-head);font-size:30px;font-weight:800;color:var(--text);
+  animation:countUp .5s ease;line-height:1.1}
+.kc-label{font-size:12px;color:var(--text3);margin-top:4px}
+.kc-delta{font-size:11px;font-family:var(--f-mono);margin-top:10px;display:flex;align-items:center;gap:5px}
+.kc-bar{height:3px;background:rgba(255,255,255,.07);border-radius:2px;margin-top:10px;overflow:hidden}
+.kc-bar-fill{height:100%;border-radius:2px;position:relative;transition:width 1s cubic-bezier(.4,0,.2,1)}
+.kc-bar-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 20%,rgba(255,255,255,.2) 50%,transparent 80%);
+  background-size:200% 100%;animation:shimmer 2s linear infinite;
+}
+
+/* Charts */
+.charts-row{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:22px}
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px}
+.chart-card h3{font-family:var(--f-head);font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.chart-card p{font-size:11px;color:var(--text3);margin-bottom:16px}
+
+/* Table */
+.tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.tbl-head{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.tbl-head h3{font-family:var(--f-head);font-size:13px;font-weight:600;color:var(--text)}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 16px;font-size:10px;font-family:var(--f-mono);font-weight:500;letter-spacing:.8px;
+  text-transform:uppercase;color:var(--text3);text-align:left;border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.015)}
+td{padding:13px 16px;font-size:12.5px;color:var(--text2);border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.td-name{color:var(--text);font-weight:600;font-size:13px}
+.td-id{font-family:var(--f-mono);font-size:11px;color:var(--text3)}
+
+/* Status badges */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
+  border-radius:20px;font-size:10.5px;font-weight:600;font-family:var(--f-mono);
+}
+.dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.b-green{background:rgba(16,185,129,.15);color:#34D399;border:1px solid rgba(16,185,129,.25)}
+.b-amber{background:rgba(245,158,11,.15);color:#FCD34D;border:1px solid rgba(245,158,11,.25)}
+.b-red{background:rgba(239,68,68,.15);color:#FCA5A5;border:1px solid rgba(239,68,68,.25)}
+.b-blue{background:rgba(59,130,246,.15);color:#93C5FD;border:1px solid rgba(59,130,246,.25)}
+.b-purple{background:rgba(167,139,250,.15);color:#C4B5FD;border:1px solid rgba(167,139,250,.25)}
+
+/* Search & filters */
+.search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--border)}
+.search-wrap{position:relative;flex:1;min-width:220px}
+.search-ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none}
+.search-inp{
+  width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:9px 12px 9px 36px;font-size:13px;color:var(--text);font-family:var(--f-body);
+  outline:none;transition:border-color .18s;
+}
+.search-inp:focus{border-color:rgba(59,130,246,.5);box-shadow:0 0 0 2px rgba(59,130,246,.1)}
+.search-inp::placeholder{color:var(--text3)}
+.flt{
+  padding:8px 14px;border-radius:var(--r-md);border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;gap:6px;transition:all .18s;font-family:var(--f-body);white-space:nowrap;
+}
+.flt:hover,.flt.on{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.35);color:#93C5FD}
+.flt-cnt{
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;font-family:var(--f-mono);
+}
+.filter-pills{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 20px;
+  border-bottom:1px solid var(--border);background:rgba(255,255,255,.01)}
+.pill{
+  padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;transition:all .15s;
+  border:1px solid var(--border);color:var(--text3);background:transparent;font-family:var(--f-body);
+}
+.pill:hover{border-color:var(--border-h);color:var(--text2)}
+.pill.on{background:linear-gradient(135deg,rgba(59,130,246,.2),rgba(6,182,212,.1));
+  border-color:rgba(59,130,246,.4);color:#93C5FD;font-weight:600}
+.result-info{font-size:11px;color:var(--text3);font-family:var(--f-mono);margin-left:auto}
+
+/* Buttons */
+.btn{
+  padding:9px 18px;border-radius:var(--r-md);font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .18s;border:1px solid transparent;font-family:var(--f-body);
+  display:inline-flex;align-items:center;gap:7px;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;border:none;
+  box-shadow:0 4px 14px rgba(59,130,246,.3);
+}
+.btn-primary:hover{box-shadow:0 6px 20px rgba(59,130,246,.45);transform:translateY(-1px)}
+.btn-ghost{background:var(--bg3);border-color:var(--border);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--border-h);color:var(--text)}
+.btn-sm{padding:6px 12px;font-size:11.5px}
+.btn-danger{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.3);color:#FCA5A5}
+.btn-danger:hover{background:rgba(239,68,68,.25)}
+
+/* Cards misc */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px}
+.card-title{font-family:var(--f-head);font-size:14px;font-weight:600;color:var(--text);margin-bottom:14px}
+.section-label{
+  font-family:var(--f-mono);font-size:9.5px;letter-spacing:1.4px;font-weight:500;
+  text-transform:uppercase;color:var(--text3);margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Progress bar */
+.pbar{height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;position:relative}
+.pbar-fill{height:100%;border-radius:3px;position:relative;transition:width 1s cubic-bezier(.4,0,.2,1)}
+.pbar-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 20%,rgba(255,255,255,.18) 50%,transparent 80%);
+  background-size:200% 100%;animation:shimmer 2s linear infinite;
+}
+
+/* Login page */
+.login-bg{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 20% 50%,rgba(59,130,246,.08) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 20%,rgba(6,182,212,.06) 0%,transparent 50%),
+             var(--bg0);
+  position:relative;overflow:hidden;
+}
+.login-orb1{
+  position:absolute;width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(59,130,246,.12),transparent 70%);
+  top:-100px;left:-150px;pointer-events:none;animation:float 8s ease-in-out infinite;
+}
+.login-orb2{
+  position:absolute;width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle,rgba(6,182,212,.08),transparent 70%);
+  bottom:-80px;right:-100px;pointer-events:none;animation:float 10s ease-in-out infinite reverse;
+}
+.login-card{
+  width:420px;max-width:calc(100vw - 40px);
+  background:linear-gradient(135deg,rgba(11,20,35,.95),rgba(7,13,26,.98));
+  border:1px solid rgba(59,130,246,.2);border-radius:24px;padding:40px;
+  box-shadow:0 24px 64px rgba(0,0,0,.6),0 0 0 1px rgba(59,130,246,.08),inset 0 1px 0 rgba(255,255,255,.06);
+  animation:fadeIn .5s ease;position:relative;z-index:2;
+}
+.login-logo{
+  width:52px;height:52px;border-radius:15px;margin:0 auto 20px;
+  background:linear-gradient(135deg,#3B82F6,#06B6D4);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-head);font-size:20px;font-weight:800;color:#fff;
+  box-shadow:0 8px 32px rgba(59,130,246,.45);
+}
+.login-h1{font-family:var(--f-head);font-size:24px;font-weight:800;text-align:center;
+  background:linear-gradient(135deg,#DDE6F5,#94A3B8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-sub{font-size:12.5px;color:var(--text3);text-align:center;margin-top:6px;margin-bottom:28px}
+.form-group{margin-bottom:16px}
+.form-label{font-size:11px;font-family:var(--f-mono);letter-spacing:.8px;font-weight:500;
+  color:var(--text3);text-transform:uppercase;margin-bottom:7px;display:block}
+.form-inp{
+  width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:var(--r-md);padding:12px 14px;font-size:13.5px;color:var(--text);
+  font-family:var(--f-body);outline:none;transition:all .2s;
+}
+.form-inp:focus{border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.06);
+  box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+.form-inp::placeholder{color:var(--text3)}
+.login-btn{
+  width:100%;padding:13px;border-radius:var(--r-md);border:none;cursor:pointer;
+  background:linear-gradient(135deg,#3B82F6,#06B6D4);
+  font-family:var(--f-head);font-size:14px;font-weight:700;color:#fff;
+  box-shadow:0 6px 24px rgba(59,130,246,.4);transition:all .2s;margin-top:8px;
+}
+.login-btn:hover{box-shadow:0 8px 32px rgba(59,130,246,.55);transform:translateY(-1px)}
+.login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.login-err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);
+  border-radius:var(--r-md);padding:10px 14px;font-size:12px;color:#FCA5A5;margin-top:12px}
+.login-footer{text-align:center;font-size:11px;color:var(--text3);margin-top:24px}
+.login-footer strong{color:var(--blue)}
+
+/* Activity feed */
+.activity-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.act-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;animation:pulseRing 2s infinite}
+.act-text{font-size:12.5px;color:var(--text2);flex:1;line-height:1.5}
+.act-time{font-size:10.5px;color:var(--text3);font-family:var(--f-mono);white-space:nowrap}
+
+/* Tags */
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;
+  font-size:10px;font-family:var(--f-mono);font-weight:500}
+.tag-blue{background:rgba(59,130,246,.15);color:#93C5FD}
+.tag-green{background:rgba(16,185,129,.15);color:#6EE7B7}
+.tag-amber{background:rgba(245,158,11,.15);color:#FCD34D}
+.tag-purple{background:rgba(167,139,250,.15);color:#C4B5FD}
+
+/* Modal */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;
+  animation:fadeIn .2s ease;
+}
+.modal{
+  background:linear-gradient(135deg,var(--bg2),var(--bg3));
+  border:1px solid var(--border-glow);border-radius:20px;width:560px;max-width:100%;
+  max-height:85vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,.7);
+  animation:slideLeft .25s ease;
+}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h2{font-family:var(--f-head);font-size:16px;font-weight:700;color:var(--text)}
+.modal-body{padding:24px}
+.modal-close{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:transparent;
+  color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px}
+.modal-close:hover{background:rgba(255,255,255,.06);color:var(--text)}
+
+/* Journey steps */
+.journey{display:flex;flex-direction:column;gap:0}
+.j-step{display:flex;gap:14px;position:relative}
+.j-step:not(:last-child) .j-line{position:absolute;left:15px;top:32px;bottom:-4px;width:2px;
+  background:linear-gradient(180deg,var(--blue),transparent)}
+.j-num{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;font-family:var(--f-mono);border:2px solid}
+.j-done{background:rgba(16,185,129,.15);border-color:var(--green);color:#6EE7B7}
+.j-active{background:rgba(59,130,246,.15);border-color:var(--blue);color:#93C5FD}
+.j-todo{background:rgba(255,255,255,.03);border-color:var(--border);color:var(--text3)}
+.j-content{padding-bottom:18px}
+.j-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.j-desc{font-size:11.5px;color:var(--text3)}
+.j-date{font-size:10px;font-family:var(--f-mono);color:var(--text3);margin-top:4px}
+
+/* Platform card */
+.plt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.plt-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;
+  transition:all .22s;cursor:pointer;position:relative;overflow:hidden;
+}
+.plt-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--plt-color,#3B82F6),transparent);opacity:.5;
+}
+.plt-card:hover{border-color:var(--border-h);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.3)}
+.plt-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.plt-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;background:rgba(255,255,255,.05);border:1px solid var(--border)}
+.plt-name{font-family:var(--f-head);font-size:14px;font-weight:700;color:var(--text);margin-top:8px}
+.plt-org{font-size:11.5px;color:var(--text3);margin-top:2px}
+.plt-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+.plt-stat{text-align:center;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:8px}
+.plt-stat-val{font-family:var(--f-head);font-size:17px;font-weight:700;color:var(--text)}
+.plt-stat-label{font-size:9px;font-family:var(--f-mono);color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.plt-bar-wrap{margin-top:12px}
+.plt-bar-label{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-bottom:5px}
+
+/* Messages */
+.msg-layout{display:grid;grid-template-columns:280px 1fr;height:calc(100vh - 120px);gap:0;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.msg-list{border-right:1px solid var(--border);overflow-y:auto}
+.msg-item{padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.msg-item:hover{background:rgba(255,255,255,.03)}
+.msg-item.active{background:rgba(59,130,246,.08)}
+.msg-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.msg-name{font-size:13px;font-weight:600;color:var(--text)}
+.msg-preview{font-size:11.5px;color:var(--text3);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.msg-time{font-size:10px;font-family:var(--f-mono);color:var(--text3)}
+.msg-unread{width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0}
+.msg-pane{display:flex;flex-direction:column}
+.msg-pane-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.msg-pane-body{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.bubble{max-width:65%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.55}
+.bubble-out{
+  background:linear-gradient(135deg,rgba(59,130,246,.25),rgba(6,182,212,.15));
+  border:1px solid rgba(59,130,246,.3);color:var(--text);align-self:flex-end;border-radius:14px 14px 2px 14px;
+}
+.bubble-in{background:var(--bg3);border:1px solid var(--border);color:var(--text2);align-self:flex-start;border-radius:14px 14px 14px 2px}
+.bubble-time{font-size:10px;font-family:var(--f-mono);color:var(--text3);margin-top:4px;text-align:right}
+.msg-input-row{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center}
+.msg-inp{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:10px 14px;color:var(--text);font-size:13px;font-family:var(--f-body);outline:none}
+.msg-inp:focus{border-color:rgba(59,130,246,.4)}
+
+/* Reports */
+.report-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.metric-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
+.metric-row:last-child{border-bottom:none}
+.metric-name{font-size:12.5px;color:var(--text2)}
+.metric-val{font-size:13px;font-weight:700;color:var(--text);font-family:var(--f-mono)}
+
+/* Empty state */
+.empty{text-align:center;padding:48px 20px;color:var(--text3)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-text{font-size:13px}
+
+/* Tooltip custom */
+.ct{background:var(--bg2)!important;border:1px solid var(--border)!important;border-radius:10px!important;
+  padding:10px 14px!important;box-shadow:0 8px 24px rgba(0,0,0,.4)!important}
+.ct-label{font-family:var(--f-mono);font-size:10px;color:var(--text3);margin-bottom:5px}
+.ct-val{font-family:var(--f-head);font-size:16px;font-weight:700;color:var(--text)}
+
+/* Programs */
+.prog-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px;
+  transition:border-color .2s}
+.prog-card:hover{border-color:var(--border-h)}
+.prog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.prog-title{font-family:var(--f-head);font-size:15px;font-weight:700;color:var(--text)}
+.prog-sub{font-size:12px;color:var(--text3);margin-top:2px}
+.prog-phase{font-size:11px;color:var(--text3);font-family:var(--f-mono)}
+.prog-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.prog-stat{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.prog-stat-val{font-family:var(--f-head);font-size:20px;font-weight:700;color:var(--text)}
+.prog-stat-label{font-size:9.5px;font-family:var(--f-mono);color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+
+/* Responsive */
+@media(max-width:1024px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .charts-row{grid-template-columns:1fr}
+  .msg-layout{grid-template-columns:1fr}
+  .msg-list{display:none}
+  .report-grid{grid-template-columns:1fr}
+}
+@media(max-width:768px){
+  .sb{display:none}
+  .kpi-grid{grid-template-columns:1fr}
+  .content{padding:14px}
+  .plt-grid{grid-template-columns:1fr}
+}
+`;
+
+function G() {
+  return <style dangerouslySetInnerHTML={{ __html: CSS }} />;
+}
+
+/* ── Data constants ──────────────────────────────────────────── */
 const PLATFORMS = [
-  { id:"PLT-001", name:"Al Bahia",               prefecture:"Al Bahia",         arrond:"El Fida & Mers Sultan",          sync:"online",  total:590, active:343, completed:200, coordinator:"Sarah Benali",   drive:"OneDrive"     },
-  { id:"PLT-002", name:"Plateforme Anfa",         prefecture:"Anfa",             arrond:"Préfecture d'Anfa",              sync:"online",  total:245, active:138, completed:74,  coordinator:"Nadia Mouline",  drive:"OneDrive"     },
-  { id:"PLT-003", name:"Plateforme Hay Mohammadi",prefecture:"Hay Mohammadi",   arrond:"Préf. Arr. Hay Mohammadi",       sync:"online",  total:198, active:112, completed:67,  coordinator:"Omar Hajji",     drive:"Google Drive" },
-  { id:"PLT-004", name:"Plateforme Hay Hassani",  prefecture:"Hay Hassani",      arrond:"Préfecture de Hay Hassani",      sync:"online",  total:167, active:94,  completed:52,  coordinator:"Fatima Zahir",   drive:"OneDrive"     },
-  { id:"PLT-005", name:"Plateforme Lissasfa",     prefecture:"Lissasfa",         arrond:"Préfecture de Hay Hassani",      sync:"online",  total:143, active:81,  completed:43,  coordinator:"Youssef Ennaji", drive:"Google Drive" },
-  { id:"PLT-006", name:"Plateforme Ben Msik",     prefecture:"Ben Msik",         arrond:"Préf. Arr. Ben Msik",            sync:"online",  total:221, active:127, completed:78,  coordinator:"Amina Khalil",   drive:"OneDrive"     },
-  { id:"PLT-007", name:"Plateforme Sidi Bernoussi",prefecture:"Sidi Bernoussi", arrond:"Préf. Arr. Sidi Bernoussi",      sync:"syncing", total:189, active:107, completed:59,  coordinator:"Hassan Bouazza", drive:"Google Drive" },
-  { id:"PLT-008", name:"Plateforme Moulay Rachid",prefecture:"Moulay Rachid",   arrond:"Préf. Arr. Moulay Rachid",       sync:"offline", total:156, active:88,  completed:51,  coordinator:"Zineb Alaoui",   drive:"OneDrive"     },
+  {
+    id:"PLT-001",name:"Hub Jeunes Agadir",org:"Fondation Hassan II",region:"Souss-Massa",
+    icon:"🏛️",color:"#3B82F6",status:"active",
+    beneficiaries:312,sessions:48,satisfaction:92,capacity:400,
+    sync:"Aujourd'hui 09:41",syncStatus:"ok",programs:3,
+    coords:{lat:30.43,lng:-9.6}
+  },
+  {
+    id:"PLT-002",name:"Centre Ryad Casa",org:"INDH Casablanca",region:"Casablanca-Settat",
+    icon:"🌆",color:"#10B981",status:"active",
+    beneficiaries:287,sessions:61,satisfaction:88,capacity:350,
+    sync:"Hier 23:12",syncStatus:"ok",programs:4,
+    coords:{lat:33.59,lng:-7.61}
+  },
+  {
+    id:"PLT-003",name:"Espace Fès Médina",org:"Commune Fès",region:"Fès-Meknès",
+    icon:"🕌",color:"#F59E0B",status:"warning",
+    beneficiaries:198,sessions:29,satisfaction:79,capacity:250,
+    sync:"Il y a 3j",syncStatus:"warn",programs:2,
+    coords:{lat:34.03,lng:-5.0}
+  },
+  {
+    id:"PLT-004",name:"Hub Marrakech Sud",org:"Région Marrakech-Safi",region:"Marrakech-Safi",
+    icon:"🌹",color:"#EF4444",status:"active",
+    beneficiaries:445,sessions:72,satisfaction:94,capacity:500,
+    sync:"Aujourd'hui 11:02",syncStatus:"ok",programs:5,
+    coords:{lat:31.63,lng:-8.0}
+  },
+  {
+    id:"PLT-005",name:"Point Jeunes Rabat",org:"Mairie Rabat",region:"Rabat-Salé-Kénitra",
+    icon:"🏛️",color:"#A78BFA",status:"inactive",
+    beneficiaries:89,sessions:12,satisfaction:71,capacity:200,
+    sync:"Il y a 7j",syncStatus:"error",programs:1,
+    coords:{lat:33.97,lng:-6.85}
+  },
+  {
+    id:"PLT-006",name:"Centre Atlas Beni Mellal",org:"Province Beni Mellal",region:"Béni Mellal-Khénifra",
+    icon:"⛰️",color:"#06B6D4",status:"active",
+    beneficiaries:176,sessions:38,satisfaction:85,capacity:220,
+    sync:"Aujourd'hui 08:15",syncStatus:"ok",programs:3,
+    coords:{lat:32.34,lng:-6.34}
+  },
+  {
+    id:"PLT-007",name:"Espace Rural Ouarzazate",org:"INDH Ouarzazate",region:"Drâa-Tafilalet",
+    icon:"🏜️",color:"#F472B6",status:"warning",
+    beneficiaries:134,sessions:21,satisfaction:76,capacity:180,
+    sync:"Il y a 2j",syncStatus:"warn",programs:2,
+    coords:{lat:30.92,lng:-6.9}
+  },
+  {
+    id:"PLT-008",name:"Hub Digital Tanger",org:"Tanger-Tetouan-Al Hoceima",region:"Tanger-Tétouan-Al Hoceïma",
+    icon:"💻",color:"#34D399",status:"active",
+    beneficiaries:268,sessions:55,satisfaction:91,capacity:320,
+    sync:"Aujourd'hui 10:30",syncStatus:"ok",programs:4,
+    coords:{lat:35.77,lng:-5.8}
+  },
 ];
 
 const BENEFICIARIES = [
-  { id:"YTR-2847", firstName:"Amina",   lastName:"El Fassi",       gender:"F", age:22, city:"Al Bahia",       platform:"PLT-001", program:"Skills Training",  status:"active",      step:3, email:"amina.elfassi@example.ma",  phone:"+212 6 12 34 56 78", education:"Bachelor"      },
-  { id:"YTR-2848", firstName:"Karim",   lastName:"Benali",         gender:"M", age:25, city:"Al Bahia",       platform:"PLT-001", program:"Leadership",        status:"completed",   step:4, email:"karim.benali@example.ma",   phone:"+212 6 12 34 56 79", education:"Master"         },
-  { id:"YTR-2849", firstName:"Fatima",  lastName:"Zahra Idrissi",  gender:"F", age:20, city:"Anfa",           platform:"PLT-002", program:"Entrepreneurship",  status:"registered",  step:1, email:"fz.idrissi@example.ma",     phone:"+212 6 12 34 56 80", education:"Baccalauréat"  },
-  { id:"YTR-2850", firstName:"Youssef", lastName:"Mansouri",       gender:"M", age:23, city:"Al Bahia",       platform:"PLT-001", program:"Skills Training",  status:"active",      step:3, email:"y.mansouri@example.ma",     phone:"+212 6 12 34 56 81", education:"Associate"     },
-  { id:"YTR-2851", firstName:"Salma",   lastName:"Cherkaoui",      gender:"F", age:21, city:"Hay Mohammadi",  platform:"PLT-003", program:"Leadership",        status:"orientation", step:2, email:"s.cherkaoui@example.ma",    phone:"+212 6 12 34 56 82", education:"Baccalauréat"  },
-  { id:"YTR-2852", firstName:"Omar",    lastName:"Tahiri",         gender:"M", age:27, city:"Hay Hassani",    platform:"PLT-004", program:"Entrepreneurship",  status:"dropped",     step:2, email:"o.tahiri@example.ma",       phone:"+212 6 12 34 56 83", education:"Bachelor"      },
-  { id:"YTR-2853", firstName:"Nadia",   lastName:"Benkirane",      gender:"F", age:24, city:"Lissasfa",       platform:"PLT-005", program:"Skills Training",  status:"completed",   step:4, email:"n.benkirane@example.ma",    phone:"+212 6 12 34 56 84", education:"Bachelor"      },
-  { id:"YTR-2854", firstName:"Hassan",  lastName:"Bouazza",        gender:"M", age:19, city:"Ben Msik",       platform:"PLT-006", program:"Leadership",        status:"active",      step:3, email:"h.bouazza@example.ma",      phone:"+212 6 12 34 56 85", education:"Baccalauréat"  },
-  { id:"YTR-2855", firstName:"Zineb",   lastName:"Ait Benhaddou",  gender:"F", age:26, city:"Sidi Bernoussi", platform:"PLT-007", program:"Entrepreneurship",  status:"referred",    step:3, email:"zineb.ab@example.ma",       phone:"+212 6 12 34 56 86", education:"Master"         },
-  { id:"YTR-2856", firstName:"Mehdi",   lastName:"El Amrani",      gender:"M", age:22, city:"Moulay Rachid",  platform:"PLT-008", program:"Skills Training",  status:"registered",  step:1, email:"m.elamrani@example.ma",     phone:"+212 6 12 34 56 87", education:"Associate"     },
-  { id:"YTR-2857", firstName:"Houda",   lastName:"Alaoui",         gender:"F", age:23, city:"Al Bahia",       platform:"PLT-001", program:"Leadership",        status:"active",      step:3, email:"h.alaoui@example.ma",       phone:"+212 6 12 34 56 88", education:"Bachelor"      },
-  { id:"YTR-2858", firstName:"Rachid",  lastName:"El Ouazzani",    gender:"M", age:28, city:"Anfa",           platform:"PLT-002", program:"Entrepreneurship",  status:"completed",   step:4, email:"r.elouazzani@example.ma",   phone:"+212 6 12 34 56 89", education:"Master"         },
+  {id:"YTR-2847",name:"Fatima Zahra Moussaoui",age:22,gender:"F",platform:"Hub Jeunes Agadir",platId:"PLT-001",region:"Souss-Massa",program:"SKL",status:"active",enrolled:"12 Jan 2026",lastSeen:"Aujourd'hui",score:87,step:3},
+  {id:"YTR-2848",name:"Youssef Alami",age:25,gender:"M",platform:"Centre Ryad Casa",platId:"PLT-002",region:"Casablanca-Settat",program:"LDR",status:"active",enrolled:"8 Jan 2026",lastSeen:"Hier",score:72,step:2},
+  {id:"YTR-2849",name:"Amira Benali",age:19,gender:"F",platform:"Hub Marrakech Sud",platId:"PLT-004",region:"Marrakech-Safi",program:"ENT",status:"graduated",enrolled:"3 Nov 2025",lastSeen:"15 Fév 2026",score:95,step:5},
+  {id:"YTR-2850",name:"Rachid Outtaleb",age:28,gender:"M",platform:"Espace Fès Médina",platId:"PLT-003",region:"Fès-Meknès",program:"SKL",status:"at_risk",enrolled:"20 Déc 2025",lastSeen:"Il y a 9j",score:48,step:1},
+  {id:"YTR-2851",name:"Salma Cherkaoui",age:23,gender:"F",platform:"Point Jeunes Rabat",platId:"PLT-005",region:"Rabat-Salé-Kénitra",program:"LDR",status:"inactive",enrolled:"15 Oct 2025",lastSeen:"Il y a 14j",score:61,step:2},
+  {id:"YTR-2852",name:"Karim Bouazzaoui",age:21,gender:"M",platform:"Hub Jeunes Agadir",platId:"PLT-001",region:"Souss-Massa",program:"ENT",status:"active",enrolled:"5 Fév 2026",lastSeen:"Aujourd'hui",score:83,step:2},
+  {id:"YTR-2853",name:"Hind Tazi",age:24,gender:"F",platform:"Centre Atlas Beni Mellal",platId:"PLT-006",region:"Béni Mellal-Khénifra",program:"SKL",status:"active",enrolled:"18 Jan 2026",lastSeen:"Hier",score:79,step:3},
+  {id:"YTR-2854",name:"Omar Soussi",age:26,gender:"M",platform:"Hub Digital Tanger",platId:"PLT-008",region:"Tanger-Tétouan-Al Hoceïma",program:"LDR",status:"graduated",enrolled:"10 Sep 2025",lastSeen:"2 Mar 2026",score:91,step:5},
+  {id:"YTR-2855",name:"Nadia Ferhat",age:20,gender:"F",platform:"Hub Marrakech Sud",platId:"PLT-004",region:"Marrakech-Safi",program:"SKL",status:"active",enrolled:"14 Jan 2026",lastSeen:"Aujourd'hui",score:76,step:2},
+  {id:"YTR-2856",name:"Mehdi Bakkali",age:27,gender:"M",platform:"Centre Ryad Casa",platId:"PLT-002",region:"Casablanca-Settat",program:"ENT",status:"at_risk",enrolled:"22 Nov 2025",lastSeen:"Il y a 6j",score:54,step:1},
+  {id:"YTR-2857",name:"Zineb Mouhtadi",age:22,gender:"F",platform:"Espace Rural Ouarzazate",platId:"PLT-007",region:"Drâa-Tafilalet",program:"LDR",status:"active",enrolled:"9 Fév 2026",lastSeen:"Hier",score:68,step:2},
+  {id:"YTR-2858",name:"Anas Berrada",age:24,gender:"M",platform:"Hub Digital Tanger",platId:"PLT-008",region:"Tanger-Tétouan-Al Hoceïma",program:"SKL",status:"active",enrolled:"1 Mar 2026",lastSeen:"Aujourd'hui",score:82,step:2},
 ];
 
 const TREND_DATA = [
-  { month:"Jan", registrations:145, completions:67  },
-  { month:"Feb", registrations:178, completions:82  },
-  { month:"Mar", registrations:203, completions:95  },
-  { month:"Apr", registrations:267, completions:118 },
-  { month:"May", registrations:312, completions:143 },
+  {month:"Oct",beneficiaires:1124,sessions:312,satisfaction:81},
+  {month:"Nov",beneficiaires:1298,sessions:376,satisfaction:83},
+  {month:"Déc",beneficiaires:1187,sessions:298,satisfaction:80},
+  {month:"Jan",beneficiaires:1456,sessions:441,satisfaction:85},
+  {month:"Fév",beneficiaires:1623,sessions:512,satisfaction:87},
+  {month:"Mar",beneficiaires:1909,sessions:587,satisfaction:89},
 ];
-const PROG_DATA   = [
-  { name:"Skills Training",  count:654, fill:"#2563EB" },
-  { name:"Leadership",       count:542, fill:"#06B6D4" },
-  { name:"Entrepreneurship", count:528, fill:"#F59E0B" },
+
+const PROG_DATA = [
+  {name:"SKL",val:42},
+  {name:"LDR",val:33},
+  {name:"ENT",val:25},
 ];
-const GENDER_DATA  = [{ name:"Féminin", value:58, fill:"#06B6D4" },{ name:"Masculin", value:42, fill:"#2563EB" }];
+
+const GENDER_DATA = [
+  {name:"Femmes",val:58,color:"#A78BFA"},
+  {name:"Hommes",val:42,color:"#3B82F6"},
+];
+
 const OUTCOME_DATA = [
-  { label:"Emploi salarié",  pct:34 },
-  { label:"Auto-emploi",     pct:28 },
-  { label:"Formation sup.",  pct:22 },
-  { label:"Bénévolat actif", pct:16 },
+  {cat:"Emploi CDI",val:23},
+  {cat:"Auto-emploi",val:18},
+  {cat:"Formation sup.",val:31},
+  {cat:"Bénévolat",val:12},
+  {cat:"En recherche",val:16},
 ];
-const SENT_MSGS = [
-  { to:"Al Bahia",          subject:"Rappel — atelier leadership J-3",       date:"2026-07-31", status:"Livré" },
-  { to:"Tous coordinateurs",subject:"Rapport mensuel Juillet disponible",     date:"2026-07-28", status:"Livré" },
-  { to:"Hay Mohammadi",     subject:"Convocation jury sélection",             date:"2026-07-25", status:"Livré" },
-];
-const STATUS_CFG = {
-  active:      { label:"Actif",        color:"#10B981", bg:"rgba(16,185,129,.15)"  },
-  completed:   { label:"Complété",     color:"#2563EB", bg:"rgba(37,99,235,.15)"   },
-  registered:  { label:"Inscrit",      color:"#06B6D4", bg:"rgba(6,182,212,.15)"   },
-  orientation: { label:"Orientation",  color:"#F59E0B", bg:"rgba(245,158,11,.15)"  },
-  dropped:     { label:"Abandonné",    color:"#EF4444", bg:"rgba(239,68,68,.15)"   },
-  referred:    { label:"Référé",       color:"#A78BFA", bg:"rgba(167,139,250,.15)" },
-};
-const SYNC_CFG = {
-  online:  { label:"Synchronisé",      color:"#10B981", dot:"#10B981" },
-  syncing: { label:"Synchronisation…", color:"#F59E0B", dot:"#F59E0B" },
-  offline: { label:"Hors ligne",       color:"#EF4444", dot:"#EF4444" },
-};
-const JOURNEY_STEPS = ["Inscription","Orientation","Programme","Certification","Insertion"];
+
 const KPI = [
-  { label:"Bénéficiaires",  value:"1 909", delta:"+12%", icon:"👥", color:"#2563EB" },
-  { label:"Actifs",         value:"1 090", delta:"+8%",  icon:"⚡", color:"#06B6D4" },
-  { label:"Complétés",      value:"624",   delta:"+23%", icon:"🎓", color:"#10B981" },
-  { label:"Taux réussite",  value:"67%",   delta:"+5pt", icon:"📈", color:"#F59E0B" },
-  { label:"Plateformes",    value:"8",     delta:"100%", icon:"🏛️", color:"#A78BFA" },
-  { label:"Partenaires",    value:"23",    delta:"+3",   icon:"🤝", color:"#F59E0B" },
+  {icon:"👥",label:"Bénéficiaires actifs",val:"1 909",delta:"+14.3%",positive:true,color:"#3B82F6",pct:76,unit:"/ 2 520"},
+  {icon:"🏛️",label:"Plateformes actives",val:"6 / 8",delta:"+1 ce mois",positive:true,color:"#10B981",pct:75,unit:"plateformes"},
+  {icon:"📅",label:"Sessions ce mois",val:"587",delta:"+13.8%",positive:true,color:"#06B6D4",pct:82,unit:"sessions"},
+  {icon:"⭐",label:"Satisfaction moyenne",val:"89%",delta:"+2 pts",positive:true,color:"#F59E0B",pct:89,unit:"/ 100"},
+  {icon:"🎓",label:"Diplômés 2026",val:"148",delta:"+31 ce mois",positive:true,color:"#A78BFA",pct:60,unit:"/ 250 objectif"},
+  {icon:"⚠️",label:"Jeunes à risque",val:"23",delta:"-5 ce mois",positive:false,color:"#EF4444",pct:23,unit:"signalés"},
 ];
+
 const ACTIVITY = [
-  { icon:"🎓", text:"Nadia Benkirane a complété le programme Leadership",         time:"Il y a 2h",  color:"#10B981" },
-  { icon:"📋", text:"Ben Msik — 12 nouvelles inscriptions ce matin",              time:"Il y a 4h",  color:"#2563EB" },
-  { icon:"⚠️", text:"Plateforme Moulay Rachid — connexion perdue",                time:"Il y a 6h",  color:"#EF4444" },
-  { icon:"📊", text:"Rapport mensuel Juillet généré automatiquement",             time:"Hier",       color:"#06B6D4" },
-  { icon:"🔗", text:"Zineb Ait Benhaddou référée au programme Emploi",            time:"Hier",       color:"#A78BFA" },
+  {color:"#10B981",text:"YTR-2849 Amira Benali a complété le programme ENT — diplômée avec mention","time":"Il y a 12 min"},
+  {color:"#3B82F6",text:"Nouvelle synchronisation Hub Digital Tanger — 12 sessions ajoutées","time":"Il y a 1h"},
+  {color:"#F59E0B",text:"Alerte : PLT-003 Espace Fès Médina — synchronisation en retard (3 jours)","time":"Il y a 2h"},
+  {color:"#A78BFA",text:"Programme LDR — session #47 planifiée pour demain à 10h00","time":"Il y a 3h"},
+  {color:"#EF4444",text:"YTR-2850 Rachid Outtaleb marqué à risque — absence 9 jours","time":"Il y a 5h"},
 ];
+
 const NAV = [
-  { id:"dashboard",      icon:"◈",  label:"Tableau de bord" },
-  { id:"platforms",      icon:"🏛",  label:"Plateformes"     },
-  { id:"beneficiaries",  icon:"👤",  label:"Bénéficiaires"   },
-  { id:"programs",       icon:"📋",  label:"Programmes"      },
-  { id:"messages",       icon:"✉",   label:"Messages"        },
-  { id:"reports",        icon:"📊",  label:"Rapports"        },
+  {id:"dashboard",label:"Tableau de bord",icon:"📊"},
+  {id:"platforms",label:"Plateformes",icon:"🏛️"},
+  {id:"beneficiaries",label:"Bénéficiaires",icon:"👥"},
+  {id:"programs",label:"Programmes",icon:"🎓"},
+  {id:"messages",label:"Messages",icon:"💬"},
+  {id:"reports",label:"Rapports",icon:"📈"},
 ];
+
 const PROGS = [
   {
-    name:"Skills Training", code:"SKL", color:"#2563EB",
-    desc:"Renforcement des compétences professionnelles transversales pour le marché du travail moderne.",
-    enrolled:654, completed:312, active:289, referrals:53,
-    duration:"4 mois", certif:"Certificat INDH", start:"Mars 2026",
-    outcomes:["CV & outils RH","Soft skills","Préparation entretien","Projet professionnel"],
+    id:"SKL",name:"SkillUp Maroc",abbr:"SKL",color:"#3B82F6",
+    desc:"Développement des compétences numériques et professionnelles pour les 18-30 ans",
+    phase:"Phase 3",duration:"6 mois",
+    enrolled:42,active:38,graduated:148,target:250,
+    satisfaction:88,completion:76,
+    modules:["Compétences numériques","Bureautique avancée","Langues professionnelles","Communication"],
+    tags:["tag-blue"],
   },
   {
-    name:"Leadership", code:"LDR", color:"#06B6D4",
-    desc:"Développement du leadership et de la citoyenneté active chez les jeunes 18–30 ans.",
-    enrolled:542, completed:198, active:287, referrals:57,
-    duration:"3 mois", certif:"Attestation Leadership INDH", start:"Janvier 2026",
-    outcomes:["Gestion d'équipe","Prise de décision","Communication","Projet communautaire"],
+    id:"LDR",name:"Jeunes Leaders INDH",abbr:"LDR",color:"#A78BFA",
+    desc:"Programme de leadership et citoyenneté active pour jeunes porteurs de projets",
+    phase:"Phase 2",duration:"4 mois",
+    enrolled:33,active:31,graduated:89,target:150,
+    satisfaction:91,completion:80,
+    modules:["Leadership participatif","Gestion de projet","Communication publique","Entrepreneuriat social"],
+    tags:["tag-purple"],
   },
   {
-    name:"Entrepreneurship", code:"ENT", color:"#F59E0B",
-    desc:"Accompagnement à la création d'entreprise et développement de l'auto-emploi.",
-    enrolled:528, completed:114, active:318, referrals:96,
-    duration:"6 mois", certif:"Diplôme Entrepreneur INDH", start:"Avril 2026",
-    outcomes:["Plan d'affaires","Financement","Marketing","Création d'entreprise"],
+    id:"ENT",name:"Entreprendre Ensemble",abbr:"ENT",color:"#10B981",
+    desc:"Accompagnement entrepreneurial : de l'idée au financement INDH",
+    phase:"Phase 4",duration:"8 mois",
+    enrolled:25,active:24,graduated:61,target:100,
+    satisfaction:93,completion:84,
+    modules:["Idéation & Business Model","Étude de marché","Finance & Budget","Pitch INDH"],
+    tags:["tag-green"],
   },
 ];
 
-// ── GLOBAL STYLES ─────────────────────────────────────────────────────────────
+const SENT_MSGS = [
+  {id:1,from:"Coordinateur Agadir",initials:"CA",color:"#3B82F6",preview:"Rapport mensuel PLT-001 envoyé",time:"10:32",unread:2,
+    conv:[
+      {out:false,text:"Bonjour, le rapport mensuel pour PLT-001 est disponible.",time:"10:30"},
+      {out:true,text:"Merci, je vais le consulter. Quelques points à discuter ?",time:"10:31"},
+      {out:false,text:"Oui, en particulier la baisse de présence semaine 3.",time:"10:32"},
+    ]},
+  {id:2,from:"Hub Marrakech Sud",initials:"MS",color:"#EF4444",preview:"Demande de ressources supplémentaires",time:"09:18",unread:0,
+    conv:[
+      {out:false,text:"Nous avons besoin de 2 formateurs supplémentaires pour le mois de Mars.",time:"09:15"},
+      {out:true,text:"Demande notée, je transmets à la direction régionale.",time:"09:18"},
+    ]},
+  {id:3,from:"INDH Central",initials:"IC",color:"#10B981",preview:"Réunion nationale jeudi 10h",time:"Hier",unread:1,
+    conv:[
+      {out:false,text:"La réunion nationale de coordination est planifiée jeudi à 10h00 en visio.",time:"Hier 14:00"},
+    ]},
+  {id:4,from:"Coordinateur Tanger",initials:"CT",color:"#A78BFA",preview:"Hub Digital : excellent taux",time:"Lun",unread:0,
+    conv:[
+      {out:false,text:"Excellent mois ! Taux de satisfaction à 91%, record pour notre plateforme.",time:"Lun 16:44"},
+      {out:true,text:"Félicitations à toute l'équipe, continuez comme ça !",time:"Lun 17:02"},
+    ]},
+];
 
-function G() {
-  const css = `
-    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+const STATUS_CFG = {
+  active:{label:"Actif",cls:"b-green"},
+  warning:{label:"Attention",cls:"b-amber"},
+  inactive:{label:"Inactif",cls:"b-red"},
+  graduated:{label:"Diplômé",cls:"b-blue"},
+  at_risk:{label:"À risque",cls:"b-red"},
+};
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg0: #060B14;
-      --bg1: #0A1628;
-      --bg2: #0F1E36;
-      --bg3: #162440;
-      --border: rgba(255,255,255,.07);
-      --border-hover: rgba(255,255,255,.14);
-      --text: #E2E8F0;
-      --muted: #64748B;
-      --blue: #2563EB;
-      --cyan: #06B6D4;
-      --green: #10B981;
-      --amber: #F59E0B;
-      --red: #EF4444;
-      --purple: #A78BFA;
-    }
-    html, body { height: 100%; background: var(--bg0); color: var(--text); font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; }
+const SYNC_CFG = {
+  ok:{icon:"✓",cls:"b-green"},
+  warn:{icon:"⚠",cls:"b-amber"},
+  error:{icon:"✗",cls:"b-red"},
+};
 
-    @keyframes pi { 0%,100%{opacity:.35;transform:scale(1)} 50%{opacity:1;transform:scale(1.06)} }
-    @keyframes fi { 0%{opacity:0;transform:translateY(16px)} 100%{opacity:1;transform:translateY(0)} }
-    @keyframes sp { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
-    @keyframes ro { 0%{transform:rotate(0deg)} 100%{transform:rotate(-360deg)} }
-    @keyframes ri { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
-    @keyframes glow { 0%,100%{opacity:.5;filter:blur(32px)} 50%{opacity:.8;filter:blur(24px)} }
-    @keyframes slideUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+const JOURNEY_STEPS = [
+  {label:"Inscription & diagnostic",desc:"Évaluation des compétences initiales","date":"Semaine 1"},
+  {label:"Formation socle",desc:"Modules de base et compétences transversales","date":"Semaines 2-4"},
+  {label:"Ateliers pratiques",desc:"Mise en situation et projets collectifs","date":"Semaines 5-10"},
+  {label:"Projet personnel",desc:"Développement et suivi individuel","date":"Semaines 11-16"},
+  {label:"Certification & insertion",desc:"Évaluation finale et accompagnement","date":"Semaine 20"},
+];
 
-    /* layout */
-    .ni { background: var(--bg2); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
-    .xc { display: flex; height: 100vh; overflow: hidden; }
-
-    /* cards */
-    .kc {
-      background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
-      padding: 22px 24px; transition: transform .2s, box-shadow .2s, border-color .2s;
-      position: relative; overflow: hidden;
-    }
-    .kc::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: var(--accent-strip, #2563EB); opacity:.7; border-radius:16px 16px 0 0; }
-    .kc:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,.4); border-color: var(--border-hover); }
-
-    /* buttons */
-    .btn {
-      display:inline-flex; align-items:center; gap:8px; padding:10px 20px;
-      border-radius:10px; border:none; cursor:pointer; font-family:'DM Sans',sans-serif;
-      font-size:13px; font-weight:500; transition:all .18s; white-space:nowrap;
-    }
-    .bp { background: var(--blue); color:#fff; }
-    .bp:hover { background:#1d4ed8; box-shadow:0 4px 20px rgba(37,99,235,.4); }
-    .bg { background: rgba(255,255,255,.06); color: var(--text); border:1px solid var(--border); }
-    .bg:hover { background: rgba(255,255,255,.1); border-color: var(--border-hover); }
-    .bsm { padding:7px 14px; font-size:12px; }
-
-    /* badges */
-    .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-family:'DM Mono',monospace; font-size:10.5px; font-weight:500; letter-spacing:.3px; }
-
-    /* inputs */
-    .inp { width:100%; padding:12px 16px; background:rgba(255,255,255,.05); border:1.5px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; outline:none; transition:border-color .2s; }
-    .inp:focus { border-color: var(--blue); }
-    .inp::placeholder { color: var(--muted); }
-
-    /* progress */
-    .pb { height:5px; background:rgba(255,255,255,.06); border-radius:4px; overflow:hidden; }
-    .pf { height:100%; border-radius:4px; transition:width .6s cubic-bezier(.4,0,.2,1); }
-
-    /* table */
-    .tr:hover { background: rgba(255,255,255,.03); }
-
-    /* modal backdrop */
-    .mbd { position:fixed; inset:0; background:rgba(0,0,0,.75); display:flex; align-items:center; justify-content:center; z-index:1000; animation:fi .2s ease; backdrop-filter:blur(4px); }
-    .md  { background:var(--bg2); border:1px solid var(--border); border-radius:20px; padding:32px; max-width:520px; width:calc(100% - 40px); animation:slideUp .25s ease; }
-
-    /* sidebar link */
-    .lc { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:10px; font-size:13.5px; font-weight:500; cursor:pointer; transition:all .15s; color:var(--muted); border:none; background:transparent; width:100%; text-align:left; font-family:'DM Sans',sans-serif; }
-    .lc:hover { color:var(--text); background:rgba(255,255,255,.05); }
-    .la { color:var(--text)!important; background:rgba(37,99,235,.18)!important; }
-    .li { width:20px; font-size:15px; text-align:center; flex-shrink:0; }
-
-    /* platform card */
-    .pc { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:22px; transition:border-color .2s, transform .2s; }
-    .pc:hover { border-color:var(--border-hover); transform:translateY(-2px); }
-
-    /* divider */
-    .divider { height:1px; background:var(--border); margin:20px 0; }
-
-    /* scrollbar */
-    ::-webkit-scrollbar { width:5px; }
-    ::-webkit-scrollbar-track { background:transparent; }
-    ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.12); border-radius:4px; }
-
-    /* animation entrance */
-    .fade-in { animation: fi .35s ease both; }
-  `;
-  return <style dangerouslySetInnerHTML={{ __html: css }} />;
+/* ── Utility hooks ──────────────────────────────────────────── */
+function useDebounce(value, delay = 300) {
+  const [dv, setDv] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDv(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return dv;
 }
 
-// ── SHARED COMPONENTS ─────────────────────────────────────────────────────────
-
-function Logo({ size = 36, animate = false }) {
-  const s = size;
+/* ── Shared components ──────────────────────────────────────── */
+function StatusBadge({ status }) {
+  const cfg = STATUS_CFG[status] || {label:status,cls:"b-blue"};
+  const dot = status === "active" || status === "graduated" ? "#10B981"
+    : status === "at_risk" ? "#EF4444"
+    : status === "inactive" ? "#94A3B8" : "#F59E0B";
   return (
-    <svg width={s} height={s} viewBox="0 0 48 48" fill="none">
-      {/* outer ring */}
-      <circle cx="24" cy="24" r="21" stroke="#2563EB" strokeWidth="1.5" strokeDasharray="4 3"
-        style={animate ? { animation:"sp 18s linear infinite", transformOrigin:"24px 24px" } : {}} />
-      {/* inner ring */}
-      <circle cx="24" cy="24" r="14" stroke="#06B6D4" strokeWidth="1" strokeDasharray="3 4"
-        style={animate ? { animation:"ro 12s linear infinite", transformOrigin:"24px 24px" } : {}} />
-      {/* center dot */}
-      <circle cx="24" cy="24" r="5" fill="#2563EB" style={animate ? { animation:"pi 3s ease-in-out infinite" } : {}} />
-      {/* orbit dots */}
-      <circle cx="24" cy="3" r="2.5" fill="#06B6D4" style={animate ? { animation:"ri 18s linear infinite", transformOrigin:"24px 24px" } : {}} />
-      <circle cx="45" cy="24" r="2"   fill="#F59E0B" style={animate ? { animation:"sp 12s linear infinite", transformOrigin:"24px 24px" } : {}} />
-    </svg>
+    <span className={`badge ${cfg.cls}`}>
+      <span className="dot" style={{ background: dot }} />
+      {cfg.label}
+    </span>
   );
 }
 
-function StatusBadge({ status }) {
-  const c = STATUS_CFG[status] || { label: status, color:"#64748B", bg:"rgba(100,116,139,.15)" };
+function SectionLabel({ children }) {
+  return <div className="section-label">{children}</div>;
+}
+
+function PBar({ pct, color = "#3B82F6", height = 5 }) {
   return (
-    <span className="badge" style={{ background: c.bg, color: c.color }}>
-      <span style={{ width:6, height:6, borderRadius:"50%", background:c.color, display:"inline-block" }}/>
-      {c.label}
-    </span>
+    <div className="pbar" style={{ height }}>
+      <div
+        className="pbar-fill"
+        style={{
+          width: `${Math.min(pct, 100)}%`,
+          background: `linear-gradient(90deg, ${color}, ${color}bb)`,
+        }}
+      />
+    </div>
   );
 }
 
 function CT({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background:"#162440", border:"1px solid rgba(255,255,255,.1)", borderRadius:10, padding:"10px 14px", fontSize:12 }}>
-      <div style={{ color:"#64748B", marginBottom:6, fontFamily:"'DM Mono',monospace" }}>{label}</div>
+    <div className="ct">
+      <div className="ct-label">{label}</div>
       {payload.map((p, i) => (
-        <div key={i} style={{ display:"flex", alignItems:"center", gap:8, color:"#E2E8F0", marginBottom:2 }}>
-          <span style={{ width:8, height:8, borderRadius:"50%", background:p.color, display:"inline-block" }}/>
-          {p.name}: <strong>{p.value}</strong>
+        <div key={i} style={{ color: p.color, fontFamily: "var(--f-mono)", fontSize: 13 }}>
+          {p.name}: <strong style={{ color: "var(--text)" }}>{p.value}</strong>
         </div>
       ))}
     </div>
   );
 }
 
-function SectionLabel({ children }) {
-  return (
-    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, fontWeight:500, letterSpacing:"1.5px", textTransform:"uppercase", color:"#64748B", marginBottom:14 }}>
-      {children}
-    </div>
-  );
-}
-
 function TopBar({ title, subtitle }) {
   return (
-    <div style={{ padding:"18px 28px", borderBottom:"1px solid rgba(255,255,255,.06)", background:"rgba(10,22,40,.8)", backdropFilter:"blur(8px)", position:"sticky", top:0, zIndex:10, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+    <div className="topbar">
+      <div className="topbar-left">
+        <h1>{title}</h1>
+        {subtitle && <p>{subtitle}</p>}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 11, fontFamily: "var(--f-mono)", color: "var(--text3)" }}>
+          {new Date().toLocaleDateString("fr-MA", { weekday: "long", day: "2-digit", month: "long" })}
+        </span>
+        <button className="btn btn-ghost btn-sm">🔔</button>
+        <button className="btn btn-ghost btn-sm">⚙️</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Logo ───────────────────────────────────────────────────── */
+function Logo() {
+  return (
+    <div style={{ display: "flex", alignItems: "center" }}>
+      <div className="sb-logo-mark">XT</div>
       <div>
-        <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:700, color:"#E2E8F0", lineHeight:1.2 }}>{title}</h1>
-        {subtitle && <p style={{ fontSize:12, color:"#64748B", marginTop:3 }}>{subtitle}</p>}
-      </div>
-      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#64748B", background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.07)", padding:"5px 12px", borderRadius:8 }}>
-          {new Date().toLocaleDateString("fr-MA", { day:"2-digit", month:"short", year:"numeric" })}
-        </div>
+        <div className="sb-logo-txt">X-Track</div>
+        <div className="sb-logo-sub">v2.4 · INDH 2026</div>
       </div>
     </div>
   );
 }
 
-// ── LOGIN ─────────────────────────────────────────────────────────────────────
-
-function LoginPage({ onLogin }) {
-  const [email, setEmail] = useState("");
-  const [pass,  setPass]  = useState("");
-  const [err,   setErr]   = useState("");
-  const [busy,  setBusy]  = useState(false);
-
-  const submit = (e) => {
-    e.preventDefault();
-    setBusy(true);
-    setTimeout(() => {
-      if (email === "admin@xtrack.ma" && pass === "xtrack2026") {
-        onLogin({ name:"Admin INDH", role:"admin" });
-      } else {
-        setErr("Identifiants incorrects. Vérifiez votre e-mail et mot de passe.");
-      }
-      setBusy(false);
-    }, 600);
-  };
-
+/* ── Sidebar ────────────────────────────────────────────────── */
+function Sidebar({ active, setActive, onLogout }) {
   return (
-    <div className="ni">
-      <G />
-      {/* grid background */}
-      <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(37,99,235,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,.04) 1px, transparent 1px)", backgroundSize:"48px 48px", pointerEvents:"none" }}/>
-      {/* glow orbs */}
-      <div style={{ position:"absolute", width:480, height:480, borderRadius:"50%", background:"radial-gradient(circle, rgba(37,99,235,.18) 0%, transparent 70%)", top:"10%", left:"15%", animation:"glow 5s ease-in-out infinite", filter:"blur(40px)", pointerEvents:"none" }}/>
-      <div style={{ position:"absolute", width:360, height:360, borderRadius:"50%", background:"radial-gradient(circle, rgba(6,182,212,.12) 0%, transparent 70%)", bottom:"15%", right:"10%", animation:"glow 7s ease-in-out infinite 2s", filter:"blur(40px)", pointerEvents:"none" }}/>
-
-      <div style={{ position:"relative", zIndex:1, width:"100%", maxWidth:440, padding:"0 20px", animation:"slideUp .4s ease" }}>
-        {/* glass card */}
-        <div style={{ background:"rgba(15,30,54,.85)", border:"1px solid rgba(255,255,255,.1)", borderRadius:24, padding:"44px 40px", backdropFilter:"blur(20px)", boxShadow:"0 32px 80px rgba(0,0,0,.5)" }}>
-          {/* logo + brand */}
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginBottom:36 }}>
-            <Logo size={56} animate />
-            <div style={{ marginTop:14, textAlign:"center" }}>
-              <div style={{ fontFamily:"'Syne',sans-serif", fontSize:26, fontWeight:800, color:"#E2E8F0", letterSpacing:"-0.5px" }}>X-Track</div>
-              <div style={{ fontSize:12, color:"#64748B", marginTop:3, letterSpacing:"1px", textTransform:"uppercase", fontFamily:"'DM Mono',monospace" }}>Suivi Plateformes Jeunesse · INDH</div>
-            </div>
-          </div>
-
-          <form onSubmit={submit} style={{ display:"flex", flexDirection:"column", gap:14 }}>
-            <div>
-              <label style={{ display:"block", fontSize:11, fontWeight:600, color:"#64748B", marginBottom:6, textTransform:"uppercase", letterSpacing:".8px", fontFamily:"'DM Mono',monospace" }}>E-mail</label>
-              <input className="inp" type="email" placeholder="admin@xtrack.ma" value={email} onChange={e => { setEmail(e.target.value); setErr(""); }} required />
-            </div>
-            <div>
-              <label style={{ display:"block", fontSize:11, fontWeight:600, color:"#64748B", marginBottom:6, textTransform:"uppercase", letterSpacing:".8px", fontFamily:"'DM Mono',monospace" }}>Mot de passe</label>
-              <input className="inp" type="password" placeholder="••••••••" value={pass} onChange={e => { setPass(e.target.value); setErr(""); }} required />
-            </div>
-            {err && (
-              <div style={{ background:"rgba(239,68,68,.12)", border:"1px solid rgba(239,68,68,.3)", borderRadius:8, padding:"10px 14px", fontSize:13, color:"#FCA5A5" }}>
-                {err}
-              </div>
-            )}
-            <button type="submit" className="btn bp" disabled={busy} style={{ width:"100%", justifyContent:"center", padding:"13px", fontSize:14, fontWeight:600, marginTop:6 }}>
-              {busy ? "Connexion…" : "Se connecter →"}
-            </button>
-          </form>
-
-          <div style={{ marginTop:24, padding:"12px 14px", background:"rgba(37,99,235,.08)", border:"1px solid rgba(37,99,235,.2)", borderRadius:10, fontSize:12, color:"#64748B", lineHeight:1.6 }}>
-            <span style={{ fontFamily:"'DM Mono',monospace", color:"#2563EB" }}>Demo</span> — admin@xtrack.ma / xtrack2026
-          </div>
-        </div>
-
-        <p style={{ textAlign:"center", marginTop:20, fontSize:11, color:"rgba(100,116,139,.6)", fontFamily:"'DM Mono',monospace" }}>
-          © 2026 INDH · Région Casablanca-Settat
-        </p>
+    <aside className="sb">
+      <div className="sb-logo">
+        <Logo />
       </div>
-    </div>
-  );
-}
-
-// ── SIDEBAR ───────────────────────────────────────────────────────────────────
-
-function Sidebar({ active, setActive }) {
-  const onlineCount = PLATFORMS.filter(p => p.sync === "online").length;
-  return (
-    <aside style={{ width:220, flexShrink:0, background:"#0A1628", borderRight:"1px solid rgba(255,255,255,.06)", display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
-      {/* brand */}
-      <div style={{ padding:"22px 18px 16px", borderBottom:"1px solid rgba(255,255,255,.06)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <Logo size={30} animate />
-          <div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:15, fontWeight:700, color:"#E2E8F0" }}>X-Track</div>
-            <div style={{ fontSize:10, color:"#64748B", fontFamily:"'DM Mono',monospace", letterSpacing:".5px" }}>INDH · Casa-Settat</div>
-          </div>
-        </div>
-      </div>
-
-      {/* nav */}
-      <nav style={{ flex:1, overflowY:"auto", padding:"12px 10px" }}>
+      <div className="sb-nav">
+        <div className="sb-section">Navigation</div>
         {NAV.map(n => (
-          <button key={n.id} className={`lc${active === n.id ? " la" : ""}`} onClick={() => setActive(n.id)}>
-            <span className="li">{n.icon}</span>
+          <div
+            key={n.id}
+            className={`la ${active === n.id ? "act" : ""}`}
+            onClick={() => setActive(n.id)}
+          >
+            <div className="la-ic">{n.icon}</div>
             {n.label}
-          </button>
-        ))}
-      </nav>
-
-      {/* sync status */}
-      <div style={{ padding:"12px 14px", borderTop:"1px solid rgba(255,255,255,.06)", borderBottom:"1px solid rgba(255,255,255,.06)" }}>
-        <div style={{ fontSize:10, fontFamily:"'DM Mono',monospace", color:"#64748B", marginBottom:8, letterSpacing:"1px", textTransform:"uppercase" }}>Sync status</div>
-        {Object.entries(SYNC_CFG).map(([k, v]) => {
-          const count = PLATFORMS.filter(p => p.sync === k).length;
-          return (
-            <div key={k} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-                <div style={{ width:6, height:6, borderRadius:"50%", background:v.dot, animation: k === "syncing" ? "pulse 1.4s ease infinite" : "none" }}/>
-                <span style={{ fontSize:11, color: v.color }}>{v.label}</span>
-              </div>
-              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#64748B" }}>{count}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* user */}
-      <div style={{ padding:"14px 14px 16px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#2563EB,#06B6D4)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:"#fff", flexShrink:0 }}>A</div>
-          <div style={{ flex:1, overflow:"hidden" }}>
-            <div style={{ fontSize:12, fontWeight:600, color:"#E2E8F0", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>Admin INDH</div>
-            <div style={{ fontSize:10, color:"#64748B", fontFamily:"'DM Mono',monospace" }}>Coordinateur régional</div>
           </div>
+        ))}
+      </div>
+      <div className="sb-footer">
+        <div className="sb-user" onClick={onLogout} title="Déconnexion">
+          <div className="sb-avatar">A</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="sb-uname">Admin INDH</div>
+            <div className="sb-urole">Administrateur national</div>
+          </div>
+          <span style={{ fontSize: 12, color: "var(--text3)" }}>↗</span>
         </div>
       </div>
     </aside>
   );
 }
 
-// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+/* ── Login Page ─────────────────────────────────────────────── */
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
 
-function DashboardPage() {
-  const accentColors = ["#2563EB","#06B6D4","#10B981","#F59E0B","#A78BFA","#F59E0B"];
+  const handleSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 600));
+    if (email === "admin@xtrack.ma" && pass === "xtrack2026") {
+      onLogin({ name: "Admin INDH", role: "admin" });
+    } else {
+      setErr("Identifiants incorrects. Vérifiez votre e-mail et mot de passe.");
+    }
+    setLoading(false);
+  }, [email, pass, onLogin]);
+
   return (
-    <div style={{ flex:1, overflowY:"auto", padding:"0 0 40px" }}>
-      <TopBar title="Tableau de bord" subtitle="Région Casablanca-Settat · 8 plateformes jeunesse INDH" />
-      <div style={{ padding:"24px 28px" }}>
+    <div className="login-bg">
+      <div className="login-orb1" />
+      <div className="login-orb2" />
 
-        {/* KPI grid */}
+      {/* Animated grid lines */}
+      <div style={{ position: "absolute", inset: 0, opacity: .03, pointerEvents: "none",
+        backgroundImage: "linear-gradient(rgba(59,130,246,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,.6) 1px,transparent 1px)",
+        backgroundSize: "60px 60px" }} />
+
+      <div className="login-card">
+        <div className="login-logo">XT</div>
+        <h1 className="login-h1">X-Track</h1>
+        <p className="login-sub">Plateforme de suivi INDH · Espace sécurisé</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Adresse e-mail</label>
+            <input
+              className="form-inp"
+              type="email"
+              placeholder="admin@xtrack.ma"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setErr(""); }}
+              autoComplete="username"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Mot de passe</label>
+            <input
+              className="form-inp"
+              type="password"
+              placeholder="••••••••••••"
+              value={pass}
+              onChange={e => { setPass(e.target.value); setErr(""); }}
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          {err && <div className="login-err">⚠ {err}</div>}
+          <button className="login-btn" type="submit" disabled={loading || !email || !pass}>
+            {loading ? "Vérification…" : "Accéder au tableau de bord →"}
+          </button>
+        </form>
+
+        <div className="login-footer">
+          <strong>INDH · Initiative Nationale pour le Développement Humain</strong>
+          <br />Système de suivi des plateformes jeunesse — Maroc 2026
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Dashboard Page ─────────────────────────────────────────── */
+function DashboardPage() {
+  return (
+    <div className="main">
+      <TopBar title="Tableau de bord" subtitle="Vue d'ensemble des plateformes INDH · Mars 2026" />
+      <div className="content">
         <SectionLabel>Indicateurs clés</SectionLabel>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:14, marginBottom:28 }}>
+        <div className="kpi-grid">
           {KPI.map((k, i) => (
-            <div key={k.label} className="kc fade-in" style={{ "--accent-strip": accentColors[i], animationDelay:`${i * 0.05}s` }}>
-              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:14 }}>
-                <div style={{ width:40, height:40, borderRadius:10, background:`${accentColors[i]}20`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
-                  {k.icon}
-                </div>
-                <span className="badge" style={{ background:`${accentColors[i]}18`, color:accentColors[i], fontSize:10 }}>
+            <div key={i} className="kc" style={{ "--kc-color": k.color }}>
+              <div className="kc-glow" style={{ background: k.color }} />
+              <div className="kc-header">
+                <div className="kc-icon">{k.icon}</div>
+                <span
+                  className="kc-badge"
+                  style={{
+                    background: `${k.color}22`,
+                    color: k.color,
+                    border: `1px solid ${k.color}44`,
+                  }}
+                >
                   {k.delta}
                 </span>
               </div>
-              <div style={{ fontFamily:"'Syne',sans-serif", fontSize:28, fontWeight:700, color:"#E2E8F0", lineHeight:1 }}>{k.value}</div>
-              <div style={{ fontSize:12, color:"#64748B", marginTop:5 }}>{k.label}</div>
+              <div className="kc-val">{k.val}</div>
+              <div className="kc-label">{k.label}</div>
+              <div className="kc-delta" style={{ color: k.positive ? "#10B981" : "#EF4444" }}>
+                <span>{k.positive ? "↑" : "↓"}</span>
+                <span style={{ color: "var(--text3)" }}>{k.unit}</span>
+              </div>
+              <div className="kc-bar">
+                <div
+                  className="kc-bar-fill"
+                  style={{
+                    width: `${k.pct}%`,
+                    background: `linear-gradient(90deg, ${k.color}, ${k.color}88)`,
+                  }}
+                />
+              </div>
             </div>
           ))}
         </div>
 
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 280px", gap:14, marginBottom:28 }}>
-          {/* trend chart */}
-          <div className="kc" style={{ "--accent-strip":"#2563EB", paddingBottom:18 }}>
-            <div style={{ marginBottom:16 }}>
-              <SectionLabel>Tendance — inscriptions & certifications</SectionLabel>
-              <div style={{ display:"flex", gap:20 }}>
-                {[{c:"#2563EB",l:"Inscriptions"},{c:"#10B981",l:"Complétions"}].map(x => (
-                  <div key={x.l} style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, color:"#64748B" }}>
-                    <div style={{ width:24, height:3, borderRadius:2, background:x.c }}/>
-                    {x.l}
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="charts-row">
+          {/* Trend chart */}
+          <div className="chart-card">
+            <h3>Évolution mensuelle</h3>
+            <p>Bénéficiaires, sessions et satisfaction — 6 derniers mois</p>
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={TREND_DATA} margin={{ top:0, right:10, left:-20, bottom:0 }}>
+              <AreaChart data={TREND_DATA}>
                 <defs>
-                  <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#2563EB" stopOpacity={0.35}/>
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                  <linearGradient id="gBlue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="gg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#10B981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                  <linearGradient id="gCyan" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#06B6D4" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.05)" />
-                <XAxis dataKey="month" tick={{ fill:"#64748B", fontSize:11, fontFamily:"'DM Mono'" }} axisLine={false} tickLine={false}/>
-                <YAxis tick={{ fill:"#64748B", fontSize:11, fontFamily:"'DM Mono'" }} axisLine={false} tickLine={false}/>
-                <Tooltip content={<CT/>} />
-                <Area type="monotone" dataKey="registrations" name="Inscriptions" stroke="#2563EB" strokeWidth={2} fill="url(#gr)" dot={false}/>
-                <Area type="monotone" dataKey="completions"   name="Complétions"  stroke="#10B981" strokeWidth={2} fill="url(#gg)" dot={false}/>
+                <CartesianGrid stroke="rgba(255,255,255,.04)" strokeDasharray="3 3" />
+                <XAxis dataKey="month" tick={{ fill: "#4B6080", fontSize: 10, fontFamily: "DM Mono" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#4B6080", fontSize: 10, fontFamily: "DM Mono" }} axisLine={false} tickLine={false} width={36} />
+                <Tooltip content={<CT />} />
+                <Area type="monotone" dataKey="beneficiaires" name="Bénéficiaires" stroke="#3B82F6" strokeWidth={2} fill="url(#gBlue)" />
+                <Area type="monotone" dataKey="sessions" name="Sessions" stroke="#06B6D4" strokeWidth={2} fill="url(#gCyan)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* donut */}
-          <div className="kc" style={{ "--accent-strip":"#06B6D4" }}>
-            <SectionLabel>Genre</SectionLabel>
-            <div style={{ display:"flex", justifyContent:"center" }}>
-              <PieChart width={180} height={160}>
-                <Pie data={GENDER_DATA} cx={90} cy={78} innerRadius={52} outerRadius={74} paddingAngle={3} dataKey="value" strokeWidth={0}>
-                  {GENDER_DATA.map((e, i) => <Cell key={i} fill={e.fill}/>)}
+          {/* Pie chart */}
+          <div className="chart-card">
+            <h3>Répartition programmes</h3>
+            <p>Distribution des bénéficiaires</p>
+            <ResponsiveContainer width="100%" height={140}>
+              <PieChart>
+                <Pie data={PROG_DATA} cx="50%" cy="50%" innerRadius={40} outerRadius={60}
+                  dataKey="val" paddingAngle={3} stroke="none">
+                  {PROG_DATA.map((_, i) => (
+                    <Cell key={i} fill={["#3B82F6","#A78BFA","#10B981"][i]} />
+                  ))}
                 </Pie>
-                <Tooltip formatter={(v) => `${v}%`}/>
+                <Tooltip formatter={(v) => `${v}%`} contentStyle={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10 }} />
               </PieChart>
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:4 }}>
-              {GENDER_DATA.map(g => (
-                <div key={g.name}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-                    <span style={{ fontSize:12, color:"#64748B", display:"flex", alignItems:"center", gap:7 }}>
-                      <span style={{ width:8, height:8, borderRadius:"50%", background:g.fill, display:"inline-block" }}/>
-                      {g.name}
-                    </span>
-                    <span style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:"#E2E8F0", fontWeight:500 }}>{g.value}%</span>
-                  </div>
-                  <div className="pb"><div className="pf" style={{ width:`${g.value}%`, background:g.fill }}/></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-          {/* programs chart */}
-          <div className="kc" style={{ "--accent-strip":"#F59E0B" }}>
-            <SectionLabel>Répartition par programme</SectionLabel>
-            <ResponsiveContainer width="100%" height={170}>
-              <BarChart data={PROG_DATA} layout="vertical" margin={{ left:20, right:20, top:0, bottom:0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.05)" horizontal={false}/>
-                <XAxis type="number" tick={{ fill:"#64748B", fontSize:10, fontFamily:"'DM Mono'" }} axisLine={false} tickLine={false}/>
-                <YAxis type="category" dataKey="name" tick={{ fill:"#64748B", fontSize:11 }} axisLine={false} tickLine={false} width={110}/>
-                <Tooltip content={<CT/>}/>
-                <Bar dataKey="count" name="Bénéficiaires" radius={[0,6,6,0]}>
-                  {PROG_DATA.map((e, i) => <Cell key={i} fill={e.fill}/>)}
-                </Bar>
-              </BarChart>
             </ResponsiveContainer>
-          </div>
-
-          {/* activity */}
-          <div className="kc" style={{ "--accent-strip":"#A78BFA" }}>
-            <SectionLabel>Activité récente</SectionLabel>
-            <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
-              {ACTIVITY.map((a, i) => (
-                <div key={i} style={{ display:"flex", gap:12, padding:"11px 0", borderBottom: i < ACTIVITY.length - 1 ? "1px solid rgba(255,255,255,.05)" : "none" }}>
-                  <div style={{ width:32, height:32, borderRadius:8, background:`${a.color}18`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>
-                    {a.icon}
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:12.5, color:"#E2E8F0", lineHeight:1.45 }}>{a.text}</div>
-                    <div style={{ fontSize:11, color:"#64748B", marginTop:3, fontFamily:"'DM Mono',monospace" }}>{a.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── PLATFORMS ─────────────────────────────────────────────────────────────────
-
-function PlatformsPage() {
-  return (
-    <div style={{ flex:1, overflowY:"auto", padding:"0 0 40px" }}>
-      <TopBar title="Plateformes" subtitle={`${PLATFORMS.length} plateformes · Région Casablanca-Settat`} />
-      <div style={{ padding:"24px 28px" }}>
-        <SectionLabel>Toutes les plateformes</SectionLabel>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:14 }}>
-          {PLATFORMS.map(p => {
-            const sc = SYNC_CFG[p.sync];
-            const activePct   = Math.round((p.active / p.total) * 100);
-            const completePct = Math.round((p.completed / p.total) * 100);
-            return (
-              <div key={p.id} className="pc">
-                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:14 }}>
-                  <div>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontSize:15, fontWeight:700, color:"#E2E8F0" }}>{p.name}</div>
-                    <div style={{ fontSize:11, color:"#64748B", marginTop:3 }}>{p.arrond}</div>
-                  </div>
-                  <div style={{ display:"flex", alignItems:"center", gap:6, padding:"4px 10px", borderRadius:20, background: p.sync === "online" ? "rgba(16,185,129,.12)" : p.sync === "syncing" ? "rgba(245,158,11,.12)" : "rgba(239,68,68,.12)" }}>
-                    <div style={{ width:6, height:6, borderRadius:"50%", background:sc.dot, animation: p.sync === "syncing" ? "pulse 1.4s ease infinite" : "none" }}/>
-                    <span style={{ fontSize:10.5, fontFamily:"'DM Mono',monospace", color:sc.color }}>{sc.label}</span>
-                  </div>
-                </div>
-
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:10, marginBottom:16 }}>
-                  {[
-                    { label:"Total", value:p.total, color:"#E2E8F0" },
-                    { label:"Actifs", value:p.active, color:"#2563EB" },
-                    { label:"Certifiés", value:p.completed, color:"#10B981" },
-                  ].map(s => (
-                    <div key={s.label} style={{ background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.06)", borderRadius:8, padding:"10px", textAlign:"center" }}>
-                      <div style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:700, color:s.color }}>{s.value}</div>
-                      <div style={{ fontSize:10, color:"#64748B", marginTop:2 }}>{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ marginBottom:10 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#64748B", marginBottom:5 }}>
-                    <span>Actifs</span><span style={{ fontFamily:"'DM Mono',monospace" }}>{activePct}%</span>
-                  </div>
-                  <div className="pb"><div className="pf" style={{ width:`${activePct}%`, background:"#2563EB" }}/></div>
-                </div>
-                <div>
-                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#64748B", marginBottom:5 }}>
-                    <span>Complétions</span><span style={{ fontFamily:"'DM Mono',monospace" }}>{completePct}%</span>
-                  </div>
-                  <div className="pb"><div className="pf" style={{ width:`${completePct}%`, background:"#10B981" }}/></div>
-                </div>
-
-                <div className="divider"/>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <div style={{ fontSize:12, color:"#64748B" }}>
-                    <span style={{ color:"#E2E8F0" }}>{p.coordinator}</span>
-                  </div>
-                  <span className="badge" style={{ background:"rgba(255,255,255,.05)", color:"#64748B", fontSize:10 }}>
-                    {p.drive}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── BENEFICIARIES ─────────────────────────────────────────────────────────────
-
-function JourneyModal({ b, onClose }) {
-  return (
-    <div className="mbd" onClick={onClose}>
-      <div className="md" onClick={e => e.stopPropagation()}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24 }}>
-          <div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:700, color:"#E2E8F0" }}>
-              {b.firstName} {b.lastName}
-            </div>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#64748B", marginTop:4 }}>{b.id}</div>
-          </div>
-          <StatusBadge status={b.status}/>
-        </div>
-
-        {/* info grid */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20 }}>
-          {[
-            { l:"Plateforme", v: PLATFORMS.find(p => p.id === b.platform)?.name || b.platform },
-            { l:"Programme",  v: b.program  },
-            { l:"Ville",      v: b.city     },
-            { l:"Âge",        v: `${b.age} ans` },
-            { l:"Genre",      v: b.gender === "F" ? "Féminin" : "Masculin" },
-            { l:"Niveau",     v: b.education },
-          ].map(x => (
-            <div key={x.l} style={{ background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.06)", borderRadius:8, padding:"10px 12px" }}>
-              <div style={{ fontSize:10, color:"#64748B", marginBottom:3 }}>{x.l}</div>
-              <div style={{ fontSize:13, color:"#E2E8F0", fontWeight:500 }}>{x.v}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* journey */}
-        <div style={{ marginBottom:20 }}>
-          <SectionLabel>Parcours INDH</SectionLabel>
-          <div style={{ display:"flex", gap:0 }}>
-            {JOURNEY_STEPS.map((s, i) => {
-              const done = i < b.step;
-              const curr = i === b.step - 1;
-              return (
-                <div key={s} style={{ flex:1, textAlign:"center" }}>
-                  <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
-                    {i > 0 && <div style={{ flex:1, height:2, background: done ? "#2563EB" : "rgba(255,255,255,.08)" }}/>}
-                    <div style={{ width:28, height:28, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", background: done || curr ? "#2563EB" : "rgba(255,255,255,.06)", border: curr ? "2px solid #06B6D4" : "none", fontSize:11, color:"#fff", fontWeight:700, zIndex:1 }}>
-                      {done ? "✓" : i + 1}
-                    </div>
-                    {i < JOURNEY_STEPS.length - 1 && <div style={{ flex:1, height:2, background: i < b.step - 1 ? "#2563EB" : "rgba(255,255,255,.08)" }}/>}
-                  </div>
-                  <div style={{ fontSize:9, color: done || curr ? "#E2E8F0" : "#64748B", marginTop:5, fontFamily:"'DM Mono',monospace" }}>{s}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* contact */}
-        <div style={{ display:"flex", gap:10, marginBottom:20 }}>
-          {[{ l:"📧", v:b.email }, { l:"📱", v:b.phone }].map(x => (
-            <div key={x.l} style={{ flex:1, background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.06)", borderRadius:8, padding:"10px 12px", display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:14 }}>{x.l}</span>
-              <span style={{ fontSize:12, color:"#64748B" }}>{x.v}</span>
-            </div>
-          ))}
-        </div>
-
-        <button className="btn bp" onClick={onClose} style={{ width:"100%", justifyContent:"center" }}>Fermer</button>
-      </div>
-    </div>
-  );
-}
-
-function BeneficiariesPage() {
-  const [search,    setSearch]    = useState("");
-  const [statusF,   setStatusF]   = useState("all");
-  const [platformF, setPlatformF] = useState("all");
-  const [detail,    setDetail]    = useState(null);
-
-  const filtered = BENEFICIARIES.filter(b => {
-    const q = search.toLowerCase();
-    const matchQ = !q || `${b.firstName} ${b.lastName} ${b.id}`.toLowerCase().includes(q);
-    const matchS = statusF === "all"   || b.status  === statusF;
-    const matchP = platformF === "all" || b.platform === platformF;
-    return matchQ && matchS && matchP;
-  });
-
-  const selectStyle = { padding:"8px 12px", background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.07)", borderRadius:8, color:"#E2E8F0", fontSize:12, fontFamily:"'DM Sans',sans-serif", outline:"none", cursor:"pointer" };
-
-  return (
-    <div style={{ flex:1, overflowY:"auto", padding:"0 0 40px" }}>
-      {detail && <JourneyModal b={detail} onClose={() => setDetail(null)}/>}
-      <TopBar title="Bénéficiaires" subtitle={`${BENEFICIARIES.length} bénéficiaires enregistrés`}/>
-      <div style={{ padding:"24px 28px" }}>
-        <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
-          <input className="inp" placeholder="Rechercher par nom ou ID…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200 }}/>
-          <select style={selectStyle} value={statusF} onChange={e => setStatusF(e.target.value)}>
-            <option value="all">Tous statuts</option>
-            {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
-          <select style={selectStyle} value={platformF} onChange={e => setPlatformF(e.target.value)}>
-            <option value="all">Toutes plateformes</option>
-            {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </div>
-
-        <div style={{ background:"var(--bg2, #0F1E36)", border:"1px solid rgba(255,255,255,.07)", borderRadius:14, overflow:"hidden" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead>
-              <tr style={{ background:"rgba(255,255,255,.03)" }}>
-                {["ID","Bénéficiaire","Plateforme","Programme","Statut","Parcours",""].map((h, i) => (
-                  <th key={i} style={{ padding:"11px 14px", textAlign:"left", fontSize:10, fontFamily:"'DM Mono',monospace", letterSpacing:"1px", textTransform:"uppercase", color:"#64748B", fontWeight:500, whiteSpace:"nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((b, i) => (
-                <tr key={b.id} className="tr" style={{ borderTop:"1px solid rgba(255,255,255,.05)", cursor:"pointer" }} onClick={() => setDetail(b)}>
-                  <td style={{ padding:"11px 14px", fontFamily:"'DM Mono',monospace", fontSize:11, color:"#64748B" }}>{b.id}</td>
-                  <td style={{ padding:"11px 14px" }}>
-                    <div style={{ fontWeight:500, color:"#E2E8F0", fontSize:13 }}>{b.firstName} {b.lastName}</div>
-                    <div style={{ fontSize:11, color:"#64748B", marginTop:2 }}>{b.age} ans · {b.gender === "F" ? "F" : "M"}</div>
-                  </td>
-                  <td style={{ padding:"11px 14px", fontSize:12, color:"#64748B" }}>
-                    {PLATFORMS.find(p => p.id === b.platform)?.name || b.platform}
-                  </td>
-                  <td style={{ padding:"11px 14px", fontSize:12, color:"#64748B" }}>{b.program}</td>
-                  <td style={{ padding:"11px 14px" }}><StatusBadge status={b.status}/></td>
-                  <td style={{ padding:"11px 14px", minWidth:120 }}>
-                    <div style={{ display:"flex", gap:3, alignItems:"center" }}>
-                      {JOURNEY_STEPS.map((_, j) => (
-                        <div key={j} style={{ width:16, height:4, borderRadius:2, background: j < b.step ? "#2563EB" : "rgba(255,255,255,.08)", transition:"background .3s" }}/>
-                      ))}
-                      <span style={{ fontSize:10, color:"#64748B", fontFamily:"'DM Mono',monospace", marginLeft:4 }}>{b.step}/5</span>
-                    </div>
-                  </td>
-                  <td style={{ padding:"11px 14px" }}>
-                    <button className="btn bg bsm" onClick={e => { e.stopPropagation(); setDetail(b); }}>Détails</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filtered.length === 0 && (
-            <div style={{ padding:"40px", textAlign:"center", color:"#64748B", fontSize:14 }}>Aucun bénéficiaire trouvé</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── PROGRAMS ──────────────────────────────────────────────────────────────────
-
-function ProgramsPage() {
-  return (
-    <div style={{ flex:1, overflowY:"auto", padding:"0 0 40px" }}>
-      <TopBar title="Programmes" subtitle="3 programmes actifs · INDH Casablanca-Settat"/>
-      <div style={{ padding:"24px 28px" }}>
-        <SectionLabel>Programmes INDH</SectionLabel>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:14, marginBottom:28 }}>
-          {PROGS.map(p => (
-            <div key={p.name} style={{ background:"#0F1E36", border:"1px solid rgba(255,255,255,.07)", borderRadius:16, overflow:"hidden" }}>
-              <div style={{ height:5, background:p.color }}/>
-              <div style={{ padding:"20px 20px 22px" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-                  <div style={{ width:34, height:34, borderRadius:8, background:`${p.color}20`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Syne',sans-serif", fontSize:13, fontWeight:800, color:p.color }}>
-                    {p.code}
-                  </div>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontSize:14, fontWeight:700, color:"#E2E8F0" }}>{p.name}</div>
-                </div>
-                <p style={{ fontSize:12, color:"#64748B", lineHeight:1.6, marginBottom:16 }}>{p.desc}</p>
-
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
-                  {[
-                    { l:"Inscrits",   v:p.enrolled,  c:"#E2E8F0" },
-                    { l:"Actifs",     v:p.active,    c:p.color   },
-                    { l:"Certifiés",  v:p.completed, c:"#10B981" },
-                    { l:"Référés",    v:p.referrals, c:"#A78BFA" },
-                  ].map(s => (
-                    <div key={s.l} style={{ background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.05)", borderRadius:8, padding:"10px", textAlign:"center" }}>
-                      <div style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:700, color:s.c }}>{s.v}</div>
-                      <div style={{ fontSize:10, color:"#64748B", marginTop:1 }}>{s.l}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#64748B", marginBottom:5 }}>
-                    <span>Taux de complétion</span>
-                    <span style={{ fontFamily:"'DM Mono',monospace" }}>{Math.round((p.completed / p.enrolled) * 100)}%</span>
-                  </div>
-                  <div className="pb"><div className="pf" style={{ width:`${Math.round((p.completed / p.enrolled) * 100)}%`, background:p.color }}/></div>
-                </div>
-
-                <div className="divider"/>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                  {[
-                    { l:"⏱", v:p.duration },
-                    { l:"🏅", v:p.certif.slice(0, 20) },
-                  ].map(x => (
-                    <span key={x.l} className="badge" style={{ background:"rgba(255,255,255,.05)", color:"#64748B", fontSize:10 }}>{x.l} {x.v}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* outcomes */}
-        <SectionLabel>Résultats d&rsquo;insertion</SectionLabel>
-        <div className="kc" style={{ "--accent-strip":"#10B981" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:14 }}>
-            {OUTCOME_DATA.map(o => (
-              <div key={o.label} style={{ textAlign:"center" }}>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontSize:32, fontWeight:800, color:"#E2E8F0", lineHeight:1 }}>{o.pct}%</div>
-                <div style={{ fontSize:12, color:"#64748B", marginTop:8, lineHeight:1.4 }}>{o.label}</div>
-                <div style={{ marginTop:10 }}>
-                  <div className="pb"><div className="pf" style={{ width:`${o.pct}%`, background:"#10B981" }}/></div>
-                </div>
+            {PROG_DATA.map((p, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: ["#3B82F6","#A78BFA","#10B981"][i], flexShrink: 0 }} />
+                <span style={{ fontSize: 11.5, color: "var(--text2)", flex: 1 }}>{p.name}</span>
+                <span style={{ fontSize: 11.5, fontFamily: "var(--f-mono)", color: "var(--text)" }}>{p.val}%</span>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Activity */}
+        <SectionLabel>Activité récente</SectionLabel>
+        <div className="card">
+          {ACTIVITY.map((a, i) => (
+            <div key={i} className="activity-item">
+              <div className="act-dot" style={{ background: a.color }} />
+              <div className="act-text">{a.text}</div>
+              <div className="act-time">{a.time}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── MESSAGES ──────────────────────────────────────────────────────────────────
+/* ── Platforms Page ─────────────────────────────────────────── */
+function PlatformsPage() {
+  const [search, setSearch] = useState("");
+  const [statusFlt, setStatusFlt] = useState("");
+  const dSearch = useDebounce(search);
 
-function MessagesPage() {
-  const [tab, setTab]     = useState("compose");
-  const [to,  setTo]      = useState("");
-  const [sub, setSub]     = useState("");
-  const [body, setBody]   = useState("");
-  const [sent, setSent]   = useState(false);
+  const filtered = useMemo(() => {
+    const q = dSearch.toLowerCase().trim();
+    return PLATFORMS.filter(p => {
+      const matchSearch = !q || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)
+        || p.org.toLowerCase().includes(q) || p.region.toLowerCase().includes(q);
+      const matchStatus = !statusFlt || p.status === statusFlt;
+      return matchSearch && matchStatus;
+    });
+  }, [dSearch, statusFlt]);
 
-  const templates = [
-    { t:"Convocation atelier",      b:"Vous êtes convoqué(e) à l'atelier du programme le [DATE] à [LIEU]. Merci de confirmer votre présence."    },
-    { t:"Rappel mensuel",           b:"Rappel : le rapport mensuel d'activité est attendu avant le [DATE]. Merci de le déposer sur le drive partagé." },
-    { t:"Félicitations certification", b:"Toutes nos félicitations pour l'obtention de votre certification INDH ! Votre document est disponible sur le portail." },
-  ];
-
-  const send = (e) => {
-    e.preventDefault();
-    setSent(true);
-    setTimeout(() => { setSent(false); setTo(""); setSub(""); setBody(""); }, 2000);
-  };
-
-  const tabStyle = (id) => ({
-    padding:"8px 18px", borderRadius:8, border:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif",
-    fontSize:13, fontWeight:500, transition:"all .15s",
-    background: tab === id ? "#2563EB" : "rgba(255,255,255,.05)",
-    color: tab === id ? "#fff" : "#64748B",
-  });
-
-  const selectStyle = { width:"100%", padding:"12px 16px", background:"rgba(255,255,255,.05)", border:"1.5px solid rgba(255,255,255,.07)", borderRadius:10, color:"#E2E8F0", fontSize:14, fontFamily:"'DM Sans',sans-serif", outline:"none" };
+  const statuses = useMemo(() => [...new Set(PLATFORMS.map(p => p.status))], []);
 
   return (
-    <div style={{ flex:1, overflowY:"auto", padding:"0 0 40px" }}>
-      <TopBar title="Messages" subtitle="Communication avec les coordinateurs et bénéficiaires"/>
-      <div style={{ padding:"24px 28px" }}>
-        <div style={{ display:"flex", gap:6, marginBottom:20 }}>
-          {[{id:"compose",l:"Composer"},{id:"sent",l:"Envoyés"},{id:"templates",l:"Modèles"}].map(x => (
-            <button key={x.id} style={tabStyle(x.id)} onClick={() => setTab(x.id)}>{x.l}</button>
-          ))}
+    <div className="main">
+      <TopBar title="Plateformes" subtitle={`${PLATFORMS.length} plateformes · ${PLATFORMS.filter(p=>p.status==="active").length} actives`} />
+      <div className="content">
+        <div className="search-row">
+          <div className="search-wrap">
+            <span className="search-ic">🔍</span>
+            <input
+              className="search-inp"
+              placeholder="Rechercher par nom, ID, organisation, région…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {statuses.map(s => (
+              <button key={s} className={`flt ${statusFlt === s ? "on" : ""}`}
+                onClick={() => setStatusFlt(statusFlt === s ? "" : s)}>
+                {STATUS_CFG[s]?.label || s}
+                {statusFlt === s && <span className="flt-cnt">{filtered.length}</span>}
+              </button>
+            ))}
+          </div>
+          <div className="result-info">{filtered.length} résultat{filtered.length !== 1 ? "s" : ""}</div>
         </div>
 
-        {tab === "compose" && (
-          <div className="kc" style={{ "--accent-strip":"#2563EB", maxWidth:640 }}>
-            {sent ? (
-              <div style={{ textAlign:"center", padding:"40px 0" }}>
-                <div style={{ fontSize:48, marginBottom:12 }}>✅</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:700, color:"#10B981" }}>Message envoyé !</div>
-              </div>
-            ) : (
-              <form onSubmit={send} style={{ display:"flex", flexDirection:"column", gap:14 }}>
-                <div>
-                  <label style={{ display:"block", fontSize:10, color:"#64748B", marginBottom:6, fontFamily:"'DM Mono',monospace", letterSpacing:"1px", textTransform:"uppercase" }}>Destinataire</label>
-                  <select style={selectStyle} value={to} onChange={e => setTo(e.target.value)} required>
-                    <option value="">Sélectionner…</option>
-                    <option value="all">Tous les coordinateurs</option>
-                    {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.name} — {p.coordinator}</option>)}
-                  </select>
+        {filtered.length === 0 ? (
+          <div className="empty">
+            <div className="empty-icon">🏛️</div>
+            <div className="empty-text">Aucune plateforme ne correspond à votre recherche</div>
+          </div>
+        ) : (
+          <div className="plt-grid" style={{ marginTop: 14 }}>
+            {filtered.map(p => {
+              const syncCfg = SYNC_CFG[p.syncStatus];
+              return (
+                <div key={p.id} className="plt-card" style={{ "--plt-color": p.color }}>
+                  <div className="plt-header">
+                    <div className="plt-icon" style={{ borderColor: `${p.color}33` }}>{p.icon}</div>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <StatusBadge status={p.status} />
+                      <span className={`badge ${syncCfg.cls}`} style={{ fontSize: 10 }}>{syncCfg.icon}</span>
+                    </div>
+                  </div>
+                  <div className="plt-name">{p.name}</div>
+                  <div className="plt-org">{p.org}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4, fontFamily: "var(--f-mono)" }}>
+                    {p.id} · {p.region}
+                  </div>
+
+                  <div className="plt-stats">
+                    <div className="plt-stat">
+                      <div className="plt-stat-val" style={{ color: p.color }}>{p.beneficiaries}</div>
+                      <div className="plt-stat-label">Bénéf.</div>
+                    </div>
+                    <div className="plt-stat">
+                      <div className="plt-stat-val">{p.sessions}</div>
+                      <div className="plt-stat-label">Sessions</div>
+                    </div>
+                    <div className="plt-stat">
+                      <div className="plt-stat-val">{p.satisfaction}%</div>
+                      <div className="plt-stat-label">Satisf.</div>
+                    </div>
+                  </div>
+
+                  <div className="plt-bar-wrap">
+                    <div className="plt-bar-label">
+                      <span>Capacité</span>
+                      <span>{Math.round((p.beneficiaries / p.capacity) * 100)}%</span>
+                    </div>
+                    <PBar pct={(p.beneficiaries / p.capacity) * 100} color={p.color} />
+                  </div>
+
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 10, color: "var(--text3)", fontFamily: "var(--f-mono)" }}>
+                      Sync: {p.sync}
+                    </span>
+                    <button className="btn btn-ghost btn-sm">Détails →</button>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display:"block", fontSize:10, color:"#64748B", marginBottom:6, fontFamily:"'DM Mono',monospace", letterSpacing:"1px", textTransform:"uppercase" }}>Objet</label>
-                  <input className="inp" placeholder="Objet du message" value={sub} onChange={e => setSub(e.target.value)} required/>
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:10, color:"#64748B", marginBottom:6, fontFamily:"'DM Mono',monospace", letterSpacing:"1px", textTransform:"uppercase" }}>Message</label>
-                  <textarea className="inp" placeholder="Rédigez votre message…" rows={6} value={body} onChange={e => setBody(e.target.value)} style={{ resize:"vertical" }} required/>
-                </div>
-                <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-                  <button type="button" className="btn bg" onClick={() => { setTo(""); setSub(""); setBody(""); }}>Effacer</button>
-                  <button type="submit" className="btn bp">Envoyer →</button>
-                </div>
-              </form>
-            )}
+              );
+            })}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
 
-        {tab === "sent" && (
-          <div style={{ background:"#0F1E36", border:"1px solid rgba(255,255,255,.07)", borderRadius:14, overflow:"hidden" }}>
-            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+/* ── Journey Modal ──────────────────────────────────────────── */
+function JourneyModal({ beneficiary, onClose }) {
+  if (!beneficiary) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2>{beneficiary.name}</h2>
+            <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 3 }}>
+              {beneficiary.id} · {beneficiary.platform} · Programme {beneficiary.program}
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
+            <div className="prog-stat">
+              <div className="prog-stat-val" style={{ color: "#3B82F6" }}>{beneficiary.score}</div>
+              <div className="prog-stat-label">Score</div>
+            </div>
+            <div className="prog-stat">
+              <div className="prog-stat-val">{beneficiary.step}/5</div>
+              <div className="prog-stat-label">Étape</div>
+            </div>
+            <div className="prog-stat">
+              <StatusBadge status={beneficiary.status} />
+              <div className="prog-stat-label" style={{ marginTop: 4 }}>Statut</div>
+            </div>
+          </div>
+
+          <PBar pct={(beneficiary.step / 5) * 100} color="#3B82F6" height={6} />
+          <div style={{ marginTop: 4, fontSize: 10, color: "var(--text3)", fontFamily: "var(--f-mono)", marginBottom: 18 }}>
+            Progression : {Math.round((beneficiary.step / 5) * 100)}%
+          </div>
+
+          <SectionLabel>Parcours de formation</SectionLabel>
+          <div className="journey">
+            {JOURNEY_STEPS.map((step, i) => {
+              const isDone = i < beneficiary.step;
+              const isActive = i === beneficiary.step - 1;
+              return (
+                <div key={i} className="j-step">
+                  <div className="j-line" />
+                  <div className={`j-num ${isDone ? "j-done" : isActive ? "j-active" : "j-todo"}`}>
+                    {isDone ? "✓" : i + 1}
+                  </div>
+                  <div className="j-content">
+                    <div className="j-title" style={{ color: isDone ? "var(--green)" : isActive ? "var(--blue)" : "var(--text2)" }}>
+                      {step.label}
+                    </div>
+                    <div className="j-desc">{step.desc}</div>
+                    <div className="j-date">{step.date}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: 18, display: "flex", gap: 8 }}>
+            <button className="btn btn-primary" style={{ flex: 1 }}>Contacter</button>
+            <button className="btn btn-ghost">Rapport complet</button>
+            <button className="btn btn-danger btn-sm">Signaler</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Beneficiaries Page ─────────────────────────────────────── */
+function BeneficiariesPage() {
+  const [search, setSearch] = useState("");
+  const [statusFlt, setStatusFlt] = useState("");
+  const [programFlt, setProgramFlt] = useState("");
+  const [platFlt, setPlatFlt] = useState("");
+  const [selected, setSelected] = useState(null);
+  const inputRef = useRef(null);
+
+  const dSearch = useDebounce(search, 250);
+
+  const statuses = useMemo(() => [...new Set(BENEFICIARIES.map(b => b.status))], []);
+  const programs = useMemo(() => [...new Set(BENEFICIARIES.map(b => b.program))], []);
+  const platforms = useMemo(() => [...new Set(BENEFICIARIES.map(b => b.platform))], []);
+
+  const filtered = useMemo(() => {
+    const q = dSearch.toLowerCase().trim();
+    return BENEFICIARIES.filter(b => {
+      const matchSearch = !q
+        || b.name.toLowerCase().includes(q)
+        || b.id.toLowerCase().includes(q)
+        || b.platform.toLowerCase().includes(q)
+        || b.region.toLowerCase().includes(q)
+        || b.program.toLowerCase().includes(q)
+        || b.status.toLowerCase().includes(q);
+      const matchStatus = !statusFlt || b.status === statusFlt;
+      const matchProg = !programFlt || b.program === programFlt;
+      const matchPlat = !platFlt || b.platform === platFlt;
+      return matchSearch && matchStatus && matchProg && matchPlat;
+    });
+  }, [dSearch, statusFlt, programFlt, platFlt]);
+
+  const hasFilters = statusFlt || programFlt || platFlt;
+
+  const clearFilters = useCallback(() => {
+    setStatusFlt("");
+    setProgramFlt("");
+    setPlatFlt("");
+    setSearch("");
+    inputRef.current?.focus();
+  }, []);
+
+  const statusCounts = useMemo(() =>
+    statuses.reduce((acc, s) => ({ ...acc, [s]: BENEFICIARIES.filter(b => b.status === s).length }), {}),
+  [statuses]);
+
+  return (
+    <div className="main">
+      <TopBar
+        title="Bénéficiaires"
+        subtitle={`${BENEFICIARIES.length} jeunes inscrits · ${BENEFICIARIES.filter(b => b.status === "active").length} actifs`}
+      />
+      <div className="content" style={{ padding: 0 }}>
+        {/* Search bar */}
+        <div className="search-row">
+          <div className="search-wrap">
+            <span className="search-ic">🔍</span>
+            <input
+              ref={inputRef}
+              className="search-inp"
+              placeholder="Rechercher par nom, ID, plateforme, programme, région, statut…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", color: "var(--text3)", cursor: "pointer", fontSize: 14 }}>
+                ✕
+              </button>
+            )}
+          </div>
+          <button className="btn btn-primary btn-sm">+ Ajouter</button>
+          <button className="btn btn-ghost btn-sm">⬇ Export</button>
+          <div className="result-info">{filtered.length} / {BENEFICIARIES.length}</div>
+        </div>
+
+        {/* Filter pills */}
+        <div className="filter-pills">
+          <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "var(--f-mono)", marginRight: 4 }}>Statut :</span>
+          {statuses.map(s => (
+            <button key={s} className={`pill ${statusFlt === s ? "on" : ""}`}
+              onClick={() => setStatusFlt(statusFlt === s ? "" : s)}>
+              {STATUS_CFG[s]?.label || s}
+              <span style={{ marginLeft: 4, opacity: 0.6 }}>({statusCounts[s]})</span>
+            </button>
+          ))}
+          <div style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
+          <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "var(--f-mono)", marginRight: 4 }}>Programme :</span>
+          {programs.map(p => (
+            <button key={p} className={`pill ${programFlt === p ? "on" : ""}`}
+              onClick={() => setProgramFlt(programFlt === p ? "" : p)}>
+              {p}
+            </button>
+          ))}
+          <div style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
+          <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "var(--f-mono)", marginRight: 4 }}>Plateforme :</span>
+          {platforms.slice(0, 4).map(p => (
+            <button key={p} className={`pill ${platFlt === p ? "on" : ""}`}
+              onClick={() => setPlatFlt(platFlt === p ? "" : p)}>
+              {p.replace("Hub ", "").replace("Centre ", "").replace("Espace ", "")}
+            </button>
+          ))}
+          {hasFilters && (
+            <button onClick={clearFilters}
+              style={{ marginLeft: "auto", fontSize: 11, color: "#EF4444", background: "none",
+                border: "1px solid rgba(239,68,68,.3)", borderRadius: 20, padding: "4px 10px",
+                cursor: "pointer", fontFamily: "var(--f-body)" }}>
+              ✕ Effacer filtres
+            </button>
+          )}
+        </div>
+
+        {/* Table */}
+        <div style={{ padding: "0 0 24px" }}>
+          {filtered.length === 0 ? (
+            <div className="empty" style={{ marginTop: 24 }}>
+              <div className="empty-icon">👥</div>
+              <div className="empty-text">Aucun bénéficiaire ne correspond à votre recherche</div>
+              <button onClick={clearFilters}
+                className="btn btn-ghost"
+                style={{ marginTop: 12 }}>
+                Effacer les filtres
+              </button>
+            </div>
+          ) : (
+            <table style={{ marginTop: 0 }}>
               <thead>
-                <tr style={{ background:"rgba(255,255,255,.03)" }}>
-                  {["Destinataire","Objet","Date","Statut"].map((h, i) => (
-                    <th key={i} style={{ padding:"11px 16px", textAlign:"left", fontSize:10, fontFamily:"'DM Mono',monospace", letterSpacing:"1px", textTransform:"uppercase", color:"#64748B" }}>{h}</th>
-                  ))}
+                <tr>
+                  <th>Bénéficiaire</th>
+                  <th>Plateforme</th>
+                  <th>Programme</th>
+                  <th>Statut</th>
+                  <th>Score</th>
+                  <th>Étape</th>
+                  <th>Dernière activité</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {SENT_MSGS.map((m, i) => (
-                  <tr key={i} className="tr" style={{ borderTop:"1px solid rgba(255,255,255,.05)" }}>
-                    <td style={{ padding:"12px 16px", fontSize:13, color:"#E2E8F0" }}>{m.to}</td>
-                    <td style={{ padding:"12px 16px", fontSize:13, color:"#64748B" }}>{m.subject}</td>
-                    <td style={{ padding:"12px 16px", fontFamily:"'DM Mono',monospace", fontSize:11, color:"#64748B" }}>{m.date}</td>
-                    <td style={{ padding:"12px 16px" }}>
-                      <span className="badge" style={{ background:"rgba(16,185,129,.12)", color:"#10B981" }}>✓ {m.status}</span>
+                {filtered.map(b => (
+                  <tr key={b.id} style={{ cursor: "pointer" }} onClick={() => setSelected(b)}>
+                    <td>
+                      <div className="td-name">{b.name}</div>
+                      <div className="td-id">{b.id} · {b.age} ans · {b.gender}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: 12.5, color: "var(--text2)" }}>{b.platform}</div>
+                      <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "var(--f-mono)" }}>{b.region}</div>
+                    </td>
+                    <td>
+                      <span className={`tag ${b.program === "SKL" ? "tag-blue" : b.program === "LDR" ? "tag-purple" : "tag-green"}`}>
+                        {b.program}
+                      </span>
+                    </td>
+                    <td><StatusBadge status={b.status} /></td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1, minWidth: 50 }}>
+                          <PBar
+                            pct={b.score}
+                            color={b.score >= 75 ? "#10B981" : b.score >= 50 ? "#F59E0B" : "#EF4444"}
+                            height={4}
+                          />
+                        </div>
+                        <span style={{ fontSize: 11, fontFamily: "var(--f-mono)", color: "var(--text)", width: 28, textAlign: "right" }}>
+                          {b.score}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 3 }}>
+                        {[1,2,3,4,5].map(n => (
+                          <div key={n} style={{
+                            width: 8, height: 8, borderRadius: 2,
+                            background: n <= b.step ? "#3B82F6" : "rgba(255,255,255,.08)",
+                          }} />
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 3, fontFamily: "var(--f-mono)" }}>
+                        {b.step}/5
+                      </div>
+                    </td>
+                    <td style={{ fontSize: 11, color: "var(--text3)", fontFamily: "var(--f-mono)" }}>{b.lastSeen}</td>
+                    <td onClick={e => e.stopPropagation()}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setSelected(b)}>Voir →</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
 
-        {tab === "templates" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:12, maxWidth:640 }}>
-            {templates.map((t, i) => (
-              <div key={i} className="kc" style={{ "--accent-strip":"#06B6D4" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:600, color:"#E2E8F0", fontSize:14, marginBottom:8 }}>{t.t}</div>
-                    <div style={{ fontSize:12, color:"#64748B", lineHeight:1.7 }}>{t.b}</div>
+      {selected && <JourneyModal beneficiary={selected} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}
+
+/* ── Programs Page ──────────────────────────────────────────── */
+function ProgramsPage() {
+  return (
+    <div className="main">
+      <TopBar title="Programmes" subtitle="3 programmes actifs · 340 bénéficiaires" />
+      <div className="content">
+        {/* Outcome chart */}
+        <div className="chart-card" style={{ marginBottom: 22 }}>
+          <h3>Résultats d'insertion</h3>
+          <p>Distribution des débouchés après programme (tous programmes confondus)</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={OUTCOME_DATA} barSize={32}>
+              <CartesianGrid stroke="rgba(255,255,255,.04)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="cat" tick={{ fill: "#4B6080", fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "#4B6080", fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
+              <Tooltip content={<CT />} />
+              <Bar dataKey="val" name="Jeunes" radius={[4,4,0,0]}>
+                {OUTCOME_DATA.map((_, i) => (
+                  <Cell key={i} fill={["#3B82F6","#10B981","#A78BFA","#06B6D4","#F59E0B"][i]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <SectionLabel>Programmes actifs</SectionLabel>
+        {PROGS.map(prog => (
+          <div key={prog.id} className="prog-card">
+            <div className="prog-header">
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: `${prog.color}22`, border: `1px solid ${prog.color}44`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 800, color: prog.color,
+                  }}>{prog.abbr}</div>
+                  <div>
+                    <div className="prog-title">{prog.name}</div>
+                    <div className="prog-phase" style={{ color: prog.color }}>{prog.phase} · {prog.duration}</div>
                   </div>
-                  <button className="btn bg bsm" style={{ flexShrink:0 }} onClick={() => { setBody(t.b); setSub(t.t); setTab("compose"); }}>
-                    Utiliser
-                  </button>
+                </div>
+                <div className="prog-sub" style={{ marginTop: 8 }}>{prog.desc}</div>
+              </div>
+              <StatusBadge status="active" />
+            </div>
+
+            <div className="prog-stats">
+              <div className="prog-stat">
+                <div className="prog-stat-val" style={{ color: prog.color }}>{prog.active}</div>
+                <div className="prog-stat-label">En cours</div>
+              </div>
+              <div className="prog-stat">
+                <div className="prog-stat-val">{prog.graduated}</div>
+                <div className="prog-stat-label">Diplômés</div>
+              </div>
+              <div className="prog-stat">
+                <div className="prog-stat-val">{prog.satisfaction}%</div>
+                <div className="prog-stat-label">Satisf.</div>
+              </div>
+              <div className="prog-stat">
+                <div className="prog-stat-val">{prog.completion}%</div>
+                <div className="prog-stat-label">Taux complétion</div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 11, color: "var(--text3)" }}>
+                <span>Objectif annuel</span>
+                <span style={{ fontFamily: "var(--f-mono)" }}>{prog.graduated} / {prog.target} ({Math.round((prog.graduated/prog.target)*100)}%)</span>
+              </div>
+              <PBar pct={(prog.graduated / prog.target) * 100} color={prog.color} height={6} />
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8, fontFamily: "var(--f-mono)", textTransform: "uppercase", letterSpacing: "0.8px" }}>
+                Modules
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {prog.modules.map((m, i) => (
+                  <span key={i} style={{
+                    padding: "4px 10px", borderRadius: 6, fontSize: 11,
+                    background: `${prog.color}15`, color: prog.color,
+                    border: `1px solid ${prog.color}30`, fontFamily: "var(--f-mono)",
+                  }}>{m}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Messages Page ──────────────────────────────────────────── */
+function MessagesPage() {
+  const [active, setActive] = useState(0);
+  const [input, setInput] = useState("");
+  const [conversations, setConversations] = useState(SENT_MSGS.map(m => ({ ...m, conv: [...m.conv] })));
+
+  const current = conversations[active];
+
+  const sendMsg = useCallback(() => {
+    const text = input.trim();
+    if (!text) return;
+    setConversations(prev => prev.map((c, i) =>
+      i === active
+        ? { ...c, conv: [...c.conv, { out: true, text, time: new Date().toLocaleTimeString("fr-MA", { hour: "2-digit", minute: "2-digit" }) }] }
+        : c
+    ));
+    setInput("");
+  }, [active, input]);
+
+  return (
+    <div className="main">
+      <TopBar title="Messages" subtitle={`${SENT_MSGS.reduce((s,m) => s + m.unread, 0)} non lus`} />
+      <div className="content" style={{ padding: 14 }}>
+        <div className="msg-layout">
+          <div className="msg-list">
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+              <input placeholder="Rechercher…" style={{
+                width: "100%", background: "var(--bg3)", border: "1px solid var(--border)",
+                borderRadius: 8, padding: "8px 12px", fontSize: 12.5, color: "var(--text)",
+                fontFamily: "var(--f-body)", outline: "none",
+              }} />
+            </div>
+            {conversations.map((m, i) => (
+              <div key={m.id} className={`msg-item ${active === i ? "active" : ""}`}
+                onClick={() => setActive(i)}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <div className="msg-avatar" style={{ background: m.color }}>{m.initials}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <div className="msg-name">{m.from}</div>
+                      <div className="msg-time">{m.time}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <div className="msg-preview">{m.preview}</div>
+                      {m.unread > 0 && <div className="msg-unread" style={{ flexShrink: 0 }} />}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
-// ── REPORTS ───────────────────────────────────────────────────────────────────
-
-function ReportsPage() {
-  const [period,    setPeriod]    = useState("2026-Q2");
-  const [platform,  setPlatform]  = useState("all");
-  const [generated, setGenerated] = useState(false);
-  const [loading,   setLoading]   = useState(false);
-
-  const generate = () => {
-    setLoading(true);
-    setTimeout(() => { setLoading(false); setGenerated(true); }, 1200);
-  };
-
-  const selectStyle = { padding:"10px 14px", background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.07)", borderRadius:10, color:"#E2E8F0", fontSize:13, fontFamily:"'DM Sans',sans-serif", outline:"none", cursor:"pointer", minWidth:160 };
-
-  const totals = PLATFORMS.reduce((a, p) => ({ total: a.total + p.total, active: a.active + p.active, completed: a.completed + p.completed }), { total:0, active:0, completed:0 });
-
-  return (
-    <div style={{ flex:1, overflowY:"auto", padding:"0 0 40px" }}>
-      <TopBar title="Rapports" subtitle="Génération de rapports M&E · INDH Casablanca-Settat"/>
-      <div style={{ padding:"24px 28px" }}>
-        {/* generator */}
-        <div className="kc" style={{ "--accent-strip":"#F59E0B", marginBottom:24 }}>
-          <SectionLabel>Générer un rapport</SectionLabel>
-          <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"flex-end" }}>
-            <div>
-              <label style={{ display:"block", fontSize:10, color:"#64748B", marginBottom:6, fontFamily:"'DM Mono',monospace", letterSpacing:"1px", textTransform:"uppercase" }}>Période</label>
-              <select style={selectStyle} value={period} onChange={e => setPeriod(e.target.value)}>
-                <option value="2026-Q1">T1 2026 (Jan–Mar)</option>
-                <option value="2026-Q2">T2 2026 (Avr–Juin)</option>
-                <option value="2026-Q3">T3 2026 (Juil–Sep)</option>
-                <option value="2026-annual">Annuel 2026</option>
-              </select>
+          <div className="msg-pane">
+            <div className="msg-pane-header">
+              <div className="msg-avatar" style={{ background: current.color }}>{current.initials}</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{current.from}</div>
+                <div style={{ fontSize: 11, color: "var(--text3)" }}>En ligne</div>
+              </div>
             </div>
-            <div>
-              <label style={{ display:"block", fontSize:10, color:"#64748B", marginBottom:6, fontFamily:"'DM Mono',monospace", letterSpacing:"1px", textTransform:"uppercase" }}>Plateforme</label>
-              <select style={selectStyle} value={platform} onChange={e => setPlatform(e.target.value)}>
-                <option value="all">Toutes les plateformes</option>
-                {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
-            <button className="btn bp" onClick={generate} disabled={loading} style={{ height:42 }}>
-              {loading ? "Génération…" : "📊 Générer →"}
-            </button>
-          </div>
-        </div>
-
-        {generated && (
-          <div style={{ animation:"slideUp .3s ease" }}>
-            {/* summary KPIs */}
-            <SectionLabel>Synthèse — {period} · {platform === "all" ? "Toutes plateformes" : PLATFORMS.find(p => p.id === platform)?.name}</SectionLabel>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:14, marginBottom:24 }}>
-              {[
-                { l:"Total inscrits",   v:totals.total,     c:"#2563EB" },
-                { l:"Actifs",           v:totals.active,    c:"#06B6D4" },
-                { l:"Certifiés",        v:totals.completed, c:"#10B981" },
-                { l:"Taux réussite",    v:`${Math.round(totals.completed / totals.total * 100)}%`, c:"#F59E0B" },
-              ].map(s => (
-                <div key={s.l} style={{ background:"#0F1E36", border:"1px solid rgba(255,255,255,.07)", borderRadius:12, padding:"18px 20px", textAlign:"center" }}>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontSize:26, fontWeight:800, color:s.c }}>{s.v}</div>
-                  <div style={{ fontSize:11, color:"#64748B", marginTop:5 }}>{s.l}</div>
+            <div className="msg-pane-body">
+              {current.conv.map((msg, i) => (
+                <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: msg.out ? "flex-end" : "flex-start" }}>
+                  <div className={`bubble ${msg.out ? "bubble-out" : "bubble-in"}`}>{msg.text}</div>
+                  <div className="bubble-time">{msg.time}</div>
                 </div>
               ))}
             </div>
-
-            {/* M&E section */}
-            <div className="kc" style={{ "--accent-strip":"#10B981", marginBottom:14 }}>
-              <SectionLabel>Suivi & Évaluation (M&E)</SectionLabel>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:600, color:"#E2E8F0", marginBottom:14 }}>Indicateurs de performance</div>
-                  {[
-                    { l:"Taux de rétention",   v:83, c:"#10B981" },
-                    { l:"Satisfaction (NPS)",   v:76, c:"#2563EB" },
-                    { l:"Taux insertion emploi",v:62, c:"#F59E0B" },
-                    { l:"Recommandation pairs", v:71, c:"#06B6D4" },
-                  ].map(m => (
-                    <div key={m.l} style={{ marginBottom:12 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#64748B", marginBottom:5 }}>
-                        <span>{m.l}</span>
-                        <span style={{ fontFamily:"'DM Mono',monospace", color:"#E2E8F0" }}>{m.v}%</span>
-                      </div>
-                      <div className="pb"><div className="pf" style={{ width:`${m.v}%`, background:m.c }}/></div>
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:600, color:"#E2E8F0", marginBottom:14 }}>Tendance mensuelle</div>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <AreaChart data={TREND_DATA} margin={{ top:0, right:0, left:-30, bottom:0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.05)"/>
-                      <XAxis dataKey="month" tick={{ fill:"#64748B", fontSize:10 }} axisLine={false} tickLine={false}/>
-                      <Tooltip content={<CT/>}/>
-                      <Area type="monotone" dataKey="registrations" name="Inscriptions" stroke="#2563EB" strokeWidth={2} fill="rgba(37,99,235,.15)" dot={false}/>
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-              <button className="btn bg">📄 Exporter PDF</button>
-              <button className="btn bg">📊 Exporter Excel</button>
-              <button className="btn bp">📤 Envoyer INDH</button>
+            <div className="msg-input-row">
+              <input
+                className="msg-inp"
+                placeholder="Écrire un message…"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && sendMsg()}
+              />
+              <button className="btn btn-primary" onClick={sendMsg} disabled={!input.trim()}>
+                Envoyer →
+              </button>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── ROOT ──────────────────────────────────────────────────────────────────────
+/* ── Reports Page ───────────────────────────────────────────── */
+function ReportsPage() {
+  return (
+    <div className="main">
+      <TopBar title="Rapports" subtitle="Analyses & exports — Mars 2026" />
+      <div className="content">
+        <div className="report-grid">
+          {/* Gender chart */}
+          <div className="chart-card">
+            <h3>Genre</h3>
+            <p>Répartition des bénéficiaires</p>
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie data={GENDER_DATA} cx="50%" cy="50%" innerRadius={45} outerRadius={65}
+                  dataKey="val" paddingAngle={3} stroke="none">
+                  {GENDER_DATA.map((d, i) => <Cell key={i} fill={d.color} />)}
+                </Pie>
+                <Legend formatter={(v) => <span style={{ fontSize: 11, color: "var(--text2)" }}>{v}</span>} />
+                <Tooltip formatter={v => `${v}%`} contentStyle={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 10 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
 
+          {/* Key metrics */}
+          <div className="chart-card">
+            <h3>Métriques clés</h3>
+            <p>Performance nationale</p>
+            {[
+              { name: "Taux de complétion", val: "76%" },
+              { name: "Taux d'insertion", val: "63%" },
+              { name: "NPS moyen", val: "82/100" },
+              { name: "Délai moyen diplôme", val: "5.2 mois" },
+              { name: "Coût / bénéficiaire", val: "1 840 MAD" },
+              { name: "Ratio encadrement", val: "1 / 18" },
+            ].map((m, i) => (
+              <div key={i} className="metric-row">
+                <div className="metric-name">{m.name}</div>
+                <div className="metric-val">{m.val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Regional stats */}
+        <SectionLabel>Performance par région</SectionLabel>
+        <div className="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Région</th>
+                <th>Plateformes</th>
+                <th>Bénéficiaires</th>
+                <th>Satisfaction</th>
+                <th>Progression</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { region: "Marrakech-Safi", plts: 1, ben: 445, sat: 94 },
+                { region: "Souss-Massa", plts: 1, ben: 312, sat: 92 },
+                { region: "Tanger-Tétouan-Al Hoceïma", plts: 1, ben: 268, sat: 91 },
+                { region: "Casablanca-Settat", plts: 1, ben: 287, sat: 88 },
+                { region: "Béni Mellal-Khénifra", plts: 1, ben: 176, sat: 85 },
+                { region: "Fès-Meknès", plts: 1, ben: 198, sat: 79 },
+                { region: "Drâa-Tafilalet", plts: 1, ben: 134, sat: 76 },
+                { region: "Rabat-Salé-Kénitra", plts: 1, ben: 89, sat: 71 },
+              ].map((r, i) => (
+                <tr key={i}>
+                  <td><div className="td-name">{r.region}</div></td>
+                  <td><span className="tag tag-blue">{r.plts} PLT</span></td>
+                  <td style={{ fontFamily: "var(--f-mono)", fontWeight: 700, color: "var(--text)" }}>{r.ben}</td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 60 }}>
+                        <PBar pct={r.sat} color={r.sat >= 85 ? "#10B981" : r.sat >= 75 ? "#F59E0B" : "#EF4444"} height={4} />
+                      </div>
+                      <span style={{ fontSize: 11, fontFamily: "var(--f-mono)", color: "var(--text)" }}>{r.sat}%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {[20,40,60,80,100].map(n => (
+                        <div key={n} style={{
+                          width: 10, height: 10, borderRadius: 2,
+                          background: r.ben > n * 4.5 ? "#3B82F6" : "rgba(255,255,255,.06)",
+                        }} />
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+          <button className="btn btn-primary">⬇ Exporter PDF</button>
+          <button className="btn btn-ghost">📊 Exporter Excel</button>
+          <button className="btn btn-ghost">📧 Envoyer par email</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Root component ─────────────────────────────────────────── */
 export default function XTrack() {
-  const [user,   setUser]   = useState(null);
+  const [user, setUser] = useState(null);
   const [active, setActive] = useState("dashboard");
 
-  if (!user) return <LoginPage onLogin={setUser}/>;
+  if (!user) {
+    return (
+      <>
+        <G />
+        <LoginPage onLogin={setUser} />
+      </>
+    );
+  }
 
   const pages = {
-    dashboard:     <DashboardPage/>,
-    platforms:     <PlatformsPage/>,
-    beneficiaries: <BeneficiariesPage/>,
-    programs:      <ProgramsPage/>,
-    messages:      <MessagesPage/>,
-    reports:       <ReportsPage/>,
+    dashboard: <DashboardPage />,
+    platforms: <PlatformsPage />,
+    beneficiaries: <BeneficiariesPage />,
+    programs: <ProgramsPage />,
+    messages: <MessagesPage />,
+    reports: <ReportsPage />,
   };
 
   return (
     <>
-      <G/>
+      <G />
       <div className="xc">
-        <Sidebar active={active} setActive={setActive}/>
-        {pages[active] || <DashboardPage/>}
+        <Sidebar active={active} setActive={setActive} onLogout={() => setUser(null)} />
+        {pages[active] || <DashboardPage />}
       </div>
     </>
   );
