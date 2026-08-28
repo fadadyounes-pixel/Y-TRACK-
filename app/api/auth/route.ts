@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { readCollection } from "@/lib/redisCollections";
 
 const ADMIN_CODE = "ADMIN001";
-const RE_CANDIDATE = /^[A-Z]{2,3}\d{3,}$/;
+// Moroccan CIN shape: exactly 2 uppercase letters followed by 4+ digits (e.g. AB1234).
+const RE_CANDIDATE = /^[A-Z]{2}\d{4,}$/;
 
 export async function POST(req: NextRequest) {
   try {
