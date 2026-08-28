@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (found) {
       return NextResponse.json({
         ok: true,
-        user: { id: found.id, idNumber: found.code, name: found.name, email: found.email, role: "coordinator", region: found.region, prefecture: found.prefecture },
+        user: { id: found.id, idNumber: found.code, name: found.name, email: found.email, role: "coordinator" },
       });
     }
     // Hardcoded fallback — default demo coordinator

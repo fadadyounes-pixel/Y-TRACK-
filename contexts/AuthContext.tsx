@@ -11,10 +11,6 @@ export interface User {
   email: string;
   role: UserRole;
   idNumber: string;
-  // Coordinator only — geographic zone assigned by the admin. Unset means
-  // the coordinator sees candidates from every region.
-  region?: string;
-  prefecture?: string;
 }
 
 interface AuthContextValue {
