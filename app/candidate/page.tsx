@@ -7,6 +7,7 @@ import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { isProfileComplete } from '@/lib/profile';
 import { regionDisplay } from '@/lib/morocco';
+import { scoreCV } from '@/lib/cvScore';
 
 const INK    = '#0B1629';
 const COBALT = '#1B4FD8';
@@ -51,6 +52,17 @@ export default function CandidateDashboard() {
   const completionSteps   = [hasProfile, hasCV, false];
   const completedCount    = completionSteps.filter(Boolean).length;
 
+  // Same free, deterministic CV health check used on the CV builder — shown
+  // here as a quick badge so candidates see it's worth revisiting even
+  // before opening the builder.
+  const cvScore = hasCV ? scoreCV({
+    name: user.name, email: user.email, phone: info?.phone || '', address: info?.city || '',
+    summary: cvData?.summary || '', skills: cvData?.skills || [], languages: info?.languages || [],
+    work: cvData?.work || [], education: cvData?.education || { degree: info?.diploma || '', institution: info?.institution || '', year: info?.graduationYear || '' },
+    targetRoles: cvData?.targetRoles || [], certifications: cvData?.certifications || [],
+    linkedin: info?.linkedin || '', portfolio: info?.portfolio || '',
+  }) : null;
+
   const TOOLS = [
     {
       id: 'email',
@@ -75,8 +87,8 @@ export default function CandidateDashboard() {
       href: '/candidate/upload',
       accent: COBALT,
       light: LBLUE,
-      badge: hasCV ? '✓ CV créé' : null,
-      badgeColor: GREEN,
+      badge: cvScore ? `${cvScore.total}/100` : null,
+      badgeColor: cvScore ? (cvScore.total >= 65 ? GREEN : cvScore.total >= 40 ? '#b45309' : '#dc2626') : GREEN,
       cta: hasCV ? 'Mettre à jour mon CV →' : 'Créer mon CV →',
       featured: false,
     },

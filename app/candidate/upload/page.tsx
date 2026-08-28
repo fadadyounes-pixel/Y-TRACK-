@@ -8,6 +8,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, inferEducationLevel } from '@/lib/matching';
 import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, CV_LAYOUTS, CV_THEMES, type WorkEntry } from '@/lib/cvTemplate';
 import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
+import { scoreCV, scoreBandStyle } from '@/lib/cvScore';
 
 const SKILL_SUGGESTIONS: Record<string, string[]> = {
   Technology:         ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'SQL', 'Docker', 'Git', 'REST APIs', 'SAP'],
@@ -259,6 +260,7 @@ export default function CandidateUpload() {
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [certifications, setCertifications] = useState<string[]>([]);
   const [cvStyle, setCvStyle] = useState<{ layout: string; theme: string } | null>(null);
+  const [showAllTips, setShowAllTips] = useState(false);
 
   // AI template helpers
   const [enhancing, setEnhancing] = useState(false);
@@ -456,6 +458,13 @@ export default function CandidateUpload() {
 
   const autoStyle = useMemo(() => pickStyle(user?.idNumber || email || name), [user, email, name]);
   const effectiveStyle = cvStyle || autoStyle;
+
+  // Free, deterministic CV health check — no AI call needed, so it's instant
+  // and always available even if the AI provider cascade is degraded.
+  const cvScoreResult = useMemo(
+    () => scoreCV({ name, email, phone, address, summary, skills, languages, work, education, targetRoles, certifications, linkedin, portfolio }),
+    [name, email, phone, address, summary, skills, languages, work, education, targetRoles, certifications, linkedin, portfolio]
+  );
 
   if (!user || user.role !== 'candidate' || !profileChecked) return null;
 
@@ -1207,6 +1216,81 @@ export default function CandidateUpload() {
                 </div>
               </div>
             </div>
+
+            {/* CV Health Check — free, instant, deterministic scoring (no AI call needed) */}
+            {(() => {
+              const s = cvScoreResult;
+              const bandStyle = scoreBandStyle(s.band);
+              const bandLabel = { excellent: 'Excellent', bon: 'Bon', moyen: 'Moyen', faible: 'À renforcer' }[s.band];
+              const topTips = showAllTips ? s.tips : s.tips.slice(0, 3);
+              return (
+                <div style={{ background: 'white', border: `1.5px solid ${bandStyle.border}`, borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.1rem', flexWrap: 'wrap', marginBottom: s.tips.length ? '1rem' : 0 }}>
+                    <div style={{
+                      width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
+                      background: bandStyle.bg, border: `3px solid ${bandStyle.ring}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
+                    }}>
+                      <span style={{ fontSize: '1.15rem', fontWeight: 900, color: bandStyle.color, lineHeight: 1 }}>{s.total}</span>
+                      <span style={{ fontSize: '0.55rem', color: bandStyle.color, fontWeight: 700 }}>/100</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.15rem' }}>
+                        <span style={{ fontWeight: 800, color: '#111827', fontSize: '0.95rem' }}>Bilan de votre CV</span>
+                        <span style={{ padding: '0.12rem 0.55rem', borderRadius: 9999, background: bandStyle.bg, color: bandStyle.color, fontSize: '0.7rem', fontWeight: 800, border: `1px solid ${bandStyle.border}` }}>{bandLabel}</span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                        {s.tips.length === 0
+                          ? 'Toutes les sections clés sont complètes — beau travail !'
+                          : `${s.tips.length} amélioration${s.tips.length > 1 ? 's' : ''} possible${s.tips.length > 1 ? 's' : ''} pour un CV encore plus fort.`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Category bars */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem 1rem', marginBottom: topTips.length ? '1.1rem' : 0 }}>
+                    {s.categories.map(c => {
+                      const pct = Math.round((c.points / c.max) * 100);
+                      const barColor = pct >= 80 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444';
+                      return (
+                        <div key={c.key}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151' }}>{c.label}</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af' }}>{c.points}/{c.max}</span>
+                          </div>
+                          <div style={{ height: 5, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', borderRadius: 3, background: barColor, width: `${pct}%`, transition: 'width .4s ease' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Actionable tips */}
+                  {topTips.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {topTips.map(tip => (
+                        <div key={tip.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.6rem 0.8rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10 }}>
+                          <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>💡</span>
+                          <span style={{ fontSize: '0.78rem', color: '#78350f', lineHeight: 1.55, flex: 1 }}>{tip.text}</span>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#b45309', flexShrink: 0, whiteSpace: 'nowrap' }}>+{tip.impact} pts</span>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                        {s.tips.length > 3 && (
+                          <button onClick={() => setShowAllTips(p => !p)} style={{ background: 'transparent', border: 'none', color: '#1B4FD8', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                            {showAllTips ? '↑ Voir moins' : `↓ Voir les ${s.tips.length - 3} autres conseils`}
+                          </button>
+                        )}
+                        <button onClick={() => setStep('cv')} style={{ marginLeft: 'auto', background: '#EFF6FF', border: '1.5px solid #bfdbfe', color: '#1B4FD8', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: '0.4rem 0.9rem', borderRadius: 8 }}>
+                          ✏️ Corriger mon CV
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Photo — optional on the info page, so it can be added or changed here too */}
             <div style={{ background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '1.1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1.1rem', flexWrap: 'wrap' }}>
