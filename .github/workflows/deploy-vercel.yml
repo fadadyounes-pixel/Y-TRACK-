@@ -348,6 +348,58 @@ jobs:
             echo "No responses received at all."
           fi
           exit 0
+      # Diagnostic only — the static-page load test above proves Vercel's CDN can
+      # serve /ideamap trivially under concurrency, but that's not where 100
+      # simultaneous real users would actually strain the app: every AI-backed
+      # step (business plan, budget, compliance check, jury Q&A) hits /api/ai,
+      # which fans out across provider keys (Groq/Cerebras/Mistral/etc, see
+      # rafiq() in app/api/ai/providers.ts) with real per-provider rate limits.
+      # This fires 100 concurrent requests at /api/ai itself — the actual
+      # bottleneck — using a trivial low-token prompt (same one the existing
+      # single-call health check below uses) to keep cost/quota impact minimal
+      # while still exercising the real concurrent-request path end to end.
+      - name: Load test — 100 concurrent requests to production /api/ai
+        run: |
+          set +e
+          URL="https://www.ideamaponline.org/api/ai"
+          N=100
+          OUT=/tmp/aiload_results.txt
+          : > "$OUT"
+          echo "=== Firing $N concurrent POST requests at $URL ==="
+          seq 1 $N | xargs -P $N -I{} curl -sS -o /dev/null \
+            -X POST -H "Content-Type: application/json" \
+            -d '{"task":"fast","messages":[{"role":"user","content":"Reply with exactly: OK"}],"system":"Reply with exactly the word OK, nothing else."}' \
+            -w "%{http_code} %{time_total}\n" --max-time 60 "$URL" >> "$OUT" 2>/tmp/aiload_errors.txt
+          echo "=== Raw results ($(wc -l < "$OUT") responses received out of $N requests) ==="
+          cat "$OUT"
+          echo ""
+          echo "=== curl errors (if any) ==="
+          cat /tmp/aiload_errors.txt || true
+          echo ""
+          echo "=== Summary ==="
+          RECEIVED=$(wc -l < "$OUT")
+          echo "Responses received: $RECEIVED / $N"
+          echo "Status code breakdown:"
+          awk '{print $1}' "$OUT" | sort | uniq -c | sort -rn
+          OK=$(awk '$1 ~ /^2/' "$OUT" | wc -l)
+          if [ "$RECEIVED" -gt 0 ]; then
+            echo "Success rate (2xx): $OK/$RECEIVED"
+            echo "Latency percentiles (sorted times):"
+            sort -n -k2,2 -t' ' "$OUT" | awk '{print $2}' > /tmp/aiload_times.txt
+            N_TIMES=$(wc -l < /tmp/aiload_times.txt)
+            for P in 50 90 99; do
+              IDX=$(( (P * N_TIMES) / 100 ))
+              [ "$IDX" -ge "$N_TIMES" ] && IDX=$((N_TIMES - 1))
+              [ "$IDX" -lt 0 ] && IDX=0
+              VAL=$(sed -n "$((IDX + 1))p" /tmp/aiload_times.txt)
+              echo "  p${P} = ${VAL}s"
+            done
+            echo "  min = $(head -1 /tmp/aiload_times.txt)s"
+            echo "  max = $(tail -1 /tmp/aiload_times.txt)s"
+          else
+            echo "No responses received at all."
+          fi
+          exit 0
       # Diagnostic only — user reported (live, in their own browser) that the site
       # "still shows talentmap" and "is not open" for IdeaMap, despite the prior
       # CI run (31944968366, 11:40 UTC) confirming clean 200s and correct titles
