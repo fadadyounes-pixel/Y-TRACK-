@@ -38,7 +38,16 @@ export async function POST(req: NextRequest) {
     // assigned it (current convention: NAME+COR+digits, e.g. BENALICOR4821).
     // Not gated on a hardcoded prefix, so it stays valid if the naming
     // convention changes again later.
-    const coordinators = await readCollection<any>("coordinators");
+    // Redis is queried in its own try/catch: if it's unreachable or
+    // unconfigured, treat it as "no stored coordinators found" rather than
+    // failing the whole request — otherwise even the hardcoded COORD001
+    // demo fallback below would become unreachable during a Redis outage.
+    let coordinators: any[] = [];
+    try {
+      coordinators = await readCollection<any>("coordinators");
+    } catch (err) {
+      console.error("auth: failed to read coordinators collection", err);
+    }
     const found = coordinators.find((c: any) => (c.code || "").toUpperCase() === normalized);
     if (found) {
       return NextResponse.json({
@@ -55,7 +64,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: false });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (err) {
+    console.error("auth: unexpected error", err);
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

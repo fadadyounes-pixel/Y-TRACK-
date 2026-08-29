@@ -23,8 +23,9 @@ export async function GET() {
       coordinators,
       applications,
     });
-  } catch (err: any) {
-    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], coordinators: [], applications: [], error: err.message });
+  } catch (err) {
+    console.error("sheets GET: failed to read collections", err);
+    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], coordinators: [], applications: [] });
   }
 }
 
@@ -121,7 +122,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: false, error: "Unknown type" }, { status: 400 });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (err) {
+    console.error("sheets POST: failed to write", err);
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
