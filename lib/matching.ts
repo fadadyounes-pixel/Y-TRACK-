@@ -95,8 +95,12 @@ export function computeMatch(cv: MatchCandidate, job: MatchJobRequirements): Mat
   };
 }
 
+// Only consumed by the coordinator dashboard (app/coordinator/page.tsx),
+// which uses a dark theme — values are translucent-tint/light-text pairs
+// rather than the light-bg/dark-text pairs a score badge would use on a
+// white page.
 export function scoreColor(score: number) {
-  if (score >= 70) return { bg: '#d1fae5', color: '#065f46' };
-  if (score >= 50) return { bg: '#dbeafe', color: '#1e40af' };
-  return { bg: '#fee2e2', color: '#991b1b' };
+  if (score >= 70) return { bg: 'rgba(34,197,94,.14)', color: '#4ADE80' };
+  if (score >= 50) return { bg: 'rgba(59,130,246,.14)', color: '#93C5FD' };
+  return { bg: 'rgba(248,113,113,.14)', color: '#FCA5A5' };
 }
