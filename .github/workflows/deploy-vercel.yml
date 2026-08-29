@@ -71,6 +71,31 @@ jobs:
           curl -sS -A "$UA" -H "Accept-Language: en-US,en;q=0.9" --max-time 20 https://www.ideamaponline.org/ideamap -o /tmp/ideamap.html -w "http_code=%{http_code}\n"
           grep -oE '<title>[^<]*</title>' /tmp/ideamap.html || echo "no title found (see status code above)"
 
+      # Diagnostic only — user reported that typing "ideamap" in their browser
+      # surfaces talentmaponline.org, worried the two sites are getting mixed
+      # (an explicitly forbidden outcome — see CLAUDE.md). middleware.ts already
+      # has a rule blocking /ideamap on the TalentMap domain (redirects it back
+      # to TalentMap's own home), but that specific case has never actually been
+      # hit in CI — every prior check only tested talentmaponline.org's root "/".
+      # This tests it directly, plus confirms TalentMap's homepage HTML contains
+      # no IdeaMap branding/text, to rule out real cross-contamination as opposed
+      # to a stale browser-autocomplete suggestion on the user's own device.
+      - name: Verify TalentMap and IdeaMap never cross-serve each other's content
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+          echo "=== https://www.talentmaponline.org/ideamap (must NOT serve IdeaMap — should redirect back to TalentMap) ==="
+          curl -sS -A "$UA" -L --max-time 20 https://www.talentmaponline.org/ideamap -o /tmp/tm_ideamap.html -w "final_http_code=%{http_code} final_url=%{url_effective}\n"
+          grep -oE '<title>[^<]*</title>' /tmp/tm_ideamap.html || echo "no title found"
+          echo "Contains the word IdeaMap: $(grep -qi 'ideamap' /tmp/tm_ideamap.html && echo YES-PROBLEM || echo no)"
+          echo ""
+          echo "=== https://www.talentmaponline.org/ homepage — must contain zero IdeaMap references ==="
+          curl -sS -A "$UA" --max-time 20 https://www.talentmaponline.org/ -o /tmp/tm_home.html -w "http_code=%{http_code}\n"
+          echo "Contains the word IdeaMap: $(grep -qi 'ideamap' /tmp/tm_home.html && echo YES-PROBLEM || echo no)"
+          echo ""
+          echo "=== https://www.ideamaponline.org/ homepage — must contain zero TalentMap references ==="
+          curl -sS -A "$UA" --max-time 20 https://www.ideamaponline.org/ -o /tmp/im_home.html -w "http_code=%{http_code}\n"
+          echo "Contains the word TalentMap: $(grep -qi 'talentmap' /tmp/im_home.html && echo YES-PROBLEM || echo no)"
+
       # Diagnostic only — user's device just got ERR_CONNECTION_ABORTED on
       # https://www.ideamaponline.org/, a different and more specific failure
       # than the earlier blank-page/timeout symptom: it means a connection was
