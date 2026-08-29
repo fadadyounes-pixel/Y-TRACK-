@@ -6,18 +6,21 @@ import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../../components/Logo';
 
 /* ── Design tokens ──────────────────────────────────────────────────────
- * Dark, teal-accented palette matching CareerMap's admin dashboard look
- * (design/layout reference only — no data, tabs, or behavior changed).
- * Token NAMES are kept as-is to minimize the diff; a few no longer match
- * their literal name (WHITE/NAVY now hold surface/text roles instead of
- * literal white/navy) — see the inline notes below.
+ * Dark dashboard layout inspired by CareerMap's admin (card structure,
+ * avatar shapes, table striping) but recolored to TalentMap's own brand —
+ * the cobalt blue from the logo (components/Logo.tsx: #1B4FD8 pin,
+ * #3B82F6/#93C5FD for dark backgrounds) instead of CareerMap's teal.
+ * No data, tabs, or behavior changed. Token NAMES are kept as-is to
+ * minimize the diff; a few no longer match their literal name (WHITE/NAVY
+ * now hold surface/text roles instead of literal white/navy) — see the
+ * inline notes below.
  */
 const INK    = '#0A0E1A';   // Page + sidebar background (was dark navy — stays dark)
-const COBALT = '#2DD4BF';   // Primary accent — teal (was blue)
+const COBALT = '#3B82F6';   // Primary accent — TalentMap brand blue, dark-bg variant from the logo
 const NAVY   = '#F1F5F9';   // Heading/value text on cards — near-white (was dark text)
-const BLUE   = '#38BDF8';   // Secondary accent — sky blue (was bright blue)
-const LBLUE  = 'rgba(45,212,191,.14)';  // Teal tint — chip/badge backgrounds
-const MIST   = 'rgba(45,212,191,.22)';  // Stronger teal tint
+const BLUE   = '#60A5FA';   // Secondary accent — lighter brand blue
+const LBLUE  = 'rgba(59,130,246,.14)';  // Brand-blue tint — chip/badge backgrounds
+const MIST   = 'rgba(59,130,246,.22)';  // Stronger brand-blue tint
 const BG     = '#0A0E1A';   // Page background (was light gray)
 const WHITE  = '#111827';   // Card/surface background (was literal white) — literal white text-on-accent uses '#ffffff' directly, see below
 const BORDER = 'rgba(255,255,255,.08)';
