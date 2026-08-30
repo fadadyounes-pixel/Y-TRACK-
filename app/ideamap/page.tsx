@@ -82,9 +82,39 @@ const RE  = "#C0632F";   // Warning      — errors, "En cours", risk indicators
 /* Logo appears only on the login page via /logo-transparent.png */
 
 /* ── AUTH ────────────────────────────────────────────── */
-const ADMIN_CODE = "@adminINDH";
+const ADMIN_CODE = "@mapadmin";
 const RE_HOLDER  = /^[A-Z]{2}\d{3,}$/;
 const RE_COORD   = /^@[A-Za-z]{2,}COD$/i;
+
+// Coordinator entries are stored as {code, name, region, arrondissement, createdAt}.
+// Older records (or the very first save this session) may still be a bare code
+// string — these helpers normalize either shape so the rest of the app never has
+// to branch on it.
+type Coord = {code: string; name: string; region: string; arrondissement: string; createdAt: number | null};
+const normalizeCoord = (c: any): Coord =>
+  typeof c === "string"
+    ? {code: c, name: c.replace(/^@/, "").replace(/COD$/i, ""), region: "", arrondissement: "", createdAt: null}
+    : {code: c.code, name: c.name || c.code.replace(/^@/, "").replace(/COD$/i, ""), region: c.region || "", arrondissement: c.arrondissement || "", createdAt: c.createdAt ?? null};
+
+// Runs async tasks with at most `limit` in flight at once, preserving each task's
+// result at its original index. Used to cap how many AI calls one user's action fires
+// simultaneously — each call already races ~10 providers server-side, so an unbounded
+// Promise.all over N calls multiplies that fan-out by N. At high concurrent-user load
+// that multiplication is what actually exhausts shared free-tier rate limits across
+// everyone at once, so bounding it per-user keeps the system stable under many users
+// without meaningfully slowing any single user down.
+async function runLimited<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < tasks.length) {
+      const i = next++;
+      results[i] = await tasks[i]();
+    }
+  };
+  await Promise.all(Array.from({length: Math.min(limit, tasks.length)}, worker));
+  return results;
+}
 
 function detectRole(raw: string) {
   if (!raw) return null;
@@ -139,10 +169,203 @@ const GENDERS: Record<string, string[]> = {
   ar:["ذكر","أنثى","آخر"],
   en:["Male","Female","Other"],
 };
-const PREFECTURES_CS = [
-  "Casablanca","Mohammedia","El Jadida","Settat","Berrechid",
-  "Médiouna","Nouaceur","Benslimane","Khouribga","Sidi Bennour",
+// Casablanca-Settat is further split into 8 préfectures d'arrondissements — a
+// coordinator or jury needs that level of detail, and "Casablanca-Settat" alone
+// is too coarse to be useful. Shown directly once that region is picked.
+const ARRONDISSEMENTS_CASA = [
+  "Anfa","Aïn Chock","Aïn Sebaâ-Hay Mohammadi","Al Fida-Mers Sultan",
+  "Ben M'Sick","Hay Hassani","Moulay Rachid","Sidi Bernoussi",
 ];
+
+// Sector-specific answer choices for the "products/services" and "main equipment"
+// questions in the dialogue flow — shown instantly (no AI call) as real, tappable
+// options tied to the sector the porteur already selected at registration, instead
+// of a generic "use your best estimate" placeholder. Keyed by the exact SECTORS
+// strings above so the lookup is a direct hit from user.profile.sector.
+const SECTOR_SERVICES: Record<string, Record<"fr"|"ar"|"en", string[]>> = {
+  "Agriculture/Élevage": {
+    fr: ["Élevage de volailles ou de bétail pour la vente", "Culture maraîchère et vente de légumes", "Production laitière et dérivés"],
+    ar: ["تربية الدواجن أو الماشية للبيع", "زراعة الخضروات وبيعها", "إنتاج الحليب ومشتقاته"],
+    en: ["Poultry or livestock farming for sale", "Vegetable growing and sale", "Dairy production and derivatives"],
+  },
+  "Artisanat traditionnel": {
+    fr: ["Poterie et céramique artisanale", "Tapis et tissage traditionnel", "Maroquinerie et cuir artisanal"],
+    ar: ["الفخار والخزف التقليدي", "الزرابي والنسيج التقليدي", "صناعة الجلد التقليدية"],
+    en: ["Traditional pottery and ceramics", "Traditional rugs and weaving", "Traditional leather goods"],
+  },
+  "Commerce/Épicerie": {
+    fr: ["Épicerie de proximité (produits de base)", "Vente de produits alimentaires et boissons", "Commerce multi-produits"],
+    ar: ["بقالة القرب (المنتجات الأساسية)", "بيع المواد الغذائية والمشروبات", "تجارة متعددة المنتجات"],
+    en: ["Neighborhood grocery (staples)", "Food and beverage sales", "Multi-product store"],
+  },
+  "Agro-alimentaire": {
+    fr: ["Transformation de produits du terroir (huile, miel...)", "Conserverie et confiture artisanale", "Pâtisserie ou boulangerie traditionnelle"],
+    ar: ["تحويل منتجات المجال (زيت، عسل...)", "تعليب ومربى تقليدي", "حلويات أو مخبزة تقليدية"],
+    en: ["Processing local produce (oil, honey...)", "Canning and artisan jam", "Traditional pastry or bakery"],
+  },
+  "Restauration/Café": {
+    fr: ["Café populaire ou salon de thé", "Restauration rapide (snack, sandwichs)", "Restaurant traditionnel marocain"],
+    ar: ["مقهى شعبي أو صالون شاي", "مطعم وجبات سريعة", "مطعم مغربي تقليدي"],
+    en: ["Popular café or tea salon", "Fast food (snack, sandwiches)", "Traditional Moroccan restaurant"],
+  },
+  "Coiffure/Beauté": {
+    fr: ["Coupe de cheveux, taille de barbe et soins", "Coiffure et esthétique pour femmes", "Salon complet (coiffure + soins + produits)"],
+    ar: ["قص الشعر وتشذيب اللحية والعناية", "تصفيف الشعر والتجميل للنساء", "صالون متكامل (حلاقة + عناية + منتجات)"],
+    en: ["Haircuts, beard trims and grooming", "Hairdressing and beauty for women", "Full salon (hair + skincare + products)"],
+  },
+  "Couture/Vêtement traditionnel": {
+    fr: ["Confection de caftans et vêtements traditionnels", "Couture sur mesure et retouches", "Vente de prêt-à-porter"],
+    ar: ["خياطة القفطان والملابس التقليدية", "خياطة حسب الطلب وتصليحات", "بيع الملابس الجاهزة"],
+    en: ["Caftans and traditional garment making", "Custom tailoring and alterations", "Ready-to-wear clothing sales"],
+  },
+  "Impression/Reprographie": {
+    fr: ["Impression et photocopie", "Cybercafé et services administratifs", "Impression grand format et enseignes"],
+    ar: ["الطباعة والاستنساخ", "سيبر وخدمات إدارية", "طباعة كبيرة الحجم ولافتات"],
+    en: ["Printing and photocopying", "Cybercafé and admin services", "Large-format printing and signage"],
+  },
+  "Design graphique/Communication": {
+    fr: ["Création de logos et identité visuelle", "Community management et réseaux sociaux", "Impression publicitaire et flyers"],
+    ar: ["تصميم الشعارات والهوية البصرية", "إدارة صفحات التواصل الاجتماعي", "طباعة إعلانية ومنشورات"],
+    en: ["Logo and brand identity design", "Social media management", "Advertising print and flyers"],
+  },
+  "Numérique/TIC": {
+    fr: ["Développement de sites web ou d'applications", "Formation en informatique", "Maintenance informatique et réseaux"],
+    ar: ["تطوير مواقع أو تطبيقات إلكترونية", "تكوين في مجال المعلوميات", "صيانة معلوماتية وشبكات"],
+    en: ["Website or app development", "IT training", "Computer and network maintenance"],
+  },
+  "Tourisme rural/Guide": {
+    fr: ["Guide touristique local", "Gîte ou hébergement rural", "Circuits et randonnées organisées"],
+    ar: ["دليل سياحي محلي", "بيت ضيافة أو إيواء قروي", "جولات ومسارات منظمة"],
+    en: ["Local tour guiding", "Rural guesthouse or lodging", "Organized tours and hikes"],
+  },
+  "BTP/Maçonnerie": {
+    fr: ["Travaux de maçonnerie générale", "Carrelage et revêtements", "Peinture et finitions bâtiment"],
+    ar: ["أشغال البناء العامة", "البلاط والتغطية", "الصباغة وتشطيبات البناء"],
+    en: ["General masonry work", "Tiling and flooring", "Painting and building finishing"],
+  },
+  "Éducation/Formation": {
+    fr: ["Soutien scolaire à domicile", "Formation professionnelle courte", "Cours de langues ou d'informatique"],
+    ar: ["الدعم المدرسي بالمنزل", "تكوين مهني قصير", "دروس اللغات أو المعلوميات"],
+    en: ["Home tutoring", "Short vocational training", "Language or computer classes"],
+  },
+  "Pêche/Aquaculture": {
+    fr: ["Pêche artisanale côtière", "Élevage aquacole (poissons, crevettes)", "Transformation et vente de produits de mer"],
+    ar: ["الصيد التقليدي الساحلي", "تربية مائية (أسماك، روبيان)", "تحويل وبيع منتجات البحر"],
+    en: ["Small-scale coastal fishing", "Aquaculture farming (fish, shrimp)", "Processing and selling seafood"],
+  },
+  "Transport/Logistique": {
+    fr: ["Transport de marchandises", "Transport de personnes (taxi, navette)", "Livraison et coursier"],
+    ar: ["نقل البضائع", "نقل الأشخاص (تاكسي، حافلة)", "التوصيل والسعي"],
+    en: ["Goods transport", "Passenger transport (taxi, shuttle)", "Delivery and courier service"],
+  },
+  "Santé/Pharmacie": {
+    fr: ["Parapharmacie et produits de santé", "Services de soins à domicile", "Vente de matériel médical"],
+    ar: ["صيدلية شبه طبية ومنتجات صحية", "خدمات العناية بالمنزل", "بيع المعدات الطبية"],
+    en: ["Parapharmacy and health products", "Home care services", "Medical equipment sales"],
+  },
+  "Réparation/Maintenance": {
+    fr: ["Réparation d'appareils électroménagers", "Réparation de téléphones et électronique", "Mécanique et entretien automobile"],
+    ar: ["إصلاح الأجهزة المنزلية", "إصلاح الهواتف والإلكترونيات", "ميكانيك وصيانة السيارات"],
+    en: ["Home appliance repair", "Phone and electronics repair", "Auto mechanics and maintenance"],
+  },
+  "Événementiel/Traiteur": {
+    fr: ["Traiteur pour événements et mariages", "Organisation et décoration d'événements", "Location de matériel événementiel"],
+    ar: ["تقديم الطعام للمناسبات والأعراس", "تنظيم وتزيين المناسبات", "كراء معدات المناسبات"],
+    en: ["Catering for events and weddings", "Event planning and decoration", "Event equipment rental"],
+  },
+};
+const SECTOR_EQUIPMENT: Record<string, Record<"fr"|"ar"|"en", string[]>> = {
+  "Agriculture/Élevage": {
+    fr: ["Cheptel (animaux) et matériel d'élevage", "Matériel d'irrigation et outils agricoles", "Serre agricole et équipement de culture"],
+    ar: ["قطيع (حيوانات) ومعدات التربية", "معدات السقي وأدوات فلاحية", "بيت بلاستيكي ومعدات الزراعة"],
+    en: ["Livestock and farming equipment", "Irrigation gear and farm tools", "Greenhouse and growing equipment"],
+  },
+  "Artisanat traditionnel": {
+    fr: ["Métier à tisser ou four de poterie", "Outillage artisanal spécialisé", "Matières premières et matériel de finition"],
+    ar: ["نول للنسيج أو فرن للفخار", "أدوات حرفية متخصصة", "مواد أولية ومعدات التشطيب"],
+    en: ["Loom or pottery kiln", "Specialized craft tools", "Raw materials and finishing equipment"],
+  },
+  "Commerce/Épicerie": {
+    fr: ["Rayonnages, frigo et caisse enregistreuse", "Stock initial de marchandises", "Aménagement du local commercial"],
+    ar: ["رفوف وثلاجة وصندوق تسجيل", "مخزون أولي من البضائع", "تجهيز المحل التجاري"],
+    en: ["Shelving, fridge and cash register", "Initial stock of goods", "Fitting out the shop"],
+  },
+  "Agro-alimentaire": {
+    fr: ["Matériel de transformation (presse, four...)", "Emballage et étiquetage", "Chambre froide ou conservation"],
+    ar: ["معدات التحويل (معصرة، فرن...)", "التغليف ووضع الملصقات", "غرفة تبريد أو حفظ"],
+    en: ["Processing equipment (press, oven...)", "Packaging and labeling", "Cold storage / preservation"],
+  },
+  "Restauration/Café": {
+    fr: ["Cuisine équipée (four, plaques, frigo)", "Mobilier et vaisselle", "Machine à café et matériel de service"],
+    ar: ["مطبخ مجهز (فرن، صفيحة، ثلاجة)", "أثاث وأواني", "آلة قهوة ومعدات الخدمة"],
+    en: ["Equipped kitchen (oven, hobs, fridge)", "Furniture and tableware", "Coffee machine and service equipment"],
+  },
+  "Coiffure/Beauté": {
+    fr: ["Fauteuils, miroirs et matériel de coiffure", "Stérilisateur UV et matériel d'hygiène", "Tondeuses, sèche-cheveux et accessoires"],
+    ar: ["كراسي ومرايا ومعدات الحلاقة", "معقم بالأشعة فوق البنفسجية ومعدات النظافة", "آلات حلاقة ومجفف شعر وإكسسوارات"],
+    en: ["Chairs, mirrors and salon equipment", "UV sterilizer and hygiene gear", "Clippers, hairdryers and accessories"],
+  },
+  "Couture/Vêtement traditionnel": {
+    fr: ["Machines à coudre professionnelles", "Tissus et fournitures de couture", "Table de coupe et matériel de finition"],
+    ar: ["آلات خياطة احترافية", "أقمشة ولوازم الخياطة", "طاولة قص ومعدات التشطيب"],
+    en: ["Professional sewing machines", "Fabrics and sewing supplies", "Cutting table and finishing equipment"],
+  },
+  "Impression/Reprographie": {
+    fr: ["Imprimante ou photocopieur professionnel", "Ordinateur et logiciels de conception", "Matériel de reliure et finition"],
+    ar: ["طابعة أو ناسخة احترافية", "حاسوب وبرامج التصميم", "معدات التجليد والتشطيب"],
+    en: ["Professional printer/copier", "Computer and design software", "Binding and finishing equipment"],
+  },
+  "Design graphique/Communication": {
+    fr: ["Ordinateur et logiciels de design", "Appareil photo et matériel de prise de vue", "Imprimante et matériel de présentation"],
+    ar: ["حاسوب وبرامج التصميم", "كاميرا ومعدات التصوير", "طابعة ومعدات العرض"],
+    en: ["Computer and design software", "Camera and shooting equipment", "Printer and presentation equipment"],
+  },
+  "Numérique/TIC": {
+    fr: ["Ordinateurs et matériel informatique", "Connexion internet et serveur", "Logiciels et licences professionnelles"],
+    ar: ["حواسيب ومعدات معلوماتية", "اتصال بالأنترنت وخادوم", "برامج ورخص احترافية"],
+    en: ["Computers and IT equipment", "Internet connection and server", "Professional software licenses"],
+  },
+  "Tourisme rural/Guide": {
+    fr: ["Véhicule ou matériel de transport touristique", "Équipement d'hébergement ou de gîte", "Matériel de randonnée et sécurité"],
+    ar: ["مركبة أو معدات النقل السياحي", "معدات الإيواء أو بيت الضيافة", "معدات التنزه والسلامة"],
+    en: ["Vehicle or tourist transport gear", "Lodging/guesthouse equipment", "Hiking and safety equipment"],
+  },
+  "BTP/Maçonnerie": {
+    fr: ["Outillage de maçonnerie (bétonnière...)", "Échafaudage et matériel de sécurité", "Véhicule utilitaire pour le transport"],
+    ar: ["أدوات البناء (خلاطة الإسمنت...)", "سقالة ومعدات السلامة", "مركبة نفعية للنقل"],
+    en: ["Masonry tools (concrete mixer...)", "Scaffolding and safety equipment", "Utility vehicle for transport"],
+  },
+  "Éducation/Formation": {
+    fr: ["Matériel pédagogique et mobilier", "Ordinateur et supports numériques", "Aménagement d'une salle de formation"],
+    ar: ["معدات تربوية وأثاث", "حاسوب وموارد رقمية", "تجهيز قاعة تكوين"],
+    en: ["Teaching materials and furniture", "Computer and digital resources", "Fitting out a training room"],
+  },
+  "Pêche/Aquaculture": {
+    fr: ["Barque et matériel de pêche", "Bassins ou cages d'élevage aquacole", "Matériel de conservation du poisson"],
+    ar: ["قارب ومعدات الصيد", "أحواض أو أقفاص التربية المائية", "معدات حفظ السمك"],
+    en: ["Boat and fishing gear", "Ponds or aquaculture cages", "Fish preservation equipment"],
+  },
+  "Transport/Logistique": {
+    fr: ["Véhicule utilitaire ou taxi", "Matériel de manutention", "Système de suivi des livraisons"],
+    ar: ["مركبة نفعية أو تاكسي", "معدات المناولة", "نظام تتبع التوصيل"],
+    en: ["Utility vehicle or taxi", "Handling equipment", "Delivery tracking system"],
+  },
+  "Santé/Pharmacie": {
+    fr: ["Aménagement et vitrines de vente", "Matériel médical de base", "Stock initial de produits"],
+    ar: ["تجهيز وواجهات البيع", "معدات طبية أساسية", "مخزون أولي من المنتجات"],
+    en: ["Fit-out and display shelving", "Basic medical equipment", "Initial product stock"],
+  },
+  "Réparation/Maintenance": {
+    fr: ["Outillage spécialisé de réparation", "Pièces de rechange et stock", "Établi et matériel d'atelier"],
+    ar: ["أدوات إصلاح متخصصة", "قطع غيار ومخزون", "منضدة عمل ومعدات الورشة"],
+    en: ["Specialized repair tools", "Spare parts stock", "Workbench and workshop equipment"],
+  },
+  "Événementiel/Traiteur": {
+    fr: ["Matériel de cuisine et service traiteur", "Tentes, chaises et décoration", "Véhicule de transport du matériel"],
+    ar: ["معدات المطبخ وخدمة التقديم", "خيام وكراسي وديكور", "مركبة لنقل المعدات"],
+    en: ["Catering kitchen and service equipment", "Tents, chairs and decoration", "Vehicle to transport equipment"],
+  },
+};
 
 const DOCS = [
   {id:1,name:"Carte d'Identité Nationale (CIN)",desc:"Copies légalisées de tous les membres",req:true,icon:"🪪"},
@@ -188,21 +411,20 @@ const TX: Record<string, Record<string, string | string[]>> = {
     marital:"Situation familiale",
     edu:"Niveau d'études",
     occupation:"Situation professionnelle",
-    city:"Ville",
     region:"Région",
-    prefecture:"Préfecture",
+    arrondissement:"Arrondissement",
     sector:"Secteur d'activité envisagé",
     projType:"Type de porteur",
     photo:"Photo (optionnelle)",
     create:"Créer mon compte →",
     welcome:"Bienvenue,",
-    steps:["Idée","Dialogue","Profil","Plan","Budget","Logo","Conformité","Documents","Dossier"],
+    steps:["Idée","Questions","Profil","Plan","Budget","Logo","Conformité","Documents","Dossier"],
     ideaT:"Décrivez votre idée de projet",
     ideaH:"Secteur, zone géographique, bénéficiaires ciblés, besoins principaux.",
     ideaP:"Ex: Je veux lancer une activité de transformation de produits du terroir dans ma région...",
     sectorLabel:"Secteurs éligibles INDH",
     next:"Continuer →", loading:"Chargement...",
-    dialogT:"Affinons votre projet", dialogS:"4 questions ciblées pour structurer votre dossier.",
+    dialogT:"Affinons votre projet", dialogS:"Quelques questions ciblées pour structurer votre dossier.",
     ph:"Votre réponse...", send:"Envoyer →",
     q:"Question", of:"sur",
     profileT:"Profil du projet",
@@ -248,21 +470,20 @@ const TX: Record<string, Record<string, string | string[]>> = {
     marital:"الوضع العائلي",
     edu:"المستوى الدراسي",
     occupation:"الوضع المهني",
-    city:"المدينة",
     region:"الجهة",
-    prefecture:"العمالة / الإقليم",
+    arrondissement:"المقاطعة",
     sector:"قطاع النشاط المنشود",
     projType:"نوع الحامل",
     photo:"الصورة (اختياري)",
     create:"إنشاء الحساب ←",
     welcome:"مرحباً،",
-    steps:["الفكرة","الحوار","الملف","الخطة","الميزانية","الشعار","الامتثال","الوثائق","الدوسيي"],
+    steps:["الفكرة","الأسئلة","الملف","الخطة","الميزانية","الشعار","الامتثال","الوثائق","الدوسيي"],
     ideaT:"صف فكرة مشروعك",
     ideaH:"القطاع، المنطقة الجغرافية، المستفيدون المستهدفون، الاحتياجات الرئيسية.",
     ideaP:"مثال: أريد إطلاق نشاط لتحويل المنتجات المحلية في منطقتي...",
     sectorLabel:"القطاعات المؤهلة للمبادرة",
     next:"متابعة ←", loading:"جاري التحميل...",
-    dialogT:"لنصقل مشروعك معاً", dialogS:"4 أسئلة مستهدفة لهيكلة ملفك.",
+    dialogT:"لنصقل مشروعك معاً", dialogS:"بعض الأسئلة المستهدفة لهيكلة ملفك.",
     ph:"إجابتك...", send:"← إرسال",
     q:"السؤال", of:"من",
     profileT:"ملف المشروع",
@@ -308,21 +529,20 @@ const TX: Record<string, Record<string, string | string[]>> = {
     marital:"Marital status",
     edu:"Education level",
     occupation:"Occupation status",
-    city:"City",
     region:"Region",
-    prefecture:"Prefecture",
+    arrondissement:"District",
     sector:"Target sector",
     projType:"Holder type",
     photo:"Photo (optional)",
     create:"Create account →",
     welcome:"Welcome,",
-    steps:["Idea","Dialogue","Profile","Plan","Budget","Logo","Compliance","Documents","File"],
+    steps:["Idea","Questions","Profile","Plan","Budget","Logo","Compliance","Documents","File"],
     ideaT:"Describe your project idea",
     ideaH:"Sector, geographic zone, target beneficiaries, main needs.",
     ideaP:"E.g. I want to launch a local product processing activity in my region...",
     sectorLabel:"Eligible INDH sectors",
     next:"Continue →", loading:"Loading...",
-    dialogT:"Let's refine your project", dialogS:"4 targeted questions to structure your application.",
+    dialogT:"Let's refine your project", dialogS:"A few targeted questions to structure your application.",
     ph:"Your answer...", send:"Send →",
     q:"Question", of:"of",
     profileT:"Project Profile",
@@ -355,13 +575,14 @@ const TX: Record<string, Record<string, string | string[]>> = {
 /* ── SHARED UI ───────────────────────────────────────── */
 const ff = (lang: string) => lang === "ar" ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
 
-// Casablanca-Settat is split into 12 prefectures/arrondissements at registration
-// (see PREFECTURES_CS) — "Casablanca-Settat" alone is too coarse to be useful for
-// a jury or a coordinator. Show the prefecture alongside the region wherever a
+// Casablanca-Settat is further split into 8 préfectures d'arrondissements (see
+// ARRONDISSEMENTS_CASA) — "Casablanca-Settat" alone is too coarse to be useful
+// for a jury or a coordinator. Show the most precise level available wherever a
 // holder's location is displayed.
-const regionDisplay = (profile?: {region?: string; prefecture?: string}): string => {
+const regionDisplay = (profile?: {region?: string; prefecture?: string; arrondissement?: string}): string => {
   if (!profile?.region) return "";
-  return profile.prefecture ? `${profile.region} — ${profile.prefecture}` : profile.region;
+  const parts = [profile.region, profile.prefecture, profile.arrondissement].filter(Boolean);
+  return parts.join(" — ");
 };
 
 const Btn = ({children, onClick, disabled, outline, small, style = {}}: {
@@ -495,13 +716,6 @@ function VoiceBtn({lang, onText, onError}: {lang: string; onText: (t: string) =>
   );
 }
 
-const AdvisorAvatar = ({ size = 28 }: { size?: number }) => (
-  <div style={{width: size, height: size, borderRadius: "50%", flexShrink: 0,
-    background: `linear-gradient(135deg,${Y},${YD})`,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: Math.round(size * 0.48), boxShadow: `0 2px 8px rgba(255,183,3,.35)`}}>🎓</div>
-);
-
 const Dots = () => (
   <div style={{display: "flex", gap: "5px", padding: "6px 0"}}>
     {[0, 1, 2].map(i => <div key={i} style={{width: "8px", height: "8px", borderRadius: "50%",
@@ -613,13 +827,15 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
     if (!override) setInp("");
     setBusy(true);
     let replied = false;
-    for (let attempt = 0; attempt < 3 && !replied; attempt++) {
+    // See the ai() helper's comment on MAX_RETRIES for why this stays at 2, not more —
+    // the server's own provider cascade already retries exhaustively within 45s.
+    for (let attempt = 0; attempt < 2 && !replied; attempt++) {
       try {
-        if (attempt > 0) await new Promise(r => setTimeout(r, 800 * attempt));
+        if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
         const r = await fetch("/api/ai", {
           method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({messages: history, system: sys, task:"dialogue"}),
-          signal: AbortSignal.timeout(65_000),
+          signal: AbortSignal.timeout(50_000),
         });
         const d = await r.json();
         const text = d.content?.[0]?.text || "";
@@ -782,8 +998,10 @@ const Header = ({lang, setLang, user, onLogout, t}: {
     justifyContent: "space-between", padding: "0 22px",
     boxShadow: "0 2px 16px rgba(15,34,51,.3)", position: "sticky", top: 0, zIndex: 200}}>
     <div style={{display: "flex", alignItems: "center", gap: "8px"}}>
-      <div style={{width: "32px", height: "32px", borderRadius: "8px", background: Y,
-        display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", fontWeight: "900", color: WH}}>I</div>
+      <div style={{width: "32px", height: "32px", borderRadius: "8px", background: NB,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0}}>
+        <img src="/logo-icon.png" alt="" style={{width: "24px", height: "24px", objectFit: "contain"}}/>
+      </div>
       <span style={{fontSize: "17px", fontWeight: "800", color: WH, lineHeight: 1, letterSpacing: "-.3px"}}>IdeaMap</span>
     </div>
     <div style={{display: "flex", alignItems: "center", gap: "10px"}}>
@@ -851,7 +1069,9 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, se
       display:"flex", alignItems:"center", justifyContent:"space-between"}}>
       <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
         <div style={{width:34, height:34, borderRadius:"9px", background:ND, flexShrink:0,
-          display:"flex", alignItems:"center", justifyContent:"center", fontSize:"15px", fontWeight:"900", color:WH}}>I</div>
+          display:"flex", alignItems:"center", justifyContent:"center"}}>
+          <img src="/logo-icon.png" alt="" style={{width:"25px", height:"25px", objectFit:"contain"}}/>
+        </div>
         <div>
           <div style={{fontSize:"14.5px", fontWeight:"800", color:ND, lineHeight:1.2}}>IdeaMap</div>
           <div style={{fontSize:"10px", color:GR, fontWeight:"500"}}>
@@ -908,15 +1128,15 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, se
 ════════════════════════════════════════════════════════ */
 function Login({lang, setLang, t, onLogin, holders, coords}: {
   lang: string; setLang: (l: string) => void; t: any;
-  onLogin: (u: any) => void; holders: any[]; coords: string[];
+  onLogin: (u: any) => void; holders: any[]; coords: Coord[];
 }) {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
   const [mode, setMode]       = useState<null | "new">(null);
-  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", city: "", region: "", prefecture: "", sector: "", projType: "", photo: ""});
+  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", region: "", arrondissement: "", sector: "", projType: "", photo: ""});
   const [formErr, setFormErr] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const prefRef   = useRef<HTMLDivElement>(null);
+  const arrRef    = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
 
   /* ── Live role detection ── */
@@ -937,8 +1157,10 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     const normalised = cleanVal.toUpperCase();
     const role = detectRole(normalised);
     if (role === "coord") {
-      if (!coords.includes(normalised)) { setErr(true); return; }
-      onLogin({id:normalised, name:normalised.replace("@","").replace(/COD$/i,""), role:"coord"}); return;
+      const match = coords.find(c => (typeof c === "string" ? c : c.code).toUpperCase() === normalised);
+      if (!match) { setErr(true); return; }
+      const name = typeof match === "string" ? normalised.replace("@","").replace(/COD$/i,"") : (match.name || normalised.replace("@","").replace(/COD$/i,""));
+      onLogin({id:normalised, name, role:"coord"}); return;
     }
     if (role === "holder") {
       const existing = holders.find((h:any) => h.id === normalised);
@@ -948,13 +1170,16 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     setErr(true);
   };
 
-  const showPrefecture = form.region === "Casablanca-Settat";
+  // Casablanca-Settat is split into 8 préfectures d'arrondissements — shown
+  // directly once that region is picked, no intermediate step.
+  const showArrondissement = form.region === "Casablanca-Settat";
 
   useEffect(() => {
-    if (!showPrefecture || !prefRef.current) return;
-    const id = setTimeout(() => prefRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
+    if (!showArrondissement && form.arrondissement) { setForm(p => ({...p, arrondissement: ""})); return; }
+    if (!showArrondissement || !arrRef.current) return;
+    const id = setTimeout(() => arrRef.current?.scrollIntoView({behavior:"smooth", block:"start"}), 120);
     return () => clearTimeout(id);
-  }, [showPrefecture]);
+  }, [showArrondissement]);
 
   const REQUIRED_FIELDS: Array<{key: keyof typeof form; label: Record<string,string>}> = [
     {key:"firstName",  label:{fr:"Prénom",ar:"الاسم الشخصي",en:"First name"}},
@@ -968,11 +1193,14 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     {key:"sector",     label:{fr:"Secteur",ar:"القطاع",en:"Sector"}},
     {key:"projType",   label:{fr:"Type de porteur",ar:"نوع الحامل",en:"Holder type"}},
   ];
-  const allRequired = showPrefecture
-    ? [...REQUIRED_FIELDS, {key:"prefecture" as keyof typeof form, label:{fr:"Préfecture",ar:"العمالة",en:"Prefecture"}}]
-    : REQUIRED_FIELDS;
-  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "prefecture").length + (showPrefecture ? 1 : 0);
-  const filledCount  = Object.entries(form).filter(([k,v]) => k !== "photo" && (k !== "prefecture" || showPrefecture) && !!v).length;
+  const allRequired = [
+    ...REQUIRED_FIELDS,
+    ...(showArrondissement ? [{key:"arrondissement" as keyof typeof form, label:{fr:"Arrondissement",ar:"المقاطعة",en:"District"}}] : []),
+  ];
+  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "arrondissement").length
+    + (showArrondissement ? 1 : 0);
+  const filledCount  = Object.entries(form).filter(([k,v]) =>
+    k !== "photo" && (k !== "arrondissement" || showArrondissement) && !!v).length;
   const fillPct      = Math.round((filledCount / TOTAL_FIELDS) * 100);
   const isEmailValid = (v:string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
@@ -1034,8 +1262,10 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
           padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between",
           position:"sticky", top:0, zIndex:10, boxShadow:"0 2px 20px rgba(0,0,0,.3)"}}>
           <div style={{display:"flex", alignItems:"center", gap:"8px"}}>
-            <div style={{width:"28px", height:"28px", borderRadius:"7px", background:Y,
-              display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", fontWeight:"900", color:WH}}>I</div>
+            <div style={{width:"28px", height:"28px", borderRadius:"7px", background:"rgba(255,255,255,.08)",
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
+              <img src="/logo-icon.png" alt="" style={{width:"21px", height:"21px", objectFit:"contain"}}/>
+            </div>
             <span style={{fontSize:"14px", fontWeight:"800", color:WH}}>IdeaMap</span>
           </div>
           <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
@@ -1081,26 +1311,23 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
             </div>
             <div><label style={lStyle}>{t.occupation}</label>{dSel("occupation", OCCUPATION[lang], t.occupation as string)}</div>
             {regSec("📍", lang==="ar"?"الموقع":lang==="fr"?"Localisation":"Location")}
-            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px"}}>
-              <div><label style={lStyle}>{t.city}</label>{dInp("city", t.city as string)}</div>
-              <div>
-                <label style={lStyle}>{t.region}</label>
-                <select value={form.region}
-                  onChange={e => {setForm(p=>({...p, region:e.target.value, prefecture:""})); setFormErr([]);}}
-                  style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
-                    border:`1.5px solid ${form.region ? Y : "rgba(28,58,92,.8)"}`,
-                    background:"rgba(255,255,255,.04)", fontSize:"13px",
-                    fontFamily:ff(lang), color:form.region ? WH : "rgba(255,255,255,.3)",
-                    direction:dir as "rtl"|"ltr", appearance:"none", cursor:"pointer", transition:"all .2s"}}>
-                  <option value="" style={{background:"#0f2233"}}>{t.region}</option>
-                  {REGIONS.map(o => <option key={o} value={o} style={{background:"#0f2233"}}>{o}</option>)}
-                </select>
-              </div>
+            <div>
+              <label style={lStyle}>{t.region}</label>
+              <select value={form.region}
+                onChange={e => {setForm(p=>({...p, region:e.target.value, arrondissement:""})); setFormErr([]);}}
+                style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
+                  border:`1.5px solid ${form.region ? Y : "rgba(28,58,92,.8)"}`,
+                  background:"rgba(255,255,255,.04)", fontSize:"13px",
+                  fontFamily:ff(lang), color:form.region ? WH : "rgba(255,255,255,.3)",
+                  direction:dir as "rtl"|"ltr", appearance:"none", cursor:"pointer", transition:"all .2s"}}>
+                <option value="" style={{background:"#0f2233"}}>{t.region}</option>
+                {REGIONS.map(o => <option key={o} value={o} style={{background:"#0f2233"}}>{o}</option>)}
+              </select>
             </div>
-            {showPrefecture && (
-              <div ref={prefRef} style={{animation:"fadeUp .3s ease both"}}>
-                <label style={lStyle}>{t.prefecture}</label>
-                {dSel("prefecture", PREFECTURES_CS, t.prefecture as string)}
+            {showArrondissement && (
+              <div ref={arrRef} style={{animation:"fadeUp .3s ease both"}}>
+                <label style={lStyle}>{t.arrondissement}</label>
+                {dSel("arrondissement", ARRONDISSEMENTS_CASA, t.arrondissement as string)}
               </div>
             )}
             {regSec("💼", lang==="ar"?"المشروع":lang==="fr"?"Projet":"Project")}
@@ -1210,8 +1437,10 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
       <div className="im-rise" style={{width:"100%", maxWidth:400, position:"relative", zIndex:5, display:"flex",
         flexDirection:"column", alignItems:"center"}}>
 
-        {/* Logo above card */}
-        <img src="/logo-transparent.png" alt="IdeaMap"
+        {/* Logo above card — a right-sized/compressed copy (36KB vs. the 320KB
+            full-res source), since this is the single largest request on the
+            whole login page and a plain <img> with no responsive sizing */}
+        <img src="/logo-login.png" alt="IdeaMap"
           style={{width:270, maxWidth:"100%", objectFit:"contain", marginBottom:18}}/>
 
         {/* White card */}
@@ -1284,6 +1513,8 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   onLogout: () => void; t: any; onSaveProject: (d: any) => void; initialState?: any;
 }) {
   const [step, setStep]    = useState(initialState?.step || "idea");
+  const stepRef = useRef(step);
+  useEffect(() => { stepRef.current = step; }, [step]);
   const [idea, setIdea]    = useState(initialState?.idea || "");
   const [msgs, setMsgs]    = useState<any[]>(initialState?.msgs || []);
   const [inp, setInp]      = useState("");
@@ -1303,6 +1534,14 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [qBank, setQBank]                   = useState<(string[] | undefined)[]>(initialState?.qBank || []);
   const [brief, setBrief]                   = useState(initialState?.brief || "");
   const [currentQ, setCurrentQ]             = useState(initialState?.currentQ || "");
+  // True once the CURRENTLY shown question's options came from AI tailoring rather
+  // than the instant generic fallback — gates the background-upgrade effect below.
+  const [suggTailored, setSuggTailored]     = useState(false);
+  // True once `proj` was compiled by AI rather than the instant local draft.
+  const [projTailored, setProjTailored]     = useState(true);
+  // Same, for `plan`/`budget` — true once AI-compiled rather than the instant
+  // local draft built from SECTOR_EQUIPMENT + proj.
+  const [planTailored, setPlanTailored]     = useState(true);
   const [dlLang, setDlLang]                 = useState(lang);
   const [pitchBusy, setPitchBusy]           = useState(false);
   const [qaBusy, setQABusy]                 = useState(false);
@@ -1314,19 +1553,46 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
   const LL  = lang === "ar" ? "arabe" : lang === "fr" ? "français" : "anglais";
-  const MAX_Q = 4;
 
-  // Fixed question set (same 4 topics the jury cares about most: beneficiaries,
-  // local problem, revenue channel, holder experience). The QUESTION TEXT is
-  // always this — never AI-generated — so it can never drift into a vague
-  // paragraph. Only the tap-to-answer OPTIONS are tailored to the project's
-  // nature (sector/idea), via a single upfront AI call in startChat().
+  // Fixed question set — a full INDH project fiche's worth of questions (identification,
+  // porteur profile, market/positioning, beneficiaries/impact, financing, sustainability),
+  // in the same spirit as a real project fiche. The QUESTION TEXT is always this — never
+  // AI-generated — so it can never drift into a vague paragraph. Only the tap-to-answer
+  // OPTIONS are tailored to the project's nature (sector/idea), via a single upfront AI
+  // call in startChat().
   const FIXED_Q: {fr: string; ar: string; en: string}[] = [
-    {fr: "Qui va bénéficier de votre projet ?", ar: "من سيستفيد من مشروعك؟", en: "Who will benefit from your project?"},
-    {fr: "Quel problème local votre projet résout-il ?", ar: "ما هي المشكلة المحلية التي يحلها مشروعك؟", en: "What local problem does your project solve?"},
-    {fr: "Comment allez-vous vendre et générer des revenus ?", ar: "كيف ستبيع وتحقق دخلاً؟", en: "How will you sell and generate revenue?"},
+    {fr: "Quel est le nom (ou l'enseigne) de votre projet ?", ar: "ما هو اسم مشروعك (أو علامته التجارية)؟", en: "What is the name (or brand) of your project?"},
+    {fr: "Dans quel secteur d'activité se situe votre projet ?", ar: "في أي قطاع نشاط يندرج مشروعك؟", en: "What sector does your project belong to?"},
+    {fr: "Dans quelle ville, quartier ou douar sera-t-il implanté ?", ar: "في أي مدينة أو حي أو دوار سيقام مشروعك؟", en: "In which city, neighborhood, or village will it be located?"},
+    {fr: "Décrivez en une phrase le concept de votre projet.", ar: "صف فكرة مشروعك في جملة واحدة.", en: "Describe your project's concept in one sentence."},
+    {fr: "Quels produits ou services allez-vous proposer ?", ar: "ما هي المنتجات أو الخدمات التي ستقدمها؟", en: "What products or services will you offer?"},
     {fr: "Quelle est votre expérience dans ce domaine ?", ar: "ما هي خبرتك في هذا المجال؟", en: "What is your experience in this field?"},
+    {fr: "Quelle formation ou compétence spécifique possédez-vous ?", ar: "ما هو التكوين أو المهارة الخاصة التي تمتلكها؟", en: "What specific training or skill do you have?"},
+    {fr: "Avez-vous déjà une clientèle ou des contacts prêts à vous suivre ?", ar: "هل لديك زبائن أو معارف مستعدون لمتابعتك؟", en: "Do you already have clients or contacts ready to follow you?"},
+    {fr: "Qui va bénéficier directement de votre projet ?", ar: "من سيستفيد مباشرة من مشروعك؟", en: "Who will directly benefit from your project?"},
+    {fr: "Combien de personnes seront bénéficiaires directes ?", ar: "كم عدد المستفيدين المباشرين؟", en: "How many people will be direct beneficiaries?"},
+    {fr: "Quel problème local concret votre projet résout-il ?", ar: "ما هي المشكلة المحلية الملموسة التي يحلها مشروعك؟", en: "What concrete local problem does your project solve?"},
+    {fr: "Qui sont vos principaux concurrents dans la zone ?", ar: "من هم أهم منافسيك في المنطقة؟", en: "Who are your main competitors in the area?"},
+    {fr: "Qu'est-ce qui vous différencie de la concurrence ?", ar: "ما الذي يميزك عن المنافسين؟", en: "What sets you apart from the competition?"},
+    {fr: "Comment allez-vous fixer vos prix ?", ar: "كيف ستحدد أسعارك؟", en: "How will you set your prices?"},
+    {fr: "Comment allez-vous attirer et fidéliser vos clients ?", ar: "كيف ستجذب زبائنك وتحافظ عليهم؟", en: "How will you attract and retain customers?"},
+    {fr: "Comment allez-vous vendre et générer des revenus ?", ar: "كيف ستبيع وتحقق دخلاً؟", en: "How will you sell and generate revenue?"},
+    {fr: "Quel volume de clients ou de ventes visez-vous par semaine ?", ar: "ما هو حجم الزبائن أو المبيعات المستهدف أسبوعياً؟", en: "What sales/customer volume are you targeting per week?"},
+    {fr: "Quel équipement principal souhaitez-vous acquérir avec l'appui INDH ?", ar: "ما هو التجهيز الرئيسي الذي تريد اقتناءه بدعم المبادرة الوطنية؟", en: "What main equipment do you want to acquire with INDH support?"},
+    {fr: "Quel est le coût total estimé de votre projet ?", ar: "ما هي الكلفة الإجمالية المقدرة لمشروعك؟", en: "What is the total estimated cost of your project?"},
+    {fr: "Quelle part pouvez-vous apporter vous-même (10%) ?", ar: "كم يمكنك أن تساهم بنفسك (10%)؟", en: "How much can you contribute yourself (10%)?"},
+    {fr: "Quel chiffre d'affaires visez-vous la première année ?", ar: "ما هو رقم المعاملات الذي تستهدفه في السنة الأولى؟", en: "What revenue are you targeting for year one?"},
+    {fr: "Combien d'emplois directs votre projet va-t-il créer ?", ar: "كم من فرصة شغل مباشرة سيخلقها مشروعك؟", en: "How many direct jobs will your project create?"},
+    {fr: "Quel est l'impact social attendu au-delà des emplois ?", ar: "ما هو الأثر الاجتماعي المتوقع بخلاف فرص الشغل؟", en: "What social impact do you expect beyond jobs?"},
+    {fr: "Comment votre projet contribuera-t-il à la vie du quartier ou du douar ?", ar: "كيف سيساهم مشروعك في حياة الحي أو الدوار؟", en: "How will your project contribute to the neighborhood or village?"},
+    {fr: "Combien de clients par jour faut-il pour couvrir vos charges (seuil de rentabilité) ?", ar: "كم عدد الزبائن يومياً لتغطية مصاريفك (عتبة الربحية)؟", en: "How many customers per day do you need to cover your costs (break-even)?"},
+    {fr: "Comment votre projet continuera-t-il après la fin de l'appui INDH ?", ar: "كيف سيستمر مشروعك في العمل بعد انتهاء دعم المبادرة الوطنية؟", en: "How will your project keep running after INDH support ends?"},
+    {fr: "Quel est le principal risque qui pourrait freiner votre projet ?", ar: "ما هو أكبر خطر قد يعرقل مشروعك؟", en: "What is the main risk that could hold your project back?"},
+    {fr: "Comment comptez-vous faire face à ce risque ?", ar: "كيف تنوي مواجهة هذا الخطر؟", en: "How do you plan to handle that risk?"},
+    {fr: "Avez-vous un plan pour faire grandir le projet dans les prochaines années ?", ar: "هل لديك خطة لتطوير المشروع في السنوات القادمة؟", en: "Do you have a plan to grow the project in the coming years?"},
+    {fr: "Pourquoi le jury INDH devrait-il choisir votre projet ?", ar: "لماذا يجب على لجنة المبادرة الوطنية اختيار مشروعك؟", en: "Why should the INDH jury choose your project?"},
   ];
+  const MAX_Q = FIXED_Q.length;
   const fixedQText = (i: number) => FIXED_Q[i][lang as "fr"|"ar"|"en"] || FIXED_Q[i].fr;
 
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
@@ -1345,6 +1611,15 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     window.scrollTo({top: 0, behavior: "smooth"});
   }, [step]);
 
+  // Silently upgrade the currently-shown question's tap options from the instant
+  // generic set to AI-tailored ones, if the background batch (started in startChat)
+  // delivers them before the user answers. No-op once the user has moved on.
+  useEffect(() => {
+    if (step !== "dialogue" || suggTailored || qN < 1) return;
+    const tailored = qBank[qN - 1];
+    if (tailored) { setSuggestions(tailored); setSuggTailored(true); }
+  }, [qBank, qN, step, suggTailored]);
+
   // Cancel any pending toast timer on unmount to avoid setState-on-unmounted warning
   useEffect(() => {
     return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
@@ -1356,30 +1631,45 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     toastTimerRef.current = setTimeout(() => setToast(null), 4500);
   };
 
-  // Auto-retries up to 3× with exponential back-off before surfacing any error.
-  // The server-side cascade (providers.ts) already tries 4 Groq models + Together
-  // + Gemini + OpenRouter × 2 sweeps, so the client retry is a last safety net.
+  // Auto-retries up to 5× with exponential back-off before surfacing any error.
+  // The server-side cascade (providers.ts) races ~10 providers plus 2 sequential
+  // sweeps, so a client retry only fires when EVERY provider was exhausted at that
+  // instant — likely a shared free-tier rate-limit window (resets in tens of seconds
+  // under many concurrent users, not minutes), so persisting here converts a near-miss
+  // into a success instead of a user-facing "unavailable" message.
   const ai = async (messages: any[], system: string, task: "json" | "dialogue" = "dialogue", maxTokens?: number): Promise<string> => {
-    const MAX_RETRIES = 3;
+    // The server's own rafiq() cascade already races/retries across ~15-20 provider
+    // attempts internally within a firm 45s deadline (see providers.ts) — one call
+    // here already represents an exhaustive attempt. Retrying that whole cascade many
+    // times client-side (previously 5x at 65s each, compounding to ~11 minutes when
+    // stacked with ensureJson's own retry) just makes a stuck user stare at a spinner
+    // far longer than any single call could ever plausibly need. Two attempts is
+    // enough to smooth over one transient blip without multiplying the wait.
+    const MAX_RETRIES = 2;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        if (attempt > 0) await new Promise(r => setTimeout(r, 900 * attempt));
+        if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
         const r = await fetch("/api/ai", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({messages, system, task, ...(maxTokens ? {max_tokens: maxTokens} : {})}),
-          signal: AbortSignal.timeout(65_000),
+          signal: AbortSignal.timeout(50_000),
         });
         const d = await r.json();
         if (d.error) {
           if (attempt < MAX_RETRIES - 1) continue;
-          showToast(lang==="ar"?"المستشار مشغول — جاري إعادة المحاولة...":lang==="fr"?"Conseiller surchargé — nouvelle tentative...":"Advisor busy — retrying automatically...", "error");
+          // Every caller of ai() has its own graceful fallback (tap-option generic
+          // suggestions, or the local profile compile below) — surfacing a "busy"
+          // toast here would alarm the user right before that fallback quietly
+          // completes the step anyway, which defeats the point of having one.
           return "";
         }
         return d.content?.[0]?.text || "";
       } catch {
         if (attempt < MAX_RETRIES - 1) continue;
-        showToast(lang==="ar"?"تعذّر الاتصال — تحقق من اتصالك":lang==="fr"?"Connexion impossible — vérifiez votre réseau":"Connection failed — check your network");
+        // Same reasoning as the d.error branch above: every caller already
+        // recovers gracefully on its own, so this would only ever be shown
+        // moments before that recovery quietly finishes the step.
         return "";
       }
     }
@@ -1409,49 +1699,257 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     return p;
   };
 
-  // BRIEF/QUESTION are meant to be one short plain-text line — strip stray markdown
-  // (**, ##, ---, bullet markers) in case the model drifts from the requested format.
-  const stripMd = (s: string): string =>
-    s.replace(/\*\*/g, "").replace(/^#+\s*/gm, "").replace(/^-{3,}\s*$/gm, "")
-     .replace(/^[-•]\s+/gm, "").replace(/\n{2,}/g, " ").replace(/\s+/g, " ").trim();
+  // Last-resort fallback only — used when a question index has no local option set
+  // below (shouldn't normally happen, all 30 are covered) and AI tailoring hasn't
+  // landed yet either.
+  const genericOptions = (): string[] => [
+    lang === "ar" ? "استخدم أفضل تقدير" : lang === "fr" ? "Utilisez votre meilleure estimation" : "Use your best estimate",
+    lang === "ar" ? "كما في فكرتي الأصلية" : lang === "fr" ? "Comme dans mon idée de départ" : "As in my original idea",
+    lang === "ar" ? "سأكتب إجابتي بنفسي" : lang === "fr" ? "Je préfère écrire ma réponse" : "I'll write my own answer",
+  ];
 
-  const parseQS = (raw: string): { brief: string; question: string; suggs: string[] } => {
-    const bMatch = raw.match(/BRIEF\s*:\s*([\s\S]*?)(?=QUESTION\s*:|SUGGESTIONS\s*:|$)/i);
-    const qMatch = raw.match(/QUESTION\s*:\s*([\s\S]*?)(?=SUGGESTIONS\s*:|BRIEF\s*:|$)/i);
-    const sMatch = raw.match(/SUGGESTIONS\s*:\s*([\s\S]*)/i);
-    const brief = bMatch ? stripMd(bMatch[1]) : "";
-    const question = qMatch ? stripMd(qMatch[1]) : (brief ? "" : stripMd(raw.replace(/SUGGESTIONS\s*:[\s\S]*/i, "")));
-    const suggs = sMatch
-      ? sMatch[1].split(/\|/).map((s: string) => stripMd(s)).filter((s: string) => s.length > 1 && s.length < 120)
-      : [];
-    return { brief, question, suggs };
+  // Tap-options are never worth blocking on a network call for — the question flow
+  // shows this instantly the moment a question appears, then silently upgrades to
+  // AI-tailored options if the background batch (see startChat) delivers them before
+  // the user answers. This is what makes 50+ concurrent users a non-issue for this
+  // step: nobody is ever waiting on AI to proceed, tailoring is a pure enhancement.
+  //
+  // Unlike the old genericOptions() (meta-choices like "use your best estimate" that
+  // just push the user toward typing anyway), these are REAL, idea/sector-specific
+  // answer choices computed instantly client-side from data already collected at
+  // registration (sector, city, region) and the idea text — no AI call needed, no
+  // wait, and meaningfully less typing than before even in the worst case where the
+  // AI-tailored batch never lands.
+  // Sector picks WHICH bundle of 3 real choices to show (18 sectors, not just
+  // "Coiffure/Beauté" — every sector in SECTOR_SERVICES/SECTOR_EQUIPMENT has its
+  // own set). But the sector alone can't distinguish a men's barbershop from a
+  // women's beauty salon, or a bakery from a jam-maker within the same sector —
+  // that distinction lives in what the porteur actually wrote as their idea.
+  // reorderByIdea nudges whichever of the 3 options best matches words already
+  // in the idea text to the front, so the flow adapts to the specific PROJECT,
+  // not just its broad category.
+  const STOPWORDS = new Set(["de","du","des","la","le","les","et","ou","en","un","une","à","au","aux","pour","dans","avec","sur","d","l","من","في","على","و","أو","إلى","and","or","for","in","with","on","the","a","an","mon","ma","mes","ce","cette"]);
+  const kwFrom = (s: string): string[] => s.toLowerCase().replace(/[()"„""«»?؟]/g, " ").split(/[\s,\/]+/).filter(w => w.length > 2 && !STOPWORDS.has(w));
+  const EXTRA_HINTS: Record<string, string[][]> = {
+    "Coiffure/Beauté": [
+      ["homme","hommes","barbe","barber","messieurs","رجال","رجل","لحية"],
+      ["femme","femmes","dame","dames","سيدات","نساء","امرأة"],
+      ["complet","tous","famille","عائلة","جميع","متكامل"],
+    ],
+    "Restauration/Café": [
+      ["thé","café","salon","قهوة","شاي"],
+      ["rapide","snack","sandwich","سريع","وجبات"],
+      ["traditionnel","marocain","تقليدي","مغربي"],
+    ],
+    "Agro-alimentaire": [
+      ["huile","miel","terroir","زيت","عسل"],
+      ["confiture","conserve","مربى","تعليب"],
+      ["pâtisserie","boulangerie","حلويات","مخبزة","خبز"],
+    ],
+    "Numérique/TIC": [
+      ["site","application","web","تطبيق","موقع"],
+      ["formation","cours","تكوين","دروس"],
+      ["maintenance","réseau","صيانة","شبكات"],
+    ],
+  };
+  // Scores each of a sector's 3 options against the idea text (checking words
+  // from ALL THREE language variants plus EXTRA_HINTS, so it works regardless of
+  // which language the porteur typed their idea in or the UI is showing) and
+  // returns the best-matching option's index, or -1 if nothing matched. Computed
+  // ONCE per table so the same underlying option is promoted consistently across
+  // fr/ar/en, instead of the display language accidentally picking a different one.
+  const bestOptionIndex = (table: Record<string, Record<"fr"|"ar"|"en", string[]>>, sectorKey: string, ideaText: string): number => {
+    const set = table[sectorKey];
+    if (!set) return -1;
+    const ideaLower = ideaText.toLowerCase();
+    if (!ideaLower.trim()) return -1;
+    const hints = EXTRA_HINTS[sectorKey];
+    const n = set.fr.length;
+    const scores = Array.from({length: n}, (_, i) => {
+      const words = [...kwFrom(set.fr[i]), ...kwFrom(set.ar[i]), ...kwFrom(set.en[i]), ...(hints?.[i] || [])];
+      return words.reduce((s, w) => s + (ideaLower.includes(w) ? 1 : 0), 0);
+    });
+    const best = scores.indexOf(Math.max(...scores));
+    return scores[best] > 0 ? best : -1;
+  };
+  const reorderByIndex = (options: string[] | undefined, bestIdx: number): string[] | undefined => {
+    if (!options || bestIdx <= 0) return options;
+    return [options[bestIdx], ...options.filter((_, i) => i !== bestIdx)];
   };
 
-  // Porteurs answer by tapping, not typing — a question with no clickable options would
-  // force free-text. Retry up to twice, keeping the same question, forcing suggestions.
-  // If the model still won't comply, fall back to generic tap-only options so the user
-  // is never stuck: the final JSON step is instructed to use its best estimate anyway.
-  const ensureSuggestions = async (
-    question: string, brief: string, convo: {role: string; content: string}[], setBrief: (b: string) => void
-  ): Promise<string[]> => {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const strictR = await ai(convo,
-        `Tu es le Conseiller INDH Phase 3 Maroc.
-Pose EXACTEMENT cette question: "${question}"
-Propose OBLIGATOIREMENT 3 suggestions de réponse courtes et réalistes (jamais coopérative/GIE).
-Format STRICT — respecte EXACTEMENT ces 3 lignes, la ligne SUGGESTIONS est OBLIGATOIRE:
-BRIEF: [1-2 phrases max en ${LL}]
-QUESTION: ${question}
-SUGGESTIONS: [réponse A en ${LL}] | [réponse B en ${LL}] | [réponse C en ${LL}]`,
-        "dialogue");
-      const retry = parseQS(strictR);
-      if (retry.suggs.length) { setBrief(retry.brief || brief); return retry.suggs; }
-    }
-    return [
-      lang === "ar" ? "استخدم أفضل تقدير" : lang === "fr" ? "Utilisez votre meilleure estimation" : "Use your best estimate",
-      lang === "ar" ? "كما في فكرتي الأصلية" : lang === "fr" ? "Comme dans mon idée de départ" : "As in my original idea",
-      lang === "ar" ? "سأوضح لاحقاً مع مستشار" : lang === "fr" ? "Je préciserai plus tard avec un conseiller" : "I'll clarify later with an advisor",
-    ];
+  const localOptionsFor = (qIndex: number, ideaText: string): string[] => {
+    const sector = user.profile?.sector || "";
+    const city = user.profile?.city || user.profile?.region || (lang === "ar" ? "منطقتي" : lang === "fr" ? "ma ville" : "my city");
+    const sectorLabel = sector || (lang === "ar" ? "نشاطي" : lang === "fr" ? "mon activité" : "my activity");
+    const combinedIdea = `${ideaText} ${idea}`;
+    const svcBest = bestOptionIndex(SECTOR_SERVICES, sector, combinedIdea);
+    const equipBest = bestOptionIndex(SECTOR_EQUIPMENT, sector, combinedIdea);
+    const svc = reorderByIndex(SECTOR_SERVICES[sector]?.[lang as "fr"|"ar"|"en"], svcBest);
+    const equip = reorderByIndex(SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"], equipBest);
+    // Short-circuit here rather than threading svc/equip through the trilingual T
+    // table below — they're already resolved for the current `lang`, and stuffing
+    // a single-language array into a {fr,ar,en} record under the wrong key was
+    // exactly the bug that made idea-based reordering silently no-op outside French.
+    if (qIndex === 4 && svc) return svc;
+    if (qIndex === 17 && equip) return equip;
+    // A project name can't be meaningfully suggested — no genuine "choice" exists
+    // between plausible names the way it does for e.g. services or equipment.
+    // Suggesting fake names would be presumptuous, not helpful. This is a direct,
+    // open question: no tap options, straight to the free-text input.
+    if (qIndex === 0) return [];
+
+    const T: Record<number, Record<"fr"|"ar"|"en", string[]>> = {
+      1: {
+        fr: [sector || "Mon secteur déclaré à l'inscription", "Un secteur proche/complémentaire", "Un autre secteur"],
+        ar: [sector || "القطاع الذي صرحت به عند التسجيل", "قطاع قريب أو مكمل", "قطاع آخر"],
+        en: [sector || "The sector I declared at registration", "A related/complementary sector", "A different sector"],
+      },
+      2: {
+        fr: [`${city}, centre-ville`, `${city}, quartier périphérique`, "Un autre lieu"],
+        ar: [`${city}، وسط المدينة`, `${city}، حي محيطي`, "مكان آخر"],
+        en: [`${city}, city center`, `${city}, outer neighborhood`, "Somewhere else"],
+      },
+      3: {
+        fr: [`Un service de ${sectorLabel} moderne et accessible pour le quartier`, "Une activité basée sur mon expérience personnelle", "Je préfère décrire mon concept moi-même"],
+        ar: [`خدمة ${sectorLabel} عصرية وفي متناول سكان الحي`, "نشاط مبني على خبرتي الشخصية", "أفضل وصف فكرتي بنفسي"],
+        en: [`A modern, accessible ${sectorLabel} service for the neighborhood`, "An activity built on my personal experience", "I'll describe my concept myself"],
+      },
+      // Reached only when the sector isn't in SECTOR_SERVICES (svc undefined) —
+      // the sector-matched case already returned above.
+      4: {
+        fr: ["Un service ou produit unique et ciblé", "Une gamme de 2 à 3 services complémentaires", "Je préfère décrire mes produits/services moi-même"],
+        ar: ["خدمة أو منتج واحد ومحدد", "مجموعة من 2 إلى 3 خدمات مكملة", "أفضل وصف منتجاتي/خدماتي بنفسي"],
+        en: ["One unique, focused product or service", "A range of 2-3 complementary services", "I'll describe my products/services myself"],
+      },
+      5: {
+        fr: ["Moins d'1 an d'expérience", "1 à 3 ans d'expérience", "Plus de 3 ans d'expérience"],
+        ar: ["أقل من سنة من الخبرة", "من سنة إلى 3 سنوات من الخبرة", "أكثر من 3 سنوات من الخبرة"],
+        en: ["Less than 1 year of experience", "1 to 3 years of experience", "More than 3 years of experience"],
+      },
+      6: {
+        fr: ["Formation professionnelle diplômante", "Formation autodidacte / pratique sur le terrain", "Aucune formation formelle pour l'instant"],
+        ar: ["تكوين مهني بشهادة", "تعلم ذاتي / ممارسة ميدانية", "لا يوجد تكوين رسمي حالياً"],
+        en: ["Certified vocational training", "Self-taught / hands-on field practice", "No formal training yet"],
+      },
+      7: {
+        fr: ["Oui, une base de clients fidèles", "Quelques contacts, pas encore une base solide", "Non, je pars de zéro"],
+        ar: ["نعم، لدي قاعدة زبائن أوفياء", "بعض المعارف، لكن ليس بعد قاعدة قوية", "لا، أبدأ من الصفر"],
+        en: ["Yes, a loyal client base", "A few contacts, not yet a solid base", "No, starting from scratch"],
+      },
+      8: {
+        fr: ["Les jeunes et familles de mon quartier", "Le grand public local", "Une clientèle spécifique (préciser)"],
+        ar: ["شباب وعائلات حيي", "عموم سكان المنطقة", "فئة محددة من الزبائن (التفصيل)"],
+        en: ["Youth and families in my neighborhood", "The general local public", "A specific customer segment (specify)"],
+      },
+      9: {
+        fr: ["Moins de 50 personnes par an", "50 à 200 personnes par an", "Plus de 200 personnes par an"],
+        ar: ["أقل من 50 شخصاً في السنة", "من 50 إلى 200 شخص في السنة", "أكثر من 200 شخص في السنة"],
+        en: ["Fewer than 50 people per year", "50 to 200 people per year", "More than 200 people per year"],
+      },
+      10: {
+        fr: [`Manque d'offre de qualité en ${sectorLabel} dans le quartier`, "Difficulté d'accès local à ce service/produit", "Je préfère décrire le problème moi-même"],
+        ar: [`نقص العرض الجيد في ${sectorLabel} بالحي`, "صعوبة الوصول محلياً لهذه الخدمة/المنتج", "أفضل وصف المشكلة بنفسي"],
+        en: [`Lack of quality ${sectorLabel} options in the neighborhood`, "Difficulty accessing this service/product locally", "I'll describe the problem myself"],
+      },
+      11: {
+        fr: ["Quelques petits commerces similaires", "Peu ou pas de concurrence directe", "Plusieurs concurrents bien établis"],
+        ar: ["بعض المحلات الصغيرة المشابهة", "منافسة قليلة أو منعدمة", "عدة منافسين راسخين"],
+        en: ["A few similar small businesses", "Little to no direct competition", "Several well-established competitors"],
+      },
+      12: {
+        fr: ["Meilleure qualité et hygiène", "Prix plus accessibles", "Service plus rapide et organisé (digital)"],
+        ar: ["جودة ونظافة أفضل", "أسعار في متناول الجميع", "خدمة أسرع ومنظمة (رقمياً)"],
+        en: ["Better quality and hygiene", "More affordable prices", "Faster, better-organized (digital) service"],
+      },
+      13: {
+        fr: ["Prix aligné sur le marché local", "Prix légèrement en dessous pour attirer les clients", "Prix premium justifié par la qualité"],
+        ar: ["سعر يتماشى مع السوق المحلي", "سعر أقل قليلاً لجذب الزبائن", "سعر مرتفع نسبياً مبرر بالجودة"],
+        en: ["Priced in line with the local market", "Slightly below market to attract customers", "Premium pricing justified by quality"],
+      },
+      14: {
+        fr: ["Bouche-à-oreille et réseaux sociaux", "Offres de lancement et fidélité", "Réservation digitale (WhatsApp) et qualité de service"],
+        ar: ["التوصية الشفهية ومواقع التواصل الاجتماعي", "عروض الانطلاق والولاء", "الحجز الرقمي (واتساب) وجودة الخدمة"],
+        en: ["Word of mouth and social media", "Launch offers and loyalty perks", "Digital booking (WhatsApp) and service quality"],
+      },
+      15: {
+        fr: ["Vente directe sur place", "Vente et prestations de service combinées", "Abonnements ou packs"],
+        ar: ["البيع المباشر في المكان", "الجمع بين البيع وتقديم الخدمة", "اشتراكات أو باقات"],
+        en: ["Direct on-site sales", "Combined product + service sales", "Subscriptions or bundles"],
+      },
+      16: {
+        fr: ["Moins de 20 clients/semaine", "20 à 50 clients/semaine", "Plus de 50 clients/semaine"],
+        ar: ["أقل من 20 زبوناً أسبوعياً", "من 20 إلى 50 زبوناً أسبوعياً", "أكثر من 50 زبوناً أسبوعياً"],
+        en: ["Fewer than 20 customers/week", "20 to 50 customers/week", "More than 50 customers/week"],
+      },
+      // Reached only when the sector isn't in SECTOR_EQUIPMENT (equip undefined) —
+      // the sector-matched case already returned above.
+      17: {
+        fr: ["Équipement professionnel de base", "Aménagement et mobilier du local", "Je préfère décrire l'équipement moi-même"],
+        ar: ["معدات مهنية أساسية", "تجهيز وأثاث المحل", "أفضل وصف المعدات بنفسي"],
+        en: ["Basic professional equipment", "Fit-out and furniture for the premises", "I'll describe the equipment myself"],
+      },
+      18: {
+        fr: ["Moins de 30 000 MAD", "30 000 à 70 000 MAD", "Plus de 70 000 MAD"],
+        ar: ["أقل من 30.000 درهم", "من 30.000 إلى 70.000 درهم", "أكثر من 70.000 درهم"],
+        en: ["Under 30,000 MAD", "30,000 to 70,000 MAD", "Over 70,000 MAD"],
+      },
+      19: {
+        fr: ["Moins de 5 000 MAD", "5 000 à 10 000 MAD", "Plus de 10 000 MAD"],
+        ar: ["أقل من 5.000 درهم", "من 5.000 إلى 10.000 درهم", "أكثر من 10.000 درهم"],
+        en: ["Under 5,000 MAD", "5,000 to 10,000 MAD", "Over 10,000 MAD"],
+      },
+      20: {
+        fr: ["Moins de 100 000 MAD", "100 000 à 200 000 MAD", "Plus de 200 000 MAD"],
+        ar: ["أقل من 100.000 درهم", "من 100.000 إلى 200.000 درهم", "أكثر من 200.000 درهم"],
+        en: ["Under 100,000 MAD", "100,000 to 200,000 MAD", "Over 200,000 MAD"],
+      },
+      21: {
+        fr: ["1 emploi (moi-même)", "2 emplois (moi + 1 assistant)", "3 emplois ou plus"],
+        ar: ["فرصة شغل واحدة (أنا)", "فرصتا شغل (أنا + مساعد)", "3 فرص شغل أو أكثر"],
+        en: ["1 job (myself)", "2 jobs (myself + 1 assistant)", "3 jobs or more"],
+      },
+      22: {
+        fr: ["Formation de jeunes du quartier", "Service de proximité utile aux familles", "Amélioration de l'hygiène ou de la qualité de vie locale"],
+        ar: ["تكوين شباب الحي", "خدمة قرب مفيدة للعائلات", "تحسين النظافة أو جودة الحياة المحلية"],
+        en: ["Training young people locally", "A useful neighborhood service for families", "Improved hygiene or local quality of life"],
+      },
+      23: {
+        fr: [`Dynamiser le commerce local à ${city}`, "Créer un lieu de référence dans le quartier", "Offrir un service qui manquait localement"],
+        ar: [`تنشيط التجارة المحلية في ${city}`, "خلق مكان مرجعي في الحي", "تقديم خدمة كانت تنقص محلياً"],
+        en: [`Boosting local commerce in ${city}`, "Becoming a go-to place in the neighborhood", "Filling a service gap locally"],
+      },
+      24: {
+        fr: ["Moins de 5 clients/jour", "5 à 10 clients/jour", "Plus de 10 clients/jour"],
+        ar: ["أقل من 5 زبائن يومياً", "من 5 إلى 10 زبائن يومياً", "أكثر من 10 زبائن يومياً"],
+        en: ["Fewer than 5 customers/day", "5 to 10 customers/day", "More than 10 customers/day"],
+      },
+      25: {
+        fr: ["Autofinancement par les revenus générés", "Réinvestissement progressif des bénéfices", "Développement de nouveaux services/produits"],
+        ar: ["التمويل الذاتي من الدخل المحقق", "إعادة استثمار تدريجي للأرباح", "تطوير خدمات/منتجات جديدة"],
+        en: ["Self-financed from generated revenue", "Gradual reinvestment of profits", "Developing new products/services"],
+      },
+      26: {
+        fr: ["Concurrence locale", "Fluctuation de la demande / saisonnalité", "Manque de trésorerie au démarrage"],
+        ar: ["المنافسة المحلية", "تذبذب الطلب / الموسمية", "نقص السيولة عند الانطلاق"],
+        en: ["Local competition", "Demand fluctuation / seasonality", "Cash-flow shortage at launch"],
+      },
+      27: {
+        fr: ["Différenciation par la qualité et le prix", "Épargne de précaution et gestion rigoureuse", "Diversification des services"],
+        ar: ["التميز بالجودة والسعر", "ادخار احتياطي وتسيير صارم", "تنويع الخدمات"],
+        en: ["Standing out on quality and price", "Precautionary savings and tight management", "Diversifying services"],
+      },
+      28: {
+        fr: ["Ouvrir un deuxième point de vente", "Élargir la gamme de produits/services", "Recruter et former plus d'employés"],
+        ar: ["فتح نقطة بيع ثانية", "توسيع مجموعة المنتجات/الخدمات", "توظيف وتكوين موظفين إضافيين"],
+        en: ["Opening a second location", "Expanding the product/service range", "Hiring and training more staff"],
+      },
+      29: {
+        fr: ["Projet réaliste porté par une expérience solide", "Fort impact social et création d'emplois", "Rentabilité rapide et faible risque"],
+        ar: ["مشروع واقعي مبني على خبرة قوية", "أثر اجتماعي كبير وخلق فرص شغل", "ربحية سريعة ومخاطرة منخفضة"],
+        en: ["A realistic project backed by solid experience", "Strong social impact and job creation", "Fast profitability and low risk"],
+      },
+    };
+    return T[qIndex]?.[lang as "fr"|"ar"|"en"] || genericOptions();
   };
 
   const dlText = (content: string, name: string) => {
@@ -2498,6 +2996,42 @@ ${axisHTML}
     }
   };
 
+  // Sector → brand color/icon, used only when AI logo generation fails outright —
+  // matching the color intuitions already in the AI prompt below (terracotta for
+  // artisanat, indigo for couture, etc.) so the fallback still looks intentional
+  // rather than generic. Purely cosmetic, so a heuristic guess here carries none of
+  // the accuracy stakes a fabricated compliance score or budget would.
+  const SECTOR_BRAND: Record<string, {c1: string; c2: string; icon: string}> = {
+    "Agriculture/Élevage": {c1: "#6B7A3E", c2: "#8FA05C", icon: "🌾"},
+    "Artisanat traditionnel": {c1: "#C8602A", c2: "#E08A4F", icon: "🏺"},
+    "Commerce/Épicerie": {c1: "#2563EB", c2: "#1E40AF", icon: "🛒"},
+    "Agro-alimentaire": {c1: "#B8860B", c2: "#D4A017", icon: "🍯"},
+    "Restauration/Café": {c1: "#E87420", c2: "#F2994A", icon: "☕"},
+    "Coiffure/Beauté": {c1: "#7B3B8E", c2: "#9B59B6", icon: "💇"},
+    "Couture/Vêtement traditionnel": {c1: "#3B3B8E", c2: "#5C5CB0", icon: "🧵"},
+    "Impression/Reprographie": {c1: "#374151", c2: "#4B5563", icon: "🖨️"},
+    "Design graphique/Communication": {c1: "#DB2777", c2: "#EC4899", icon: "🎨"},
+    "Numérique/TIC": {c1: "#1E6FE8", c2: "#3B82F6", icon: "💻"},
+    "Tourisme rural/Guide": {c1: "#059669", c2: "#10B981", icon: "🗺️"},
+    "BTP/Maçonnerie": {c1: "#78350F", c2: "#92400E", icon: "🧱"},
+    "Éducation/Formation": {c1: "#1D4ED8", c2: "#2563EB", icon: "📚"},
+    "Pêche/Aquaculture": {c1: "#1A4A7A", c2: "#2E6396", icon: "🐟"},
+    "Transport/Logistique": {c1: "#374151", c2: "#F59E0B", icon: "🚚"},
+    "Santé/Pharmacie": {c1: "#059669", c2: "#22C55E", icon: "⚕️"},
+    "Réparation/Maintenance": {c1: "#4B5563", c2: "#6B7280", icon: "🔧"},
+    "Événementiel/Traiteur": {c1: "#BE185D", c2: "#DB2777", icon: "🎉"},
+  };
+  const buildLocalLogo = (p: any) => {
+    const brand = SECTOR_BRAND[p?.sector || ""] || {c1: Y, c2: YD, icon: "💡"};
+    const initials = (p?.projectName || "").replace(/[^A-Za-z؀-ۿ]/g, "").slice(0, 2).toUpperCase() || "IM";
+    const tagline = lang === "ar" ? "خدمة محلية بجودة عالية" : lang === "fr" ? "Qualité et proximité" : "Local, quality-driven service";
+    const styleDesc = lang === "ar" ? "هوية بسيطة وواضحة" : lang === "fr" ? "Identité simple et claire" : "Simple, clear identity";
+    return {
+      initials, color1: brand.c1, color2: brand.c2, colorText: "#FFFFFF",
+      icon: brand.icon, tagline, styleDesc, accentColor: brand.c2,
+    };
+  };
+
   const genLogo = async () => {
     setLogoGenerating(true);
     try {
@@ -2546,11 +3080,15 @@ JSON UNIQUEMENT sans markdown:
       concept.initials   = concept.initials   || (proj?.projectName||"").slice(0,2).toUpperCase() || "IM";
       setLogo({type:"generated", concept}); setLogoStyle(0);
     } else {
+      // AI is unavailable — a sector-colored fallback beats a dead end. It's purely
+      // cosmetic, so an applicant getting a simpler-than-ideal logo under heavy load
+      // is a much better outcome than getting stuck on this step entirely.
+      setLogo({type:"generated", concept: buildLocalLogo(proj)}); setLogoStyle(0);
       showToast(
-        lang === "ar" ? "فشل إنشاء الشعار — حاول مجدداً" :
-        lang === "fr" ? "Génération du logo échouée — réessayez" :
-        "Logo generation failed — try again",
-        "error"
+        lang === "ar" ? "تم استخدام تصميم مبسط — يمكنك إعادة المحاولة لاحقاً" :
+        lang === "fr" ? "Design simplifié utilisé — vous pouvez réessayer plus tard" :
+        "Used a simplified design — you can try regenerating later",
+        "success"
       );
     }
     } finally {
@@ -2660,109 +3198,256 @@ CRITÈRES JURY INDH — PONDÉRATION OFFICIELLE (100 pts):
 CE QUI CONVAINC LE JURY: profil vulnérable du porteur + chiffres précis + ancrage territorial fort + plan de pérennité concret.
 RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais association, coopérative ou GIE — ces structures ne sont pas éligibles au programme INDH Phase 3 porteurs.`;
 
-  const startChat = async (override?: string) => {
+  const startChat = (override?: string) => {
     const ideaText = (override ?? idea).trim();
     if (!ideaText) return;
     if (override) setIdea(override);
     const ideaPreview = ideaText.replace(/\n/g, " ").slice(0, 200);
-    setBusy(true); setSuggestions([]); setBrief(ideaPreview); setCurrentQ(""); setQBank([]); setStep("dialogue");
+
+    // Show Question 1 immediately with real, idea/sector-specific tap options — no
+    // network wait at all. AI tailoring happens in the background (below) and
+    // silently upgrades the options in place if it lands before the user answers.
+    // This is what keeps the Questions step responsive regardless of how many other
+    // users are hitting the same AI provider at once: nobody is ever blocked on a
+    // network call to proceed.
+    setBusy(false); setSuggTailored(false); setBrief(ideaPreview); setCurrentQ(fixedQText(0));
+    setQBank([]); setStep("dialogue");
+    setMsgs([{role: "user", content: ideaText}, {role: "assistant", content: fixedQText(0)}]);
+    setSuggestions(localOptionsFor(0, ideaText));
+    setQN(1);
+
     const arNote = lang === "ar" ? "\nمهم جداً: استخدم العربية الفصحى السليمة والبسيطة. جمل قصيرة جداً. لا دارجة مغربية." : "";
     const ideaMsg = [{role: "user", content: lang === "ar" ? `فكرتي: ${ideaText}` : `Mon idée: ${ideaText}`}];
 
-    // One upfront call gets tap-to-answer options for ALL 4 fixed questions,
-    // tailored to this specific idea/sector — no AI round-trip needed per turn.
-    const bank = await ensureJson(ideaMsg,
-      `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
+    // Background: fetch AI-tailored options for ALL fixed questions, specific to this
+    // idea/sector. Split into small chunks so a malformed/truncated response only costs
+    // one chunk's questions, not the whole bank, and update qBank progressively as each
+    // chunk resolves rather than waiting for all of them. Each chunk call already races
+    // ~10 providers server-side, so running all 5 chunks fully in parallel would fire
+    // ~50 simultaneous provider requests from this one user alone — at 50 concurrent
+    // users that's ~2 500 requests hitting the same free-tier rate limits at once.
+    // Cap in-flight chunks at 2 to keep this bounded.
+    const CHUNK = 6;
+    const chunks: {fr: string; ar: string; en: string}[][] = [];
+    for (let i = 0; i < FIXED_Q.length; i += CHUNK) chunks.push(FIXED_Q.slice(i, i + CHUNK));
+
+    runLimited(chunks.map((chunk, ci) => async () => {
+      const qLines = chunk.map((_, j) => `Q${j + 1}: "${fixedQText(ci * CHUNK + j)}"`).join("\n");
+      const schema = chunk.map((_, j) => `"q${j + 1}":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"]`).join(",");
+      const bank = await ensureJson(ideaMsg,
+        `Tu es le Conseiller INDH Phase 3 Maroc — expert terrain qui connaît bien les réalités des porteurs marocains.
 ${INDH_CTX}
 Le porteur a partagé son idée: "${ideaText}"
-Pour CHACUNE des 4 questions ci-dessous, propose 3 réponses courtes, réalistes et SPÉCIFIQUES à CETTE idée précise (jamais générique, jamais coopérative/GIE). Réponds en ${LL}.${arNote}
+Pour CHACUNE des ${chunk.length} questions ci-dessous, propose 3 réponses courtes, réalistes et SPÉCIFIQUES à CETTE idée précise (jamais générique, jamais coopérative/GIE). Réponds en ${LL}.${arNote}
 
-Q1: "${fixedQText(0)}"
-Q2: "${fixedQText(1)}"
-Q3: "${fixedQText(2)}"
-Q4: "${fixedQText(3)}"
+${qLines}
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
-{"q1":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"],"q2":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"],"q3":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"],"q4":["réponse A en ${LL}","réponse B en ${LL}","réponse C en ${LL}"]}`);
-
-    const bankArr: (string[] | undefined)[] = [1, 2, 3, 4].map(n => {
-      const arr = bank?.[`q${n}`];
-      return Array.isArray(arr) && arr.length ? arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3) : undefined;
-    });
-    setQBank(bankArr);
-
-    // First question's options: use the batch result, or fetch just this one if the batch failed.
-    const suggs = bankArr[0] || await ensureSuggestions(fixedQText(0), "", ideaMsg, () => {});
-    setBrief(ideaPreview);
-    setCurrentQ(fixedQText(0));
-    setMsgs([{role: "user", content: ideaText}, {role: "assistant", content: fixedQText(0)}]);
-    setSuggestions(suggs);
-    setQN(1); setBusy(false);
+{${schema}}`, 1500);
+      setQBank(prev => {
+        const next = [...prev];
+        chunk.forEach((_, j) => {
+          const idx = ci * CHUNK + j;
+          // Question 0 (project name) never gets tap options, from the AI batch
+          // or otherwise — see the matching guard in localOptionsFor. A suggested
+          // name is exactly as presumptuous coming from the AI as it would be
+          // hardcoded, so this is skipped regardless of what the model returns.
+          if (idx === 0) return;
+          const arr = bank?.[`q${j + 1}`];
+          if (Array.isArray(arr) && arr.length) {
+            next[idx] = arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3);
+          }
+        });
+        return next;
+      });
+    }), 2).catch(() => {});
   };
 
-  const sendMsg = async (override?: string) => {
+  // Heuristic project profile built directly from the 30 collected answers, no AI
+  // call required. Used both as the instant first draft (upgraded to the AI-compiled
+  // version in the background) and as the last-resort fallback if AI compile fails.
+  const buildLocalProfile = (all: {role: string; content: string}[]) => {
+    const answers = all.filter((m, i) => i > 0 && m.role === "user").map(m => (m.content || "").trim());
+    const numFrom = (s: string | undefined, fallback: number): number => {
+      const digits = (s || "").replace(/[^\d]/g, " ").match(/\d{2,}/);
+      return digits ? parseInt(digits[0], 10) : fallback;
+    };
+    return {
+      projectName: answers[0] || idea.slice(0, 40),
+      sector: answers[1] || user.profile?.sector || (lang === "ar" ? "نشاط ريادي" : lang === "fr" ? "Activité entrepreneuriale" : "Entrepreneurial activity"),
+      legalStructure: lang === "ar" ? "حامل مشروع فردي" : lang === "fr" ? "Porteur individuel" : "Individual holder",
+      location: answers[2] || user.profile?.city || user.profile?.region || "",
+      beneficiaries: numFrom(answers[9], 10),
+      targetProfile: answers[8] || idea.slice(0, 120),
+      localProblem: answers[10] || idea.slice(0, 120),
+      revenueModel: answers[15] || answers[4] || "",
+      holderExperience: answers[5] || "",
+      activities: [answers[4], answers[16], answers[17]].filter(Boolean).slice(0, 3),
+      strengths: [
+        lang === "ar" ? "معرفة ميدانية جيدة بالمنطقة والمستفيدين" : lang === "fr" ? "Bonne connaissance du terrain et des bénéficiaires visés" : "Strong local knowledge of the area and target beneficiaries",
+        lang === "ar" ? "مشروع واضح يستجيب لحاجة محلية محددة" : lang === "fr" ? "Projet clair répondant à un besoin local identifié" : "Clear project addressing an identified local need",
+      ],
+      estimatedBudget: numFrom(answers[18], 70000),
+      pillar: lang === "ar" ? "تحسين الدخل والإدماج الاقتصادي للشباب" : lang === "fr" ? "Amélioration du revenu et inclusion économique des jeunes" : "Income improvement and economic inclusion of youth",
+    };
+  };
+
+  // Heuristic business plan text built directly from the collected project profile,
+  // no AI required — the same "instant, no dependency on AI" principle already
+  // applied to the questionnaire, extended to the step that matters most: this is
+  // the step that actually states the funding request. Under 100+ concurrent users
+  // sharing one free-tier AI provider, genPlan()'s two AI calls can both fail at
+  // once — without this, that left the applicant stuck on a bare "regenerate"
+  // button with no funding numbers at all.
+  const buildLocalPlan = (p: any) => {
+    const name = p?.projectName || (lang === "ar" ? "المشروع" : lang === "fr" ? "le projet" : "the project");
+    const loc = p?.location || (lang === "ar" ? "المنطقة" : lang === "fr" ? "la région" : "the area");
+    const sector = p?.sector || "";
+    const ben = p?.beneficiaries || 10;
+    const budget = p?.estimatedBudget || 70000;
+    if (lang === "ar") return {
+      executiveSummary: `"${name}" هو مشروع في قطاع ${sector} بمنطقة ${loc}، يستجيب لحاجة محلية ملموسة ويهدف إلى الاستفادة المباشرة لـ${ben} شخصاً على الأقل.`,
+      problemStatement: p?.localProblem || `نقص ملحوظ في العرض المحلي المتعلق بـ${sector} في ${loc}.`,
+      solution: p?.revenueModel || `تقديم خدمات/منتجات في مجال ${sector} تستجيب مباشرة للحاجة المحددة أعلاه.`,
+      marketAnalysis: `السكان المستهدفون في ${loc} يشكلون سوقاً محلياً كافياً لانطلاق النشاط، مع منافسة محدودة أو غير منظمة.`,
+      businessModel: `نموذج اقتصادي بسيط ومباشر مبني على البيع المحلي، مع هامش ربح يغطي المصاريف الثابتة خلال الأشهر الأولى.`,
+      socialImpact: `استفادة مباشرة لـ${ben} شخصاً على الأقل، مع دخل إضافي وفرصة عمل مستدامة للحامل.`,
+      operationalPlan: `الشهر 1: اقتناء المعدات وتهيئة المكان. الشهر 2-3: الانطلاق التجريبي وأولى الزبائن. الشهر 6-12: الوصول إلى وتيرة نشاط مستقرة.`,
+      indh_alignment: p?.pillar || "تحسين الدخل والإدماج الاقتصادي للشباب",
+      risks: [
+        "خطر تجاري: منافسة محلية → الحل: التميز بالجودة والسعر",
+        "خطر مالي: تأخر الانطلاق → الحل: تسيير صارم للميزانية",
+        "خطر تشغيلي: نقص الخبرة → الحل: تكوين ومواكبة ميدانية",
+      ],
+      projections: { year1: budget * 2.3, year2: budget * 3, year3: budget * 3.8 },
+    };
+    if (lang === "en") return {
+      executiveSummary: `"${name}" is a ${sector} project in ${loc}, addressing a concrete local need and directly benefiting at least ${ben} people.`,
+      problemStatement: p?.localProblem || `A clear local gap in ${sector} services/products in ${loc}.`,
+      solution: p?.revenueModel || `Offering ${sector} products/services that directly address the need above.`,
+      marketAnalysis: `${loc}'s target population forms a sufficient local market to launch the activity, with limited or informal competition.`,
+      businessModel: `A simple, direct business model based on local sales, with a margin covering fixed costs from the first months.`,
+      socialImpact: `Direct benefit for at least ${ben} people, with additional income and a sustainable job for the holder.`,
+      operationalPlan: `Month 1: equipment purchase and setup. Month 2-3: soft launch and first customers. Month 6-12: reaching a stable pace of activity.`,
+      indh_alignment: p?.pillar || "Income improvement and economic inclusion of youth",
+      risks: [
+        "Commercial risk: local competition → Solution: stand out on quality and price",
+        "Financial risk: delayed launch → Solution: strict budget management",
+        "Operational risk: limited experience → Solution: training and field support",
+      ],
+      projections: { year1: budget * 2.3, year2: budget * 3, year3: budget * 3.8 },
+    };
+    return {
+      executiveSummary: `"${name}" est un projet du secteur ${sector} implanté à ${loc}, répondant à un besoin local concret et bénéficiant directement à au moins ${ben} personnes.`,
+      problemStatement: p?.localProblem || `Manque local identifié en matière de ${sector} à ${loc}.`,
+      solution: p?.revenueModel || `Proposer des produits/services de ${sector} répondant directement au besoin identifié.`,
+      marketAnalysis: `La population cible de ${loc} constitue un marché local suffisant pour lancer l'activité, avec une concurrence limitée ou peu structurée.`,
+      businessModel: `Modèle économique simple et direct basé sur la vente locale, avec une marge couvrant les charges fixes dès les premiers mois.`,
+      socialImpact: `Bénéfice direct pour au moins ${ben} personnes, avec un revenu complémentaire et un emploi durable pour le porteur.`,
+      operationalPlan: `Mois 1 : acquisition des équipements et aménagement. Mois 2-3 : lancement et premiers clients. Mois 6-12 : atteinte d'un rythme d'activité stable.`,
+      indh_alignment: p?.pillar || "Amélioration du revenu et inclusion économique des jeunes",
+      risks: [
+        "Risque commercial : concurrence locale → Solution : se différencier par la qualité et le prix",
+        "Risque financier : retard au démarrage → Solution : gestion budgétaire rigoureuse",
+        "Risque opérationnel : expérience limitée → Solution : formation et accompagnement de terrain",
+      ],
+      projections: { year1: budget * 2.3, year2: budget * 3, year3: budget * 3.8 },
+    };
+  };
+
+  // Heuristic budget built from the sector's known equipment list (SECTOR_EQUIPMENT
+  // — the same real, sector-specific items already used as instant questionnaire
+  // choices), scaled to the porteur's own estimated budget and split 90/10 per
+  // INDH rules. Never blocks the applicant on AI availability for their actual
+  // funding request.
+  const buildLocalBudget = (p: any) => {
+    const sector = p?.sector || "";
+    const equipFr = SECTOR_EQUIPMENT[sector]?.fr;
+    const catLabel = lang === "ar" ? "معدات إنتاجية" : lang === "fr" ? "Équipements productifs" : "Productive equipment";
+    const names = (equipFr && SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"]) || (
+      lang === "ar" ? ["معدات مهنية أساسية", "أثاث وتجهيز المحل", "أدوات ومستلزمات التشغيل"]
+      : lang === "en" ? ["Basic professional equipment", "Fit-out and furniture", "Operating tools and supplies"]
+      : ["Équipement professionnel de base", "Aménagement et mobilier du local", "Outillage et fournitures d'exploitation"]
+    );
+    const rawTotal = Math.min(Math.max(p?.estimatedBudget || 70000, 55000), 111000);
+    const splits = [0.5, 0.35, 0.15];
+    const items = names.slice(0, 3).map((item: string, i: number) => {
+      const total = Math.round((rawTotal * splits[i]) / 100) * 100;
+      return { category: catLabel, item, quantity: 1, unitPrice: total, total };
+    });
+    const total = items.reduce((s: number, x: any) => s + x.total, 0);
+    const indhContribution = Math.min(Math.round(total * 0.9), 100000);
+    const beneficiaryContribution = total - indhContribution;
+    return { items, indhContribution, beneficiaryContribution };
+  };
+
+  const sendMsg = (override?: string) => {
     const msg = override ?? inp;
     if (!msg.trim() || busy) return;
     const all = [...msgs, {role: "user", content: msg}];
-    setMsgs(all); if (!override) setInp(""); setBusy(true); setSuggestions([]);
+    setMsgs(all); if (!override) setInp("");
     const last = qN >= MAX_Q;
 
     if (!last) {
-      // Next question text is fixed — never AI-generated, so it can't drift.
-      // Its tap-options come from the upfront batch call, or get fetched now if missing.
+      // Next question text is fixed — never AI-generated, so it can't drift. Its
+      // tap-options come from the upfront batch call if it's landed by now, or the
+      // instant idea/sector-specific local set otherwise — never a live network
+      // wait to advance.
       const nextQ = fixedQText(qN);
       const cached = qBank[qN];
-      const suggs = cached || await ensureSuggestions(nextQ, brief,
-        all.map((m: any) => ({role: m.role, content: m.content})), () => {});
       setCurrentQ(nextQ);
       setMsgs((p: any[]) => [...p, {role: "assistant", content: nextQ}]);
-      setSuggestions(suggs);
+      setSuggestions(cached || localOptionsFor(qN, idea));
+      setSuggTailored(!!cached);
       setQN((p: number) => p + 1);
-      setBusy(false);
       return;
     }
 
-    // Last question answered — compile the full project profile.
-    let p = await ensureJson(all.map((m: any) => ({role: m.role, content: m.content})),
-      `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
+    // Last question answered — show an instant local draft immediately, then
+    // upgrade to an AI-compiled profile in the background if it lands before the
+    // user moves on. The user is never blocked waiting on this network call.
+    const convo = all.map((m: any) => ({role: m.role, content: m.content}));
+    setBrief(""); setCurrentQ(""); setSuggestions([]);
+    setMsgs((prev: any[]) => [...prev, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
+    setProj(buildLocalProfile(all)); setProjTailored(false);
+    setStep("profile");
+
+    (async () => {
+      let p = await ensureJson(convo,
+        `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
 Analyse TOUTE la conversation et construis le profil projet le plus PRÉCIS possible.
 Retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
 {"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`);
-    if (!p) {
-      // NE POSE AUCUNE QUESTION reminder didn't work either — last resort retry.
-      const strictR = await ai(all.map((m: any) => ({role: m.role, content: m.content})),
-        `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
+      if (!p) {
+        const strictR = await ai(convo,
+          `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
 Construis le profil projet le plus précis possible à partir de la conversation ci-dessus, en utilisant ta meilleure estimation pour toute information manquante ou imprécise.
 NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON valide, rien d'autre:
 {"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`,
-        "json");
-      p = parseJ(strictR);
-    }
-    if (!p) {
-      // Still no valid JSON after the stricter retry — stay on dialogue.
-      setBusy(false);
-      showToast(
-        lang === "ar" ? "فشل تحليل مشروعك — أعد المحاولة" :
-        lang === "fr" ? "Analyse du projet échouée — réessayez" :
-        "Project analysis failed — please try again",
-        "error"
-      );
-      return;
-    }
-    setBrief(""); setCurrentQ(""); setSuggestions([]);
-    setMsgs((prev: any[]) => [...prev, {role: "assistant", content: lang === "ar" ? "✅ تم تحليل مشروعك بنجاح!" : lang === "fr" ? "✅ Analyse complète !" : "✅ Analysis complete!"}]);
-    setProj(p);
-    setTimeout(() => setStep("profile"), 1000);
-    setBusy(false);
+          "json");
+        p = parseJ(strictR);
+      }
+      // Only swap the draft for the refined version if the user is still looking at
+      // it — if they've already moved on to Plan/Budget, leave what's already there.
+      if (p && stepRef.current === "profile") { setProj(p); setProjTailored(true); }
+    })().catch(() => {});
   };
 
   const genPlan = async () => {
-    setBusy(true); setStep("plan");
-    try {
+    // Instant local draft first — same principle as the questionnaire and profile
+    // steps: never block the applicant on a network call, especially not for the
+    // step that states their actual funding request. AI runs in the background and
+    // silently upgrades the draft if it lands before the user moves past
+    // plan/budget. Guards on stepRef so a slow response can't clobber content the
+    // user has already moved on from.
+    setPlan(buildLocalPlan(proj)); setBudget(buildLocalBudget(proj)); setPlanTailored(false);
+    setStep("plan");
+
     const projCtx = JSON.stringify(proj || {idea});
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب كل النصوص بالعربية الفصحى السليمة والواضحة. جمل كاملة ومنظمة. لا دارجة مغربية. لا حروف لاتينية داخل النصوص العربية."
       : "";
+    (async () => {
     const [p, b] = await Promise.all([
       ensureJson([{role: "user", content: `Projet INDH: ${projCtx}`}],
         `Tu es un expert en montage de projets INDH Phase 3 au Maroc — tu as accompagné des dizaines de porteurs qui ont obtenu leur financement.
@@ -2795,11 +3480,12 @@ RÈGLES IMPÉRATIVES:
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"items":[{"category":"catégorie","item":"désignation exacte avec marque/modèle si pertinent en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`),
     ]);
-    if (p) setPlan(p);
-    if (b) setBudget(b);
-    } finally {
-      setBusy(false);
-    }
+    // Only swap the draft for the AI version if the user is still on plan/budget —
+    // if they've already moved on to Logo, leave what's already there.
+    const stillHere = stepRef.current === "plan" || stepRef.current === "budget";
+    if (p && stillHere) { setPlan(p); setPlanTailored(true); }
+    if (b && stillHere) setBudget(b);
+    })().catch(() => {});
   };
 
   const checkComp = async () => {
@@ -3013,7 +3699,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                       ))}
                     </div>
                   </div>
-                  {indhBtn(busy ? t.loading : t.next, startChat,
+                  {indhBtn(busy ? t.loading : t.next, () => startChat(),
                     {opacity: (!enough || busy) ? .5 : 1,
                      background: enough && !busy ? `linear-gradient(135deg,${Y},${YD})` : undefined})}
                 </>
@@ -3022,23 +3708,23 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           </Card>
         )}
 
-        {/* ── DIALOGUE ── */}
+        {/* ── QUESTIONS ── */}
         {step === "dialogue" && (
           <Card>
             {/* Header */}
-            <div style={{display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px"}}>
-              <AdvisorAvatar size={40}/>
-              <div style={{flex: 1}}>
-                <div style={{fontSize: "10px", color: Y, fontWeight: "700", textTransform: "uppercase",
-                  letterSpacing: ".6px", marginBottom: "2px"}}>
-                  {lang === "ar" ? "مستشار المبادرة الوطنية" : lang === "fr" ? "Conseiller INDH" : "INDH Advisor"}
-                </div>
-                <h2 style={{fontSize: "17px", fontWeight: "700", color: ND}}>{t.dialogT}</h2>
+            <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px"}}>
+              <div style={{width: "46px", height: "46px", borderRadius: "13px", background: YL,
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px",
+                border: `2px solid ${Y}`, flexShrink: 0}}>❓</div>
+              <div>
+                <div style={{fontSize: "11px", color: Y, fontWeight: "700", textTransform: "uppercase",
+                  letterSpacing: ".5px", marginBottom: "2px"}}>{t.q} {qN} {t.of} {MAX_Q}</div>
+                <h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.dialogT}</h2>
               </div>
             </div>
 
             {/* Idea reminder pill */}
-            {idea && <div style={{display:"flex", alignItems:"flex-start", gap:"7px", marginBottom:"14px",
+            {idea && <div style={{display:"flex", alignItems:"flex-start", gap:"7px", marginBottom:"16px",
               padding:"9px 12px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
               <span style={{fontSize:"15px", flexShrink:0}}>💡</span>
               <p style={{fontSize:"11px", color:GR, lineHeight:"1.55", margin:0,
@@ -3048,49 +3734,22 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             </div>}
 
             {/* Progress */}
-            <div style={{marginBottom: "16px"}}>
-              <div style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-                <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>{t.q} {qN} {t.of} {MAX_Q}</span>
-                <span style={{fontSize: "11px", color: N, fontWeight: "800"}}>{Math.round((qN / MAX_Q) * 100)}%</span>
-              </div>
+            <div style={{marginBottom: "18px"}}>
               <PBar pct={(qN / MAX_Q) * 100}/>
             </div>
 
-            {/* Brief — always visible once set (shows during loading and after AI responds) */}
-            {brief && (
-              <div className="im-rise" style={{marginBottom: "14px", borderRadius: "14px",
-                border: `2px solid ${Y}`, overflow: "hidden"}}>
-                <div style={{display: "flex", alignItems: "center", gap: "10px",
-                  padding: "10px 14px", background: Y}}>
-                  <AdvisorAvatar size={32}/>
-                  <span style={{fontSize: "11px", fontWeight: "800", color: ND, textTransform: "uppercase",
-                    letterSpacing: ".5px"}}>
-                    {busy
-                      ? (lang === "ar" ? "جاري التحضير..." : lang === "fr" ? "Préparation en cours..." : "Preparing...")
-                      : (lang === "ar" ? "فكرتك:" : lang === "fr" ? "Votre idée :" : "Your idea:")}
-                  </span>
-                </div>
-                <div style={{padding: "13px 16px", background: WH}}>
-                  <p style={{fontSize: "14px", color: ND, lineHeight: "1.7", margin: 0, fontWeight: "500",
-                    direction: dir as "rtl"|"ltr"}}>{brief}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Busy state */}
+            {/* Busy state — plain loading, no chat framing */}
             {busy && (
-              <div style={{display: "flex", alignItems: "center", gap: "10px",
-                padding: "14px", background: YL, borderRadius: "13px", marginBottom: "14px"}}>
-                <AdvisorAvatar size={28}/>
+              <div style={{display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                padding: "18px", background: YL, borderRadius: "13px", marginBottom: "14px"}}>
                 <Dots/>
               </div>
             )}
 
-            {/* Current question card */}
+            {/* Current question — a plain heading, not a chat bubble */}
             {currentQ && !busy && (
-              <div className="im-rise" style={{padding: "16px 18px", background: ND, borderRadius: "14px",
-                marginBottom: "14px", border: `2px solid ${Y}44`}}>
-                <p style={{fontSize: "15px", fontWeight: "700", color: WH, lineHeight: "1.55",
+              <div className="im-rise" style={{marginBottom: "18px"}}>
+                <p style={{fontSize: "17px", fontWeight: "700", color: ND, lineHeight: "1.5",
                   margin: 0, direction: dir as "rtl"|"ltr"}}>{currentQ}</p>
               </div>
             )}
@@ -3124,7 +3783,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               <input value={inp} onChange={e => !busy && setInp(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && sendMsg()} disabled={busy}
                 placeholder={busy
-                  ? (lang==="ar"?"المستشار يفكر...":lang==="fr"?"Le conseiller réfléchit...":"Advisor is thinking...")
+                  ? (lang==="ar"?"جاري التحميل...":lang==="fr"?"Chargement...":"Loading...")
                   : (lang==="ar"?"أو اكتب إجابتك هنا...":lang==="fr"?"Ou écrivez votre réponse...":"Or type your own answer...")}
                 className={busy ? "busy-pulse" : ""}
                 style={{...fs, flex: 1, fontSize: "13px", opacity: busy ? 0.6 : 1,
@@ -3151,6 +3810,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 border: `2px solid ${Y}`, flexShrink: 0}}>📋</div>
               <h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.profileT}</h2>
             </div>
+            {proj && !projTailored && (
+              <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "12px",
+                padding: "8px 12px", background: CR, borderRadius: "9px", border: `1px solid ${CD}`}}>
+                <Dots/>
+                <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>
+                  {lang === "ar" ? "جاري تحسين التفاصيل في الخلفية..." : lang === "fr" ? "Affinement des détails en cours..." : "Refining details in the background..."}
+                </span>
+              </div>
+            )}
             {proj ? (<>
               {[
                 {l: lang === "ar" ? "اسم المشروع" : lang === "fr" ? "Nom du projet" : "Project name", v: proj.projectName, i: "🏢"},
@@ -3211,6 +3879,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <div><h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.planT}</h2>
                   <p style={{fontSize: "12px", color: GR, marginTop: "2px"}}>{proj?.projectName}</p></div>
               </div>
+              {!planTailored && (
+                <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "16px",
+                  padding: "8px 12px", background: CR, borderRadius: "9px", border: `1px solid ${CD}`}}>
+                  <Dots/>
+                  <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>
+                    {lang === "ar" ? "جاري تحسين التفاصيل في الخلفية..." : lang === "fr" ? "Affinement des détails en cours..." : "Refining details in the background..."}
+                  </span>
+                </div>
+              )}
               {planBlock("executiveSummary", "Résumé Exécutif", "الملخص التنفيذي", "Executive Summary", "📝")}
               {planBlock("problemStatement", "Problématique", "إشكالية المشروع", "Problem Statement", "❓")}
               {planBlock("solution", "Solution Proposée", "الحل المقترح", "Proposed Solution", "💡")}
@@ -3251,6 +3928,45 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           const indh = budget?.indhContribution || Math.min(Math.round(total * .90), 100000);
           const bene = budget?.beneficiaryContribution || (total - indh);
           const pct = (indh / 100000) * 100;
+
+          // Equipment and the exact INDH amount requested are precisely the kind of
+          // detail an AI guess shouldn't be the final word on — the porteur needs to
+          // directly edit designation/quantity/price to what they actually intend to
+          // buy. Every edit recomputes total, and the 90/10 INDH split off that new
+          // total, matching the same formula the AI used to seed it.
+          const recompute = (items: any[]) => {
+            const newTotal = items.reduce((s: number, x: any) => s + (x.total || 0), 0);
+            const indhContribution = Math.min(Math.round(newTotal * 0.90), 100000);
+            const beneficiaryContribution = newTotal - indhContribution;
+            return { indhContribution, beneficiaryContribution };
+          };
+          const updateItem = (i: number, field: string, value: any) => {
+            setBudget((prev: any) => {
+              const items = [...(prev?.items || [])];
+              items[i] = { ...items[i], [field]: value };
+              if (field === "quantity" || field === "unitPrice") {
+                items[i].total = (Number(items[i].quantity) || 0) * (Number(items[i].unitPrice) || 0);
+              }
+              return { ...prev, items, ...recompute(items) };
+            });
+          };
+          const removeItem = (i: number) => {
+            setBudget((prev: any) => {
+              const items = (prev?.items || []).filter((_: any, idx: number) => idx !== i);
+              return { ...prev, items, ...recompute(items) };
+            });
+          };
+          const addItem = () => {
+            setBudget((prev: any) => ({
+              ...prev,
+              items: [...(prev?.items || []), {
+                category: lang === "ar" ? "معدات إنتاجية" : lang === "fr" ? "Équipements productifs" : "Productive equipment",
+                item: "", quantity: 1, unitPrice: 0, total: 0,
+              }],
+            }));
+          };
+          const cellInputSt = {padding: "6px 7px", border: `1px solid ${CD}`, borderRadius: "7px",
+            fontSize: "12px", width: "100%", fontFamily: "inherit", background: WH, color: ND, boxSizing: "border-box" as const};
           return (
             <Card>
               <div style={{display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px"}}>
@@ -3260,6 +3976,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 <div><h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.budgetT}</h2>
                   <p style={{fontSize: "12px", color: GR, marginTop: "2px"}}>{t.maxB}</p></div>
               </div>
+              {!planTailored && (
+                <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "16px",
+                  padding: "8px 12px", background: CR, borderRadius: "9px", border: `1px solid ${CD}`}}>
+                  <Dots/>
+                  <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>
+                    {lang === "ar" ? "جاري تحسين التفاصيل في الخلفية..." : lang === "fr" ? "Affinement des détails en cours..." : "Refining details in the background..."}
+                  </span>
+                </div>
+              )}
               <div style={{padding: "14px 16px", borderRadius: "13px", marginBottom: "18px",
                 background: pct > 100 ? "#FFF0F0" : YL, border: `1px solid ${pct > 100 ? RE : Y}`}}>
                 <div style={{display: "flex", justifyContent: "space-between", marginBottom: "7px"}}>
@@ -3268,28 +3993,34 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 </div>
                 <PBar pct={pct} h={7} color={pct > 100 ? RE : `linear-gradient(90deg,${Y},${YD})`}/>
               </div>
-              {budget?.items?.length > 0 ? (<div style={{marginBottom: "16px"}}>
+              {budget?.items ? (<div style={{marginBottom: "16px"}}>
+                <div style={{fontSize: "11px", color: GR, marginBottom: "8px", lineHeight: 1.5}}>
+                  {lang === "ar" ? "✏️ عدّل التسمية أو الكمية أو السعر لتطابق المعدات التي تنوي شراءها بالفعل." : lang === "fr" ? "✏️ Modifiez la désignation, la quantité ou le prix pour refléter exactement l'équipement que vous comptez acheter." : "✏️ Edit the item, quantity or price to match the exact equipment you intend to buy."}
+                </div>
                 {/* Desktop table */}
                 <div className="budget-tbl" style={{overflowX: "auto"}}>
                   <table style={{width: "100%", borderCollapse: "collapse", fontSize: "12px"}}>
                     <thead><tr style={{background: ND, color: WH}}>
-                      {["Catégorie", "Désignation", "Qté", "PU (MAD)", "Total"].map((h, i) => (
+                      {["Catégorie", "Désignation", "Qté", "PU (MAD)", "Total", ""].map((h, i) => (
                         <th key={i} style={{padding: "9px 8px", textAlign: i < 2 ? (dir === "rtl" ? "right" : "left") : "center",
                           fontSize: "10px", fontWeight: "700", letterSpacing: ".4px"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>{budget.items.map((x: any, i: number) => (
                       <tr key={i} style={{background: i % 2 === 0 ? WH : CR}}>
-                        <td style={{padding: "9px 8px", color: N, fontWeight: "600"}}>{x.category}</td>
-                        <td style={{padding: "9px 8px", color: ND}}>{x.item}</td>
-                        <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{x.quantity}</td>
-                        <td style={{padding: "9px 8px", textAlign: "center", color: N}}>{Number(x.unitPrice || 0).toLocaleString()}</td>
-                        <td style={{padding: "9px 8px", textAlign: "center", fontWeight: "800", color: ND}}>{Number(x.total || 0).toLocaleString()}</td>
+                        <td style={{padding: "6px"}}><input value={x.category || ""} onChange={e => updateItem(i, "category", e.target.value)} style={cellInputSt}/></td>
+                        <td style={{padding: "6px"}}><input value={x.item || ""} onChange={e => updateItem(i, "item", e.target.value)} style={cellInputSt}/></td>
+                        <td style={{padding: "6px", width: "64px"}}><input type="number" min={0} value={x.quantity ?? 0} onChange={e => updateItem(i, "quantity", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, textAlign: "center"}}/></td>
+                        <td style={{padding: "6px", width: "88px"}}><input type="number" min={0} value={x.unitPrice ?? 0} onChange={e => updateItem(i, "unitPrice", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, textAlign: "center"}}/></td>
+                        <td style={{padding: "9px 8px", textAlign: "center", fontWeight: "800", color: ND, whiteSpace: "nowrap"}}>{Number(x.total || 0).toLocaleString()}</td>
+                        <td style={{padding: "6px", textAlign: "center"}}>
+                          <button onClick={() => removeItem(i)} aria-label="Delete" style={{background: "none", border: "none", cursor: "pointer", fontSize: "15px", opacity: .6}}>🗑️</button>
+                        </td>
                       </tr>
                     ))}
                     <tr style={{background: ND, color: WH}}>
                       <td colSpan={4} style={{padding: "10px 8px", fontWeight: "700"}}>{t.total}</td>
-                      <td style={{padding: "10px 8px", textAlign: "center", fontWeight: "800", color: Y}}>{total.toLocaleString()}</td>
+                      <td colSpan={2} style={{padding: "10px 8px", textAlign: "center", fontWeight: "800", color: Y}}>{total.toLocaleString()}</td>
                     </tr></tbody>
                   </table>
                 </div>
@@ -3298,12 +4029,19 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   {budget.items.map((x: any, i: number) => (
                     <div key={i} style={{padding: "12px 14px", background: i % 2 === 0 ? WH : CR,
                       borderRadius: "11px", border: `1px solid ${CD}`}}>
-                      <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "5px"}}>
-                        <span style={{fontSize: "10px", fontWeight: "700", color: Y, textTransform: "uppercase", letterSpacing: ".3px"}}>{x.category}</span>
-                        <span style={{fontSize: "14px", fontWeight: "800", color: ND}}>{Number(x.total || 0).toLocaleString()} <span style={{fontSize: "10px", fontWeight: "500"}}>MAD</span></span>
+                      <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "7px"}}>
+                        <input value={x.category || ""} onChange={e => updateItem(i, "category", e.target.value)}
+                          style={{...cellInputSt, fontSize: "10px", fontWeight: "700", color: Y, textTransform: "uppercase", border: "none", padding: "0", background: "transparent", width: "60%"}}/>
+                        <button onClick={() => removeItem(i)} aria-label="Delete" style={{background: "none", border: "none", cursor: "pointer", fontSize: "15px", opacity: .6}}>🗑️</button>
                       </div>
-                      <div style={{fontSize: "13px", color: ND, marginBottom: "4px"}}>{x.item}</div>
-                      <div style={{fontSize: "11px", color: GR}}>{x.quantity} × {Number(x.unitPrice || 0).toLocaleString()} MAD</div>
+                      <input value={x.item || ""} onChange={e => updateItem(i, "item", e.target.value)} style={{...cellInputSt, marginBottom: "7px"}}/>
+                      <div style={{display: "flex", gap: "8px", alignItems: "center"}}>
+                        <input type="number" min={0} value={x.quantity ?? 0} onChange={e => updateItem(i, "quantity", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, width: "60px", textAlign: "center"}}/>
+                        <span style={{fontSize: "11px", color: GR}}>×</span>
+                        <input type="number" min={0} value={x.unitPrice ?? 0} onChange={e => updateItem(i, "unitPrice", e.target.value === "" ? 0 : Number(e.target.value))} style={{...cellInputSt, width: "80px", textAlign: "center"}}/>
+                        <span style={{fontSize: "11px", color: GR}}>MAD =</span>
+                        <span style={{fontSize: "14px", fontWeight: "800", color: ND, marginInlineStart: "auto"}}>{Number(x.total || 0).toLocaleString()}</span>
+                      </div>
                     </div>
                   ))}
                   <div style={{padding: "12px 14px", background: ND, borderRadius: "11px",
@@ -3312,6 +4050,10 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     <span style={{fontSize: "15px", fontWeight: "800", color: Y}}>{total.toLocaleString()} MAD</span>
                   </div>
                 </div>
+                <button onClick={addItem} style={{marginTop: "10px", width: "100%", padding: "10px", borderRadius: "10px",
+                  border: `1.5px dashed ${CD}`, background: "transparent", color: N, fontSize: "12px", fontWeight: "700", cursor: "pointer"}}>
+                  {lang === "ar" ? "+ إضافة معدة" : lang === "fr" ? "+ Ajouter un équipement" : "+ Add equipment"}
+                </button>
               </div>) : (
                 <div style={{textAlign: "center", padding: "24px 16px"}}>
                   {busy ? <><div style={{display:"flex",justifyContent:"center"}}><Dots/></div></> : <>
@@ -3928,7 +4670,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   comp: eAr?"تقرير الامتثال":eEn?"Compliance Report":"Rapport de Conformité",
                   chk: eAr?"قائمة الوثائق":eEn?"Docs Checklist":"Checklist Documents",
                   guide: eAr?"دليل التقديم":eEn?"Submission Guide":"Guide de Soumission",
-                  jury: eAr?"عرض أمام اللجنة (7 شرائح)":eEn?"Jury Presentation — 7 slides":"Présentation Jury — 7 diapositives",
+                  jury: eAr?"عرض أمام اللجنة (9 شرائح)":eEn?"Jury Presentation — 9 slides":"Présentation Jury — 9 diapositives",
                   execSum: eAr?"الملخص التنفيذي":eEn?"EXECUTIVE SUMMARY":"RÉSUMÉ EXÉCUTIF",
                   problem: eAr?"إشكالية المشروع":eEn?"PROBLEM STATEMENT":"PROBLÉMATIQUE",
                   solution: eAr?"الحل المقترح":eEn?"SOLUTION":"SOLUTION",
@@ -4188,9 +4930,9 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 /* ════════════════════════════════════════════════════════
    COORDINATOR DASHBOARD
 ════════════════════════════════════════════════════════ */
-function CoordDash({lang, setLang, user, onLogout, t, holders}: {
+function CoordDash({lang, setLang, user, onLogout, t, holders, syncError}: {
   lang: string; setLang: (l: string) => void; user: any;
-  onLogout: () => void; t: any; holders: any[];
+  onLogout: () => void; t: any; holders: any[]; syncError?: boolean;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("holders");
@@ -4357,6 +5099,19 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
           <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
         </div>
         <div style={{padding:"32px 40px 48px", maxWidth:860}}>
+          {syncError && (
+            <div style={{display:"flex", alignItems:"flex-start", gap:"10px", padding:"12px 16px",
+              background:"#FBF3EC", border:`1px solid ${RE}66`, borderRadius:"11px", marginBottom:"20px"}}>
+              <span style={{fontSize:"16px"}}>⚠️</span>
+              <span style={{fontSize:"12.5px", color:ND, lineHeight:"1.5"}}>
+                {lang==="ar"
+                  ? "تعذّر الاتصال بقاعدة البيانات المركزية — القائمة أدناه قد لا تعكس كل التسجيلات الفعلية. أبلغ المسؤول عن هذا الخلل."
+                  : lang==="fr"
+                  ? "Connexion à la base de données centrale impossible — la liste ci-dessous peut ne pas refléter toutes les inscriptions réelles. Signalez ceci à l'administrateur."
+                  : "Can't connect to the central database — the list below may not reflect every real registration. Report this to the administrator."}
+              </span>
+            </div>
+          )}
 
           {/* ── Overview ── */}
           {tab === "overview" && (<>
@@ -4659,19 +5414,30 @@ function CoordDash({lang, setLang, user, onLogout, t, holders}: {
 /* ════════════════════════════════════════════════════════
    ADMIN DASHBOARD
 ════════════════════════════════════════════════════════ */
-function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoord, onDelCoord}: {
+function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoord, onDelCoord, onEditCoord, onDelHolder, syncError}: {
   lang: string; setLang: (l: string) => void; user: any;
-  onLogout: () => void; t: any; holders: any[]; coords: string[];
-  onAddCoord: (c: string) => void; onDelCoord: (i: number) => void;
+  onLogout: () => void; t: any; holders: any[]; coords: Coord[];
+  onAddCoord: (c: Coord) => void; onDelCoord: (i: number) => void;
+  onEditCoord: (i: number, patch: Partial<Coord>) => void; onDelHolder: (id: string) => void;
+  syncError?: boolean;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("overview");
-  const [newCoord, setNewCoord] = useState("");
+  const [newCoordName, setNewCoordName] = useState("");
+  const [newCoordRegion, setNewCoordRegion] = useState("");
+  const [newCoordArr, setNewCoordArr]       = useState("");
+  const [coordEditIdx, setCoordEditIdx]     = useState<number | null>(null);
+  const [coordDelConfirm, setCoordDelConfirm] = useState<number | null>(null);
+  const [copiedCode, setCopiedCode]         = useState("");
   const [search, setSearch]     = useState("");
   const [filterRegion, setFilterRegion] = useState("");
   const [filterSector, setFilterSector] = useState("");
   const [filterStep, setFilterStep]     = useState("");
+  const [filterGender, setFilterGender] = useState("");
+  const [sortKey, setSortKey]   = useState<"name"|"date"|"score">("date");
+  const [sortDir, setSortDir]   = useState<"asc"|"desc">("desc");
   const [detailH, setDetailH]   = useState<any>(null);
+  const [delConfirmId, setDelConfirmId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -4682,14 +5448,42 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   }, [sidebarOpen]);
 
   const ADMIN_NAV = [
-    {id:"overview",  label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
-    {id:"projects",  label: lang==="ar"?"المشاريع":lang==="fr"?"Projets":"Projects"},
-    {id:"coords",    label: lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"},
-    {id:"activity",  label: lang==="ar"?"النشاط":lang==="fr"?"Activité":"Activity"},
-    {id:"settings",  label: lang==="ar"?"الإعدادات":lang==="fr"?"Paramètres":"Settings"},
+    {id:"overview",     label: lang==="ar"?"نظرة عامة":lang==="fr"?"Vue d'ensemble":"Overview"},
+    {id:"demographics", label: lang==="ar"?"الديموغرافيا":lang==="fr"?"Démographie":"Demographics"},
+    {id:"scores",       label: lang==="ar"?"النقاط والمطابقة":lang==="fr"?"Scores & Conformité":"Scores & Compliance"},
+    {id:"projects",     label: lang==="ar"?"المشاريع":lang==="fr"?"Projets":"Projects"},
+    {id:"coords",       label: lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"},
+    {id:"activity",     label: lang==="ar"?"النشاط":lang==="fr"?"Activité":"Activity"},
+    {id:"settings",     label: lang==="ar"?"الإعدادات":lang==="fr"?"Paramètres":"Settings"},
   ];
 
   const STEPS_LIST = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
+
+  // Admin creates a coordinator by name only — the actual login code is derived
+  // automatically as "@{NAME}COD" (matching RE_COORD), never typed by hand. Strips
+  // anything that isn't a letter (spaces, accents via NFD stripping, digits) so the
+  // result always satisfies RE_COORD's [A-Za-z]{2,} requirement.
+  const coordCodeFrom = (name: string): string => {
+    const letters = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase().replace(/[^A-Z]/g, "");
+    return letters ? `@${letters}COD` : "";
+  };
+  const newCoordCode = coordCodeFrom(newCoordName);
+  const newCoordValid = RE_COORD.test(newCoordCode) && !coords.some(c => c.code.toUpperCase() === newCoordCode.toUpperCase());
+  const newCoordShowArr = newCoordRegion === "Casablanca-Settat";
+
+  // Normalizes a raw stored value against a lang-keyed options record (GENDERS,
+  // EDU, OCCUPATION) so holders who registered in different languages still
+  // bucket together — finds which index the value matches in ANY language array,
+  // then returns that index label in the currently-displayed language.
+  const normOpt = (value: string, options: Record<string, string[]>): string => {
+    if (!value) return "";
+    for (const arr of Object.values(options)) {
+      const idx = arr.indexOf(value);
+      if (idx >= 0) return options[lang]?.[idx] || value;
+    }
+    return value;
+  };
 
   const filtered = holders.filter(h => {
     const q = search.toLowerCase();
@@ -4697,7 +5491,14 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
     const matchRegion = !filterRegion || h.profile?.region === filterRegion;
     const matchSector = !filterSector || (h.proj?.sector || h.profile?.sector) === filterSector;
     const matchStep   = !filterStep   || (h.step || "idea") === filterStep;
-    return matchSearch && matchRegion && matchSector && matchStep;
+    const matchGender = !filterGender || normOpt(h.profile?.gender, GENDERS) === filterGender;
+    return matchSearch && matchRegion && matchSector && matchStep && matchGender;
+  }).sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === "name") cmp = (a.name||"").localeCompare(b.name||"");
+    else if (sortKey === "score") cmp = (a.comp?.score||0) - (b.comp?.score||0);
+    else cmp = (a.createdAt||0) - (b.createdAt||0);
+    return sortDir === "asc" ? cmp : -cmp;
   });
 
   const byRegion = holders.reduce((a: Record<string, number>, h: any) => {
@@ -4708,10 +5509,11 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
   }, {});
 
   const exportCSV = () => {
-    const cols = ["ID","Nom","Prénom","Email","Téléphone","Age","Genre","Région","Secteur","Type","Projet","Structure","Bénéficiaires","Budget","Axe INDH","Score","Éligible","Étape"];
+    const cols = ["ID","Nom","Prénom","Email","Téléphone","Age","Genre","Région","Préfecture","Arrondissement","Secteur","Type","Projet","Structure","Bénéficiaires","Budget","Axe INDH","Score","Éligible","Étape"];
     const rows = holders.map(h => [
       h.id, h.profile?.lastName||"", h.name||"", h.profile?.email||"", h.profile?.phone||"",
       h.profile?.age||"", h.profile?.gender||"", h.profile?.region||"",
+      h.profile?.prefecture||"", h.profile?.arrondissement||"",
       h.proj?.sector||h.profile?.sector||"", h.profile?.projType||"",
       h.proj?.projectName||"", h.proj?.legalStructure||"", h.proj?.beneficiaries||"",
       h.proj?.estimatedBudget||"", h.proj?.pillar||"",
@@ -4880,10 +5682,10 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
               <button onClick={() => {
                 const h2 = detailH;
                 const rows = [
-                  ["ID","Nom","Prénom","Email","Téléphone","Région","Secteur","Projet","Score","Éligible","Étape"],
-                  [h2.id, h2.profile?.lastName||"", h2.name||"", h2.profile?.email||"",
-                   h2.profile?.phone||"", h2.profile?.region||"", h2.proj?.sector||"",
-                   h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
+                  ["ID","Nom","Prénom","Age","Email","Téléphone","Région","Préfecture","Arrondissement","Secteur","Projet","Score","Éligible","Étape"],
+                  [h2.id, h2.profile?.lastName||"", h2.name||"", h2.profile?.age||"", h2.profile?.email||"",
+                   h2.profile?.phone||"", h2.profile?.region||"", h2.profile?.prefecture||"", h2.profile?.arrondissement||"",
+                   h2.proj?.sector||"", h2.proj?.projectName||"", h2.comp?.score||"", h2.comp?.eligible?"OUI":"NON", h2.step||"idea"],
                 ].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(";")).join("\n");
                 const url = URL.createObjectURL(new Blob(["﻿"+rows], {type:"text/csv;charset=utf-8"}));
                 Object.assign(document.createElement("a"), {href: url, download: `Porteur_${h2.id}.csv`}).click();
@@ -4917,6 +5719,19 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
           <span style={{fontSize:"14px", fontWeight:"700", color:ND}}>IdeaMap</span>
         </div>
         <div style={{padding:"32px 40px 48px", maxWidth:900}}>
+          {syncError && (
+            <div style={{display:"flex", alignItems:"flex-start", gap:"10px", padding:"12px 16px",
+              background:"#FBF3EC", border:`1px solid ${RE}66`, borderRadius:"11px", marginBottom:"20px"}}>
+              <span style={{fontSize:"16px"}}>⚠️</span>
+              <span style={{fontSize:"12.5px", color:ND, lineHeight:"1.5"}}>
+                {lang==="ar"
+                  ? "تعذّر الاتصال بقاعدة البيانات (Upstash Redis) — تحقق من متغيرات البيئة في Vercel. القائمة أدناه لا تعكس كل التسجيلات الفعلية."
+                  : lang==="fr"
+                  ? "Connexion à la base de données (Upstash Redis) impossible — vérifiez les variables d'environnement dans Vercel. La liste ci-dessous ne reflète pas toutes les inscriptions réelles."
+                  : "Can't connect to the database (Upstash Redis) — check the environment variables in Vercel. The list below doesn't reflect every real registration."}
+              </span>
+            </div>
+          )}
 
           {/* ── Overview ── */}
           {tab === "overview" && (<>
@@ -5002,6 +5817,60 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                 {Object.keys(bySector).length === 0 && <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p>}
               </Card>
             </div>
+            {holders.length > 0 && (() => {
+              const STEP_ORDER = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
+              const stepIdx = (h: any) => STEP_ORDER.indexOf(h.step || "idea");
+              const funnel = [
+                {label: lang==="ar"?"مسجلون":lang==="fr"?"Inscrits":"Registered", n: holders.length},
+                {label: lang==="ar"?"فكرة مقدَّمة":lang==="fr"?"Idée soumise":"Idea submitted", n: holders.filter(h => stepIdx(h) >= STEP_ORDER.indexOf("profile")).length},
+                {label: lang==="ar"?"خطة منجزة":lang==="fr"?"Plan généré":"Plan generated", n: holders.filter(h => h.plan).length},
+                {label: lang==="ar"?"ميزانية جاهزة":lang==="fr"?"Budget prêt":"Budget ready", n: holders.filter(h => h.budget).length},
+                {label: lang==="ar"?"دوسييه كامل":lang==="fr"?"Dossier complet":"Complete dossier", n: holders.filter(h => h.step === "export" || h.comp?.eligible).length},
+              ];
+              const AXES = [
+                {key: lang==="ar"?"المحور 1 — التنمية القروية":lang==="fr"?"Axe 1 — Développement rural":"Axis 1 — Rural development", test: (p: string) => /rural|agricole|agriculture|élevage|terroir|irrigation|piste/i.test(p)},
+                {key: lang==="ar"?"المحور 2 — الحد من التفاوتات":lang==="fr"?"Axe 2 — Réduction des inégalités territoriales":"Axis 2 — Territorial inequality", test: (p: string) => /inégalité|périurbain|quartier|proximité|territoria/i.test(p)},
+                {key: lang==="ar"?"المحور 3 — الكرامة الإنسانية":lang==="fr"?"Axe 3 — Dignité humaine":"Axis 3 — Human dignity", test: (p: string) => /dignité|précaire|vulnérable|handicap|âgée/i.test(p)},
+                {key: lang==="ar"?"المحور 4 — برامج أفقية":lang==="fr"?"Axe 4 — Programmes transversaux":"Axis 4 — Transversal programs", test: (p: string) => /jeunesse|formation|entrepreneuriat|numérique|revenu|inclusion|économique/i.test(p)},
+              ];
+              const byAxis: Record<string, number> = {};
+              let uncategorized = 0;
+              holders.forEach(h => {
+                const pillar = h.comp?.pillar || h.proj?.pillar || "";
+                if (!pillar) return;
+                const match = AXES.find(a => a.test(pillar));
+                if (match) byAxis[match.key] = (byAxis[match.key]||0) + 1;
+                else uncategorized++;
+              });
+              if (uncategorized > 0) byAxis[lang==="ar"?"غير مصنف":lang==="fr"?"Non catégorisé":"Uncategorized"] = uncategorized;
+              const AXIS_COLS = [ND,Y,"#8B5CF6","#EC4899",GR];
+              return (
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                        🔻 {lang==="ar"?"قمع الإنجاز":lang==="fr"?"Entonnoir de complétion":"Completion funnel"}
+                      </span>
+                    </div>
+                    {funnel.map((f,i) => (
+                      <BarRow key={f.label} label={f.label} n={f.n} total={holders.length}
+                        col={[ND,Y,"#8B5CF6","#EC4899","#22C55E"][i]}/>
+                    ))}
+                  </Card>
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                        🏛️ {lang==="ar"?"محاور المبادرة الوطنية":lang==="fr"?"Axes INDH Phase 3":"INDH Phase 3 axes"}
+                      </span>
+                    </div>
+                    {Object.keys(byAxis).length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p> :
+                      Object.entries(byAxis).sort((a,b) => (b[1] as number)-(a[1] as number)).map(([k,n],i) => (
+                        <BarRow key={k} label={k} n={n as number} total={holders.length} col={AXIS_COLS[i%AXIS_COLS.length]}/>
+                      ))}
+                  </Card>
+                </div>
+              );
+            })()}
             {holders.length === 0 && (
               <Card style={{textAlign:"center", padding:"40px 24px"}}>
                 <svg viewBox="0 0 200 140" style={{width:180, height:126, margin:"0 auto 18px", display:"block"}}>
@@ -5066,6 +5935,170 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
             </Card>}
           </>)}
 
+          {/* ── Demographics ── */}
+          {tab === "demographics" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"الديموغرافيا":lang==="fr"?"Démographie":"Demographics"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {lang==="ar"?"توزيع الحاملين حسب الملف الشخصي":lang==="fr"?"Répartition des porteurs par profil":"Holder breakdown by profile"}
+            </p>
+            {(() => {
+              const byAge = holders.reduce((a: Record<string, number>, h: any) => {
+                const v = h.profile?.age; if (!v) return a; a[v] = (a[v]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const byGender = holders.reduce((a: Record<string, number>, h: any) => {
+                const v = normOpt(h.profile?.gender, GENDERS); if (!v) return a; a[v] = (a[v]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const byEdu = holders.reduce((a: Record<string, number>, h: any) => {
+                const v = normOpt(h.profile?.edu, EDU); if (!v) return a; a[v] = (a[v]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const byOcc = holders.reduce((a: Record<string, number>, h: any) => {
+                const v = normOpt(h.profile?.occupation, OCCUPATION); if (!v) return a; a[v] = (a[v]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const byRegionFull = holders.reduce((a: Record<string, number>, h: any) => {
+                const r = h.profile?.region || "N/A"; a[r] = (a[r]||0)+1; return a;
+              }, {} as Record<string, number>);
+              const COLS = [ND,Y,"#22C55E","#8B5CF6","#EC4899","#14B8A6","#F59E0B"];
+              const panel = (title: string, icon: string, data: Record<string, number>, order?: string[]) => {
+                const entries = order
+                  ? order.filter(k => data[k]).map(k => [k, data[k]] as [string, number])
+                  : Object.entries(data).sort((a,b) => (b[1] as number) - (a[1] as number));
+                return (
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>{icon} {title}</span>
+                    </div>
+                    {entries.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p> :
+                      entries.map(([k,n],i) => (
+                        <BarRow key={k} label={k} n={n as number} total={holders.length} col={COLS[i%COLS.length]}/>
+                      ))}
+                  </Card>
+                );
+              };
+              return (<>
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
+                  {panel(lang==="ar"?"حسب الجهة":lang==="fr"?"Par région":"By region", "📍", byRegionFull)}
+                  {panel(lang==="ar"?"حسب الفئة العمرية":lang==="fr"?"Par tranche d'âge":"By age bracket", "🎂", byAge, AGES)}
+                </div>
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
+                  {panel(lang==="ar"?"حسب الجنس":lang==="fr"?"Par genre":"By gender", "🧑‍🤝‍🧑", byGender, GENDERS[lang])}
+                  {panel(lang==="ar"?"حسب المستوى الدراسي":lang==="fr"?"Par niveau d'études":"By education level", "🎓", byEdu, EDU[lang])}
+                </div>
+                <div style={{display:"grid", gridTemplateColumns:"1fr", gap:14, marginBottom:14}}>
+                  {panel(lang==="ar"?"حسب الوضعية المهنية":lang==="fr"?"Par situation professionnelle":"By professional situation", "💼", byOcc, OCCUPATION[lang])}
+                </div>
+              </>);
+            })()}
+          </>)}
+
+          {/* ── Scores & Compliance ── */}
+          {tab === "scores" && (<>
+            <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
+              {lang==="ar"?"النقاط والمطابقة":lang==="fr"?"Scores & Conformité":"Scores & Compliance"}
+            </h2>
+            <p style={{fontSize:14, color:GR, marginBottom:24}}>
+              {lang==="ar"?"تقييم لجنة المبادرة الوطنية للتنمية البشرية":lang==="fr"?"Évaluation du jury INDH":"INDH jury evaluation"}
+            </p>
+            {(() => {
+              const scored = holders.filter(h => h.comp?.score != null);
+              const eligCount = holders.filter(h => h.comp?.eligible).length;
+              const notEligCount = scored.length - eligCount;
+              const buckets = [
+                {label:"0–39", min:0, max:39, col:RE},
+                {label:"40–59", min:40, max:59, col:"#D97706"},
+                {label:"60–79", min:60, max:79, col:Y},
+                {label:"80–100", min:80, max:100, col:GN},
+              ].map(b => ({...b, n: scored.filter(h => h.comp.score >= b.min && h.comp.score <= b.max).length}));
+              const avgByJury = JURY.map(j => {
+                const vals = scored.filter(h => h.comp?.juryScore?.[j.key] != null).map(h => h.comp.juryScore[j.key]);
+                const avg = vals.length ? vals.reduce((a: number,b: number) => a+b, 0) / vals.length : 0;
+                return {...j, avg};
+              });
+              const top5 = scored.slice().sort((a,b) => (b.comp.score||0) - (a.comp.score||0)).slice(0,5);
+              return (<>
+                <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:14, marginBottom:20}}>
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"دوسييهات مقيّمة":lang==="fr"?"Dossiers évalués":"Evaluated dossiers"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:ND}}>{scored.length}</div>
+                  </div>
+                  <div style={{background:eligCount>0?"#EAF3EF":WH, border:`1px solid ${eligCount>0?GN+"44":CD}`, borderRadius:12, padding:"18px 20px"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"مؤهلون":lang==="fr"?"Éligibles":"Eligible"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:eligCount>0?GN:ND}}>{eligCount}</div>
+                  </div>
+                  <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                    <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                      {lang==="ar"?"غير مؤهلين":lang==="fr"?"Non éligibles":"Not eligible"}
+                    </div>
+                    <div style={{fontSize:28, fontWeight:800, color:notEligCount>0?RE:ND}}>{notEligCount}</div>
+                  </div>
+                </div>
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14}}>
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                        📊 {lang==="ar"?"متوسط نقاط اللجنة حسب المعيار":lang==="fr"?"Score moyen par critère jury":"Average score per jury criterion"}
+                      </span>
+                    </div>
+                    {scored.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p> :
+                      avgByJury.map(j => {
+                        const p = (j.avg / j.w) * 100;
+                        const col = p >= 70 ? Y : p >= 50 ? "#F59E0B" : RE;
+                        return (
+                          <div key={j.key} style={{marginBottom:"10px"}}>
+                            <div style={{display:"flex", justifyContent:"space-between", marginBottom:"3px"}}>
+                              <span style={{fontSize:"11px", color:N, fontWeight:"500"}}>{j.label}</span>
+                              <span style={{fontSize:"11px", fontWeight:"700", color:ND}}>{j.avg.toFixed(1)}/{j.w}</span>
+                            </div>
+                            <div style={{height:"6px", background:CD, borderRadius:"3px", overflow:"hidden"}}>
+                              <div style={{height:"100%", borderRadius:"3px", background:col, width:`${Math.min(p,100)}%`, transition:"width .5s"}}/>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </Card>
+                  <Card style={{marginBottom:0}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                      <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                        📈 {lang==="ar"?"توزيع النقاط":lang==="fr"?"Distribution des scores":"Score distribution"}
+                      </span>
+                    </div>
+                    {scored.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{t.noProjects}</p> :
+                      buckets.map(b => (
+                        <BarRow key={b.label} label={`${b.label} pts`} n={b.n} total={scored.length} col={b.col}/>
+                      ))}
+                  </Card>
+                </div>
+                {top5.length > 0 && <Card>
+                  <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                    <AccBar/><span style={{fontSize:"13.5px", fontWeight:"700", color:ND}}>
+                      🏆 {lang==="ar"?"أفضل المشاريع":lang==="fr"?"Top 5 projets":"Top 5 projects"}
+                    </span>
+                  </div>
+                  {top5.map((h,i) => (
+                    <div key={i} onClick={() => setDetailH(h)} style={{display:"flex", alignItems:"center", gap:"10px",
+                      padding:"10px 12px", borderRadius:"10px", cursor:"pointer",
+                      background: i%2===0 ? CR : "transparent", marginBottom:"4px"}}>
+                      <div style={{width:26, height:26, borderRadius:"50%", background: i===0?Y:CD, flexShrink:0,
+                        display:"flex", alignItems:"center", justifyContent:"center", fontSize:"11px", fontWeight:"800", color: i===0?ND:GR}}>
+                        {i+1}
+                      </div>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:"12.5px", fontWeight:"700", color:ND}}>{h.name} {h.profile?.lastName||""}</div>
+                        <div style={{fontSize:"11px", color:GR}}>{h.proj?.projectName || h.proj?.sector || "—"}</div>
+                      </div>
+                      <span style={{fontSize:"13px", fontWeight:"800", color: h.comp.eligible?GN:RE, flexShrink:0}}>{h.comp.score}/100</span>
+                    </div>
+                  ))}
+                </Card>}
+              </>);
+            })()}
+          </>)}
+
           {/* ── Projects ── */}
           {tab === "projects" && (<>
             <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>{t.projects}</h2>
@@ -5096,7 +6129,14 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                   border:`1px solid ${filterStep ? Y : CD}`, background:filterStep ? YL : WH,
                   fontSize:"11px", fontFamily:ff(lang), color:filterStep ? ND : GR, appearance:"none"}}>
                 <option value="">{lang==="ar"?"كل المراحل":lang==="fr"?"Toutes étapes":"All steps"}</option>
-                {STEPS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                {STEPS_LIST.map((s, i) => <option key={s} value={s}>{t.steps[i]}</option>)}
+              </select>
+              <select value={filterGender} onChange={e => setFilterGender(e.target.value)}
+                style={{flex:"1 1 100px", minWidth:"90px", padding:"10px 10px", borderRadius:"10px",
+                  border:`1px solid ${filterGender ? Y : CD}`, background:filterGender ? YL : WH,
+                  fontSize:"11px", fontFamily:ff(lang), color:filterGender ? ND : GR, appearance:"none"}}>
+                <option value="">{lang==="ar"?"كل الأجناس":lang==="fr"?"Tous genres":"All genders"}</option>
+                {GENDERS[lang].map(g => <option key={g} value={g}>{g}</option>)}
               </select>
               <button onClick={exportCSV} style={{padding:"10px 14px", borderRadius:"10px",
                 border:`1px solid ${GN}`, background:"transparent", color:GN,
@@ -5116,15 +6156,24 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                   <table style={{width:"100%", borderCollapse:"collapse", fontSize:13}}>
                     <thead>
                       <tr style={{background:THS}}>
-                        {[lang==="ar"?"الحامل":"Porteur","CIN",
-                          lang==="ar"?"المشروع":"Projet",
-                          lang==="ar"?"المرحلة":"Étape",
-                          lang==="ar"?"التقدم":"Préparation",
-                          lang==="ar"?"الحالة":"Statut",
+                        {[
+                          {label: lang==="ar"?"الحامل":"Porteur", key:"name" as const},
+                          {label: "CIN", key: null},
+                          {label: lang==="ar"?"السن":lang==="fr"?"Âge":"Age", key: null},
+                          {label: lang==="ar"?"الموقع":lang==="fr"?"Localisation":"Location", key: null},
+                          {label: lang==="ar"?"المشروع":"Projet", key: null},
+                          {label: lang==="ar"?"المرحلة":"Étape", key: null},
+                          {label: lang==="ar"?"النقطة":lang==="fr"?"Score":"Score", key:"score" as const},
+                          {label: lang==="ar"?"التاريخ":lang==="fr"?"Date":"Date", key:"date" as const},
+                          {label: lang==="ar"?"الحالة":"Statut", key: null},
+                          {label: "", key: null},
                         ].map((h2,i) => (
-                          <th key={i} style={{padding:"10px 14px", textAlign:"left", fontSize:10.5,
-                            fontWeight:700, textTransform:"uppercase", letterSpacing:.4, color:GR, whiteSpace:"nowrap"}}>
-                            {h2}
+                          <th key={i}
+                            onClick={h2.key ? () => { if (sortKey === h2.key) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortKey(h2.key as any); setSortDir("desc"); } } : undefined}
+                            style={{padding:"10px 14px", textAlign:"left", fontSize:10.5,
+                            fontWeight:700, textTransform:"uppercase", letterSpacing:.4, color:GR, whiteSpace:"nowrap",
+                            cursor: h2.key ? "pointer" : "default", userSelect:"none"}}>
+                            {h2.label}{h2.key && sortKey === h2.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
                           </th>
                         ))}
                       </tr>
@@ -5146,19 +6195,35 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
                               </div>
                             </td>
                             <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{h.id}</td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:12, whiteSpace:"nowrap"}}>{h.profile?.age || "—"}</td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{regionDisplay(h.profile) || "—"}</td>
                             <td style={{padding:"11px 14px", color:GR}}>{h.proj?.projectName||"—"}</td>
                             <td style={{padding:"11px 14px", color:GR, fontSize:12}}>{h.step||"idea"}</td>
-                            <td style={{padding:"11px 14px", minWidth:90}}>
-                              <div style={{display:"flex", alignItems:"center", gap:6}}>
-                                <div style={{flex:1, height:5, background:CD, borderRadius:3, overflow:"hidden"}}>
-                                  <div style={{height:"100%", borderRadius:3, background:ND, width:`${pct}%`}}/>
-                                </div>
-                                <span style={{fontSize:11, fontWeight:700, color:ND, flexShrink:0}}>{pct}%</span>
-                              </div>
+                            <td style={{padding:"11px 14px", fontSize:12, fontWeight:700, color: h.comp ? (h.comp.eligible?GN:RE) : GR}}>
+                              {h.comp?.score != null ? `${h.comp.score}/100` : "—"}
+                            </td>
+                            <td style={{padding:"11px 14px", color:GR, fontSize:11.5, whiteSpace:"nowrap"}}>
+                              {h.createdAt ? new Date(h.createdAt).toLocaleDateString(lang==="ar"?"ar-MA":lang==="fr"?"fr-FR":"en-GB") : "—"}
                             </td>
                             <td style={{padding:"11px 14px"}}>
                               <span style={{padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700,
                                 background:st.bg, color:st.fg}}>{st.label}</span>
+                            </td>
+                            <td style={{padding:"11px 14px"}} onClick={e => e.stopPropagation()}>
+                              {delConfirmId === h.id ? (
+                                <button onClick={() => { onDelHolder(h.id); setDelConfirmId(null); }}
+                                  style={{padding:"4px 9px", borderRadius:"7px", border:`1px solid ${RE}`,
+                                    background:RE, color:WH, fontSize:10.5, fontWeight:700, fontFamily:ff(lang), cursor:"pointer", whiteSpace:"nowrap"}}>
+                                  {lang==="ar"?"تأكيد؟":lang==="fr"?"Confirmer ?":"Confirm?"}
+                                </button>
+                              ) : (
+                                <button onClick={() => setDelConfirmId(h.id)}
+                                  title={t.delete as string}
+                                  style={{padding:"4px 9px", borderRadius:"7px", border:`1px solid ${CD}`,
+                                    background:"transparent", color:RE, fontSize:12, fontFamily:ff(lang), cursor:"pointer"}}>
+                                  🗑
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );
@@ -5170,7 +6235,6 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
             )}
           </>)}
 
-          {/* ── Coordinators ── */}
           {tab === "coords" && (<>
             <h2 style={{fontSize:25, fontWeight:800, color:ND, marginBottom:4}}>
               {lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"}
@@ -5178,49 +6242,155 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
             <p style={{fontSize:14, color:GR, marginBottom:24}}>
               {coords.length} {lang==="ar"?"منسق مسجل":lang==="fr"?"coordinateur(s) enregistré(s)":"registered coordinator(s)"}
             </p>
+            <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:14, marginBottom:20}}>
+              <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                  {lang==="ar"?"المنسقون":lang==="fr"?"Coordinateurs":"Coordinators"}
+                </div>
+                <div style={{fontSize:28, fontWeight:800, color:ND}}>{coords.length}</div>
+              </div>
+              <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                  {lang==="ar"?"إجمالي الحاملين":lang==="fr"?"Total porteurs":"Total holders"}
+                </div>
+                <div style={{fontSize:28, fontWeight:800, color:ND}}>{holders.length}</div>
+              </div>
+              <div style={{background:WH, border:`1px solid ${CD}`, borderRadius:12, padding:"18px 20px"}}>
+                <div style={{fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, color:GR, marginBottom:8}}>
+                  {lang==="ar"?"متوسط الحاملين/منسق":lang==="fr"?"Moy. porteurs/coord.":"Avg holders/coord."}
+                </div>
+                <div style={{fontSize:28, fontWeight:800, color:ND}}>
+                  {coords.length ? Math.round(holders.length / coords.length * 10) / 10 : "—"}
+                </div>
+              </div>
+            </div>
             <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
                 <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>➕ {t.addCoord}</span>
               </div>
               <p style={{fontSize:"11px", color:GR, marginBottom:"10px"}}>
-                {lang==="ar"?"الصيغة: @NOMCOD (مثال: @KHALIDCOD)":lang==="fr"?"Format: @NOMCOD (ex: @KHALIDCOD)":"Format: @LASTNAMECOD (e.g. @KHALIDCOD)"}
+                {lang==="ar"?"أدخل اسم المنسق فقط — سيُنشأ رمز الدخول تلقائياً (مثال: \"younes\" ← @YOUNESCOD)":lang==="fr"?"Entrez juste le nom du coordinateur — le code d'accès est généré automatiquement (ex: \"younes\" → @YOUNESCOD)":"Enter just the coordinator's name — the access code is generated automatically (e.g. \"younes\" → @YOUNESCOD)"}
               </p>
-              <div style={{display:"flex", gap:"8px"}}>
-                <input value={newCoord} onChange={e => setNewCoord(e.target.value.toUpperCase())}
-                  placeholder="@KHALIDCOD"
-                  style={{flex:1, padding:"11px 14px", borderRadius:"8px", border:`1px solid ${newCoord && RE_COORD.test(newCoord) ? Y : DV}`,
-                    fontSize:"13px", fontFamily:ff(lang), color:N, background:IF, fontWeight:"700", letterSpacing:"1px"}}/>
-                <button onClick={() => {if (RE_COORD.test(newCoord)) {onAddCoord(newCoord); setNewCoord("");}}}
-                  disabled={!RE_COORD.test(newCoord)}
+              <div style={{display:"flex", gap:"8px", flexWrap:"wrap", marginBottom:"8px"}}>
+                <input value={newCoordName} onChange={e => setNewCoordName(e.target.value)}
+                  placeholder={lang==="ar"?"اسم المنسق":lang==="fr"?"Nom du coordinateur":"Coordinator name"}
+                  style={{flex:"2 1 160px", padding:"11px 14px", borderRadius:"8px", border:`1px solid ${newCoordName && newCoordValid ? Y : DV}`,
+                    fontSize:"13px", fontFamily:ff(lang), color:N, background:IF, direction:dir as "rtl"|"ltr"}}/>
+                <select value={newCoordRegion}
+                  onChange={e => { setNewCoordRegion(e.target.value); setNewCoordArr(""); }}
+                  style={{flex:"1 1 140px", padding:"11px 10px", borderRadius:"8px", border:`1px solid ${DV}`,
+                    fontSize:"12px", fontFamily:ff(lang), color: newCoordRegion ? N : GR, background:IF, appearance:"none"}}>
+                  <option value="">{lang==="ar"?"الجهة (اختياري)":lang==="fr"?"Région (optionnel)":"Region (optional)"}</option>
+                  {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                {newCoordShowArr && (
+                  <select value={newCoordArr} onChange={e => setNewCoordArr(e.target.value)}
+                    style={{flex:"1 1 140px", padding:"11px 10px", borderRadius:"8px", border:`1px solid ${DV}`,
+                      fontSize:"12px", fontFamily:ff(lang), color: newCoordArr ? N : GR, background:IF, appearance:"none"}}>
+                    <option value="">{lang==="ar"?"العمالة/المقاطعة":lang==="fr"?"Arrondissement":"District"}</option>
+                    {ARRONDISSEMENTS_CASA.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                )}
+                <button onClick={() => {if (newCoordValid) {
+                    onAddCoord({code:newCoordCode, name:newCoordName.trim(), region:newCoordRegion, arrondissement: newCoordShowArr ? newCoordArr : "", createdAt: Date.now()});
+                    setNewCoordName(""); setNewCoordRegion(""); setNewCoordArr("");
+                  }}}
+                  disabled={!newCoordValid}
                   style={{padding:"11px 20px", borderRadius:"8px", border:"none", cursor:"pointer",
                     background:ND, color:WH, fontSize:"13px",
-                    fontWeight:"700", fontFamily:ff(lang), opacity: RE_COORD.test(newCoord) ? 1 : .5}}>
+                    fontWeight:"700", fontFamily:ff(lang), opacity: newCoordValid ? 1 : .5, flexShrink:0}}>
                   {t.add}
                 </button>
               </div>
+              {newCoordName && (
+                <div style={{fontSize:"12px", color: newCoordValid ? GN : RE, fontWeight:700}}>
+                  {newCoordCode
+                    ? (coords.some(c => c.code.toUpperCase() === newCoordCode.toUpperCase())
+                      ? (lang==="ar"?`⚠️ ${newCoordCode} مستخدم بالفعل`:lang==="fr"?`⚠️ ${newCoordCode} est déjà utilisé`:`⚠️ ${newCoordCode} is already in use`)
+                      : (lang==="ar"?`رمز الدخول: ${newCoordCode}`:lang==="fr"?`Code d'accès : ${newCoordCode}`:`Access code: ${newCoordCode}`))
+                    : (lang==="ar"?"⚠️ يجب أن يحتوي الاسم على حرفين على الأقل":lang==="fr"?"⚠️ Le nom doit contenir au moins 2 lettres":"⚠️ Name must contain at least 2 letters")}
+                </div>
+              )}
             </Card>
             <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
                 <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>👥 {t.coordList} ({coords.length})</span>
               </div>
               {coords.length === 0 ? <p style={{color:GR, fontSize:"13px"}}>{lang==="ar"?"لا يوجد منسقون بعد":lang==="fr"?"Aucun coordinateur ajouté.":"No coordinators added yet."}</p> :
-                coords.map((c: string, i: number) => (
-                  <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px",
-                    borderRadius:"10px", background:CR, border:`1px solid ${CD}`, marginBottom:"7px"}}>
-                    <div style={{width:34, height:34, borderRadius:"50%", background:ND,
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      fontSize:"14px", fontWeight:"800", color:WH}}>{c[1]}</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:"13px", fontWeight:"700", color:ND}}>{c}</div>
-                      <Badge role="coord"/>
+                coords.map((c, i) => {
+                  const zone = [c.arrondissement, c.region].filter(Boolean).join(" · ");
+                  const editing = coordEditIdx === i;
+                  return (
+                  <div key={i} style={{padding:"12px", borderRadius:"10px", background:CR, border:`1px solid ${CD}`, marginBottom:"7px"}}>
+                    <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
+                      <div style={{width:34, height:34, borderRadius:"50%", background:ND, flexShrink:0,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        fontSize:"14px", fontWeight:"800", color:WH}}>{(c.name||c.code[1]||"?")[0].toUpperCase()}</div>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:"13px", fontWeight:"700", color:ND}}>{c.name || c.code}</div>
+                        <div style={{fontSize:"11px", color:GR, fontFamily:"monospace"}}>{c.code}</div>
+                        <div style={{display:"flex", alignItems:"center", gap:6, marginTop:3, flexWrap:"wrap"}}>
+                          <Badge role="coord"/>
+                          <span style={{fontSize:"10.5px", color:GR}}>
+                            {zone || (lang==="ar"?"لا توجد منطقة محددة":lang==="fr"?"Zone non assignée":"No zone assigned")}
+                          </span>
+                          {c.createdAt && <span style={{fontSize:"10px", color:GR}}>· {new Date(c.createdAt).toLocaleDateString(lang==="ar"?"ar-MA":lang==="fr"?"fr-FR":"en-GB")}</span>}
+                        </div>
+                      </div>
+                      <div style={{display:"flex", gap:"6px", flexShrink:0}}>
+                        <button onClick={() => { navigator.clipboard?.writeText(c.code).catch(()=>{}); setCopiedCode(c.code); setTimeout(() => setCopiedCode(""), 1500); }}
+                          title={lang==="ar"?"نسخ الرمز":lang==="fr"?"Copier le code":"Copy code"}
+                          style={{padding:"5px 10px", borderRadius:"8px", border:`1px solid ${CD}`,
+                            background:WH, color:ND, fontSize:"11px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
+                          {copiedCode === c.code ? "✓" : "⧉"}
+                        </button>
+                        <button onClick={() => setCoordEditIdx(editing ? null : i)}
+                          title={lang==="ar"?"تعديل":lang==="fr"?"Modifier":"Edit"}
+                          style={{padding:"5px 10px", borderRadius:"8px", border:`1px solid ${CD}`,
+                            background: editing ? YL : WH, color:ND, fontSize:"11px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
+                          ✏️
+                        </button>
+                        {coordDelConfirm === i ? (
+                          <button onClick={() => { onDelCoord(i); setCoordDelConfirm(null); }}
+                            style={{padding:"5px 10px", borderRadius:"8px", border:`1px solid ${RE}`,
+                              background:RE, color:WH, fontSize:"11px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
+                            {lang==="ar"?"تأكيد؟":lang==="fr"?"Confirmer ?":"Confirm?"}
+                          </button>
+                        ) : (
+                          <button onClick={() => setCoordDelConfirm(i)}
+                            style={{padding:"5px 10px", borderRadius:"8px", border:`1px solid ${RE}`,
+                              background:"transparent", color:RE, fontSize:"11px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
+                            {t.delete}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => onDelCoord(i)}
-                      style={{padding:"5px 12px", borderRadius:"8px", border:`1px solid ${RE}`,
-                        background:"transparent", color:RE, fontSize:"11px", fontWeight:"600", fontFamily:ff(lang), cursor:"pointer"}}>
-                      {t.delete}
-                    </button>
+                    {editing && (
+                      <div style={{display:"flex", gap:"8px", marginTop:"10px", paddingTop:"10px", borderTop:`1px solid ${CD}`, flexWrap:"wrap"}}>
+                        <select value={c.region}
+                          onChange={e => onEditCoord(i, {region: e.target.value, arrondissement: e.target.value==="Casablanca-Settat" ? c.arrondissement : ""})}
+                          style={{flex:"1 1 140px", padding:"9px 10px", borderRadius:"8px", border:`1px solid ${DV}`,
+                            fontSize:"12px", fontFamily:ff(lang), color:N, background:WH, appearance:"none"}}>
+                          <option value="">{lang==="ar"?"بدون جهة":lang==="fr"?"Sans région":"No region"}</option>
+                          {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        {c.region === "Casablanca-Settat" && (
+                          <select value={c.arrondissement} onChange={e => onEditCoord(i, {arrondissement: e.target.value})}
+                            style={{flex:"1 1 140px", padding:"9px 10px", borderRadius:"8px", border:`1px solid ${DV}`,
+                              fontSize:"12px", fontFamily:ff(lang), color:N, background:WH, appearance:"none"}}>
+                            <option value="">{lang==="ar"?"بدون مقاطعة":lang==="fr"?"Sans arrondissement":"No district"}</option>
+                            {ARRONDISSEMENTS_CASA.map(a => <option key={a} value={a}>{a}</option>)}
+                          </select>
+                        )}
+                        <button onClick={() => setCoordEditIdx(null)}
+                          style={{padding:"9px 16px", borderRadius:"8px", border:"none", cursor:"pointer",
+                            background:ND, color:WH, fontSize:"12px", fontWeight:"700", fontFamily:ff(lang)}}>
+                          {lang==="ar"?"تم":lang==="fr"?"Terminé":"Done"}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))
+                );})
               }
             </Card>
           </>)}
@@ -5333,8 +6503,13 @@ export default function IdeaMapPage() {
   const [lang, setLang]       = useState("fr");
   const [user, setUser]       = useState<any>(null);
   const [holders, setHolders] = useState<any[]>([]);
-  const [coords, setCoords]   = useState<string[]>([]);
+  const [coords, setCoords]   = useState<Coord[]>([]);
   const [syncing, setSyncing] = useState(false);
+  // True when the backing store (Redis via /api/sheets) is unreachable — distinct
+  // from "genuinely zero holders yet". Without this, an admin/coordinator seeing an
+  // empty list has no way to tell a real empty state apart from a broken connection
+  // silently serving nothing to everyone.
+  const [syncError, setSyncError] = useState(false);
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ── Fetch live data from Google Sheets on mount ──────
@@ -5346,7 +6521,7 @@ export default function IdeaMapPage() {
       const h = localStorage.getItem("idm_holders");
       if (h) setHolders(JSON.parse(h));
       const c = localStorage.getItem("idm_coords");
-      if (c) setCoords(JSON.parse(c));
+      if (c) setCoords((JSON.parse(c) as any[]).map(normalizeCoord));
     } catch {}
 
     // Then refresh from Sheets (live source of truth)
@@ -5354,9 +6529,10 @@ export default function IdeaMapPage() {
     fetch("/api/sheets")
       .then(r => r.json())
       .then(data => {
+        if (data.error) { setSyncError(true); return; }
         if (data.holders?.length > 0 || data.coords?.length > 0) {
           setHolders(data.holders || []);
-          setCoords(data.coords || []);
+          setCoords((data.coords || []).map(normalizeCoord));
           // Update localStorage cache
           try {
             localStorage.setItem("idm_holders", JSON.stringify(data.holders || []));
@@ -5364,7 +6540,7 @@ export default function IdeaMapPage() {
           } catch {}
         }
       })
-      .catch(() => {/* Sheets not configured — localStorage cache stays */})
+      .catch(() => setSyncError(true))
       .finally(() => setSyncing(false));
   }, []);
 
@@ -5392,7 +6568,7 @@ export default function IdeaMapPage() {
   }
 
   /* ── Persist the full coordinator list to Sheets ──── */
-  async function persistCoords(list: string[]) {
+  async function persistCoords(list: Coord[]) {
     try { localStorage.setItem("idm_coords", JSON.stringify(list)); } catch {}
     try {
       await fetch("/api/sheets", {
@@ -5405,7 +6581,7 @@ export default function IdeaMapPage() {
 
   function onLogin(u: any) {
     if (u.isNew) {
-      const newHolder = {id: u.id, name: u.name, profile: u.profile, step: "idea"};
+      const newHolder = {id: u.id, name: u.name, profile: u.profile, step: "idea", createdAt: Date.now()};
       setHolders(p => [...p, newHolder]);
       persistHolder(newHolder);
     }
@@ -5413,6 +6589,19 @@ export default function IdeaMapPage() {
   }
 
   function onLogout() { setUser(null); }
+
+  function onDelHolder(id: string) {
+    setHolders(p => p.filter(h => h.id !== id));
+    try {
+      const cur = JSON.parse(localStorage.getItem("idm_holders") || "[]") as any[];
+      localStorage.setItem("idm_holders", JSON.stringify(cur.filter(h => h.id !== id)));
+    } catch {}
+    fetch("/api/sheets", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({type: "delete_holder", id}),
+    }).catch(() => {});
+  }
 
   function onSaveProject(data: any) {
     setHolders(p => {
@@ -5441,7 +6630,7 @@ export default function IdeaMapPage() {
     }, 2000);
   }
 
-  function onAddCoord(c: string) {
+  function onAddCoord(c: Coord) {
     const next = [...coords, c];
     setCoords(next);
     persistCoords(next);
@@ -5449,6 +6638,12 @@ export default function IdeaMapPage() {
 
   function onDelCoord(i: number) {
     const next = coords.filter((_, x) => x !== i);
+    setCoords(next);
+    persistCoords(next);
+  }
+
+  function onEditCoord(i: number, patch: Partial<Coord>) {
+    const next = coords.map((c, x) => x === i ? {...c, ...patch} : c);
     setCoords(next);
     persistCoords(next);
   }
@@ -5477,7 +6672,7 @@ export default function IdeaMapPage() {
   if (user.role === "coord") return <>
     <SyncDot/>
     <CoordDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
-      t={t} holders={holders}/>
+      t={t} holders={holders} syncError={syncError}/>
   </>;
 
   if (user.role === "admin") return <>
@@ -5485,7 +6680,10 @@ export default function IdeaMapPage() {
     <AdminDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
       t={t} holders={holders} coords={coords}
       onAddCoord={onAddCoord}
-      onDelCoord={onDelCoord}/>
+      onDelCoord={onDelCoord}
+      onEditCoord={onEditCoord}
+      onDelHolder={onDelHolder}
+      syncError={syncError}/>
   </>;
 
   return null;

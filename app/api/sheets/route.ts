@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const [holders, coords, jobs, cvs, coordinators, applications] = await Promise.all([
       readCollection("holders"),
-      redis.get<string[]>("idm_coords"),
+      redis.get<any[]>("idm_coords"),
       readCollection("jobs"),
       readCollection("cvs"),
       readCollection("coordinators"),
@@ -44,11 +44,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    /* IdeaMap: replace coordinator code list — small, admin-managed, always
-       meant to be set wholesale, so this stays a plain key (not a hash). */
+    /* IdeaMap: delete a holder */
+    if (body.type === "delete_holder") {
+      await deleteOne("holders", body.id);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* IdeaMap: replace coordinator list — entries are either a plain code string
+       (legacy) or {code, name, region, arrondissement, createdAt} objects. Small,
+       admin-managed, always meant to be set wholesale, so this stays a plain key
+       (not a hash) rather than going through the per-id collection helpers. */
     if (body.type === "save_coords") {
       const coords = body.coords;
-      if (!Array.isArray(coords) || coords.some((c: unknown) => typeof c !== "string" || !RE_COORD.test(c))) {
+      const validEntry = (c: unknown) =>
+        typeof c === "string" ? RE_COORD.test(c)
+        : (c && typeof c === "object" && typeof (c as any).code === "string" && RE_COORD.test((c as any).code));
+      if (!Array.isArray(coords) || coords.some((c: unknown) => !validEntry(c))) {
         return NextResponse.json({ ok: false, error: "Invalid coords" }, { status: 400 });
       }
       await redis.set("idm_coords", coords);

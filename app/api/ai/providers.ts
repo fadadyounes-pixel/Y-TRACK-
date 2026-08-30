@@ -627,8 +627,23 @@ async function raceGroqModels(msgs: Msg[], sys: string | undefined, maxTok: numb
   return groq(msgs, sys, maxTok, false);
 }
 
+// Provider functions cycle through several models internally (e.g. nvidia() tries 5
+// models sequentially, each with an 18s fetch timeout) — a single unlucky provider in
+// a fallback loop could otherwise burn 60-90s on its own. Cap each fallback-phase
+// attempt at a fixed wall-clock budget so the loop keeps moving through providers
+// briskly; the abandoned call is simply discarded (same orphan pattern as raceFirst).
+function withTimeout(p: Promise<string | null>, ms: number): Promise<string | null> {
+  return Promise.race([p, sleep(ms).then(() => null)]);
+}
+
 export async function rafiq({ task, messages, system, max_tokens = 1200 }: RafiqOpts): Promise<string> {
   const fast = task === "fast";
+  // Every phase past the initial race checks this before starting — bounds total
+  // server time well under Vercel's function ceiling (see route.ts's maxDuration)
+  // so a saturated cascade fails cleanly with a JSON error instead of being killed
+  // mid-request by the platform.
+  const startedAt = Date.now();
+  const outOfTime = () => Date.now() - startedAt > 45000;
 
   if (fast) {
     // Fast path: race Cerebras LPU + Groq + Gemini Flash + DeepSeek-V3 in parallel (4s window).
@@ -647,8 +662,24 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       hyperbolic, fireworks, huggingface,
       (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
     ]) {
-      const text = await tryOnce(fn, messages, system, fastTok);
+      if (outOfTime()) break;
+      const text = await withTimeout(tryOnce(fn, messages, system, fastTok), 6000);
       if (text) return text;
+    }
+    // Second sweep, mirroring the JSON/dialogue path — a short wait lets a shared
+    // rate-limit window roll over before this surfaces as a user-facing failure.
+    if (!outOfTime()) {
+      await sleep(1200);
+      for (const fn of [
+        (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, true),
+        (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, true),
+        deepseek, nvidia, sambanova, anthropic, mistral, together, githubModels,
+        (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
+      ]) {
+        if (outOfTime()) break;
+        const text = await withTimeout(tryOnce(fn, messages, system, fastTok), 6000);
+        if (text) return text;
+      }
     }
     throw new Error("Fast AI providers busy. Please try again.");
   }
@@ -676,22 +707,49 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
 
   // Sequential fallback — providers not yet tried in the race
   for (const fn of [together, nvidia, deepseek]) {
-    const text = await tryOnce(fn, messages, system, max_tokens);
+    if (outOfTime()) break;
+    const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
     if (text) return text;
   }
 
-  // Second sweep after 1.2s — rate limits may have cleared on fast providers
-  await sleep(1200);
-  for (const fn of [
-    raceGroqModels,
-    (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
-    anthropic, githubModels, nvidia, deepseek,
-    (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
-    sambanova, mistral, together, openrouter,
-    hyperbolic, fireworks, huggingface,
-  ]) {
-    const text = await tryOnce(fn, messages, system, max_tokens);
-    if (text) return text;
+  // Second sweep after 1.2s — rate limits may have cleared on fast providers.
+  // Each call is time-boxed and the loop bails once the overall budget is
+  // gone, so one hanging provider can't stall the whole request past
+  // route.ts's own deadline.
+  if (!outOfTime()) {
+    await sleep(1200);
+    for (const fn of [
+      raceGroqModels,
+      (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
+      anthropic, githubModels, nvidia, deepseek,
+      (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
+      sambanova, mistral, together, openrouter,
+      hyperbolic, fireworks, huggingface,
+    ]) {
+      if (outOfTime()) break;
+      const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
+      if (text) return text;
+    }
+  }
+
+  // Third sweep after a longer 4s wait — covers the case where every provider was
+  // saturated at once (e.g. many concurrent users hitting the same free-tier RPM
+  // window simultaneously). Per-minute windows roll over well within this budget,
+  // so this converts a burst-driven outage into a slower but successful response
+  // instead of surfacing "unavailable" to the user.
+  if (!outOfTime()) {
+    await sleep(4000);
+    for (const fn of [
+      raceGroqModels, nvidia, deepseek, mistral,
+      (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
+      (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
+      anthropic, githubModels, sambanova, together, openrouter,
+      hyperbolic, fireworks, huggingface,
+    ]) {
+      if (outOfTime()) break;
+      const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
+      if (text) return text;
+    }
   }
 
   throw new Error("All AI providers temporarily busy. Please try again in a few seconds.");
