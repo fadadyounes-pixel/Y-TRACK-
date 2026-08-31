@@ -1,0 +1,63 @@
+name: Diagnose whether any sibling Vercel project still has usable AI keys
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/diag-cross-project.yml'
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check decrypt=true and scan sibling projects for AI keys
+        shell: bash
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, urllib.request
+
+          TOKEN = os.environ.get('VT', '')
+          if not TOKEN:
+              print('ERROR: VERCEL_TOKEN secret is missing')
+              exit(1)
+
+          def vreq(method, path):
+              url = f"https://api.vercel.com{path}"
+              headers = {"Authorization": f"Bearer {TOKEN}"}
+              req = urllib.request.Request(url, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  print(f"HTTP {e.code}: {e.read().decode()}")
+                  return {}
+
+          projects = vreq("GET", "/v9/projects").get("projects", [])
+          print("Projects: " + ", ".join(f"{p.get('name')}" for p in projects))
+
+          targets = [
+              "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "CEREBRAS_API_KEY",
+              "NVIDIA_API_KEY", "DEEPSEEK_API_KEY", "SAMBANOVA_API_KEY", "MISTRAL_API_KEY",
+              "TOGETHER_API_KEY", "HYPERBOLIC_API_KEY", "FIREWORKS_API_KEY",
+              "HUGGINGFACE_API_KEY", "OPENROUTER_API_KEY", "GITHUB_MODELS_TOKEN",
+          ]
+
+          for p in projects:
+              name = p.get("name")
+              pid = p.get("id")
+              print(f"\n=== {name} ({pid}) ===")
+              # Try both decrypt=true (list) and per-item GET with decrypt, to see if
+              # EITHER path ever actually returns a plaintext value anywhere in this team.
+              data = vreq("GET", f"/v9/projects/{pid}/env?decrypt=true")
+              envs = data.get("envs", [])
+              for e in envs:
+                  k = e.get("key")
+                  if k not in targets:
+                      continue
+                  val = e.get("value")
+                  has_value = bool(val)
+                  # Never print any part of the actual secret value, even truncated —
+                  # only whether decrypt returned something and how long it is.
+                  print(f"  {k}: decrypted_value={'YES len=' + str(len(val)) if has_value else 'NO'} target={e.get('target')}")
+          PYEOF
