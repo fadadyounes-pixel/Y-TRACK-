@@ -1,0 +1,64 @@
+name: Diagnose which env var keys exist on talentmaponline
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/diag-env-keys.yml'
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List env var key names (no values) on the talentmaponline Vercel project
+        shell: bash
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, urllib.request
+
+          TOKEN = os.environ.get('VT', '')
+          if not TOKEN:
+              print('ERROR: VERCEL_TOKEN secret is missing')
+              exit(1)
+
+          def vreq(method, path):
+              url = f"https://api.vercel.com{path}"
+              headers = {"Authorization": f"Bearer {TOKEN}"}
+              req = urllib.request.Request(url, headers=headers, method=method)
+              with urllib.request.urlopen(req) as r:
+                  return json.loads(r.read())
+
+          projects = vreq("GET", "/v9/projects").get("projects", [])
+          proj_id = next((p["id"] for p in projects if p.get("name","").lower() == "talentmaponline"), None)
+          if not proj_id:
+              print("ERROR: No Vercel project named 'talentmaponline' found")
+              exit(1)
+          print(f"Project: talentmaponline ({proj_id})\n")
+
+          envs = vreq("GET", f"/v9/projects/{proj_id}/env").get("envs", [])
+          expected = [
+              "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "CEREBRAS_API_KEY",
+              "NVIDIA_API_KEY", "DEEPSEEK_API_KEY", "SAMBANOVA_API_KEY", "MISTRAL_API_KEY",
+              "TOGETHER_API_KEY", "HYPERBOLIC_API_KEY", "FIREWORKS_API_KEY",
+              "HUGGINGFACE_API_KEY", "OPENROUTER_API_KEY", "GITHUB_MODELS_TOKEN",
+              "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN",
+          ]
+          present = {}
+          for e in envs:
+              k = e.get("key")
+              if k in expected:
+                  present.setdefault(k, []).append(",".join(e.get("target", [])))
+
+          print(f"{'KEY':<26} {'STATUS':<12} TARGETS")
+          for k in expected:
+              if k in present:
+                  print(f"{k:<26} {'SET':<12} {present[k]}")
+              else:
+                  print(f"{k:<26} {'MISSING':<12}")
+
+          missing = [k for k in expected if k not in present]
+          print(f"\n{len(present)}/{len(expected)} expected keys are set.")
+          if missing:
+              print("Missing: " + ", ".join(missing))
+          PYEOF
