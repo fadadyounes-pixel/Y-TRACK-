@@ -1,0 +1,42 @@
+name: Diagnose GitHub Environment-scoped secrets
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/diag-gh-env-scope.yml'
+
+jobs:
+  diag-repo-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check lengths (never values) of repo-level secrets
+        env:
+          G: ${{ secrets.GROQ_API_KEY }}
+          GE: ${{ secrets.GEMINI_API_KEY }}
+          C: ${{ secrets.CEREBRAS_API_KEY }}
+          N: ${{ secrets.NVIDIA_API_KEY }}
+          A: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "repo-scope GROQ_API_KEY len=${#G}"
+          echo "repo-scope GEMINI_API_KEY len=${#GE}"
+          echo "repo-scope CEREBRAS_API_KEY len=${#C}"
+          echo "repo-scope NVIDIA_API_KEY len=${#N}"
+          echo "repo-scope ANTHROPIC_API_KEY len=${#A}"
+
+  diag-production-env-scope:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check lengths (never values) of 'production' environment secrets
+        env:
+          G: ${{ secrets.GROQ_API_KEY }}
+          GE: ${{ secrets.GEMINI_API_KEY }}
+          C: ${{ secrets.CEREBRAS_API_KEY }}
+          N: ${{ secrets.NVIDIA_API_KEY }}
+          A: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "production-env GROQ_API_KEY len=${#G}"
+          echo "production-env GEMINI_API_KEY len=${#GE}"
+          echo "production-env CEREBRAS_API_KEY len=${#C}"
+          echo "production-env NVIDIA_API_KEY len=${#N}"
+          echo "production-env ANTHROPIC_API_KEY len=${#A}"
