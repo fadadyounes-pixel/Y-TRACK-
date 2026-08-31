@@ -1,4 +1,10 @@
 name: Fix Vercel Env Whitespace
+# Re-triggered 2026-08-31: talentmaponline build is failing again with
+# "Upstash Redis client was passed an invalid URL" during `next build`
+# (see PR #91 / Deploy to talentmaponline.org run). Re-running this to
+# clear the broken UPSTASH_REDIS_REST_URL/TOKEN entries so the build can
+# succeed again; persistence degrades gracefully until clean values are
+# re-added, per the rationale documented below.
 on:
   push:
     branches:
