@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Logo from '../../components/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
+import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 
 const ROLE_ROUTES: Record<UserRole, string> = {
   admin: '/admin',
@@ -18,8 +19,12 @@ function detectRole(val: string): DetectedRole {
   if (!val.trim()) return null;
   const v = val.trim().toUpperCase();
   if (/^ADMIN/i.test(v)) return 'admin';
-  if (/^COORD/i.test(v)) return 'coordinator';
-  if (/^(CAN|CM)[A-Z0-9]/i.test(v) || /^[A-Z]{2}\d{3,}$/.test(v)) return 'candidate';
+  // Coordinator codes are NAME+COR+digits (e.g. BENALICOR4821); the legacy
+  // COORD-prefixed shape still authenticates too, so keep hinting on it.
+  if (/COR\d{3,}$/i.test(v) || /^COORD/i.test(v)) return 'coordinator';
+  // Moroccan CIN shape: exactly 2 uppercase letters + 4-or-more digits (e.g. AB1234) —
+  // must mirror RE_CANDIDATE in app/api/auth/route.ts, the actual auth gate.
+  if (/^[A-Z]{2}\d{4,}$/.test(v)) return 'candidate';
   if (v.length >= 3) return 'unknown';
   return null;
 }
@@ -36,7 +41,7 @@ const TX = {
     tagline: 'Votre carrière, cartographiée.',
     sub:     'Entrez votre code d\'accès pour continuer.',
     label:   'Code d\'accès',
-    ph:      'ex: CAN001 ou COORD...',
+    ph:      'ex: AB1234 ou NOMCOR...',
     error:   'Code non reconnu. Vérifiez et réessayez.',
     cont:    'Continuer',
     hint:    'Contactez votre conseiller pour obtenir votre code.',
@@ -45,7 +50,7 @@ const TX = {
     tagline: 'Your career, mapped.',
     sub:     'Enter your access code to continue.',
     label:   'Access Code',
-    ph:      'e.g. CAN001 or COORD...',
+    ph:      'e.g. AB1234 or NAMECOR...',
     error:   'Unrecognized code. Please check and try again.',
     cont:    'Continue',
     hint:    'Contact your advisor to get your access code.',
@@ -78,6 +83,13 @@ export default function LoginPage() {
       const stored = localStorage.getItem('talentmap_user');
       if (stored) {
         const user = JSON.parse(stored);
+        // Candidates must complete their profile before anything else —
+        // send them straight to the info form instead of bouncing through
+        // the dashboard first, mirroring the CareerMap onboarding flow.
+        if (user.role === 'candidate' && !isProfileComplete(loadStoredProfile(user.idNumber))) {
+          router.push('/candidate/info');
+          return;
+        }
         router.push(ROLE_ROUTES[user.role as UserRole] ?? '/');
         return;
       }

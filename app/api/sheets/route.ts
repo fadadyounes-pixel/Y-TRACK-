@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || "",
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || "",
-});
+import { redis, HASH, readCollection, upsertOne, deleteOne } from "@/lib/redisCollections";
 
 const RE_HOLDER = /^[A-Z]{2}\d{3,}$/;
 const RE_COORD  = /^@[A-Za-z]{2,}COD$/i;
@@ -12,20 +7,25 @@ const RE_COORD  = /^@[A-Za-z]{2,}COD$/i;
 /* ── GET — read all collections ─────────────────────── */
 export async function GET() {
   try {
-    const [holders, coords, jobs, cvs] = await Promise.all([
-      redis.get<any[]>("idm_holders"),
+    const [holders, coords, jobs, cvs, coordinators, applications] = await Promise.all([
+      readCollection("holders"),
       redis.get<any[]>("idm_coords"),
-      redis.get<any[]>("tm_jobs"),
-      redis.get<any[]>("tm_cvs"),
+      readCollection("jobs"),
+      readCollection("cvs"),
+      readCollection("coordinators"),
+      readCollection("applications"),
     ]);
     return NextResponse.json({
-      holders: holders || [],
+      holders,
       coords: coords || [],
-      jobs: jobs || [],
-      cvs: cvs || [],
+      jobs,
+      cvs,
+      coordinators,
+      applications,
     });
-  } catch (err: any) {
-    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], error: err.message });
+  } catch (err) {
+    console.error("sheets GET: failed to read collections", err);
+    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], coordinators: [], applications: [] });
   }
 }
 
@@ -40,17 +40,20 @@ export async function POST(req: NextRequest) {
       if (!holder || typeof holder.id !== "string" || !RE_HOLDER.test(holder.id)) {
         return NextResponse.json({ ok: false, error: "Invalid holder" }, { status: 400 });
       }
-      const existing = await redis.get<any[]>("idm_holders") || [];
-      const idx = existing.findIndex((h: any) => h.id === holder.id);
-      const updated = idx >= 0
-        ? existing.map((h: any, i: number) => i === idx ? { ...h, ...holder } : h)
-        : [...existing, holder];
-      await redis.set("idm_holders", updated);
+      await upsertOne("holders", holder);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* IdeaMap: delete a holder */
+    if (body.type === "delete_holder") {
+      await deleteOne("holders", body.id);
       return NextResponse.json({ ok: true });
     }
 
     /* IdeaMap: replace coordinator list — entries are either a plain code string
-       (legacy) or {code, name, region, arrondissement, createdAt} objects. */
+       (legacy) or {code, name, region, arrondissement, createdAt} objects. Small,
+       admin-managed, always meant to be set wholesale, so this stays a plain key
+       (not a hash) rather than going through the per-id collection helpers. */
     if (body.type === "save_coords") {
       const coords = body.coords;
       const validEntry = (c: unknown) =>
@@ -63,58 +66,75 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    /* IdeaMap: delete a holder */
-    if (body.type === "delete_holder") {
-      const existing = await redis.get<any[]>("idm_holders") || [];
-      await redis.set("idm_holders", existing.filter((h: any) => h.id !== body.id));
-      return NextResponse.json({ ok: true });
-    }
-
-    /* TalentMap: replace full job list */
+    /* TalentMap: reconcile the full job list from a coordinator's local
+       state (add/edit/delete/status-toggle all flow through this) — upsert
+       every job in the payload, then drop any hash entries no longer
+       present, so deletions still take effect. */
     if (body.type === "save_jobs") {
-      await redis.set("tm_jobs", body.jobs);
+      const jobs: any[] = Array.isArray(body.jobs) ? body.jobs : [];
+      const keepIds = new Set(jobs.map(j => j.id));
+      const existingKeys = await redis.hkeys(HASH.jobs);
+      const toRemove = existingKeys.filter(k => !keepIds.has(k));
+      await Promise.all([
+        jobs.length ? redis.hset(HASH.jobs, Object.fromEntries(jobs.map(j => [j.id, j]))) : null,
+        toRemove.length ? redis.hdel(HASH.jobs, ...toRemove) : null,
+      ]);
       return NextResponse.json({ ok: true });
     }
 
     /* TalentMap: upsert single job */
     if (body.type === "save_job") {
-      const job = body.job;
-      const existing = await redis.get<any[]>("tm_jobs") || [];
-      const idx = existing.findIndex((j: any) => j.id === job.id);
-      const updated = idx >= 0
-        ? existing.map((j: any, i: number) => i === idx ? { ...j, ...job } : j)
-        : [...existing, job];
-      await redis.set("tm_jobs", updated);
+      await upsertOne("jobs", body.job);
       return NextResponse.json({ ok: true });
     }
 
     /* TalentMap: delete a job */
     if (body.type === "delete_job") {
-      const existing = await redis.get<any[]>("tm_jobs") || [];
-      await redis.set("tm_jobs", existing.filter((j: any) => j.id !== body.id));
+      await deleteOne("jobs", body.id);
       return NextResponse.json({ ok: true });
     }
 
-    /* TalentMap: replace full CV list */
+    /* TalentMap: upsert a batch of CVs (e.g. a coordinator's bulk-upload
+       session) — merges each into whatever's already stored for that id
+       and never touches any other candidate's record. */
     if (body.type === "save_cvs") {
-      await redis.set("tm_cvs", body.cvs);
+      const cvs: any[] = Array.isArray(body.cvs) ? body.cvs : [];
+      if (cvs.length) {
+        const existingHash = (await redis.hgetall<Record<string, any>>(HASH.cvs)) || {};
+        const merged: Record<string, any> = {};
+        for (const cv of cvs) merged[cv.id] = { ...(existingHash[cv.id] || {}), ...cv };
+        await redis.hset(HASH.cvs, merged);
+      }
       return NextResponse.json({ ok: true });
     }
 
     /* TalentMap: upsert single CV */
     if (body.type === "save_cv") {
-      const cv = body.cv;
-      const existing = await redis.get<any[]>("tm_cvs") || [];
-      const idx = existing.findIndex((c: any) => c.id === cv.id);
-      const updated = idx >= 0
-        ? existing.map((c: any, i: number) => i === idx ? { ...c, ...cv } : c)
-        : [...existing, cv];
-      await redis.set("tm_cvs", updated);
+      await upsertOne("cvs", body.cv);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* TalentMap: upsert single coordinator */
+    if (body.type === "save_coordinator") {
+      await upsertOne("coordinators", body.coordinator);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* TalentMap: delete a coordinator */
+    if (body.type === "delete_coordinator") {
+      await deleteOne("coordinators", body.id);
+      return NextResponse.json({ ok: true });
+    }
+
+    /* TalentMap: upsert single job application */
+    if (body.type === "save_application") {
+      await upsertOne("applications", body.application);
       return NextResponse.json({ ok: true });
     }
 
     return NextResponse.json({ ok: false, error: "Unknown type" }, { status: 400 });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (err) {
+    console.error("sheets POST: failed to write", err);
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

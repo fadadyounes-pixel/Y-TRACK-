@@ -5,39 +5,50 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../../components/Logo';
 
-/* ── Design tokens ── */
-const INK    = '#0B1629';
-const COBALT = '#1B4FD8';
-const NAVY   = '#0F172A';
-const BLUE   = '#2563eb';
-const LBLUE  = '#EFF6FF';
-const MIST   = '#DBEAFE';
-const BG     = '#F6F8FC';
-const WHITE  = '#ffffff';
-const BORDER = '#E2E8F0';
-const BORDER2= '#CBD5E1';
-const TEXT   = '#0F172A';
-const TEXT2  = '#334155';
-const MUTED  = '#64748B';
-const FAINT  = '#94A3B8';
-const GREEN  = '#059669';
-const LGREEN = '#D1FAE5';
-const GTEXT  = '#065F46';
-const RED    = '#DC2626';
-const LRED   = '#FEE2E2';
-const RTEXT  = '#991B1B';
-const AMBER  = '#D97706';
-const LAMBER = '#FEF3C7';
-const ATEXT  = '#92400E';
-const PURPLE = '#7C3AED';
-const LPURP  = '#EDE9FE';
-const PTEXT  = '#4C1D95';
+/* ── Design tokens ──────────────────────────────────────────────────────
+ * Dark dashboard layout inspired by CareerMap's admin (card structure,
+ * avatar shapes, table striping) but recolored to TalentMap's own brand —
+ * the cobalt blue from the logo (components/Logo.tsx: #1B4FD8 pin,
+ * #3B82F6/#93C5FD for dark backgrounds) instead of CareerMap's teal.
+ * No data, tabs, or behavior changed. Token NAMES are kept as-is to
+ * minimize the diff; a few no longer match their literal name (WHITE/NAVY
+ * now hold surface/text roles instead of literal white/navy) — see the
+ * inline notes below.
+ */
+const INK    = '#0A0E1A';   // Page + sidebar background (was dark navy — stays dark)
+const COBALT = '#3B82F6';   // Primary accent — TalentMap brand blue, dark-bg variant from the logo
+const NAVY   = '#F1F5F9';   // Heading/value text on cards — near-white (was dark text)
+const BLUE   = '#60A5FA';   // Secondary accent — lighter brand blue
+const LBLUE  = 'rgba(59,130,246,.14)';  // Brand-blue tint — chip/badge backgrounds
+const MIST   = 'rgba(59,130,246,.22)';  // Stronger brand-blue tint
+const BG     = '#0A0E1A';   // Page background (was light gray)
+const WHITE  = '#111827';   // Card/surface background (was literal white) — literal white text-on-accent uses '#ffffff' directly, see below
+const BORDER = 'rgba(255,255,255,.08)';
+const BORDER2= 'rgba(255,255,255,.16)';
+const TEXT   = '#E2E8F0';   // Primary body text (was dark)
+const TEXT2  = '#CBD5E1';   // Secondary body text
+const MUTED  = '#8B95A8';   // Muted label text
+const FAINT  = '#5B6478';   // Faint/placeholder text
+const GREEN  = '#22C55E';
+const LGREEN = 'rgba(34,197,94,.14)';
+const GTEXT  = '#4ADE80';
+const RED    = '#F87171';
+const LRED   = 'rgba(248,113,113,.14)';
+const RTEXT  = '#FCA5A5';
+const AMBER  = '#F5B301';
+const LAMBER = 'rgba(245,179,1,.14)';
+const ATEXT  = '#FCD34D';
+const PURPLE = '#A78BFA';
+const LPURP  = 'rgba(167,139,250,.14)';
+const PTEXT  = '#C4B5FD';
 
 /* ── Helpers ── */
+// Coordinator code shape: NAME + COR + 4 digits (e.g. BENALICOR4821) — mirrors
+// the same name+role-suffix convention used for coordinator codes elsewhere.
 function genCode(name: string): string {
-  const base = name.trim().toUpperCase().split(/\s+/).pop()?.slice(0, 6).replace(/[^A-Z]/g, '') || 'COORD';
+  const base = name.trim().toUpperCase().split(/\s+/).pop()?.slice(0, 6).replace(/[^A-Z]/g, '') || 'COR';
   const digits = String(Math.floor(1000 + Math.random() * 9000));
-  return `COORD${base}${digits}`;
+  return `${base}COR${digits}`;
 }
 
 function uid(): string {
@@ -65,6 +76,9 @@ interface Job {
   skills?: string[];
   description?: string;
   createdAt?: string;
+  educationLevel?: string;
+  languages?: string[];
+  postedBy?: { id: string; name: string; code: string };
 }
 
 interface CV {
@@ -76,6 +90,20 @@ interface CV {
   skills?: string[];
   email?: string;
   phone?: string;
+  city?: string;
+  region?: string;
+  cin?: string;
+  birthDate?: string;
+  diploma?: string;
+  institution?: string;
+  graduationYear?: string;
+  linkedin?: string;
+  portfolio?: string;
+  targetRoles?: string[];
+  certifications?: string[];
+  work?: { company?: string; title?: string }[];
+  educationLevel?: string;
+  languages?: string[];
   uploadedAt?: string;
 }
 
@@ -138,6 +166,7 @@ export default function AdminDashboard() {
   const [cvSearch, setCvSearch]           = useState('');
   const [jobSectorFilter, setJobSector]   = useState('');
   const [cvSectorFilter, setCvSector]     = useState('');
+  const [expandedCv, setExpandedCv]       = useState<string | null>(null);
 
   useEffect(() => {
     if (initialized && (!user || user.role !== 'admin')) router.push('/login');
@@ -260,6 +289,45 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
     URL.revokeObjectURL(url);
   }
 
+  /* ── CSV export ── */
+  function downloadCSV(type: 'Candidates' | 'Jobs' | 'Coordinators') {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    let rows: (string | number)[][] = [];
+    if (type === 'Candidates') {
+      rows = [
+        ['Nom', 'Email', 'Téléphone', 'Ville', 'Secteur', 'Expérience', 'Formation', 'Langues', 'Compétences', 'Score match', 'Inscrit le'],
+        ...cvs.map((c: any) => [
+          c.name || c.fileName || '', c.email || '', c.phone || '', c.city || '',
+          c.sector || '', c.experience || '', c.educationLevel || '',
+          (c.languages || []).join('; '), (c.skills || []).join('; '),
+          c.matchScore != null ? `${c.matchScore}%` : '',
+          c.uploadedAt ? new Date(c.uploadedAt).toLocaleDateString('fr-MA') : '',
+        ]),
+      ];
+    } else if (type === 'Jobs') {
+      rows = [
+        ['Titre', 'Entreprise', 'Secteur', 'Expérience', 'Ville', 'Formation requise', 'Langues requises', 'Compétences', 'Statut', 'Publiée le'],
+        ...jobs.map(j => [
+          j.title, j.company, j.sector, j.experience, j.location,
+          j.educationLevel || '', (j.languages || []).join('; '),
+          (j.skills || []).join('; '), j.status || 'Active',
+          j.createdAt ? new Date(j.createdAt).toLocaleDateString('fr-MA') : '',
+        ]),
+      ];
+    } else {
+      rows = [
+        ['Nom', 'Email', 'Code', 'Créé le'],
+        ...coordinators.map(c => [c.name, c.email, c.code, c.createdAt ? new Date(c.createdAt).toLocaleDateString('fr-MA') : '']),
+      ];
+    }
+    const csv = rows.map(r => r.map(esc).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: `TalentMap_${type}_${new Date().toISOString().slice(0, 10)}.csv` });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   /* ── Sidebar nav ── */
   const NAV: { id: Tab; icon: string; label: string }[] = [
     { id: 'overview',     icon: '📊', label: 'Vue d\'ensemble' },
@@ -275,7 +343,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
     items.forEach(i => { const s = i[key_] || 'Autre'; counts[s] = (counts[s] || 0) + 1; });
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
     const max = sorted[0]?.[1] || 1;
-    const colors = [NAVY, BLUE, '#0284c7', '#8b5cf6', '#059669', '#d97706'];
+    const colors = [COBALT, BLUE, PURPLE, GREEN, AMBER, '#f472b6'];
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {sorted.map(([sector, count], i) => (
@@ -284,12 +352,67 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
               <span style={{ fontSize: '0.78rem', color: TEXT, fontWeight: 500 }}>{sector}</span>
               <span style={{ fontSize: '0.78rem', fontWeight: 700, color: NAVY }}>{count}</span>
             </div>
-            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: 6, background: 'rgba(255,255,255,.08)', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{ height: '100%', borderRadius: 4, background: colors[i % colors.length], width: `${(count / max) * 100}%`, transition: 'width .5s' }} />
             </div>
           </div>
         ))}
         {sorted.length === 0 && <p style={{ fontSize: '0.8rem', color: MUTED }}>Aucune donnée</p>}
+      </div>
+    );
+  }
+
+  /* ── Growth trend — candidates & jobs registered per week, last 8 weeks ── */
+  function weekLabel(weeksBack: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() - weeksBack * 7);
+    return d.toLocaleDateString('fr-MA', { day: '2-digit', month: '2-digit' });
+  }
+
+  function GrowthTrend({ candidates, jobList }: { candidates: CV[]; jobList: Job[] }) {
+    const WEEKS = 8;
+    const now = Date.now();
+    const weekOf = (dateStr?: string): number => {
+      if (!dateStr) return -1;
+      const t = new Date(dateStr).getTime();
+      if (Number.isNaN(t)) return -1;
+      const diffWeeks = Math.floor((now - t) / (7 * 24 * 3600 * 1000));
+      return diffWeeks >= 0 && diffWeeks < WEEKS ? WEEKS - 1 - diffWeeks : -1;
+    };
+    const candBuckets = Array(WEEKS).fill(0);
+    candidates.forEach(c => { const b = weekOf(c.uploadedAt); if (b >= 0) candBuckets[b]++; });
+    const jobBuckets = Array(WEEKS).fill(0);
+    jobList.forEach(j => { const b = weekOf(j.createdAt); if (b >= 0) jobBuckets[b]++; });
+    const max = Math.max(1, ...candBuckets, ...jobBuckets);
+    const hasData = candBuckets.some(n => n > 0) || jobBuckets.some(n => n > 0);
+
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: COBALT, display: 'inline-block' }} />
+            <span style={{ fontSize: '0.72rem', color: MUTED }}>Candidats</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />
+            <span style={{ fontSize: '0.72rem', color: MUTED }}>Offres</span>
+          </div>
+        </div>
+        {!hasData ? (
+          <p style={{ fontSize: '0.8rem', color: MUTED }}>Pas encore assez de données pour une tendance.</p>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 130 }}>
+            {Array.from({ length: WEEKS }).map((_, i) => (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 96 }}>
+                  <div title={`${candBuckets[i]} candidat(s)`} style={{ width: 9, borderRadius: 3, background: COBALT, height: `${Math.max((candBuckets[i] / max) * 100, candBuckets[i] > 0 ? 4 : 0)}%` }} />
+                  <div title={`${jobBuckets[i]} offre(s)`} style={{ width: 9, borderRadius: 3, background: AMBER, height: `${Math.max((jobBuckets[i] / max) * 100, jobBuckets[i] > 0 ? 4 : 0)}%` }} />
+                </div>
+                <span style={{ fontSize: '0.6rem', color: FAINT }}>{weekLabel(WEEKS - 1 - i)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -318,7 +441,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
         {/* User pill */}
         <div style={{ margin: '0.75rem 0.875rem', padding: '0.6rem 0.875rem', borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>Administrateur</div>
-          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: WHITE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.id}</div>
+          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.id}</div>
         </div>
 
         {/* Nav */}
@@ -337,7 +460,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                 <span style={{ fontSize: '0.9rem', width: 18, flexShrink: 0, textAlign: 'center' }}>{item.icon}</span>
                 <span style={{ flex: 1 }}>{item.label}</span>
                 {item.id === 'coordinators' && coordinators.length > 0 && (
-                  <span style={{ background: 'rgba(255,255,255,.15)', color: WHITE, borderRadius: 10, padding: '1px 6px', fontSize: '0.65rem', fontWeight: 700, flexShrink: 0 }}>
+                  <span style={{ background: 'rgba(255,255,255,.15)', color: '#ffffff', borderRadius: 10, padding: '1px 6px', fontSize: '0.65rem', fontWeight: 700, flexShrink: 0 }}>
                     {coordinators.length}
                   </span>
                 )}
@@ -358,7 +481,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
       <main style={{ flex: 1, minWidth: 0, background: BG, overflowY: 'auto' }}>
         {/* Top bar */}
         <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0.875rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
-          <h1 style={{ fontSize: '0.95rem', fontWeight: 700, color: INK, margin: 0 }}>
+          <h1 style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, margin: 0 }}>
             {NAV.find(n => n.id === tab)?.label ?? 'Administration'}
           </h1>
           <button onClick={fetchData} style={{ fontSize: '0.78rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>⟳ Actualiser</button>
@@ -377,7 +500,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ OVERVIEW ════════ */}
             {tab === 'overview' && (
               <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Vue d'ensemble</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Vue d'ensemble</h2>
                 <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>Données en temps réel · Administration TalentMap</p>
 
                 {/* KPI grid */}
@@ -391,12 +514,28 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                 {/* Charts row */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                   <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
-                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Offres par secteur</h2>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Offres par secteur</h2>
                     <SectorBars items={jobs} key_="sector" />
                   </div>
                   <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
-                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Candidats par secteur</h2>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Candidats par secteur</h2>
                     <SectorBars items={cvs} key_="sector" />
+                  </div>
+                </div>
+
+                {/* Geography + growth trend */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Offres par ville</h2>
+                    <SectorBars items={jobs} key_="location" />
+                  </div>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Candidats par ville</h2>
+                    <SectorBars items={cvs} key_="city" />
+                  </div>
+                  <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Tendance d'inscription (8 sem.)</h2>
+                    <GrowthTrend candidates={cvs} jobList={jobs} />
                   </div>
                 </div>
 
@@ -404,18 +543,18 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                      <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, textTransform: 'uppercase', letterSpacing: '.04em' }}>Coordinateurs récents</h2>
+                      <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, textTransform: 'uppercase', letterSpacing: '.04em' }}>Coordinateurs récents</h2>
                       <button onClick={() => setTab('coordinators')} style={{ fontSize: '0.75rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>Gérer →</button>
                     </div>
                     {coordinators.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '2rem', color: MUTED }}>
                         <div style={{ fontSize: 32, marginBottom: 8 }}>👤</div>
                         <div style={{ fontSize: '0.82rem' }}>Aucun coordinateur créé</div>
-                        <button onClick={() => setTab('coordinators')} style={{ marginTop: 10, padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${COBALT}`, background: LBLUE, color: INK, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>+ Ajouter</button>
+                        <button onClick={() => setTab('coordinators')} style={{ marginTop: 10, padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${COBALT}`, background: LBLUE, color: NAVY, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>+ Ajouter</button>
                       </div>
                     ) : coordinators.slice(-5).reverse().map(c => (
                       <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.6rem 0', borderBottom: `1px solid ${BORDER}` }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: INK, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: WHITE }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 8, background: PURPLE, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#ffffff' }}>
                           {c.name[0]}
                         </div>
                         <div style={{ flex: 1 }}>
@@ -427,11 +566,11 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                   </div>
 
                   <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
-                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Activité récente</h2>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Activité récente</h2>
                     {activity.length === 0 ? (
                       <p style={{ fontSize: '0.8rem', color: MUTED }}>Aucune activité enregistrée.</p>
                     ) : activity.slice(0, 8).map((a, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '0.55rem 0', borderBottom: i < 7 ? `1px solid #f9fafb` : 'none' }}>
+                      <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '0.55rem 0', borderBottom: i < 7 ? `1px solid rgba(255,255,255,.06)` : 'none' }}>
                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: a.color, marginTop: 6, flexShrink: 0 }} />
                         <div style={{ flex: 1, fontSize: '0.8rem', color: TEXT }}>{a.text}</div>
                         <span style={{ fontSize: '0.7rem', color: MUTED, flexShrink: 0 }}>{a.time}</span>
@@ -445,30 +584,30 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ COORDINATORS ════════ */}
             {tab === 'coordinators' && (
               <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Coordinateurs</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Coordinateurs</h2>
                 <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
                   Créez des comptes coordinateurs — le code généré leur permet de se connecter.
                 </p>
 
                 {/* Add form */}
                 <div style={{ background: WHITE, borderRadius: 10, padding: '1.5rem', border: `1px solid ${BORDER}`, marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
-                  <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Ajouter un coordinateur</h2>
+                  <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Ajouter un coordinateur</h2>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.75rem', alignItems: 'end' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: INK, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Nom complet *</label>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: NAVY, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Nom complet *</label>
                       <input
                         value={newName} onChange={e => { setNewName(e.target.value); setSavedCode(''); }}
                         placeholder="ex: Khalid Benali"
-                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${newName ? COBALT : BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: newName ? LBLUE : '#F9FAFB', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
+                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${newName ? COBALT : BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: newName ? LBLUE : 'rgba(255,255,255,.04)', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: INK, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Email (optionnel)</label>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: NAVY, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>Email (optionnel)</label>
                       <input
                         value={newEmail} onChange={e => setNewEmail(e.target.value)}
                         placeholder="khalid@entreprise.ma"
                         type="email"
-                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: '#F9FAFB', boxSizing: 'border-box', outline: 'none' }}
+                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: 'rgba(255,255,255,.04)', boxSizing: 'border-box', outline: 'none' }}
                       />
                     </div>
                     <button
@@ -476,7 +615,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       disabled={saving || !newName.trim()}
                       style={{
                         padding: '0.7rem 1.5rem', borderRadius: 8, border: 'none', cursor: saving || !newName.trim() ? 'not-allowed' : 'pointer',
-                        background: saving || !newName.trim() ? FAINT : INK, color: WHITE,
+                        background: saving || !newName.trim() ? FAINT : INK, color: '#ffffff',
                         fontSize: '0.875rem', fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap',
                         transition: 'background .15s',
                       }}
@@ -501,7 +640,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                 {/* Coordinators table */}
                 <div style={{ background: WHITE, borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
                   <div style={{ padding: '1.1rem 1.4rem', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, textTransform: 'uppercase', letterSpacing: '.04em' }}>Comptes coordinateurs ({coordinators.length})</h2>
+                    <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, textTransform: 'uppercase', letterSpacing: '.04em' }}>Comptes coordinateurs ({coordinators.length})</h2>
                     <button onClick={fetchData} style={{ fontSize: '0.78rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>⟳ Actualiser</button>
                   </div>
                   {coordinators.length === 0 ? (
@@ -514,7 +653,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                         <thead>
-                          <tr style={{ background: '#f9fafb' }}>
+                          <tr style={{ background: 'rgba(255,255,255,.04)' }}>
                             {['Coordinateur', 'Email', 'Code d\'accès', 'Créé le', 'Actions'].map(h => (
                               <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: MUTED, whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
@@ -522,10 +661,10 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                         </thead>
                         <tbody>
                           {coordinators.map((c, i) => (
-                            <tr key={c.id} style={{ borderTop: `1px solid #f3f4f6`, background: i % 2 === 0 ? WHITE : '#fafafa' }}>
+                            <tr key={c.id} style={{ borderTop: `1px solid rgba(255,255,255,.06)`, background: i % 2 === 0 ? WHITE : 'rgba(255,255,255,.02)' }}>
                               <td style={{ padding: '0.8rem 1rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: NAVY, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: WHITE }}>{c.name[0]}</div>
+                                  <div style={{ width: 32, height: 32, borderRadius: 9, background: PURPLE, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#ffffff' }}>{c.name[0]}</div>
                                   <div style={{ fontWeight: 600, color: TEXT }}>{c.name}</div>
                                 </div>
                               </td>
@@ -557,7 +696,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                 <div style={{ marginTop: '1rem', padding: '0.9rem 1.1rem', background: LBLUE, borderRadius: 10, border: `1px solid ${BLUE}22` }}>
                   <div style={{ fontSize: '0.8rem', color: NAVY, fontWeight: 600, marginBottom: 3 }}>ℹ️ Comment se connecter ?</div>
                   <div style={{ fontSize: '0.78rem', color: MUTED }}>
-                    Le coordinateur va sur la page de connexion et saisit son code d'accès (ex: <code style={{ fontFamily: 'monospace', background: WHITE, padding: '1px 5px', borderRadius: 4 }}>COORDBENALI1234</code>).
+                    Le coordinateur va sur la page de connexion et saisit son code d'accès (ex: <code style={{ fontFamily: 'monospace', background: WHITE, padding: '1px 5px', borderRadius: 4 }}>BENALICOR4821</code>).
                     Il sera automatiquement redirigé vers son tableau de bord.
                   </div>
                 </div>
@@ -567,7 +706,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ JOB OFFERS ════════ */}
             {tab === 'jobs' && (
               <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Offres d'emploi</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Offres d'emploi</h2>
                 <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
                   {jobs.length} offre{jobs.length > 1 ? 's' : ''} publiée{jobs.length > 1 ? 's' : ''} par les coordinateurs
                 </p>
@@ -580,7 +719,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     style={{ flex: '1 1 220px', padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: TEXT, background: WHITE, outline: 'none', transition: 'border-color .15s' }}
                   />
                   <select value={jobSectorFilter} onChange={e => setJobSector(e.target.value)}
-                    style={{ padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${jobSectorFilter ? COBALT : BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: jobSectorFilter ? INK : MUTED, background: jobSectorFilter ? LBLUE : WHITE, appearance: 'none', cursor: 'pointer' }}>
+                    style={{ padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${jobSectorFilter ? COBALT : BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: jobSectorFilter ? NAVY : MUTED, background: jobSectorFilter ? LBLUE : WHITE, appearance: 'none', cursor: 'pointer' }}>
                     <option value="">Tous les secteurs</option>
                     {jobSectors.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -602,15 +741,15 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                         <thead>
-                          <tr style={{ background: '#f9fafb' }}>
-                            {['Titre', 'Entreprise', 'Secteur', 'Expérience', 'Ville', 'Compétences', 'Statut', ''].map(h => (
+                          <tr style={{ background: 'rgba(255,255,255,.04)' }}>
+                            {['Titre', 'Entreprise', 'Secteur', 'Expérience', 'Ville', 'Compétences', 'Publiée par', 'Statut', ''].map(h => (
                               <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: MUTED, whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {filteredJobs.map((j, i) => (
-                            <tr key={j.id} style={{ borderTop: `1px solid #f3f4f6`, background: i % 2 === 0 ? WHITE : '#fafafa' }}>
+                            <tr key={j.id} style={{ borderTop: `1px solid rgba(255,255,255,.06)`, background: i % 2 === 0 ? WHITE : 'rgba(255,255,255,.02)' }}>
                               <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: NAVY, whiteSpace: 'nowrap' }}>{j.title}</td>
                               <td style={{ padding: '0.85rem 1rem', color: TEXT, fontWeight: 500 }}>{j.company}</td>
                               <td style={{ padding: '0.85rem 1rem' }}>
@@ -621,10 +760,13 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                               <td style={{ padding: '0.85rem 1rem' }}>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                                   {(j.skills || []).slice(0, 3).map(s => (
-                                    <span key={s} style={{ background: '#f3f4f6', color: MUTED, borderRadius: 4, padding: '1px 6px', fontSize: '0.68rem', fontWeight: 600 }}>{s}</span>
+                                    <span key={s} style={{ background: 'rgba(255,255,255,.08)', color: MUTED, borderRadius: 4, padding: '1px 6px', fontSize: '0.68rem', fontWeight: 600 }}>{s}</span>
                                   ))}
                                   {(j.skills || []).length > 3 && <span style={{ color: MUTED, fontSize: '0.68rem' }}>+{(j.skills || []).length - 3}</span>}
                                 </div>
+                              </td>
+                              <td style={{ padding: '0.85rem 1rem', color: MUTED, fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                {j.postedBy?.name || j.postedBy?.code || <span style={{ fontStyle: 'italic', color: FAINT }}>Inconnu</span>}
                               </td>
                               <td style={{ padding: '0.85rem 1rem' }}>
                                 <Badge label={j.status || 'Active'} color={j.status === 'Fermé' ? RED : GREEN} bg={j.status === 'Fermé' ? LRED : LGREEN} />
@@ -640,7 +782,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                         </tbody>
                       </table>
                     </div>
-                    <div style={{ padding: '0.75rem 1rem', borderTop: `1px solid ${BORDER}`, background: '#f9fafb', fontSize: '0.75rem', color: MUTED }}>
+                    <div style={{ padding: '0.75rem 1rem', borderTop: `1px solid ${BORDER}`, background: 'rgba(255,255,255,.04)', fontSize: '0.75rem', color: MUTED }}>
                       {filteredJobs.length} offre{filteredJobs.length > 1 ? 's' : ''} affichée{filteredJobs.length > 1 ? 's' : ''}
                     </div>
                   </div>
@@ -651,7 +793,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ CANDIDATES ════════ */}
             {tab === 'candidates' && (
               <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Candidats</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Candidats</h2>
                 <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
                   {cvs.length} CV{cvs.length > 1 ? 's' : ''} dans la base de données
                 </p>
@@ -664,7 +806,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     style={{ flex: '1 1 220px', padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: TEXT, background: WHITE, outline: 'none', transition: 'border-color .15s' }}
                   />
                   <select value={cvSectorFilter} onChange={e => setCvSector(e.target.value)}
-                    style={{ padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${cvSectorFilter ? COBALT : BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: cvSectorFilter ? INK : MUTED, background: cvSectorFilter ? LBLUE : WHITE, appearance: 'none', cursor: 'pointer' }}>
+                    style={{ padding: '0.65rem 0.9rem', borderRadius: 9, border: `1.5px solid ${cvSectorFilter ? COBALT : BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: cvSectorFilter ? NAVY : MUTED, background: cvSectorFilter ? LBLUE : WHITE, appearance: 'none', cursor: 'pointer' }}>
                     <option value="">Tous les secteurs</option>
                     {cvSectors.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -687,7 +829,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       <div key={c.id} style={{ background: WHITE, borderRadius: 12, padding: '1.1rem 1.4rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 38, height: 38, borderRadius: '50%', background: NAVY, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: WHITE }}>
+                            <div style={{ width: 38, height: 38, borderRadius: 10, background: PURPLE, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#ffffff' }}>
                               {(c.name || c.fileName || '?')[0].toUpperCase()}
                             </div>
                             <div>
@@ -697,21 +839,51 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                               </div>
                             </div>
                           </div>
-                          {c.matchScore !== undefined && c.matchScore > 0 && (
-                            <span style={{ background: c.matchScore >= 70 ? LGREEN : LBLUE, color: c.matchScore >= 70 ? GREEN : BLUE, borderRadius: 9999, padding: '0.25rem 0.85rem', fontSize: '0.82rem', fontWeight: 800, flexShrink: 0 }}>
-                              {c.matchScore}% match
-                            </span>
-                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            {c.matchScore !== undefined && c.matchScore > 0 && (
+                              <span style={{ background: c.matchScore >= 70 ? LGREEN : LBLUE, color: c.matchScore >= 70 ? GREEN : BLUE, borderRadius: 9999, padding: '0.25rem 0.85rem', fontSize: '0.82rem', fontWeight: 800 }}>
+                                {c.matchScore}% match
+                              </span>
+                            )}
+                            <button onClick={() => setExpandedCv(p => p === c.id ? null : c.id)} style={{ padding: '0.3rem 0.75rem', borderRadius: 7, border: `1px solid ${BORDER}`, background: WHITE, color: COBALT, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                              {expandedCv === c.id ? 'Réduire ▲' : 'Détails ▼'}
+                            </button>
+                          </div>
                         </div>
                         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
                           {c.sector && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Secteur</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.sector}</div></div>}
                           {c.experience && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Expérience</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.experience}</div></div>}
+                          {(c.city || c.region) && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Localisation</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{[c.city, c.region].filter(Boolean).join(' · ')}</div></div>}
                         </div>
                         {c.skills?.length > 0 && (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                             {c.skills.map((s: string) => (
                               <span key={s} style={{ background: LBLUE, color: BLUE, borderRadius: 4, padding: '0.15rem 0.55rem', fontSize: '0.7rem', fontWeight: 600 }}>{s}</span>
                             ))}
+                          </div>
+                        )}
+
+                        {expandedCv === c.id && (
+                          <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: `1px solid ${BORDER}`, display: 'flex', flexWrap: 'wrap', gap: '1.5rem 2rem' }}>
+                            {c.cin && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>CIN</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.cin}</div></div>}
+                            {c.birthDate && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Naissance</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.birthDate}</div></div>}
+                            {(c.diploma || c.institution || c.graduationYear) && (
+                              <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Formation</span>
+                                <div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>
+                                  {[c.diploma, c.institution, c.graduationYear].filter(Boolean).join(' · ')}
+                                </div>
+                              </div>
+                            )}
+                            {c.languages?.length > 0 && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Langues</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.languages.join(', ')}</div></div>}
+                            {c.work?.length > 0 && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Expériences pro.</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.work.length} poste{c.work.length > 1 ? 's' : ''} renseigné{c.work.length > 1 ? 's' : ''}</div></div>}
+                            {c.targetRoles?.length > 0 && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Postes visés</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.targetRoles.join(', ')}</div></div>}
+                            {c.certifications?.length > 0 && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Certifications</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{c.certifications.join(', ')}</div></div>}
+                            {(c.linkedin || c.portfolio) && (
+                              <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Liens</span>
+                                <div style={{ fontSize: '0.82rem', color: COBALT, fontWeight: 600 }}>{[c.linkedin, c.portfolio].filter(Boolean).join(' · ')}</div>
+                              </div>
+                            )}
+                            {c.uploadedAt && <div><span style={{ fontSize: '0.68rem', color: MUTED, fontWeight: 700, textTransform: 'uppercase' }}>Dernière mise à jour</span><div style={{ fontSize: '0.82rem', color: TEXT, fontWeight: 600 }}>{new Date(c.uploadedAt).toLocaleDateString('fr-MA')}</div></div>}
                           </div>
                         )}
                       </div>
@@ -724,7 +896,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
             {/* ════════ REPORTS ════════ */}
             {tab === 'reports' && (
               <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: INK, marginBottom: 4 }}>Rapports</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Rapports</h2>
                 <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
                   Exportez les données de la plateforme en HTML téléchargeable.
                 </p>
@@ -740,18 +912,27 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       <div style={{ fontSize: 32, marginBottom: '0.75rem' }}>{r.icon}</div>
                       <div style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, marginBottom: 4 }}>{r.title}</div>
                       <div style={{ fontSize: '0.8rem', color: MUTED, marginBottom: '1.25rem' }}>{r.desc}</div>
-                      <button onClick={() => generateReport(r.type)} style={{
-                        width: '100%', padding: '0.65rem', borderRadius: 8, border: 'none',
-                        background: r.color, color: WHITE, fontSize: '0.85rem', fontWeight: 700,
-                        cursor: 'pointer', fontFamily: 'inherit',
-                      }}>⬇ Télécharger</button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => generateReport(r.type)} style={{
+                          flex: 1, padding: '0.65rem', borderRadius: 8, border: 'none',
+                          background: r.color, color: '#ffffff', fontSize: '0.85rem', fontWeight: 700,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                        }}>⬇ HTML</button>
+                        {r.type !== 'Full' && (
+                          <button onClick={() => downloadCSV(r.type as 'Candidates' | 'Jobs' | 'Coordinators')} style={{
+                            flex: 1, padding: '0.65rem', borderRadius: 8, border: `1.5px solid ${r.color}`,
+                            background: WHITE, color: r.color, fontSize: '0.85rem', fontWeight: 700,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                          }}>⬇ CSV</button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Platform summary */}
                 <div style={{ background: WHITE, borderRadius: 12, padding: '1.5rem', border: `1px solid ${BORDER}`, marginTop: '1.5rem' }}>
-                  <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: INK, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>📊 Résumé de la plateforme</h2>
+                  <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>📊 Résumé de la plateforme</h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem' }}>
                     {[
                       { label: 'Coordinateurs', value: coordinators.length },
@@ -761,7 +942,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       { label: 'Secteurs représentés', value: cvSectors.length },
                       { label: 'Offres par secteur', value: jobSectors.length },
                     ].map(s => (
-                      <div key={s.label} style={{ padding: '0.85rem', background: '#f9fafb', borderRadius: 9, border: `1px solid ${BORDER}` }}>
+                      <div key={s.label} style={{ padding: '0.85rem', background: 'rgba(255,255,255,.04)', borderRadius: 9, border: `1px solid ${BORDER}` }}>
                         <div style={{ fontSize: '1.3rem', fontWeight: 800, color: NAVY }}>{s.value}</div>
                         <div style={{ fontSize: '0.72rem', color: MUTED, marginTop: 2 }}>{s.label}</div>
                       </div>

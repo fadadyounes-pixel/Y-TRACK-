@@ -11,8 +11,8 @@ TalentMap (talentmaponline.org) is an AI-powered recruitment platform that match
 | Role | Access Code | Dashboard |
 |---|---|---|
 | **Admin** | `ADMIN001` | `/admin` — user management, stats |
-| **Coordinator** | `COORD001` | `/coordinator` — job posts, candidate CVs |
-| **Candidate** | `CAN001–CAN003` | `/candidate` — profile, CV upload, match score |
+| **Coordinator** | `NOMCOR####` (e.g. `BENALICOR4821`) — created by admin | `/coordinator` — job posts, candidate CVs, AI matching |
+| **Candidate** | Moroccan CIN shape: 2 letters + 4+ digits (e.g. `AB1234`) | `/candidate` — profile, CV upload, match score |
 
 ---
 
@@ -398,7 +398,11 @@ contexts/
 | ID | Role | Email |
 |---|---|---|
 | `ADMIN001` | admin | admin@talentmap.ma |
-| `COORD001` | coordinator | sara@talentmap.ma |
-| `CAN001` | candidate | mohammed@email.com |
-| `CAN002` | candidate | sarah@email.com |
-| `CAN003` | candidate | karim@email.com |
+| `COORD001` | coordinator (legacy demo fallback) | sara@talentmap.ma |
+| `AB1234` | candidate | ab1234@talentmap.ma |
+
+Real coordinator accounts are created by the admin from `/admin` → Coordinateurs,
+which generates a `NOMCOR####` code (e.g. `BENALICOR4821`) tied to that
+coordinator's name — not a fixed mock ID. Any code matching the candidate CIN
+shape (2 uppercase letters + 4+ digits) logs in as that candidate, creating
+the account on first login.

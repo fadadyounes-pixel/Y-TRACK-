@@ -1,0 +1,51 @@
+/**
+ * Candidate profile completeness — shared gate used across TalentMap.
+ *
+ * New candidates must finish the "Mes Informations" page (app/candidate/info)
+ * before reaching the dashboard, CV builder, or letter generator, mirroring
+ * the mandatory onboarding step used in CareerMap. The same required-field
+ * set defined here is what /candidate/info uses to compute its own progress
+ * bar, so the gate and the form always agree on what "complete" means.
+ */
+import { CASABLANCA_SETTAT, PREFECTURE_CASABLANCA } from './morocco';
+
+export interface CandidateProfile {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  city?: string;
+  cin?: string;
+  region?: string;
+  prefecture?: string;
+  arrondissement?: string;
+  sector?: string;
+  experience?: string;
+  diploma?: string;
+  languages?: string[];
+}
+
+export function isProfileComplete(p: CandidateProfile | null | undefined): boolean {
+  if (!p) return false;
+  const prefectureOk = p.region === CASABLANCA_SETTAT ? !!p.prefecture : true;
+  const arrondissementOk = p.prefecture === PREFECTURE_CASABLANCA ? !!p.arrondissement : true;
+  return !!(
+    p.firstName && p.lastName && p.phone && p.city && p.cin && p.region &&
+    prefectureOk && arrondissementOk &&
+    p.sector && p.experience && p.diploma &&
+    p.languages && p.languages.length > 0
+  );
+}
+
+export function profileStorageKey(idNumber: string): string {
+  return `tm_info_${idNumber}`;
+}
+
+export function loadStoredProfile(idNumber: string): CandidateProfile | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(profileStorageKey(idNumber));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}

@@ -126,6 +126,35 @@ const TOGETHER_MODELS = [
   "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo-Free",
 ];
 
+// Hyperbolic — OpenAI-compatible GPU inference marketplace, free starter credits on
+// signup, 25+ open models (DeepSeek-V3, Qwen2.5-72B, Llama 3.1). Drop-in OpenAI base URL.
+// Sign up free: https://app.hyperbolic.xyz  |  Set env var: HYPERBOLIC_API_KEY
+const HYPERBOLIC_MODELS = [
+  "deepseek-ai/DeepSeek-V3",              // Excellent structured JSON, strong FR/AR
+  "Qwen/Qwen2.5-72B-Instruct",             // Best multilingual on this provider
+  "meta-llama/Meta-Llama-3.1-70B-Instruct",
+];
+
+// Fireworks AI — OpenAI-compatible, $1 free starter credit (~1M tokens on a 70B model).
+// Fast serverless inference tuned for function calling & structured output.
+// Sign up free: https://fireworks.ai  |  Set env var: FIREWORKS_API_KEY
+const FIREWORKS_MODELS = [
+  "accounts/fireworks/models/deepseek-v3",
+  "accounts/fireworks/models/llama-v3p3-70b-instruct",
+  "accounts/fireworks/models/qwen2p5-72b-instruct",
+];
+
+// Hugging Face Inference Providers router — OpenAI-compatible, small free monthly quota
+// for signed-in users. Auto-routes each model to whichever backend (Together, Fireworks,
+// Hyperbolic, Novita…) is fastest, so it's a useful extra shot even when this app's own
+// keys for those backends are rate-limited.
+// Sign up free: https://huggingface.co/settings/tokens  |  Set env var: HUGGINGFACE_API_KEY
+const HUGGINGFACE_MODELS = [
+  "deepseek-ai/DeepSeek-V3-0324",
+  "meta-llama/Llama-3.3-70B-Instruct",
+  "Qwen/Qwen2.5-72B-Instruct",
+];
+
 // GitHub Models — free, OpenAI-compatible access to frontier models via a GitHub PAT
 // (needs "models: read" permission). Modest per-model daily caps, but genuinely
 // higher-quality models than most other free tiers — good for the final JSON step.
@@ -425,6 +454,84 @@ async function together(msgs: Msg[], sys: string | undefined, maxTok: number): P
   throw new Error("Together exhausted");
 }
 
+// Hyperbolic — OpenAI-compatible drop-in, free starter credits.
+async function hyperbolic(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = ev("HYPERBOLIC_API_KEY");
+  if (!key) throw new Error("no HYPERBOLIC_API_KEY");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  for (const model of HYPERBOLIC_MODELS) {
+    try {
+      const res = await tFetch("https://api.hyperbolic.xyz/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("Hyperbolic 401");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401")) throw e;
+      continue;
+    }
+  }
+  throw new Error("Hyperbolic all models exhausted");
+}
+
+// Fireworks AI — OpenAI-compatible, $1 free starter credit.
+async function fireworks(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = ev("FIREWORKS_API_KEY");
+  if (!key) throw new Error("no FIREWORKS_API_KEY");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  for (const model of FIREWORKS_MODELS) {
+    try {
+      const res = await tFetch("https://api.fireworks.ai/inference/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("Fireworks 401");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401")) throw e;
+      continue;
+    }
+  }
+  throw new Error("Fireworks all models exhausted");
+}
+
+// Hugging Face Inference Providers router — OpenAI-compatible, small free monthly quota.
+async function huggingface(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const key = ev("HUGGINGFACE_API_KEY");
+  if (!key) throw new Error("no HUGGINGFACE_API_KEY");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  for (const model of HUGGINGFACE_MODELS) {
+    try {
+      const res = await tFetch("https://router.huggingface.co/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401) throw new Error("Hugging Face 401");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401")) throw e;
+      continue;
+    }
+  }
+  throw new Error("Hugging Face all models exhausted");
+}
+
 async function githubModels(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const key = ev("GITHUB_MODELS_TOKEN");
   if (!key) throw new Error("no GITHUB_MODELS_TOKEN");
@@ -552,6 +659,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     // Sequential fallback — fast path should rarely reach here
     for (const fn of [
       nvidia, sambanova, anthropic, mistral, together, githubModels,
+      hyperbolic, fireworks, huggingface,
       (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
     ]) {
       if (outOfTime()) break;
@@ -576,7 +684,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     throw new Error("Fast AI providers busy. Please try again.");
   }
 
-  // JSON / dialogue: race ALL top-tier providers simultaneously — 10 providers in parallel.
+  // JSON / dialogue: race ALL top-tier providers simultaneously — 13 providers in parallel.
   // First valid response wins; orphaned requests complete but are discarded.
   // JSON needs best quality → 9s window. Dialogue needs speed → 6s window.
   const raceWindow = task === "json" ? 9000 : 6000;
@@ -591,6 +699,9 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     sambanova,                                         // Llama-4-Maverick 128k — long docs
     mistral,                                           // Best French + Arabic bilingual
     openrouter,                                        // Nemotron-253B + R1-0528 + Qwen3-235B free
+    hyperbolic,                                        // DeepSeek-V3 + Qwen2.5-72B — free starter credits
+    fireworks,                                         // DeepSeek-V3 + Llama 70B — $1 free credit
+    huggingface,                                       // Router to Together/Fireworks/Hyperbolic backends
   ], messages, system, max_tokens, raceWindow);
   if (raceText) return raceText;
 
@@ -601,7 +712,10 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     if (text) return text;
   }
 
-  // Second sweep after 1.2s — rate limits may have cleared on fast providers
+  // Second sweep after 1.2s — rate limits may have cleared on fast providers.
+  // Each call is time-boxed and the loop bails once the overall budget is
+  // gone, so one hanging provider can't stall the whole request past
+  // route.ts's own deadline.
   if (!outOfTime()) {
     await sleep(1200);
     for (const fn of [
@@ -610,6 +724,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       anthropic, githubModels, nvidia, deepseek,
       (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
       sambanova, mistral, together, openrouter,
+      hyperbolic, fireworks, huggingface,
     ]) {
       if (outOfTime()) break;
       const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
@@ -629,6 +744,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
       (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
       anthropic, githubModels, sambanova, together, openrouter,
+      hyperbolic, fireworks, huggingface,
     ]) {
       if (outOfTime()) break;
       const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);

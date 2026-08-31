@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import Logo from '../../../components/Logo';
+import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 
 type FlowStep = 'intro' | 'qa' | 'generating' | 'result';
 
@@ -125,18 +126,16 @@ export default function EmailGenerator() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (initialized && (!user || user.role !== 'candidate')) router.push('/login');
+    if (initialized && (!user || user.role !== 'candidate')) { router.push('/login'); return; }
+    if (!user) return;
+    const loaded = loadStoredProfile(user.idNumber);
+    // Mandatory onboarding gate: candidates must complete their profile
+    // before reaching the letter generator, matching the CareerMap flow.
+    if (!isProfileComplete(loaded)) { router.push('/candidate/info'); return; }
+    setInfo(loaded);
   }, [user, initialized, router]);
 
-  useEffect(() => {
-    if (!user) return;
-    try {
-      const s = localStorage.getItem(`tm_info_${user.idNumber}`);
-      if (s) setInfo(JSON.parse(s));
-    } catch {}
-  }, [user]);
-
-  if (!initialized || !user || user.role !== 'candidate') return null;
+  if (!initialized || !user || user.role !== 'candidate' || !info) return null;
 
   const firstName = info?.firstName || user.name.split(' ')[0] || 'Candidat';
   const currentQ = QA[qaIndex];

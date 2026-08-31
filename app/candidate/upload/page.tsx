@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '../../../components/Logo';
 import { useAuth } from '../../../contexts/AuthContext';
+import { computeMatch, inferEducationLevel } from '@/lib/matching';
+import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, CV_LAYOUTS, CV_THEMES, type WorkEntry } from '@/lib/cvTemplate';
+import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
+import { scoreCV, scoreBandStyle } from '@/lib/cvScore';
 
 const SKILL_SUGGESTIONS: Record<string, string[]> = {
   Technology:         ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'SQL', 'Docker', 'Git', 'REST APIs', 'SAP'],
@@ -21,163 +25,17 @@ const SKILL_SUGGESTIONS: Record<string, string[]> = {
 };
 
 const LANGUAGES = ['Français', 'Anglais', 'Arabe', 'Espagnol', 'Allemand', 'Néerlandais', 'Italien', 'Portugais'];
-const LANG_FLAGS: Record<string, string> = {
-  'Français': '🇫🇷', 'Anglais': '🇬🇧', 'Arabe': '🇲🇦', 'Espagnol': '🇪🇸',
-  'Allemand': '🇩🇪', 'Néerlandais': '🇳🇱', 'Italien': '🇮🇹', 'Portugais': '🇵🇹',
-};
 
 const MOROCCO_CONTEXT = `MARCHÉ DE L'EMPLOI MAROCAIN — CONTEXTE EXPERT:
 Secteurs porteurs: BTP/Immobilier, Industrie automobile (Renault-Nissan Tanger, PSA Kénitra), Textile/Habillement, Tourisme (hôtellerie 5*, guides), Agro-alimentaire (OCP, Centrale Danone, Cosumar), Numérique/TIC (CBI, IBM Maroc, Capgemini), Banque/Finance (Attijariwafa Bank, BMCE Bank, Banque Populaire, CIH, BMCI), Énergie renouvelable (MASEN, IRESEN), Santé.
 Diplômes reconnus: Baccalauréat, DUT/BTS/DEUST (Bac+2), Licence professionnelle (Bac+3), Master/MBA (Bac+5), Doctorat, Diplômes OFPPT (TSGE, TSI, TH, TC, TP...), Grandes écoles (EHTP, EMI, ENSAM, ENSA, ENCG, ISCAE, HEM, ENAM, Polytechnique).
 Langues: Français (langue professionnelle dominante), Arabe classique (obligatoire dans la fonction publique), Anglais (exigé dans le numérique et les multinationales), Espagnol (nord du Maroc, tourisme).
-Format CV marocain idéal: sobre et professionnel, rédigé en français, 1-2 pages max, avec photo recommandée, état civil complet (CIN, situation familiale, date de naissance), accroche/objectif professionnel en entête, expériences en ordre chronologique inverse, compétences techniques et linguistiques clairement listées.`;
-
-interface WorkEntry { company: string; title: string; startDate: string; endDate: string; description: string; }
+Format CV marocain idéal: sobre et professionnel, rédigé en français, 1-2 pages max, avec photo recommandée, accroche/objectif professionnel en entête, expériences en ordre chronologique inverse, compétences techniques et linguistiques clairement listées. Ne jamais inclure le numéro de CIN sur le CV — c'est une donnée d'identité sensible qui n'a pas sa place dans un document envoyé à des recruteurs.`;
 
 type Step = 'cv' | 'preview' | 'jobs';
 
-function descToBullets(text: string): string {
-  if (!text.trim()) return '';
-  const lines = text.split(/\n|•|·/).map(l => l.trim()).filter(Boolean);
-  if (lines.length <= 1) {
-    const sents = text.split(/\.\s+/).map(l => l.trim()).filter(l => l.length > 10);
-    if (sents.length > 1) return sents.map(s => `<li>${s.replace(/\.$/, '')}.</li>`).join('');
-    return `<li>${text}</li>`;
-  }
-  return lines.map(l => `<li>${l}</li>`).join('');
-}
-
-function generateCVHtml(data: {
-  name: string; email: string; phone: string; address: string; idNumber: string;
-  summary: string; skills: string[]; languages: string[];
-  experience: string; sector: string;
-  work: WorkEntry[]; education: { degree: string; institution: string; year: string };
-  targetRoles?: string[]; certifications?: string[];
-  photo?: string; linkedin?: string; portfolio?: string;
-}) {
-  const today = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
-  const initials = data.name.split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
-  const avatarHtml = data.photo
-    ? `<img src="${data.photo}" alt="Photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
-    : initials || '?';
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${data.name} — CV</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{max-width:840px;margin:2rem auto;background:#fff;border-radius:0;box-shadow:0 12px 48px rgba(0,0,0,.14);overflow:hidden}
-.hdr{background:linear-gradient(135deg,#0a1631 0%,#1a3a6b 50%,#2563eb 100%);padding:2.5rem 2.75rem 2rem;color:#fff;position:relative;overflow:hidden;display:flex;align-items:center;gap:2rem}
-.hdr::before{content:'';position:absolute;top:-80px;right:-80px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.06)}
-.hdr-avatar{width:90px;height:90px;border-radius:50%;border:3px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.9rem;font-weight:900;color:#fff;flex-shrink:0;position:relative;z-index:1;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.25)}
-.hdr-info{flex:1;position:relative;z-index:1}
-.hdr-name{font-size:1.95rem;font-weight:900;letter-spacing:-.03em;line-height:1.1}
-.hdr-role{margin-top:.4rem;font-size:1rem;font-weight:600;opacity:.75}
-.hdr-contacts{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1rem}
-.hdr-contacts span{font-size:.82rem;opacity:.8;display:flex;align-items:center;gap:.3rem}
-.body{display:grid;grid-template-columns:1fr 270px;gap:0}
-.main{padding:2rem 2rem 2rem 2.75rem;border-right:1px solid #f0f4f8}
-.side{padding:2rem 1.75rem;background:#f8fafc}
-.sec-title{font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#2563eb;margin-bottom:.85rem;padding-bottom:.45rem;border-bottom:2px solid #dbeafe}
-.sec{margin-bottom:1.75rem}
-.pills{display:flex;flex-wrap:wrap;gap:.4rem}
-.pill{background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:.3rem .75rem;font-size:.76rem;font-weight:700;border:1px solid #bfdbfe}
-.pill.lang{background:#f0fdf4;color:#065f46;border-color:#bbf7d0}
-.pill.cert{background:#fefce8;color:#713f12;border-color:#fde68a}
-.pill.role{background:#fdf4ff;color:#6b21a8;border-color:#e9d5ff}
-.badge{display:inline-flex;align-items:center;gap:.35rem;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border-radius:6px;padding:.4rem 1rem;font-size:.82rem;font-weight:700}
-.entry{padding:1rem 1.1rem;background:#fff;border-radius:8px;margin-bottom:.8rem;border-left:3px solid #2563eb;box-shadow:0 1px 6px rgba(30,64,175,.08)}
-.entry h4{font-size:.95rem;font-weight:800;color:#0f172a;line-height:1.3}
-.entry .co{font-size:.85rem;font-weight:700;color:#2563eb;margin-top:.15rem}
-.entry .meta{font-size:.75rem;color:#64748b;margin:.25rem 0 .6rem;font-weight:500}
-.entry ul{list-style:none;padding:0;margin:0}
-.entry ul li{font-size:.83rem;color:#374151;line-height:1.65;padding-left:1rem;position:relative;margin-bottom:.25rem}
-.entry ul li::before{content:"›";position:absolute;left:0;color:#2563eb;font-weight:800}
-.summary-text{font-size:.88rem;color:#334155;line-height:1.8;border-left:3px solid #2563eb;padding-left:1rem;font-style:italic}
-.edu-entry{background:#f8fafc;border-radius:8px;padding:.85rem 1rem;border:1px solid #e2e8f0}
-.edu-entry h4{font-size:.92rem;font-weight:700;color:#0f172a}
-.edu-entry .meta{font-size:.75rem;color:#64748b;margin-top:.2rem}
-.footer{text-align:center;padding:.9rem;font-size:.68rem;color:#94a3b8;border-top:1px solid #f0f4f8;letter-spacing:.04em;background:#f8fafc}
-@media print{body{background:#fff}.page{margin:0;box-shadow:none}}
-</style>
-</head>
-<body>
-<div class="page">
-  <div class="hdr">
-    <div class="hdr-avatar">${avatarHtml}</div>
-    <div class="hdr-info">
-      <div class="hdr-name">${data.name || 'Nom Prénom'}</div>
-      <div class="hdr-role">${data.experience} · ${data.sector}</div>
-      <div class="hdr-contacts">
-        ${data.email ? `<span>✉ ${data.email}</span>` : ''}
-        ${data.phone ? `<span>📞 ${data.phone}</span>` : ''}
-        ${data.address ? `<span>📍 ${data.address}</span>` : ''}
-        ${data.idNumber ? `<span>🪪 CIN ${data.idNumber}</span>` : ''}
-        ${data.linkedin ? `<span>🔗 ${data.linkedin}</span>` : ''}
-        ${data.portfolio ? `<span>💻 ${data.portfolio}</span>` : ''}
-      </div>
-    </div>
-  </div>
-  <div class="body">
-    <div class="main">
-      ${data.summary ? `<div class="sec"><div class="sec-title">✦ Profil Professionnel</div><p class="summary-text">${data.summary}</p></div>` : ''}
-      ${data.work.some(w => w.company) ? `
-      <div class="sec">
-        <div class="sec-title">✦ Expériences Professionnelles</div>
-        ${data.work.filter(w => w.company).map(w => `
-        <div class="entry">
-          <h4>${w.title || 'Poste'}</h4>
-          <div class="co">${w.company}</div>
-          <div class="meta">📅 ${w.startDate || ''}${w.startDate && (w.endDate || 'Présent') ? ' – ' + (w.endDate || 'Présent') : w.endDate || ''}</div>
-          ${w.description ? `<ul>${descToBullets(w.description)}</ul>` : ''}
-        </div>`).join('')}
-      </div>` : ''}
-      ${data.education.degree ? `
-      <div class="sec">
-        <div class="sec-title">✦ Formation</div>
-        <div class="edu-entry">
-          <h4>${data.education.degree}</h4>
-          <div class="meta">${data.education.institution || ''}${data.education.year ? ' · ' + data.education.year : ''}</div>
-        </div>
-      </div>` : ''}
-      ${data.targetRoles?.length ? `
-      <div class="sec">
-        <div class="sec-title">✦ Postes Recherchés</div>
-        <div class="pills">${data.targetRoles.map(r => `<span class="pill role">🎯 ${r}</span>`).join('')}</div>
-      </div>` : ''}
-    </div>
-    <div class="side">
-      <div class="sec"><div class="sec-title">Niveau</div><span class="badge">⭐ ${data.experience}</span></div>
-      ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><div class="pills">${data.skills.map(s => `<span class="pill">${s}</span>`).join('')}</div></div>` : ''}
-      ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.languages.map(l => `<span class="pill lang">${LANG_FLAGS[l] || '🌐'} ${l}</span>`).join('')}</div></div>` : ''}
-      ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.certifications.map(c => `<span class="pill cert">🏅 ${c}</span>`).join('')}</div></div>` : ''}
-    </div>
-  </div>
-  <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
-</div>
-</body>
-</html>`;
-}
-
-const EXP_ORDER = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
-
-function computeMatch(cv: { skills: string[]; sector: string; experience: string }, job: any): number {
-  const cvSkills = Array.isArray(cv.skills) ? cv.skills : [];
-  const jobSkills: string[] = Array.isArray(job.skills) ? job.skills : [];
-  const overlap = cvSkills.filter(s =>
-    jobSkills.some(js => js.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(js.toLowerCase()))
-  );
-  const skillScore = jobSkills.length === 0 ? 30 : Math.round((overlap.length / jobSkills.length) * 60);
-  const sectorScore = cv.sector === job.sector ? 25 : 0;
-  const cvI = EXP_ORDER.indexOf(cv.experience);
-  const jobI = EXP_ORDER.indexOf(job.experience);
-  const diff = cvI >= 0 && jobI >= 0 ? Math.abs(cvI - jobI) : 2;
-  const expScore = diff === 0 ? 15 : diff === 1 ? 9 : diff === 2 ? 4 : 0;
-  return Math.min(skillScore + sectorScore + expScore, 100);
+function computeMatchScore(cv: { skills: string[]; experience: string; educationLevel?: string; languages?: string[] }, job: any): number {
+  return computeMatch(cv, job).total;
 }
 
 type AIMsgContent = string | Array<{ type: string; [key: string]: unknown }>;
@@ -401,6 +259,8 @@ export default function CandidateUpload() {
   const [education, setEducation] = useState({ degree: '', institution: '', year: '' });
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [certifications, setCertifications] = useState<string[]>([]);
+  const [cvStyle, setCvStyle] = useState<{ layout: string; theme: string } | null>(null);
+  const [showAllTips, setShowAllTips] = useState(false);
 
   // AI template helpers
   const [enhancing, setEnhancing] = useState(false);
@@ -415,14 +275,51 @@ export default function CandidateUpload() {
   const [precomputedAdaptations, setPrecomputedAdaptations] = useState<Record<string, { summary: string; skills: string[] }>>({});
   const precomputeStarted = useRef<Set<string>>(new Set());
 
-  // Photo + links from info profile
+  // Applications — jobs this candidate has applied to, keyed by jobId
+  const [applications, setApplications] = useState<Record<string, { status: string; appliedAt: string }>>({});
+  const [applyingJob, setApplyingJob] = useState<string | null>(null);
+
+  // Set once the mandatory-profile gate below has confirmed access — keeps
+  // the CV builder from flashing before the redirect to /candidate/info fires.
+  const [profileChecked, setProfileChecked] = useState(false);
+
+  // Photo + links from info profile — photo is optional there, so it can
+  // also be added or changed directly here in the CV builder.
   const [photo, setPhoto] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [portfolio, setPortfolio] = useState('');
+  const [photoErr, setPhotoErr] = useState('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  function handlePhotoUpload(file: File) {
+    setPhotoErr('');
+    if (file.size > 2 * 1024 * 1024) { setPhotoErr('Photo trop lourde — max 2 Mo.'); return; }
+    if (!file.type.startsWith('image/')) { setPhotoErr('Fichier non supporté — JPG, PNG, WebP.'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const dataUrl = e.target?.result as string;
+      setPhoto(dataUrl);
+      // Keep the info profile in sync so the photo persists across the app
+      // (dashboard, future CV edits), not just this one render.
+      if (user) {
+        try {
+          const key = `tm_info_${user.idNumber}`;
+          const stored = localStorage.getItem(key);
+          const info = stored ? JSON.parse(stored) : {};
+          localStorage.setItem(key, JSON.stringify({ ...info, photo: dataUrl }));
+        } catch {}
+      }
+    };
+    reader.readAsDataURL(file);
+  }
 
   useEffect(() => {
     if (!initialized) return;
     if (!user || user.role !== 'candidate') { router.push('/login'); return; }
+    // Mandatory onboarding gate: candidates must complete their profile
+    // before reaching the CV builder, matching the CareerMap flow.
+    if (!isProfileComplete(loadStoredProfile(user.idNumber))) { router.push('/candidate/info'); return; }
+    setProfileChecked(true);
     setName(user.name);
     setEmail(user.email);
     // Load info profile (photo, linkedin, portfolio, phone, address, sector, languages)
@@ -459,6 +356,7 @@ export default function CandidateUpload() {
         if (cv.targetRoles?.length) setTargetRoles(cv.targetRoles);
         if (cv.certifications?.length) setCertifications(cv.certifications);
         if (cv.experience) setExperience(cv.experience);
+        if (cv.cvStyle?.layout && cv.cvStyle?.theme) setCvStyle(cv.cvStyle);
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -468,22 +366,53 @@ export default function CandidateUpload() {
   useEffect(() => {
     if (!user) return;
     try {
-      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience }));
+      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience, cvStyle }));
     } catch {}
-  }, [user, summary, skills, work, education, targetRoles, certifications, experience]);
+  }, [user, summary, skills, work, education, targetRoles, certifications, experience, cvStyle]);
 
-  // Load jobs from Redis for matching
+  // Load jobs + this candidate's applications from Redis
   useEffect(() => {
     fetch('/api/sheets')
       .then(r => r.json())
-      .then(data => { if (data.jobs?.length) setCoordJobs(data.jobs); })
+      .then(data => {
+        if (data.jobs?.length) setCoordJobs(data.jobs);
+        if (data.applications?.length && user) {
+          const mine: Record<string, { status: string; appliedAt: string }> = {};
+          data.applications
+            .filter((a: any) => a.candidateId === user.idNumber)
+            .forEach((a: any) => { mine[a.jobId] = { status: a.status, appliedAt: a.appliedAt }; });
+          setApplications(mine);
+        }
+      })
       .catch(() => {
         try {
           const stored = localStorage.getItem('coordinator_jobs');
           if (stored) setCoordJobs(JSON.parse(stored));
         } catch {}
       });
-  }, []);
+  }, [user]);
+
+  function applyToJob(job: any) {
+    if (!user || applications[job.id] || applyingJob) return;
+    setApplyingJob(job.id);
+    const application = {
+      id: `${user.idNumber}_${job.id}`,
+      candidateId: user.idNumber,
+      candidateName: name || user.name,
+      jobId: job.id,
+      jobTitle: job.title,
+      company: job.company,
+      status: 'Applied',
+      appliedAt: new Date().toISOString(),
+    };
+    fetch('/api/sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'save_application', application }),
+    })
+      .then(() => setApplications(p => ({ ...p, [job.id]: { status: 'Applied', appliedAt: application.appliedAt } })))
+      .finally(() => setApplyingJob(null));
+  }
 
   // Pre-compute adaptations when entering job step
   const skillsKey = skills.join(',');
@@ -516,13 +445,28 @@ export default function CandidateUpload() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, coordJobs, name, skillsKey]);
 
-  // Live CV HTML
+  // Live CV HTML — cvStyle is null until the candidate picks one, in which case
+  // generateCVHtml deterministically derives a style from their CIN so every
+  // candidate's default CV still differs without requiring a manual choice.
   const cvHtml = useMemo(() => {
     if (!user) return '';
-    return generateCVHtml({ name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio });
-  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio]);
+    return generateCVHtml(
+      { name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio },
+      cvStyle || undefined
+    );
+  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio, cvStyle]);
 
-  if (!user || user.role !== 'candidate') return null;
+  const autoStyle = useMemo(() => pickStyle(user?.idNumber || email || name), [user, email, name]);
+  const effectiveStyle = cvStyle || autoStyle;
+
+  // Free, deterministic CV health check — no AI call needed, so it's instant
+  // and always available even if the AI provider cascade is degraded.
+  const cvScoreResult = useMemo(
+    () => scoreCV({ name, email, phone, address, summary, skills, languages, work, education, targetRoles, certifications, linkedin, portfolio }),
+    [name, email, phone, address, summary, skills, languages, work, education, targetRoles, certifications, linkedin, portfolio]
+  );
+
+  if (!user || user.role !== 'candidate' || !profileChecked) return null;
 
   // ── PDF download — opens browser print dialog directly (no popup) ──────────
   function downloadPDF() {
@@ -700,7 +644,7 @@ export default function CandidateUpload() {
 
     // Apply extracted + enhanced data to form
     const finalSkills      = enhanced?.skills?.length   ? enhanced.skills   : (extracted.skills || []);
-    const finalSummary     = enhanced?.summary           ? enhanced.summary  : (extracted.summary || '');
+    const finalSummary     = enhanced?.summary           ? cleanAIText(enhanced.summary) : (extracted.summary || '');
     const finalExperience  = enhanced?.experience        ? capitalize(enhanced.experience) : capitalize(extracted.experience || 'Mid-Level');
     const finalSector      = enhanced?.sector            ? mapSector(enhanced.sector)      : mapSector(extracted.sector || 'Technology');
     const finalRoles       = enhanced?.targetRoles       || [];
@@ -739,6 +683,15 @@ export default function CandidateUpload() {
           skills: finalSkills,
           summary: finalSummary,
           targetRoles: finalRoles,
+          certifications: finalCerts.length ? finalCerts : certifications,
+          work: extracted.work?.length ? extracted.work.filter((w: any) => w.company || w.title) : work,
+          education: extracted.education?.degree ? extracted.education : education,
+          educationLevel: inferEducationLevel(extracted.education?.degree || education.degree),
+          languages: extracted.languages?.length
+            ? extracted.languages.filter((l: string) => LANGUAGES.includes(l))
+            : languages,
+          cvStyle: cvStyle || pickStyle(user!.idNumber),
+          uploadedAt: new Date().toISOString(),
           fileName: file.name,
           fileSize: `${Math.round(file.size / 1024)} KB`,
         },
@@ -784,7 +737,7 @@ export default function CandidateUpload() {
         `Tu es un expert en recrutement au Maroc. Rédige une accroche professionnelle percutante de 3-4 phrases en français pour un professionnel ${experience} dans le secteur ${sector}. Utilise des verbes d'action forts (développé, piloté, optimisé, géré, coordonné...). Retourne UNIQUEMENT le texte du profil.\n\n${MOROCCO_CONTEXT}`,
         'fast'
       );
-      if (text) setSummary(text.trim());
+      if (text) setSummary(cleanAIText(text));
     } catch {}
     setEnhancing(false);
   }
@@ -820,7 +773,7 @@ export default function CandidateUpload() {
         'fast',
         280
       );
-      if (text.trim()) setWork(p => p.map((x, xi) => xi === index ? { ...x, description: text.trim() } : x));
+      if (text.trim()) setWork(p => p.map((x, xi) => xi === index ? { ...x, description: cleanAIText(text) } : x));
     } catch {}
     setWorkImproving(prev => { const n = new Set(prev); n.delete(index); return n; });
   }
@@ -832,7 +785,7 @@ export default function CandidateUpload() {
       fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, fileName: 'Template CV', fileSize: 'N/A' } }),
+        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, cvStyle: cvStyle || pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
       }).catch(() => {});
       setStep('preview');
       return;
@@ -860,7 +813,7 @@ export default function CandidateUpload() {
       const m = text.match(/\{[\s\S]*\}/);
       if (m) {
         const p = JSON.parse(m[0]);
-        if (p.summary && !hasGoodSummary) { setSummary(p.summary); resolvedSummary = p.summary; }
+        if (p.summary && !hasGoodSummary) { const cleaned = cleanAIText(p.summary); setSummary(cleaned); resolvedSummary = cleaned; }
         if (p.targetRoles?.length && !hasRoles) { setTargetRoles(p.targetRoles.slice(0, 3)); resolvedRoles = p.targetRoles.slice(0, 3); }
         if (p.certifications?.length && certifications.length === 0) setCertifications(p.certifications.slice(0, 3));
       }
@@ -869,7 +822,7 @@ export default function CandidateUpload() {
     fetch('/api/sheets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, fileName: 'Template CV', fileSize: 'N/A' } }),
+      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, cvStyle: cvStyle || pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
     }).catch(() => {});
     setGeneratingCV(false);
     setStep('preview');
@@ -1264,6 +1217,154 @@ export default function CandidateUpload() {
               </div>
             </div>
 
+            {/* CV Health Check — free, instant, deterministic scoring (no AI call needed) */}
+            {(() => {
+              const s = cvScoreResult;
+              const bandStyle = scoreBandStyle(s.band);
+              const bandLabel = { excellent: 'Excellent', bon: 'Bon', moyen: 'Moyen', faible: 'À renforcer' }[s.band];
+              const topTips = showAllTips ? s.tips : s.tips.slice(0, 3);
+              return (
+                <div style={{ background: 'white', border: `1.5px solid ${bandStyle.border}`, borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.1rem', flexWrap: 'wrap', marginBottom: s.tips.length ? '1rem' : 0 }}>
+                    <div style={{
+                      width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
+                      background: bandStyle.bg, border: `3px solid ${bandStyle.ring}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
+                    }}>
+                      <span style={{ fontSize: '1.15rem', fontWeight: 900, color: bandStyle.color, lineHeight: 1 }}>{s.total}</span>
+                      <span style={{ fontSize: '0.55rem', color: bandStyle.color, fontWeight: 700 }}>/100</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.15rem' }}>
+                        <span style={{ fontWeight: 800, color: '#111827', fontSize: '0.95rem' }}>Bilan de votre CV</span>
+                        <span style={{ padding: '0.12rem 0.55rem', borderRadius: 9999, background: bandStyle.bg, color: bandStyle.color, fontSize: '0.7rem', fontWeight: 800, border: `1px solid ${bandStyle.border}` }}>{bandLabel}</span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                        {s.tips.length === 0
+                          ? 'Toutes les sections clés sont complètes — beau travail !'
+                          : `${s.tips.length} amélioration${s.tips.length > 1 ? 's' : ''} possible${s.tips.length > 1 ? 's' : ''} pour un CV encore plus fort.`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Category bars */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem 1rem', marginBottom: topTips.length ? '1.1rem' : 0 }}>
+                    {s.categories.map(c => {
+                      const pct = Math.round((c.points / c.max) * 100);
+                      const barColor = pct >= 80 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444';
+                      return (
+                        <div key={c.key}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151' }}>{c.label}</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af' }}>{c.points}/{c.max}</span>
+                          </div>
+                          <div style={{ height: 5, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', borderRadius: 3, background: barColor, width: `${pct}%`, transition: 'width .4s ease' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Actionable tips */}
+                  {topTips.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {topTips.map(tip => (
+                        <div key={tip.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.6rem 0.8rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10 }}>
+                          <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>💡</span>
+                          <span style={{ fontSize: '0.78rem', color: '#78350f', lineHeight: 1.55, flex: 1 }}>{tip.text}</span>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#b45309', flexShrink: 0, whiteSpace: 'nowrap' }}>+{tip.impact} pts</span>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                        {s.tips.length > 3 && (
+                          <button onClick={() => setShowAllTips(p => !p)} style={{ background: 'transparent', border: 'none', color: '#1B4FD8', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                            {showAllTips ? '↑ Voir moins' : `↓ Voir les ${s.tips.length - 3} autres conseils`}
+                          </button>
+                        )}
+                        <button onClick={() => setStep('cv')} style={{ marginLeft: 'auto', background: '#EFF6FF', border: '1.5px solid #bfdbfe', color: '#1B4FD8', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: '0.4rem 0.9rem', borderRadius: 8 }}>
+                          ✏️ Corriger mon CV
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Photo — optional on the info page, so it can be added or changed here too */}
+            <div style={{ background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '1.1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1.1rem', flexWrap: 'wrap' }}>
+              <div
+                onClick={() => photoInputRef.current?.click()}
+                style={{ width: '64px', height: '64px', borderRadius: '50%', border: '2.5px dashed #93c5fd', background: photo ? 'transparent' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}
+                title="Cliquez pour ajouter/changer la photo"
+              >
+                {photo ? <img src={photo} alt="Photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '1.5rem' }}>👤</span>}
+              </div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827', marginBottom: '0.3rem' }}>📷 Photo du CV (optionnel)</div>
+                <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                  {photo ? '✅ Photo ajoutée.' : "Non renseignée sur votre profil — vous pouvez l'ajouter ici, uniquement pour ce CV."}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => photoInputRef.current?.click()} style={{ padding: '0.4rem 0.9rem', background: '#EFF6FF', color: '#1B4FD8', border: '1.5px solid #bfdbfe', borderRadius: '7px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                    {photo ? '🔄 Changer' : '📁 Choisir une photo'}
+                  </button>
+                  {photo && (
+                    <button onClick={() => setPhoto('')} style={{ padding: '0.4rem 0.85rem', background: 'transparent', color: '#ef4444', border: '1.5px solid #fca5a5', borderRadius: '7px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
+                      Supprimer
+                    </button>
+                  )}
+                </div>
+                {photoErr && <p style={{ color: '#ef4444', fontSize: '0.76rem', marginTop: '0.35rem' }}>{photoErr}</p>}
+              </div>
+              <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f); e.target.value = ''; }} />
+            </div>
+
+            {/* Style picker — 5 layouts × 11 colors so no two candidates' CVs look alike by default */}
+            <div style={{ background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '1.1rem 1.25rem', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827' }}>🎨 Style du CV</span>
+                <button
+                  onClick={() => {
+                    const layout = CV_LAYOUTS[Math.floor(Math.random() * CV_LAYOUTS.length)].id;
+                    const theme = CV_THEMES[Math.floor(Math.random() * CV_THEMES.length)].id;
+                    setCvStyle({ layout, theme });
+                  }}
+                  style={{ fontSize: '0.78rem', color: '#1B4FD8', fontWeight: 700, background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '0.3rem 0.75rem', cursor: 'pointer' }}>
+                  🎲 Surprends-moi
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                {CV_LAYOUTS.map(l => (
+                  <button key={l.id} onClick={() => setCvStyle({ layout: l.id, theme: effectiveStyle.theme })}
+                    title={l.desc}
+                    style={{ padding: '0.4rem 0.85rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                      border: `1.5px solid ${effectiveStyle.layout === l.id ? '#1B4FD8' : '#e5e7eb'}`,
+                      background: effectiveStyle.layout === l.id ? '#EFF6FF' : 'white',
+                      color: effectiveStyle.layout === l.id ? '#1B4FD8' : '#6b7280' }}>
+                    {l.name}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                {CV_THEMES.map(th => (
+                  <button key={th.id} onClick={() => setCvStyle({ layout: effectiveStyle.layout, theme: th.id })}
+                    title={th.name}
+                    style={{ width: '26px', height: '26px', borderRadius: '50%', cursor: 'pointer', flexShrink: 0,
+                      background: `linear-gradient(135deg,${th.dark},${th.accent})`,
+                      border: effectiveStyle.theme === th.id ? '3px solid #111827' : '2px solid white',
+                      boxShadow: effectiveStyle.theme === th.id ? '0 0 0 1px #111827' : '0 0 0 1px #e5e7eb' }} />
+                ))}
+              </div>
+              {!cvStyle && (
+                <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.6rem' }}>
+                  Style attribué automatiquement à votre profil — cliquez pour le personnaliser.
+                </p>
+              )}
+            </div>
+
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: '0.85rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
               <button
@@ -1329,7 +1430,7 @@ export default function CandidateUpload() {
                 </div>
               );
               const matches = openJobs
-                .map(j => ({ ...j, score: computeMatch({ skills, sector, experience }, j) }))
+                .map(j => ({ ...j, score: computeMatchScore({ skills, experience, educationLevel: inferEducationLevel(education.degree), languages }, j) }))
                 .sort((a, b) => b.score - a.score);
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1339,6 +1440,12 @@ export default function CandidateUpload() {
                     const scoreColor = j.score >= 70 ? '#15803d' : j.score >= 45 ? '#92400e' : '#6b7280';
                     const scoreBg    = j.score >= 70 ? '#f0fdf4' : j.score >= 45 ? '#fefce8' : '#f9fafb';
                     const scoreBorder = j.score >= 70 ? '#86efac' : j.score >= 45 ? '#fde68a' : '#e5e7eb';
+                    const application = applications[j.id];
+                    const isApplying = applyingJob === j.id;
+                    const APP_STATUS_LABELS: Record<string, string> = {
+                      Applied: '✓ Candidature envoyée', Reviewed: '👀 En cours d\'examen',
+                      Interview: '📅 Entretien programmé', Hired: '🎉 Recruté(e) !', Rejected: 'Non retenu(e)',
+                    };
                     return (
                       <div key={j.id} style={{ background: 'white', borderRadius: '14px', border: `1.5px solid ${scoreBorder}`, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem', background: scoreBg }}>
@@ -1353,8 +1460,25 @@ export default function CandidateUpload() {
                               {j.location ? ` · 📍 ${j.location}` : ''}
                             </div>
                             {j.salary && <div style={{ fontSize: '0.78rem', color: '#059669', fontWeight: 600, marginTop: '0.15rem' }}>💰 {j.salary}</div>}
+                            {(j.educationLevel || j.languages?.length > 0) && (
+                              <div style={{ fontSize: '0.76rem', color: '#6b7280', marginTop: '0.15rem' }}>
+                                {j.educationLevel ? `🎓 ${j.educationLevel}` : ''}{j.educationLevel && j.languages?.length ? ' · ' : ''}{j.languages?.length ? `🗣 ${j.languages.join(', ')}` : ''}
+                              </div>
+                            )}
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0, alignItems: 'flex-end' }}>
+                            {application ? (
+                              <span style={{ padding: '0.5rem 0.9rem', borderRadius: '8px', background: application.status === 'Rejected' ? '#fee2e2' : '#d1fae5', color: application.status === 'Rejected' ? '#991b1b' : '#065f46', fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                                {APP_STATUS_LABELS[application.status] || application.status}
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => applyToJob(j)}
+                                disabled={isApplying}
+                                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: isApplying ? '#e5e7eb' : '#059669', color: isApplying ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '0.8rem', cursor: isApplying ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                                {isApplying ? '⟳ Envoi…' : '📨 Postuler'}
+                              </button>
+                            )}
                             <button
                               onClick={() => adaptCVForJob(j)}
                               disabled={!!adaptingJob}
@@ -1364,8 +1488,14 @@ export default function CandidateUpload() {
                           </div>
                         </div>
 
+                        {j.description && (
+                          <p style={{ padding: '0.7rem 1.25rem 0', margin: 0, fontSize: '0.83rem', color: '#374151', lineHeight: 1.6, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                            {j.description}
+                          </p>
+                        )}
+
                         {j.skills?.length > 0 && (
-                          <div style={{ padding: '0.6rem 1.25rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                          <div style={{ padding: '0.6rem 1.25rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', borderTop: j.description ? 'none' : '1px solid rgba(0,0,0,0.05)' }}>
                             {j.skills.map((s: string) => {
                               const matched = skills.some(cs => cs.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(cs.toLowerCase()));
                               return <span key={s} style={{ padding: '0.12rem 0.6rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: 600, background: matched ? '#EFF6FF' : '#f3f4f6', color: matched ? '#1B4FD8' : '#9ca3af', border: `1px solid ${matched ? '#bfdbfe' : '#e5e7eb'}` }}>{matched ? '✓ ' : ''}{s}</span>;

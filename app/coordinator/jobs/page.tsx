@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '../../../components/Logo';
 import { useAuth } from '../../../contexts/AuthContext';
+import { computeMatch, EDU_LEVELS, LANGUAGES as MATCH_LANGUAGES } from '@/lib/matching';
 
 interface Job {
   id: string;
@@ -18,6 +19,9 @@ interface Job {
   description: string;
   status: 'Open' | 'Closed';
   createdAt: string;
+  educationLevel?: string;
+  languages?: string[];
+  postedBy?: { id: string; name: string; code: string };
 }
 
 const INITIAL_JOBS: Job[] = [
@@ -30,23 +34,6 @@ const SKILL_SUGGESTIONS = ['JavaScript', 'TypeScript', 'React', 'Python', 'SQL',
 const SECTORS = ['Technology', 'Data Science', 'Finance', 'BTP', 'Tourisme', 'Agro-alimentaire', 'Healthcare', 'Marketing', 'Design', 'Operations', 'Other'];
 const EXPERIENCE_LEVELS = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
 const CITIES = ['Casablanca', 'Rabat', 'Tanger', 'Marrakech', 'Fès', 'Agadir', 'Oujda', 'Kénitra', 'Meknès', 'Autre'];
-
-const EXP_ORDER = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead'];
-
-function computeMatch(cv: any, job: Job): number {
-  const cvSkills: string[] = Array.isArray(cv.skills) ? cv.skills : [];
-  const jobSkills: string[] = Array.isArray(job.skills) ? job.skills : [];
-  const overlap = cvSkills.filter(s =>
-    jobSkills.some(js => js.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(js.toLowerCase()))
-  );
-  const skillScore = jobSkills.length === 0 ? 30 : Math.round((overlap.length / jobSkills.length) * 60);
-  const sectorScore = cv.sector === job.sector ? 25 : 0;
-  const cvI = EXP_ORDER.indexOf(cv.experience);
-  const jobI = EXP_ORDER.indexOf(job.experience);
-  const diff = cvI >= 0 && jobI >= 0 ? Math.abs(cvI - jobI) : 2;
-  const expScore = diff === 0 ? 15 : diff === 1 ? 9 : diff === 2 ? 4 : 0;
-  return Math.min(skillScore + sectorScore + expScore, 100);
-}
 
 export default function CoordinatorJobs() {
   const { user } = useAuth();
@@ -66,6 +53,8 @@ export default function CoordinatorJobs() {
   const [description, setDescription] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
+  const [educationLevel, setEducationLevel] = useState('');
+  const [jobLanguages, setJobLanguages] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'Open' | 'Closed'>('all');
   const [search, setSearch] = useState('');
@@ -119,6 +108,7 @@ export default function CoordinatorJobs() {
   function resetForm() {
     setTitle(''); setCompany(''); setSector('Technology'); setExperience('Mid-Level');
     setLocation('Casablanca'); setSalary(''); setDescription(''); setSkills([]); setSkillInput('');
+    setEducationLevel(''); setJobLanguages([]);
     setEditId(null);
   }
 
@@ -127,7 +117,8 @@ export default function CoordinatorJobs() {
   function openEdit(job: Job) {
     setTitle(job.title); setCompany(job.company); setSector(job.sector); setExperience(job.experience);
     setLocation(job.location); setSalary(job.salary); setDescription(job.description); setSkills(job.skills);
-    setSkillInput(''); setEditId(job.id); setShowForm(true);
+    setSkillInput(''); setEducationLevel(job.educationLevel || ''); setJobLanguages(job.languages || []);
+    setEditId(job.id); setShowForm(true);
   }
 
   function addSkill(s: string) {
@@ -139,12 +130,14 @@ export default function CoordinatorJobs() {
   function handlePost() {
     if (!title.trim() || !company.trim()) return;
     if (editId) {
-      setJobs(p => p.map(j => j.id === editId ? { ...j, title, company, sector, experience, location, salary, description, skills } : j));
+      setJobs(p => p.map(j => j.id === editId ? { ...j, title, company, sector, experience, location, salary, description, skills, educationLevel, languages: jobLanguages } : j));
     } else {
       const newJob: Job = {
         id: 'J' + Date.now().toString().slice(-6),
         title, company, sector, experience, location, salary, skills, description, status: 'Open',
         createdAt: new Date().toISOString().slice(0, 10),
+        educationLevel, languages: jobLanguages,
+        postedBy: { id: user!.id, name: user!.name || user!.idNumber, code: user!.idNumber },
       };
       setJobs(p => [newJob, ...p]);
     }
@@ -288,6 +281,28 @@ export default function CoordinatorJobs() {
               </div>
             </div>
 
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div>
+                <label style={labelStyle}>Niveau d'études requis (optionnel)</label>
+                <select value={educationLevel} onChange={e => setEducationLevel(e.target.value)} style={inputStyle}>
+                  <option value="">Aucun requis</option>
+                  {EDU_LEVELS.map(l => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Langues requises (optionnel)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.35rem' }}>
+                  {MATCH_LANGUAGES.map(l => (
+                    <button key={l} type="button"
+                      onClick={() => setJobLanguages(p => p.includes(l) ? p.filter(x => x !== l) : [...p, l])}
+                      style={{ padding: '0.3rem 0.75rem', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', border: `1.5px solid ${jobLanguages.includes(l) ? '#1B4FD8' : '#e5e7eb'}`, background: jobLanguages.includes(l) ? '#EFF6FF' : 'white', color: jobLanguages.includes(l) ? '#1B4FD8' : '#6b7280' }}>
+                      {jobLanguages.includes(l) ? '✓ ' : ''}{l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <button className="btn-primary" onClick={handlePost} disabled={!title.trim() || !company.trim()} style={{ opacity: !title.trim() || !company.trim() ? 0.5 : 1 }}>
                 {editId ? '💾 Enregistrer les modifications' : '📢 Publier l\'offre'}
@@ -330,6 +345,14 @@ export default function CoordinatorJobs() {
                     <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.2rem' }}>
                       📍 {j.location}{j.salary ? ` · 💰 ${j.salary}` : ''}{j.createdAt ? ` · 📅 ${j.createdAt}` : ''}
                     </div>
+                    <div style={{ fontSize: '0.76rem', color: '#9ca3af', marginTop: '0.2rem' }}>
+                      👤 Publiée par {j.postedBy?.name || j.postedBy?.code || 'coordinateur inconnu (offre créée avant ce suivi)'}
+                    </div>
+                    {(j.educationLevel || (j.languages && j.languages.length > 0)) && (
+                      <div style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '0.2rem' }}>
+                        {j.educationLevel ? `🎓 ${j.educationLevel}` : ''}{j.educationLevel && j.languages?.length ? ' · ' : ''}{j.languages?.length ? `🗣 ${j.languages.join(', ')}` : ''}
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
                     <span style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem', borderRadius: '9999px', background: j.status === 'Open' ? '#d1fae5' : '#f3f4f6', color: j.status === 'Open' ? '#065f46' : '#6b7280', fontWeight: 600 }}>
@@ -361,7 +384,7 @@ export default function CoordinatorJobs() {
                         </div>
                       ) : (() => {
                         const ranked = coordCvs
-                          .map(cv => ({ ...cv, score: computeMatch(cv, j) }))
+                          .map(cv => ({ ...cv, score: computeMatch(cv, j).total }))
                           .sort((a, b) => b.score - a.score)
                           .slice(0, 8);
                         return (
@@ -388,7 +411,7 @@ export default function CoordinatorJobs() {
                               );
                             })}
                             <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.25rem' }}>
-                              Score: compétences (60pts) + secteur (25pts) + niveau (15pts)
+                              Score: compétences (40pts) + expérience (30pts) + formation (20pts) + langues (10pts)
                             </div>
                           </div>
                         );
