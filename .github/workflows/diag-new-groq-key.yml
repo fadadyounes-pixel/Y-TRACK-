@@ -9,14 +9,35 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Call Groq API directly with the new key
+      - name: List Groq's real current model IDs with this key
         env:
           K: ${{ secrets.GROQ_API_KEY }}
         run: |
-          echo "Key length: ${#K}"
-          code=$(curl -s -o /tmp/groq.json -w "%{http_code}" https://api.groq.com/openai/v1/chat/completions \
-            -H "Authorization: Bearer $K" -H "Content-Type: application/json" \
-            -d '{"model":"llama-3.1-8b-instant","max_tokens":10,"messages":[{"role":"user","content":"say OK"}]}' --max-time 15)
+          code=$(curl -s -o /tmp/models.json -w "%{http_code}" https://api.groq.com/openai/v1/models \
+            -H "Authorization: Bearer $K" --max-time 15)
           echo "HTTP status: $code"
-          echo "Response body:"
-          cat /tmp/groq.json
+          python3 -c "
+          import json
+          d = json.load(open('/tmp/models.json'))
+          for m in d.get('data', []):
+              print(m['id'])
+          " || cat /tmp/models.json
+
+      - name: Test each model this app currently hardcodes
+        env:
+          K: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          for model in \
+            "meta-llama/llama-4-maverick-17b-128e-instruct" \
+            "llama-3.3-70b-versatile" \
+            "deepseek-r1-distill-llama-70b" \
+            "qwen-qwq-32b" \
+            "meta-llama/llama-4-scout-17b-16e-instruct" \
+            "gemma2-9b-it" \
+            "mixtral-8x7b-32768" \
+            "llama-3.1-8b-instant"; do
+            code=$(curl -s -o /tmp/resp.json -w "%{http_code}" https://api.groq.com/openai/v1/chat/completions \
+              -H "Authorization: Bearer $K" -H "Content-Type: application/json" \
+              -d "{\"model\":\"$model\",\"max_tokens\":5,\"messages\":[{\"role\":\"user\",\"content\":\"say OK\"}]}" --max-time 15)
+            echo "$model -> HTTP $code"
+          done
