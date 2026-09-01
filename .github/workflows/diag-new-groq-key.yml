@@ -23,21 +23,22 @@ jobs:
               print(m['id'])
           " || cat /tmp/models.json
 
-      - name: Test each model this app currently hardcodes
+      - name: Test each currently-listed chat-capable Groq model for real
         env:
           K: ${{ secrets.GROQ_API_KEY }}
         run: |
           for model in \
-            "meta-llama/llama-4-maverick-17b-128e-instruct" \
-            "llama-3.3-70b-versatile" \
-            "deepseek-r1-distill-llama-70b" \
-            "qwen-qwq-32b" \
-            "meta-llama/llama-4-scout-17b-16e-instruct" \
-            "gemma2-9b-it" \
-            "mixtral-8x7b-32768" \
-            "llama-3.1-8b-instant"; do
+            "openai/gpt-oss-120b" \
+            "openai/gpt-oss-20b" \
+            "groq/compound" \
+            "groq/compound-mini" \
+            "qwen/qwen3.8-27b" \
+            "qwen/qwen3.6-27b" \
+            "allam-2-7b"; do
             code=$(curl -s -o /tmp/resp.json -w "%{http_code}" https://api.groq.com/openai/v1/chat/completions \
               -H "Authorization: Bearer $K" -H "Content-Type: application/json" \
-              -d "{\"model\":\"$model\",\"max_tokens\":5,\"messages\":[{\"role\":\"user\",\"content\":\"say OK\"}]}" --max-time 15)
-            echo "$model -> HTTP $code"
+              -d "{\"model\":\"$model\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Reply with exactly one word: PONG\"}]}" --max-time 15)
+            echo "=== $model -> HTTP $code ==="
+            cat /tmp/resp.json
+            echo ""
           done
