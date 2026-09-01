@@ -60,13 +60,20 @@ jobs:
           print(f"Project: talentmaponline ({proj_id})")
 
           existing = {e["key"]: e["id"] for e in vreq("GET", f"/v9/projects/{proj_id}/env").get("envs", [])}
-          payload = {"key": "GROQ_API_KEY", "value": KEY, "type": "encrypted", "target": ["production"]}
+          # PATCH fails with 400 "You cannot change the type of a Sensitive
+          # Environment Variable" if the existing entry was stored as type
+          # "sensitive" (as this one was, from an earlier run) — delete and
+          # recreate instead of trying to update in place.
           if "GROQ_API_KEY" in existing:
-              res = vreq("PATCH", f"/v9/projects/{proj_id}/env/{existing['GROQ_API_KEY']}", payload)
-              print(f"Updated GROQ_API_KEY: {res.get('key', res)}")
-          else:
-              res = vreq("POST", f"/v10/projects/{proj_id}/env", payload)
-              print(f"Created GROQ_API_KEY: {res.get('key', res)}")
+              del_res = vreq("DELETE", f"/v9/projects/{proj_id}/env/{existing['GROQ_API_KEY']}")
+              print(f"Deleted old GROQ_API_KEY entry: {del_res}")
+
+          payload = {"key": "GROQ_API_KEY", "value": KEY, "type": "encrypted", "target": ["production"]}
+          res = vreq("POST", f"/v10/projects/{proj_id}/env", payload)
+          created_key = res.get("created", {}).get("key") if "created" in res else res.get("key")
+          if created_key != "GROQ_API_KEY":
+              print(f"ERROR: create did not confirm the new key: {res}"); exit(1)
+          print(f"Created fresh GROQ_API_KEY entry successfully")
           PYEOF
 
       - name: Link talentmaponline Vercel project (same script the real deploy uses)
