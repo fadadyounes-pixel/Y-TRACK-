@@ -1,0 +1,91 @@
+name: Push GROQ_API_KEY into Vercel and verify
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/push-groq-key.yml'
+
+jobs:
+  push-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Push GROQ_API_KEY into the talentmaponline Vercel project
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+          GROQ: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, urllib.request
+
+          TOKEN = os.environ.get('VT', '')
+          KEY = os.environ.get('GROQ', '').strip()
+          if not TOKEN:
+              print('ERROR: VERCEL_TOKEN secret is missing'); exit(1)
+          if not KEY:
+              print('ERROR: GROQ_API_KEY secret is missing/empty'); exit(1)
+          print(f"GROQ_API_KEY length={len(KEY)}")
+
+          def vreq(method, path, data=None):
+              url = f"https://api.vercel.com{path}"
+              headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+              body = json.dumps(data).encode() if data else None
+              req = urllib.request.Request(url, data=body, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      raw = r.read()
+                      return json.loads(raw) if raw else {"_status": r.status}
+              except urllib.error.HTTPError as e:
+                  print(f"HTTP {e.code}: {e.read().decode()}")
+                  return {}
+
+          projects = vreq("GET", "/v9/projects").get("projects", [])
+          proj_id = next((p["id"] for p in projects if p.get("name","").lower() == "talentmaponline"), None)
+          if not proj_id:
+              print("ERROR: No Vercel project named 'talentmaponline' found"); exit(1)
+          print(f"Project: talentmaponline ({proj_id})")
+
+          existing = {e["key"]: e["id"] for e in vreq("GET", f"/v9/projects/{proj_id}/env").get("envs", [])}
+          payload = {"key": "GROQ_API_KEY", "value": KEY, "type": "encrypted", "target": ["production"]}
+          if "GROQ_API_KEY" in existing:
+              res = vreq("PATCH", f"/v9/projects/{proj_id}/env/{existing['GROQ_API_KEY']}", payload)
+              print(f"Updated GROQ_API_KEY: {res.get('key', res)}")
+          else:
+              res = vreq("POST", f"/v10/projects/{proj_id}/env", payload)
+              print(f"Created GROQ_API_KEY: {res.get('key', res)}")
+          PYEOF
+
+      - name: Link talentmaponline Vercel project (same script the real deploy uses)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: python3 scripts/setup_talentmap_project.py
+
+      - name: Deploy to talentmaponline Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel --token "$VERCEL_TOKEN" --prod --yes
+          echo "Deployment complete -> https://talentmaponline.org"
+
+      - name: Test /api/ai live after the new key is deployed
+        run: |
+          sleep 15
+          resp=$(curl -sL -X POST https://talentmaponline.org/api/ai \
+            -H "Content-Type: application/json" \
+            --max-time 55 \
+            -d '{"task":"dialogue","system":"Reply with exactly one word: PONG","messages":[{"role":"user","content":"ping"}]}')
+          echo "LIVE AI response after key push: $resp"
