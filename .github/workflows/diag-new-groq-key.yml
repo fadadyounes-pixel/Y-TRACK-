@@ -1,0 +1,22 @@
+name: Test the newly-added Groq key directly
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/diag-new-groq-key.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Groq API directly with the new key
+        env:
+          K: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          echo "Key length: ${#K}"
+          code=$(curl -s -o /tmp/groq.json -w "%{http_code}" https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $K" -H "Content-Type: application/json" \
+            -d '{"model":"llama-3.1-8b-instant","max_tokens":10,"messages":[{"role":"user","content":"say OK"}]}' --max-time 15)
+          echo "HTTP status: $code"
+          echo "Response body:"
+          cat /tmp/groq.json
