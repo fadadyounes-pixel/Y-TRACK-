@@ -1,0 +1,18 @@
+name: Final live check of /api/ai after model fix
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/final-live-ai-check.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call production /api/ai
+        run: |
+          resp=$(curl -sL -X POST https://talentmaponline.org/api/ai \
+            -H "Content-Type: application/json" \
+            --max-time 55 \
+            -d '{"task":"dialogue","system":"Reply with exactly one word: PONG","messages":[{"role":"user","content":"ping"}]}')
+          echo "LIVE AI response: $resp"
