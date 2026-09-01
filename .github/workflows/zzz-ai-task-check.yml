@@ -1,0 +1,40 @@
+name: zzz all AI task types + transcribe check
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/zzz-ai-task-check.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: task=dialogue
+        run: |
+          resp=$(curl -sL -X POST https://talentmaponline.org/api/ai \
+            -H "Content-Type: application/json" --max-time 55 \
+            -d '{"task":"dialogue","system":"Reply with exactly one word: PONG","messages":[{"role":"user","content":"ping"}]}')
+          echo "dialogue -> $resp"
+
+      - name: task=json
+        run: |
+          resp=$(curl -sL -X POST https://talentmaponline.org/api/ai \
+            -H "Content-Type: application/json" --max-time 55 \
+            -d '{"task":"json","system":"Return ONLY valid JSON, no markdown: {\"status\":\"ok\"}","messages":[{"role":"user","content":"confirm"}]}')
+          echo "json -> $resp"
+
+      - name: task=fast
+        run: |
+          resp=$(curl -sL -X POST https://talentmaponline.org/api/ai \
+            -H "Content-Type: application/json" --max-time 55 \
+            -d '{"task":"fast","system":"Reply with exactly one word: PONG","messages":[{"role":"user","content":"ping"}],"max_tokens":10}')
+          echo "fast -> $resp"
+
+      - name: /api/ai/transcribe (Groq Whisper)
+        run: |
+          sudo apt-get install -y ffmpeg -q > /dev/null 2>&1 || true
+          ffmpeg -f lavfi -i anullsrc=r=16000:cl=mono -t 1 -c:a libopus /tmp/silence.webm -y -loglevel error
+          resp=$(curl -sL -X POST https://talentmaponline.org/api/ai/transcribe \
+            -F "audio=@/tmp/silence.webm;type=audio/webm" \
+            -F "lang=en" --max-time 30)
+          echo "transcribe -> $resp"
