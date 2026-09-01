@@ -42,23 +42,25 @@ const ev = (k: string, fb = "") => process.env[k] || fb;
 // ─── MODEL LISTS ────────────────────────────────────────────────────────────
 
 // Groq — free tier, INDEPENDENT 30 RPM per model.
-// Reasoning models (deepseek-r1, qwen-qwq) excel at structured JSON & scoring tasks.
+// The models below are all confirmed live against Groq's /v1/models endpoint —
+// every model previously listed here (llama-3.x, mixtral, gemma2, qwen-qwq,
+// deepseek-r1-distill) has since been decommissioned by Groq and now returns
+// 404/400 for every single request, which is what silently exhausted this
+// entire provider regardless of how valid the API key was.
 const GROQ_MODELS = [
-  "meta-llama/llama-4-maverick-17b-128e-instruct",  // Best Groq quality, 128k ctx
-  "llama-3.3-70b-versatile",                          // Reliable 70B
-  "deepseek-r1-distill-llama-70b",                    // Reasoning — best JSON analysis
-  "qwen-qwq-32b",                                     // Reasoning + multilingual FR/AR
-  "meta-llama/llama-4-scout-17b-16e-instruct",        // Fast + good quality
-  "gemma2-9b-it",
-  "mixtral-8x7b-32768",
-  "llama-3.1-8b-instant",
+  "openai/gpt-oss-120b",   // Best Groq quality, reasoning model
+  "groq/compound",          // Tool-use/agentic, real content even under tight budgets
+  "qwen/qwen3.8-27b",       // Multilingual FR/AR, fast
+  "allam-2-7b",             // Arabic-specialized (SDAIA)
+  "openai/gpt-oss-20b",     // Smaller/faster reasoning model
+  "groq/compound-mini",
 ];
 
 const GROQ_MODELS_FAST = [
-  "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama-3.1-8b-instant",
-  "gemma2-9b-it",
-  "llama-3.3-70b-versatile",
+  "qwen/qwen3.8-27b",
+  "groq/compound-mini",
+  "allam-2-7b",
+  "groq/compound",
 ];
 
 // NVIDIA NIM — enterprise inference, 1 000 free API credits/month (no card).
