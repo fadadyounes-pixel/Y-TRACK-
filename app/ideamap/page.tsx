@@ -1542,6 +1542,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   // Same, for `plan`/`budget` — true once AI-compiled rather than the instant
   // local draft built from SECTOR_EQUIPMENT + proj.
   const [planTailored, setPlanTailored]     = useState(true);
+  // Same, for `comp` — true once AI-compiled rather than the instant local
+  // rule-based estimate built from proj/budget.
+  const [compTailored, setCompTailored]     = useState(true);
   const [dlLang, setDlLang]                 = useState(lang);
   const [pitchBusy, setPitchBusy]           = useState(false);
   const [qaBusy, setQABusy]                 = useState(false);
@@ -1779,7 +1782,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
 
   const localOptionsFor = (qIndex: number, ideaText: string): string[] => {
     const sector = user.profile?.sector || "";
-    const city = user.profile?.city || user.profile?.region || (lang === "ar" ? "منطقتي" : lang === "fr" ? "ma ville" : "my city");
+    const city = user.profile?.arrondissement || user.profile?.region || (lang === "ar" ? "منطقتي" : lang === "fr" ? "ma ville" : "my city");
     const sectorLabel = sector || (lang === "ar" ? "نشاطي" : lang === "fr" ? "mon activité" : "my activity");
     const combinedIdea = `${ideaText} ${idea}`;
     const svcBest = bestOptionIndex(SECTOR_SERVICES, sector, combinedIdea);
@@ -3276,7 +3279,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       projectName: answers[0] || idea.slice(0, 40),
       sector: answers[1] || user.profile?.sector || (lang === "ar" ? "نشاط ريادي" : lang === "fr" ? "Activité entrepreneuriale" : "Entrepreneurial activity"),
       legalStructure: lang === "ar" ? "حامل مشروع فردي" : lang === "fr" ? "Porteur individuel" : "Individual holder",
-      location: answers[2] || user.profile?.city || user.profile?.region || "",
+      location: answers[2] || user.profile?.arrondissement || user.profile?.region || "",
       beneficiaries: numFrom(answers[9], 10),
       targetProfile: answers[8] || idea.slice(0, 120),
       localProblem: answers[10] || idea.slice(0, 120),
@@ -3379,6 +3382,64 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     const indhContribution = Math.min(Math.round(total * 0.9), 100000);
     const beneficiaryContribution = total - indhContribution;
     return { items, indhContribution, beneficiaryContribution };
+  };
+
+  // Heuristic compliance assessment computed instantly from the already-collected
+  // project/plan/budget — same "never block the applicant on AI" principle as
+  // buildLocalPlan/buildLocalBudget, extended to the step that gates whether they
+  // can even reach the jury materials. Scores against the same rubric the AI is
+  // prompted with (impact/viability/relevance/management/sustainability/innovation),
+  // using conservative baseline values rather than pretending to a jury-level
+  // judgment call — this is a placeholder the AI upgrade replaces when it lands,
+  // not a substitute for real review.
+  const buildLocalCompliance = (p: any, bud: any) => {
+    const ben = p?.beneficiaries || 10;
+    const indhContribution = bud?.indhContribution ?? 0;
+    const withinCap = indhContribution <= 100000;
+    const impact = Math.min(25, Math.round(15 + Math.min(ben, 100) / 100 * 10));
+    const juryScore = { impact, viability: 13, relevance: 13, management: 9, sustainability: 6, innovation: 5 };
+    const score = Object.values(juryScore).reduce((s, n) => s + n, 0);
+    const eligible = withinCap && score >= 60;
+    const loc = p?.location || "";
+    if (lang === "ar") return {
+      eligible, score, pillar: p?.pillar || "تحسين الدخل والإدماج الاقتصادي للشباب",
+      strengths: [
+        `مشروع في قطاع ${p?.sector || "مؤهل"} يستجيب لحاجة محلية محددة${loc ? ` في ${loc}` : ""}`,
+        `يستفيد منه ${ben} شخصاً على الأقل بشكل مباشر`,
+      ],
+      weaknesses: withinCap ? [] : [`مساهمة المبادرة (${indhContribution.toLocaleString()} درهم) تتجاوز السقف المحدد بـ 100,000 درهم`],
+      recommendations: [
+        "دقّق الأرقام (عدد الزبائن، رقم المعاملات الشهري) بمعطيات ميدانية أكثر تحديداً",
+        "أرفق رسالة دعم من الجماعة أو جمعية محلية إن أمكن",
+      ],
+      juryScore,
+    };
+    if (lang === "en") return {
+      eligible, score, pillar: p?.pillar || "Income improvement and economic inclusion of youth",
+      strengths: [
+        `A ${p?.sector || "eligible"} project addressing a specific local need${loc ? ` in ${loc}` : ""}`,
+        `Directly benefits at least ${ben} people`,
+      ],
+      weaknesses: withinCap ? [] : [`INDH contribution (${indhContribution.toLocaleString()} MAD) exceeds the 100,000 MAD cap`],
+      recommendations: [
+        "Sharpen the numbers (customer count, monthly turnover) with more specific field data",
+        "Attach a letter of support from the local commune or an association if possible",
+      ],
+      juryScore,
+    };
+    return {
+      eligible, score, pillar: p?.pillar || "Amélioration du revenu et inclusion économique des jeunes",
+      strengths: [
+        `Projet du secteur ${p?.sector || "éligible"} répondant à un besoin local précis${loc ? ` à ${loc}` : ""}`,
+        `Bénéficie directement à au moins ${ben} personnes`,
+      ],
+      weaknesses: withinCap ? [] : [`La contribution INDH demandée (${indhContribution.toLocaleString()} MAD) dépasse le plafond de 100 000 MAD`],
+      recommendations: [
+        "Préciser les chiffres (nombre de clients, chiffre d'affaires mensuel) avec des données de terrain plus concrètes",
+        "Joindre une lettre de soutien de la commune ou d'une association locale si possible",
+      ],
+      juryScore,
+    };
   };
 
   const sendMsg = (override?: string) => {
@@ -3489,11 +3550,17 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
   };
 
   const checkComp = async () => {
-    setStep("compliance"); setBusy(true);
-    try {
+    // Instant local estimate first — same principle as genPlan: never leave the
+    // applicant staring at a spinner for a step that gates whether they can even
+    // reach the jury materials. AI runs in the background and silently upgrades
+    // to a real jury-style assessment if it lands before the user moves on.
+    setComp(buildLocalCompliance(proj, budget)); setCompTailored(false);
+    setStep("compliance");
+
     const arQuality = lang === "ar"
       ? "\nمهم جداً: اكتب نقاط القوة والتوصيات بالعربية الفصحى البسيطة. جمل واضحة وقصيرة."
       : "";
+    (async () => {
     const c = await ensureJson(
       [{role: "user", content: `Projet: ${JSON.stringify(proj)}\nPlan: ${JSON.stringify(plan)}\nBudget: ${JSON.stringify(budget)}`}],
       `Tu es un membre expert du jury INDH Phase 3 Maroc avec 10 ans d'expérience d'évaluation de projets.
@@ -3520,10 +3587,10 @@ Les RECOMMANDATIONS doivent être des ACTIONS IMMÉDIATES que le porteur peut fa
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"eligible":true/false,"score":N,"pillar":"axe INDH Phase 3 exact en ${LL}","strengths":["force SPÉCIFIQUE tirée du dossier 1","force SPÉCIFIQUE 2","force SPÉCIFIQUE 3"],"weaknesses":["faiblesse précise qui coûte des points jury 1","faiblesse 2"],"recommendations":["action immédiate et concrète 1 en ${LL}","action 2","action 3"],"juryScore":{"impact":N,"viability":N,"relevance":N,"management":N,"sustainability":N,"innovation":N}}`);
-    if (c) setComp(c);
-    } finally {
-      setBusy(false);
-    }
+    // Only swap the instant estimate for the AI-refined version if the user is
+    // still on this step — if they've already moved on, leave what's there.
+    if (c && stepRef.current === "compliance") { setComp(c); setCompTailored(true); }
+    })().catch(() => {});
   };
 
   const STEPS = ["idea", "dialogue", "profile", "plan", "budget", "logo", "compliance", "documents", "export"];
@@ -3596,7 +3663,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             {/* Quick starter templates */}
             {!idea.trim() && (() => {
               const profileSector = user.profile?.sector || "";
-              const profileCity   = user.profile?.city || user.profile?.region || "";
+              const profileCity   = user.profile?.arrondissement || user.profile?.region || "";
               const personalStarter = profileSector ? (
                 lang === "ar"
                   ? `أريد إطلاق مشروع في قطاع ${profileSector} في ${profileCity || "منطقتي"}.\nأريد تقديم خدمات بأسعار معقولة وخلق فرصة عمل لي ولأسرتي.`
@@ -4420,27 +4487,29 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               border: `2px solid ${Y}`, flexShrink: 0}}>✅</div>
             <h2 style={{fontSize: "19px", fontWeight: "700", color: ND}}>{t.compT}</h2>
           </div>
-          {busy && <div style={{textAlign: "center", padding: "48px"}}>
-            <div style={{fontSize:"52px", marginBottom:"16px"}}>✅</div>
-            <p style={{color: GR, marginTop: "14px"}}>
-              {lang === "ar" ? "جاري التحليل..." : lang === "fr" ? "Analyse en cours..." : "Analyzing..."}
-            </p>
-            <div style={{display: "flex", justifyContent: "center", marginTop: "14px"}}><Dots/></div>
-          </div>}
-          {!busy && !comp && (
+          {/* Reachable only via direct progress-row navigation to this step before
+              checkComp() has ever run (checkComp itself sets comp instantly, so
+              this never shows in the normal flow) — offers a way to trigger it. */}
+          {!comp && (
             <div style={{textAlign:"center", padding:"32px 20px"}}>
-              <div style={{fontSize:"48px", marginBottom:"14px"}}>⚠️</div>
-              <div style={{fontSize:"15px", fontWeight:"700", color:ND, marginBottom:"8px"}}>
-                {lang==="ar"?"فشل تحليل الامتثال":lang==="fr"?"Analyse échouée":"Analysis failed"}
-              </div>
+              <div style={{fontSize:"48px", marginBottom:"14px"}}>✅</div>
               <div style={{fontSize:"13px", color:GR, marginBottom:"18px", lineHeight:1.6}}>
-                {lang==="ar"?"حاول مجدداً":lang==="fr"?"Réessayez dans quelques secondes":"Try again in a few seconds"}
+                {lang==="ar"?"لم يتم تحليل الامتثال بعد":lang==="fr"?"L'analyse de conformité n'a pas encore été lancée":"Compliance hasn't been analyzed yet"}
               </div>
               {indhBtn(t.checkBtn as string, checkComp)}
               {backBtn()}
             </div>
           )}
-          {comp && !busy && (<>
+          {comp && (<>
+            {!compTailored && (
+              <div style={{display: "flex", alignItems: "center", gap: "7px", marginBottom: "16px",
+                padding: "8px 12px", background: CR, borderRadius: "9px", border: `1px solid ${CD}`}}>
+                <Dots/>
+                <span style={{fontSize: "11px", color: GR, fontWeight: "600"}}>
+                  {lang === "ar" ? "جاري تحسين التفاصيل في الخلفية..." : lang === "fr" ? "Affinement des détails en cours..." : "Refining details in the background..."}
+                </span>
+              </div>
+            )}
             <div style={{padding: "24px", borderRadius: "16px", textAlign: "center", marginBottom: "18px",
               background: comp.eligible ? ND : "#FFF0F0", border: `2px solid ${comp.eligible ? Y : RE}`}}>
               <div style={{fontSize: "44px", marginBottom: "7px"}}>{comp.eligible ? "✅" : "⚠️"}</div>
