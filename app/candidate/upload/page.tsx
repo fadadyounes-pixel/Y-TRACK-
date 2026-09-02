@@ -6,7 +6,7 @@ import Link from 'next/link';
 import PageHeader from '../../../components/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, inferEducationLevel } from '@/lib/matching';
-import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, CV_LAYOUTS, CV_THEMES, type WorkEntry } from '@/lib/cvTemplate';
+import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, type WorkEntry } from '@/lib/cvTemplate';
 import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 import { scoreCV, scoreBandStyle } from '@/lib/cvScore';
 
@@ -25,6 +25,7 @@ const SKILL_SUGGESTIONS: Record<string, string[]> = {
 };
 
 const LANGUAGES = ['Français', 'Anglais', 'Arabe', 'Espagnol', 'Allemand', 'Néerlandais', 'Italien', 'Portugais'];
+const LANGUAGE_LEVELS = ['Débutant', 'Intermédiaire', 'Avancé', 'Courant', 'Langue maternelle'];
 
 const MOROCCO_CONTEXT = `MARCHÉ DE L'EMPLOI MAROCAIN — CONTEXTE EXPERT:
 Secteurs porteurs: BTP/Immobilier, Industrie automobile (Renault-Nissan Tanger, PSA Kénitra), Textile/Habillement, Tourisme (hôtellerie 5*, guides), Agro-alimentaire (OCP, Centrale Danone, Cosumar), Numérique/TIC (CBI, IBM Maroc, Capgemini), Banque/Finance (Attijariwafa Bank, BMCE Bank, Banque Populaire, CIH, BMCI), Énergie renouvelable (MASEN, IRESEN), Santé.
@@ -47,188 +48,6 @@ async function callAI(messages: { role: string; content: AIMsgContent }[], syste
   });
   const d = await r.json();
   return (d.content?.[0]?.text || '') as string;
-}
-
-/* ── CV Advisor floating chat agent ──────────────────────────────────────── */
-function CVAdvisor({ sector, experience, summary, skills, step: cvStep }: {
-  sector: string; experience: string; summary: string; skills: string[]; step: Step;
-}) {
-  const [open, setOpen] = useState(false);
-  const [msgs, setMsgs] = useState<{ role: string; content: string }[]>([]);
-  const [inp, setInp] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [unread, setUnread] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, busy]);
-
-  const ctx = [
-    `Étape: ${cvStep}`,
-    `Niveau: ${experience}`,
-    `Secteur: ${sector}`,
-    skills.length && `Compétences: ${skills.slice(0, 10).join(', ')}`,
-    summary && `Résumé: "${summary.slice(0, 180)}"`,
-  ].filter(Boolean).join('\n');
-
-  const sys = `Tu es l'Expert RH TalentMap — conseiller carrière senior spécialisé dans le marché de l'emploi marocain, 15 ans d'expérience.
-PROFIL DU CANDIDAT:\n${ctx}
-RÈGLES: Réponds en français uniquement. Sois direct et concret — donne des exemples copiables immédiatement dans le CV. 2-4 phrases max (sauf si tu réécris un résumé complet). Utilise des verbes d'action forts: développé, piloté, optimisé, géré, coordonné, animé, réalisé. Adapte au marché marocain (BTP, tourisme, agro-alimentaire, tech, finance offshore). Si on demande un résumé: 3 phrases max, percutantes.`;
-
-  const quickActions = [
-    {
-      label: '✨ Améliore mon résumé',
-      q: `Réécris mon résumé professionnel en 3 phrases percutantes pour le marché marocain. Secteur: ${sector}, Niveau: ${experience}${summary ? `. Brouillon: "${summary.slice(0, 150)}"` : ''}. Verbes d'action forts, orienté recruteurs marocains.`,
-    },
-    {
-      label: '⚡ Compétences manquantes',
-      q: `Liste 5 compétences clés que je devrais ajouter pour un profil ${experience} en ${sector} au Maroc. Format: une compétence par ligne, sans explication.`,
-    },
-    {
-      label: '📝 Exemple de réalisation',
-      q: `Donne-moi un exemple concret de bullet point pour décrire une réalisation professionnelle en ${sector}. Utilise des chiffres, un verbe d'action et un résultat mesurable.`,
-    },
-    {
-      label: '🇲🇦 Optimisé pour le Maroc ?',
-      q: `Mon CV est-il bien positionné pour le marché marocain ? Secteur: ${sector}, Niveau: ${experience}${skills.length ? `, Compétences: ${skills.slice(0, 5).join(', ')}` : ''}. Donne 2 conseils concrets d'amélioration.`,
-    },
-  ];
-
-  const send = async (override?: string) => {
-    const msg = override ?? inp;
-    if (!msg.trim() || busy) return;
-    const history = [...msgs, { role: 'user', content: msg }];
-    setMsgs(history);
-    if (!override) setInp('');
-    setBusy(true);
-
-    const ctrl = new AbortController();
-    const deadline = setTimeout(() => ctrl.abort(), 8000);
-    try {
-      const r = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, system: sys, task: 'fast', max_tokens: 400 }),
-        signal: ctrl.signal,
-      });
-      clearTimeout(deadline);
-      const d = await r.json();
-      const text = (d.content?.[0]?.text || '').trim();
-      setMsgs(p => [...p, { role: 'assistant', content: text || 'Désolé, réessayez dans un instant.' }]);
-      if (!open) setUnread(true);
-    } catch {
-      clearTimeout(deadline);
-      setMsgs(p => [...p, { role: 'assistant', content: 'Conseiller momentanément indisponible. Réessayez dans quelques secondes.' }]);
-    }
-    setBusy(false);
-  };
-
-  return (
-    <>
-      {/* Floating button */}
-      <button
-        onClick={() => { setOpen(p => !p); setUnread(false); }}
-        title="Expert RH TalentMap — Conseiller CV"
-        style={{
-          position: 'fixed', bottom: 24, left: 24, zIndex: 1000,
-          width: 52, height: 52, borderRadius: '50%',
-          background: 'linear-gradient(135deg,#0a1f5c,#2563eb)',
-          border: 'none', cursor: 'pointer',
-          boxShadow: '0 4px 20px rgba(37,99,235,.5)',
-          fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'transform .2s, box-shadow .2s',
-        }}>
-        {open ? '✕' : '💡'}
-        {unread && !open && (
-          <div style={{ position: 'absolute', top: 1, right: 1, width: 12, height: 12, borderRadius: '50%', background: '#ef4444', border: '2px solid white' }} />
-        )}
-      </button>
-
-      {/* Chat panel */}
-      {open && (
-        <div style={{
-          position: 'fixed', bottom: 88, left: 24, zIndex: 999,
-          width: 320, background: 'white', borderRadius: 18,
-          boxShadow: '0 8px 48px rgba(10,31,92,.22)', border: '1px solid #e5e7eb',
-          display: 'flex', flexDirection: 'column',
-          animation: 'advisorFadeUp .25s ease both',
-        }}>
-          {/* Header */}
-          <div style={{ background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', borderRadius: '18px 18px 0 0', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>👔</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>Expert RH TalentMap</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,.55)' }}>Conseiller CV · Marché marocain</div>
-            </div>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
-          </div>
-
-          {/* Context chips */}
-          <div style={{ padding: '8px 12px 4px', display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}>{experience}</span>
-            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac' }}>{sector}</span>
-          </div>
-
-          {/* Messages */}
-          <div style={{ overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260 }}>
-            <div style={{ padding: '10px 13px', background: '#eff6ff', borderRadius: '12px 12px 12px 4px', fontSize: 12, color: '#111827', lineHeight: 1.65 }}>
-              Bonjour ! Je suis votre Expert RH. Je peux améliorer votre résumé, suggérer des compétences clés pour <strong>{sector}</strong>, ou vous montrer comment décrire vos expériences. Que puis-je faire pour vous ?
-            </div>
-            {msgs.map((m, i) => (
-              <div key={i} style={{
-                padding: '10px 13px', maxWidth: '90%',
-                borderRadius: m.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-                background: m.role === 'user' ? 'linear-gradient(135deg,#0a1f5c,#2563eb)' : '#eff6ff',
-                color: m.role === 'user' ? 'white' : '#111827',
-                fontSize: 12, lineHeight: 1.65,
-                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                whiteSpace: 'pre-wrap',
-              }}>
-                {m.content}
-              </div>
-            ))}
-            {busy && (
-              <div style={{ display: 'flex', gap: 4, padding: '8px 12px', background: '#eff6ff', borderRadius: 12, width: 'fit-content' }}>
-                {[0, 1, 2].map(i => (
-                  <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#2563eb', animation: `advisorBounce 1s ease ${i * .2}s infinite` }} />
-                ))}
-              </div>
-            )}
-            <div ref={endRef} />
-          </div>
-
-          {/* Quick actions — only shown before first message */}
-          {msgs.length === 0 && (
-            <div style={{ padding: '4px 12px 8px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {quickActions.map((qa, i) => (
-                <button key={i} onClick={() => send(qa.q)} disabled={busy}
-                  style={{ padding: '7px 11px', borderRadius: 10, border: '1.5px solid #bfdbfe', background: '#eff6ff', color: '#2563eb', fontSize: 11, fontWeight: 600, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', transition: 'background .15s' }}>
-                  {qa.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Input */}
-          <div style={{ padding: '10px 12px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              value={inp}
-              onChange={e => setInp(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && send()}
-              placeholder="Votre question…"
-              disabled={busy}
-              style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 12, fontFamily: 'inherit', color: '#111827', background: '#f9fafb' }}
-            />
-            <button onClick={() => send()} disabled={busy || !inp.trim()}
-              style={{ width: 36, height: 36, borderRadius: 10, border: 'none', flexShrink: 0, background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: 'white', fontSize: 16, cursor: 'pointer', opacity: busy || !inp.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              →
-            </button>
-          </div>
-        </div>
-      )}
-
-      <style>{`@keyframes advisorFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes advisorBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}`}</style>
-    </>
-  );
 }
 
 export default function CandidateUpload() {
@@ -255,11 +74,24 @@ export default function CandidateUpload() {
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
   const [languages, setLanguages] = useState<string[]>([]);
+  // Proficiency level per language, keyed by the exact string in `languages`.
+  // Additive only — matching (lib/matching.ts) still reads plain `languages: string[]`.
+  const [languageLevels, setLanguageLevels] = useState<Record<string, string>>({});
+  const toggleLanguage = (l: string) => {
+    setLanguages(prev => {
+      const active = prev.includes(l);
+      if (active) setLanguageLevels(lv => { const next = { ...lv }; delete next[l]; return next; });
+      return active ? prev.filter(x => x !== l) : [...prev, l];
+    });
+  };
+  const setLangLevel = (l: string, level: string) => setLanguageLevels(prev => ({ ...prev, [l]: level }));
   const [work, setWork] = useState<WorkEntry[]>([{ company: '', title: '', startDate: '', endDate: '', description: '' }]);
   const [education, setEducation] = useState({ degree: '', institution: '', year: '' });
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [certifications, setCertifications] = useState<string[]>([]);
-  const [cvStyle, setCvStyle] = useState<{ layout: string; theme: string } | null>(null);
+  // CV visual style is always auto-assigned (deterministic from the candidate's
+  // ID) and never exposed or made changeable in the UI — candidates should
+  // just get a finished, professional CV, not a "pick your template" step.
   const [showAllTips, setShowAllTips] = useState(false);
 
   // AI template helpers
@@ -335,6 +167,7 @@ export default function CandidateUpload() {
         if (info.firstName || info.lastName) setName(`${info.firstName || ''} ${info.lastName || ''}`.trim() || user.name);
         if (info.sector) setSector(info.sector.split('/')[0].trim());
         if (info.languages?.length) setLanguages(info.languages);
+        if (info.languageLevels) setLanguageLevels(info.languageLevels);
         if (info.diploma || info.institution || info.graduationYear) {
           setEducation(p => ({
             degree: info.diploma || p.degree,
@@ -356,7 +189,6 @@ export default function CandidateUpload() {
         if (cv.targetRoles?.length) setTargetRoles(cv.targetRoles);
         if (cv.certifications?.length) setCertifications(cv.certifications);
         if (cv.experience) setExperience(cv.experience);
-        if (cv.cvStyle?.layout && cv.cvStyle?.theme) setCvStyle(cv.cvStyle);
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -366,9 +198,9 @@ export default function CandidateUpload() {
   useEffect(() => {
     if (!user) return;
     try {
-      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience, cvStyle }));
+      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience }));
     } catch {}
-  }, [user, summary, skills, work, education, targetRoles, certifications, experience, cvStyle]);
+  }, [user, summary, skills, work, education, targetRoles, certifications, experience]);
 
   // Load jobs + this candidate's applications from Redis
   useEffect(() => {
@@ -445,19 +277,17 @@ export default function CandidateUpload() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, coordJobs, name, skillsKey]);
 
-  // Live CV HTML — cvStyle is null until the candidate picks one, in which case
-  // generateCVHtml deterministically derives a style from their CIN so every
-  // candidate's default CV still differs without requiring a manual choice.
+  // CV visual style is always deterministically derived from the candidate's
+  // ID — never shown or made pickable in the UI (see note above).
+  const autoStyle = useMemo(() => pickStyle(user?.idNumber || email || name), [user, email, name]);
+
   const cvHtml = useMemo(() => {
     if (!user) return '';
     return generateCVHtml(
-      { name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio },
-      cvStyle || undefined
+      { name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, languageLevels, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio },
+      autoStyle
     );
-  }, [user, name, email, phone, address, summary, skills, languages, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio, cvStyle]);
-
-  const autoStyle = useMemo(() => pickStyle(user?.idNumber || email || name), [user, email, name]);
-  const effectiveStyle = cvStyle || autoStyle;
+  }, [user, name, email, phone, address, summary, skills, languages, languageLevels, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio, autoStyle]);
 
   // Free, deterministic CV health check — no AI call needed, so it's instant
   // and always available even if the AI provider cascade is degraded.
@@ -690,7 +520,7 @@ export default function CandidateUpload() {
           languages: extracted.languages?.length
             ? extracted.languages.filter((l: string) => LANGUAGES.includes(l))
             : languages,
-          cvStyle: cvStyle || pickStyle(user!.idNumber),
+          cvStyle: pickStyle(user!.idNumber),
           uploadedAt: new Date().toISOString(),
           fileName: file.name,
           fileSize: `${Math.round(file.size / 1024)} KB`,
@@ -785,7 +615,7 @@ export default function CandidateUpload() {
       fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, cvStyle: cvStyle || pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
+        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, languageLevels, cvStyle: pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
       }).catch(() => {});
       setStep('preview');
       return;
@@ -822,7 +652,7 @@ export default function CandidateUpload() {
     fetch('/api/sheets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, cvStyle: cvStyle || pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
+      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, languageLevels, cvStyle: pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
     }).catch(() => {});
     setGeneratingCV(false);
     setStep('preview');
@@ -1062,9 +892,21 @@ export default function CandidateUpload() {
                     </div>
                     <div>
                       <label style={lbl}>Secteur</label>
-                      <select value={sector} onChange={e => setSector(e.target.value)} style={inp}>
+                      <select
+                        value={Object.keys(SKILL_SUGGESTIONS).includes(sector) ? sector : 'Other'}
+                        onChange={e => setSector(e.target.value)}
+                        style={inp}
+                      >
                         {Object.keys(SKILL_SUGGESTIONS).map(s => <option key={s}>{s}</option>)}
                       </select>
+                      {!Object.keys(SKILL_SUGGESTIONS).filter(s => s !== 'Other').includes(sector) && (
+                        <input
+                          value={sector === 'Other' ? '' : sector}
+                          onChange={e => setSector(e.target.value === '' ? 'Other' : e.target.value)}
+                          placeholder="Précisez votre secteur ou domaine d'expérience…"
+                          style={{ ...inp, marginTop: '0.5rem' }}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1151,11 +993,34 @@ export default function CandidateUpload() {
                   <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1rem' }}>🌐 Langues</h2>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                     {LANGUAGES.map(l => (
-                      <button key={l} onClick={() => setLanguages(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l])} style={{ padding: '0.35rem 0.9rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', background: languages.includes(l) ? '#065f46' : '#f0fdf4', color: languages.includes(l) ? 'white' : '#065f46', border: `1.5px solid ${languages.includes(l) ? '#065f46' : '#bbf7d0'}` }}>
+                      <button key={l} onClick={() => toggleLanguage(l)} style={{ padding: '0.35rem 0.9rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', background: languages.includes(l) ? '#065f46' : '#f0fdf4', color: languages.includes(l) ? 'white' : '#065f46', border: `1.5px solid ${languages.includes(l) ? '#065f46' : '#bbf7d0'}` }}>
                         {LANG_FLAGS[l] || ''} {languages.includes(l) ? '✓ ' : ''}{l}
                       </button>
                     ))}
                   </div>
+                  {languages.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '1rem' }}>
+                      {languages.map(l => (
+                        <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', paddingTop: '0.65rem', borderTop: '1px solid #f1f5f9' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#111827', minWidth: '80px' }}>{l}</span>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                            {LANGUAGE_LEVELS.map(level => {
+                              const activeLevel = languageLevels[l] === level;
+                              return (
+                                <button
+                                  key={level}
+                                  onClick={() => setLangLevel(l, level)}
+                                  style={{ padding: '0.28rem 0.7rem', borderRadius: '9999px', border: `1.5px solid ${activeLevel ? '#065f46' : '#e5e7eb'}`, background: activeLevel ? '#065f46' : '#f8fafc', color: activeLevel ? '#fff' : '#6b7280', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+                                >
+                                  {level}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Certifications */}
@@ -1318,49 +1183,6 @@ export default function CandidateUpload() {
               </div>
               <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f); e.target.value = ''; }} />
-            </div>
-
-            {/* Style picker — 5 layouts × 11 colors so no two candidates' CVs look alike by default */}
-            <div style={{ background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '1.1rem 1.25rem', marginBottom: '1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827' }}>🎨 Style du CV</span>
-                <button
-                  onClick={() => {
-                    const layout = CV_LAYOUTS[Math.floor(Math.random() * CV_LAYOUTS.length)].id;
-                    const theme = CV_THEMES[Math.floor(Math.random() * CV_THEMES.length)].id;
-                    setCvStyle({ layout, theme });
-                  }}
-                  style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: 700, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '0.3rem 0.75rem', cursor: 'pointer' }}>
-                  🎲 Surprends-moi
-                </button>
-              </div>
-              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                {CV_LAYOUTS.map(l => (
-                  <button key={l.id} onClick={() => setCvStyle({ layout: l.id, theme: effectiveStyle.theme })}
-                    title={l.desc}
-                    style={{ padding: '0.4rem 0.85rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
-                      border: `1.5px solid ${effectiveStyle.layout === l.id ? '#2563eb' : '#e5e7eb'}`,
-                      background: effectiveStyle.layout === l.id ? '#eff6ff' : 'white',
-                      color: effectiveStyle.layout === l.id ? '#2563eb' : '#6b7280' }}>
-                    {l.name}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                {CV_THEMES.map(th => (
-                  <button key={th.id} onClick={() => setCvStyle({ layout: effectiveStyle.layout, theme: th.id })}
-                    title={th.name}
-                    style={{ width: '26px', height: '26px', borderRadius: '50%', cursor: 'pointer', flexShrink: 0,
-                      background: `linear-gradient(135deg,${th.dark},${th.accent})`,
-                      border: effectiveStyle.theme === th.id ? '3px solid #111827' : '2px solid white',
-                      boxShadow: effectiveStyle.theme === th.id ? '0 0 0 1px #111827' : '0 0 0 1px #e5e7eb' }} />
-                ))}
-              </div>
-              {!cvStyle && (
-                <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.6rem' }}>
-                  Style attribué automatiquement à votre profil — cliquez pour le personnaliser.
-                </p>
-              )}
             </div>
 
             {/* Action buttons */}
@@ -1528,7 +1350,6 @@ export default function CandidateUpload() {
       </div>
 
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
-      <CVAdvisor sector={sector} experience={experience} summary={summary} skills={skills} step={step} />
     </main>
   );
 }

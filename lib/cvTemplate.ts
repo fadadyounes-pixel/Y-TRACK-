@@ -136,10 +136,21 @@ export function pickStyle(seed: string): CVStyle {
 export interface CVTemplateData {
   name: string; email: string; phone: string; address: string; idNumber: string;
   summary: string; skills: string[]; languages: string[];
+  // Optional proficiency level per language (e.g. "Anglais" -> "Courant"),
+  // keyed by the exact language string as it appears in `languages`. Purely
+  // additive — matching (lib/matching.ts) still reads plain `languages: string[]`.
+  languageLevels?: Record<string, string>;
   experience: string; sector: string;
   work: WorkEntry[]; education: Education;
   targetRoles?: string[]; certifications?: string[];
   photo?: string; linkedin?: string; portfolio?: string;
+}
+
+// Renders "Anglais — Courant" when a level is known for that language, else
+// just "Anglais" — used everywhere a language pill/tag/chip is printed below.
+function langLabel(data: CVTemplateData, l: string): string {
+  const level = data.languageLevels?.[l];
+  return level ? `${l} — ${level}` : l;
 }
 
 interface Ctx {
@@ -235,7 +246,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     <div class="side">
       <div class="sec"><div class="sec-title">Niveau</div><span class="badge">${e(data.experience)}</span></div>
       ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><div class="pills">${data.skills.map(s => `<span class="pill">${e(s)}</span>`).join('')}</div></div>` : ''}
-      ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.languages.map(l => `<span class="pill lang">${e(l)}</span>`).join('')}</div></div>` : ''}
+      ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.languages.map(l => `<span class="pill lang">${e(langLabel(data, l))}</span>`).join('')}</div></div>` : ''}
       ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.certifications.map(c => `<span class="pill cert">${e(c)}</span>`).join('')}</div></div>` : ''}
     </div>
   </div>
@@ -291,7 +302,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
   ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
   ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><div class="chips">${data.skills.map(s => `<span class="chip">${e(s)}</span>`).join('')}</div></div>` : ''}
-  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="chips">${data.languages.map(l => `<span class="chip">${e(l)}</span>`).join('')}</div></div>` : ''}
+  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="chips">${data.languages.map(l => `<span class="chip">${e(langLabel(data, l))}</span>`).join('')}</div></div>` : ''}
   ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div class="chips">${data.certifications.map(c => `<span class="chip">${e(c)}</span>`).join('')}</div></div>` : ''}
   ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="chips">${data.targetRoles.map(r => `<span class="chip">${e(r)}</span>`).join('')}</div></div>` : ''}
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
@@ -338,7 +349,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     <div class="rail-role">${e(data.experience)} · ${e(data.sector)}</div>
     <div class="rail-sec"><div class="rail-title">Contact</div>${contacts.map(c => `<div class="rail-contact">${c}</div>`).join('')}</div>
     ${data.skills.length ? `<div class="rail-sec"><div class="rail-title">Compétences</div>${data.skills.map(s => `<span class="rail-pill">${e(s)}</span>`).join('')}</div>` : ''}
-    ${data.languages.length ? `<div class="rail-sec"><div class="rail-title">Langues</div>${data.languages.map(l => `<span class="rail-pill">${e(l)}</span>`).join('')}</div>` : ''}
+    ${data.languages.length ? `<div class="rail-sec"><div class="rail-title">Langues</div>${data.languages.map(l => `<span class="rail-pill">${e(langLabel(data, l))}</span>`).join('')}</div>` : ''}
     ${data.certifications?.length ? `<div class="rail-sec"><div class="rail-title">Certifications</div>${data.certifications.map(c => `<span class="rail-pill">${e(c)}</span>`).join('')}</div>` : ''}
   </div>
   <div class="main">
@@ -405,7 +416,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     <div class="meta">${e(w.startDate)}${w.startDate && (w.endDate || 'Présent') ? ' – ' + e(w.endDate || 'Présent') : e(w.endDate) || ''}</div>
     ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div></div>` : ''}
   ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
-  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="tags">${data.languages.map(l => `<span class="tag">${e(l)}</span>`).join('')}</div></div>` : ''}
+  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="tags">${data.languages.map(l => `<span class="tag">${e(langLabel(data, l))}</span>`).join('')}</div></div>` : ''}
   ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div class="tags">${data.certifications.map(c => `<span class="tag">${e(c)}</span>`).join('')}</div></div>` : ''}
   ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="tags">${data.targetRoles.map(r => `<span class="tag">${e(r)}</span>`).join('')}</div></div>` : ''}
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
@@ -456,7 +467,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:#e5e5e5;color:#18181b;-we
     ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
   ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
   ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><p class="line">${data.skills.map(e).join(' · ')}</p></div>` : ''}
-  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><p class="line">${data.languages.map(e).join(' · ')}</p></div>` : ''}
+  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><p class="line">${data.languages.map(l => e(langLabel(data, l))).join(' · ')}</p></div>` : ''}
   ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><p class="line">${data.certifications.map(e).join(' · ')}</p></div>` : ''}
   ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><p class="line">${data.targetRoles.map(e).join(' · ')}</p></div>` : ''}
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
@@ -513,7 +524,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       <div class="meta">${e(w.startDate)}${w.startDate && (w.endDate || 'Présent') ? ' – ' + e(w.endDate || 'Présent') : e(w.endDate) || ''}</div>
       ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
     ${data.skills.length ? `<div class="card"><div class="card-title">Compétences</div><div class="tiles">${data.skills.map(s => `<span class="tile">${e(s)}</span>`).join('')}</div></div>` : ''}
-    ${data.languages.length ? `<div class="card"><div class="card-title">Langues</div><div class="tiles">${data.languages.map(l => `<span class="tile">${e(l)}</span>`).join('')}</div></div>` : ''}
+    ${data.languages.length ? `<div class="card"><div class="card-title">Langues</div><div class="tiles">${data.languages.map(l => `<span class="tile">${e(langLabel(data, l))}</span>`).join('')}</div></div>` : ''}
     ${data.education.degree ? `<div class="card"><div class="card-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
     ${data.certifications?.length ? `<div class="card"><div class="card-title">Certifications</div><div class="tiles">${data.certifications.map(c => `<span class="tile">${e(c)}</span>`).join('')}</div></div>` : ''}
     ${data.targetRoles?.length ? `<div class="card full"><div class="card-title">Postes Recherchés</div><div class="tiles">${data.targetRoles.map(r => `<span class="tile">${e(r)}</span>`).join('')}</div></div>` : ''}
@@ -568,7 +579,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
   ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
   ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><p class="plain-line">${data.skills.map(e).join('  ·  ')}</p></div>` : ''}
-  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><p class="plain-line">${data.languages.map(l => `${e(l)}`).join('  ·  ')}</p></div>` : ''}
+  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><p class="plain-line">${data.languages.map(l => `${e(langLabel(data, l))}`).join('  ·  ')}</p></div>` : ''}
   ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><p class="plain-line">${data.certifications.map(e).join('  ·  ')}</p></div>` : ''}
   ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><p class="plain-line">${data.targetRoles.map(e).join('  ·  ')}</p></div>` : ''}
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
@@ -624,7 +635,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
     ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
     ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><div class="pills">${data.skills.map(s => `<span class="pill">${e(s)}</span>`).join('')}</div></div>` : ''}
-    ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="pills">${data.languages.map(l => `<span class="pill">${e(l)}</span>`).join('')}</div></div>` : ''}
+    ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="pills">${data.languages.map(l => `<span class="pill">${e(langLabel(data, l))}</span>`).join('')}</div></div>` : ''}
     ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div class="pills">${data.certifications.map(c => `<span class="pill">${e(c)}</span>`).join('')}</div></div>` : ''}
     ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="pills">${data.targetRoles.map(r => `<span class="pill">${e(r)}</span>`).join('')}</div></div>` : ''}
   </div>
@@ -672,7 +683,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     <div class="role">${e(data.experience)} · ${e(data.sector)}</div>
     <div class="left-sec"><div class="left-title">Contact</div>${contacts.map(c => `<div class="left-line">${c}</div>`).join('')}</div>
     ${data.skills.length ? `<div class="left-sec"><div class="left-title">Compétences</div><div class="left-pills">${data.skills.map(s => `<span class="left-pill">${e(s)}</span>`).join('')}</div></div>` : ''}
-    ${data.languages.length ? `<div class="left-sec"><div class="left-title">Langues</div><div class="left-pills">${data.languages.map(l => `<span class="left-pill">${e(l)}</span>`).join('')}</div></div>` : ''}
+    ${data.languages.length ? `<div class="left-sec"><div class="left-title">Langues</div><div class="left-pills">${data.languages.map(l => `<span class="left-pill">${e(langLabel(data, l))}</span>`).join('')}</div></div>` : ''}
     ${data.certifications?.length ? `<div class="left-sec"><div class="left-title">Certifications</div><div class="left-pills">${data.certifications.map(c => `<span class="left-pill">${e(c)}</span>`).join('')}</div></div>` : ''}
   </div>
   <div class="right">
@@ -741,7 +752,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   </div>
   <div class="strip">
     ${data.skills.length ? `<div class="strip-col"><div class="strip-title">Compétences</div><p class="strip-line">${data.skills.map(e).join(' · ')}</p></div>` : ''}
-    ${data.languages.length ? `<div class="strip-col"><div class="strip-title">Langues</div><p class="strip-line">${data.languages.map(l => `${e(l)}`).join(' · ')}</p></div>` : ''}
+    ${data.languages.length ? `<div class="strip-col"><div class="strip-title">Langues</div><p class="strip-line">${data.languages.map(l => `${e(langLabel(data, l))}`).join(' · ')}</p></div>` : ''}
     ${data.certifications?.length ? `<div class="strip-col"><div class="strip-title">Certifications</div><p class="strip-line">${data.certifications.map(c => `${e(c)}`).join(' · ')}</p></div>` : ''}
     ${data.targetRoles?.length ? `<div class="strip-col"><div class="strip-title">Postes Recherchés</div><p class="strip-line">${data.targetRoles.map(r => `${e(r)}`).join(' · ')}</p></div>` : ''}
   </div>

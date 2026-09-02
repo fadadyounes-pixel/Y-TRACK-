@@ -38,6 +38,7 @@ interface CV {
   summary: string;
   educationLevel?: string;
   languages?: string[];
+  languageLevels?: Record<string, string>;
   // Full CV content — persisted by the candidate's CV builder — so the
   // coordinator's downloadable CV matches what the candidate sees, not a
   // stripped-down summary.
@@ -143,6 +144,7 @@ function downloadCvPDF(cv: CV) {
     summary: cv.summary,
     skills: cv.skills,
     languages: cv.languages || [],
+    languageLevels: cv.languageLevels,
     experience: cv.experience,
     sector: cv.sector,
     work: cv.work || [],

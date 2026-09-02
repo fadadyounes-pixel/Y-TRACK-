@@ -25,6 +25,8 @@ const EXPERIENCE_LEVELS = ['Étudiant(e)', 'Débutant (0–1 an)', 'Junior (1–
 
 const LANGS = ['Français', 'Arabe', 'Anglais', 'Espagnol', 'Allemand', 'Néerlandais', 'Autre'];
 
+const LANGUAGE_LEVELS = ['Débutant', 'Intermédiaire', 'Avancé', 'Courant', 'Langue maternelle'];
+
 const DIPLOMA_LEVELS = [
   'Bac', 'Bac+2 / DUT / BTS', 'Licence / Bachelor (Bac+3)',
   'Master / MBA (Bac+5)', 'Doctorat / PhD', 'OFPPT / Technicien Spécialisé',
@@ -46,6 +48,10 @@ interface InfoProfile {
   sector: string;
   experience: string;
   languages: string[];
+  // Proficiency level per language, keyed by the exact string in `languages`
+  // (e.g. { "Anglais": "Courant" }). Additive only — matching/completeness
+  // checks keep reading plain `languages: string[]`.
+  languageLevels: Record<string, string>;
   linkedin: string;
   portfolio: string;
   diploma: string;
@@ -56,7 +62,7 @@ interface InfoProfile {
 const EMPTY: InfoProfile = {
   photo: '', firstName: '', lastName: '', phone: '', birthDate: '',
   region: '', prefecture: '', arrondissement: '', city: '', address: '', cin: '', sector: '', experience: '',
-  languages: [], linkedin: '', portfolio: '',
+  languages: [], languageLevels: {}, linkedin: '', portfolio: '',
   diploma: '', institution: '', graduationYear: '',
 };
 
@@ -137,10 +143,21 @@ export default function CandidateInfoPage() {
 
   const toggleLang = (l: string) => {
     setSaved(false);
-    setForm(p => ({
-      ...p,
-      languages: p.languages.includes(l) ? p.languages.filter(x => x !== l) : [...p.languages, l],
-    }));
+    setForm(p => {
+      const active = p.languages.includes(l);
+      const languageLevels = { ...p.languageLevels };
+      if (active) delete languageLevels[l];
+      return {
+        ...p,
+        languages: active ? p.languages.filter(x => x !== l) : [...p.languages, l],
+        languageLevels,
+      };
+    });
+  };
+
+  const setLangLevel = (l: string, level: string) => {
+    setSaved(false);
+    setForm(p => ({ ...p, languageLevels: { ...p.languageLevels, [l]: level } }));
   };
 
   const handlePhoto = (file: File) => {
@@ -211,6 +228,38 @@ export default function CandidateInfoPage() {
       <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
     </div>
   );
+
+  // ── Enumerated select that reveals a free-text field when "Autre" is chosen —
+  // the value itself just holds whatever the candidate typed (or the literal
+  // "Autre" marker while the text box is still empty), so nothing downstream
+  // (matching, CV export, coordinator views) needs to know this field can be custom. ──
+  const SelectWithOther = ({ label, value, options, onChange, placeholder }: {
+    label: string; value: string; options: string[]; onChange: (v: string) => void; placeholder: string;
+  }) => {
+    const showOther = value === 'Autre' || (!!value && !options.includes(value));
+    return (
+      <>
+        <label style={labelStyle}>{label}</label>
+        <select
+          style={{ ...inputStyle(!!value), cursor: 'pointer' }}
+          value={showOther ? 'Autre' : value}
+          onChange={e => onChange(e.target.value)}
+        >
+          <option value="">{placeholder}</option>
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        {showOther && (
+          <input
+            style={{ ...inputStyle(!!value && value !== 'Autre'), marginTop: '0.5rem' }}
+            value={value === 'Autre' ? '' : value}
+            onChange={e => onChange(e.target.value === '' ? 'Autre' : e.target.value)}
+            placeholder="Précisez…"
+            autoFocus
+          />
+        )}
+      </>
+    );
+  };
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
@@ -327,11 +376,7 @@ export default function CandidateInfoPage() {
               <input style={inputStyle(!!form.phone)} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+212 6 XX XX XX XX" />
             </div>
             <div style={fieldBlock}>
-              <label style={labelStyle}>Ville *</label>
-              <select style={{ ...inputStyle(!!form.city), cursor: 'pointer' }} value={form.city} onChange={e => set('city', e.target.value)}>
-                <option value="">Sélectionner une ville…</option>
-                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <SelectWithOther label="Ville *" value={form.city} options={CITIES} onChange={v => set('city', v)} placeholder="Sélectionner une ville…" />
             </div>
             <div style={fieldBlock}>
               <label style={labelStyle}>Région *</label>
@@ -370,11 +415,7 @@ export default function CandidateInfoPage() {
           <SectionHeader icon="🎓" label="Formation & Diplôme" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ ...fieldBlock, gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Niveau de diplôme *</label>
-              <select style={{ ...inputStyle(!!form.diploma), cursor: 'pointer' }} value={form.diploma} onChange={e => set('diploma', e.target.value)}>
-                <option value="">Sélectionner votre diplôme…</option>
-                {DIPLOMA_LEVELS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <SelectWithOther label="Niveau de diplôme *" value={form.diploma} options={DIPLOMA_LEVELS} onChange={v => set('diploma', v)} placeholder="Sélectionner votre diplôme…" />
             </div>
             <div style={fieldBlock}>
               <label style={labelStyle}>École / Université</label>
@@ -408,11 +449,7 @@ export default function CandidateInfoPage() {
           <SectionHeader icon="💼" label="Profil Professionnel" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
-              <label style={labelStyle}>Secteur *</label>
-              <select style={{ ...inputStyle(!!form.sector), cursor: 'pointer' }} value={form.sector} onChange={e => set('sector', e.target.value)}>
-                <option value="">Sélectionner un secteur…</option>
-                {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <SelectWithOther label="Secteur *" value={form.sector} options={SECTORS} onChange={v => set('sector', v)} placeholder="Sélectionner un secteur…" />
             </div>
             <div style={{ ...fieldBlock, gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Niveau d'expérience *</label>
@@ -460,6 +497,30 @@ export default function CandidateInfoPage() {
               );
             })}
           </div>
+
+          {form.languages.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.1rem' }}>
+              {form.languages.map(l => (
+                <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0a1f5c', minWidth: '90px' }}>{l}</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    {LANGUAGE_LEVELS.map(level => {
+                      const activeLevel = form.languageLevels[l] === level;
+                      return (
+                        <button
+                          key={level}
+                          onClick={() => setLangLevel(l, level)}
+                          style={{ padding: '0.32rem 0.75rem', borderRadius: '9999px', border: `1.5px solid ${activeLevel ? '#2563eb' : '#e5e7eb'}`, background: activeLevel ? '#2563eb' : '#f8fafc', color: activeLevel ? '#fff' : '#6b7280', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
+                        >
+                          {level}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Save + Next CTA ── */}
