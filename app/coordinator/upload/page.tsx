@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
+import PageHeader from '../../../components/PageHeader';
 
 const MAX_CVS = 20;
 const CONCURRENCY = 4;
@@ -81,8 +82,8 @@ function generateEnhancedCvHtml(cv: CvEntry, enhanced: {
 <title>CV Amélioré – ${cv.name}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#0D1B2A;background:#fff;max-width:800px;margin:0 auto}
-  .header{background:linear-gradient(135deg,#0D1B2A 0%,#1B4FD8 100%);padding:40px 48px 36px;color:#fff}
+  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#0a1f5c;background:#fff;max-width:800px;margin:0 auto}
+  .header{background:linear-gradient(135deg,#0a1f5c 0%,#2563eb 100%);padding:40px 48px 36px;color:#fff}
   .name{font-size:28px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px}
   .headline{font-size:14px;color:rgba(255,255,255,.7);font-weight:500;margin-bottom:16px}
   .contact-row{display:flex;gap:20px;flex-wrap:wrap}
@@ -90,13 +91,13 @@ function generateEnhancedCvHtml(cv: CvEntry, enhanced: {
   .badge-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
   .badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700}
   .badge-sector{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)}
-  .badge-exp{background:#E8A020;color:#0D1B2A}
+  .badge-exp{background:#f59e0b;color:#0a1f5c}
   .enhanced-tag{background:#22C55E;color:#fff;font-size:10px;padding:3px 9px;border-radius:999px;font-weight:700;letter-spacing:.04em}
   .body{padding:36px 48px}
   .section{margin-bottom:28px}
-  .section-label{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#1B4FD8;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+  .section-label{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#2563eb;margin-bottom:10px;display:flex;align-items:center;gap:6px}
   .section-label::after{content:'';flex:1;height:1px;background:#E5E7EB}
-  .pitch{font-size:13.5px;line-height:1.7;color:#374151;background:#F8FAFF;border-left:3px solid #1B4FD8;padding:14px 18px;border-radius:0 8px 8px 0;font-style:italic}
+  .pitch{font-size:13.5px;line-height:1.7;color:#374151;background:#eff6ff;border-left:3px solid #2563eb;padding:14px 18px;border-radius:0 8px 8px 0;font-style:italic}
   .skills{display:flex;flex-wrap:wrap;gap:7px}
   .skill{padding:5px 13px;background:#EFF6FF;color:#1E40AF;border-radius:6px;font-size:12px;font-weight:600}
   .strengths{display:flex;flex-direction:column;gap:6px}
@@ -193,7 +194,7 @@ function StatusPill({ status }: { status: CvEntry['status'] }) {
   const map = {
     queued: { label: 'En attente', bg: '#FEF3C7', color: '#92400E', dot: '#F59E0B' },
     processing: { label: 'Analyse…', bg: '#EFF6FF', color: '#1E40AF', dot: '#3B82F6' },
-    done: { label: 'Analysé', bg: '#F0FDF4', color: '#166534', dot: '#22C55E' },
+    done: { label: 'Analysé', bg: '#F0FDF4', color: '#065F46', dot: '#22C55E' },
     error: { label: 'Erreur', bg: '#FEF2F2', color: '#991B1B', dot: '#EF4444' },
   };
   const s = map[status];
@@ -409,45 +410,30 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
   const canEnhanceAll = done > 0 && cvList.some(c => c.status === 'done' && (!c.enhanceStatus || c.enhanceStatus === 'idle' || c.enhanceStatus === 'error'));
 
   return (
-    <main style={{ minHeight: '100vh', background: '#F4F5F7', fontFamily: "'Segoe UI', system-ui, Arial, sans-serif" }}>
+    <main style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "'Segoe UI', system-ui, Arial, sans-serif" }}>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
         @keyframes spin { to{transform:rotate(360deg)} }
         @keyframes slideDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
-        .cv-row:hover { background: #F8FAFF !important; }
+        .cv-row:hover { background: #eff6ff !important; }
         .enhance-btn:hover:not(:disabled) { background: #7C3AED !important; color: #fff !important; border-color: #7C3AED !important; }
         .action-btn:hover:not(:disabled) { opacity: .88; }
-        .drop-zone:hover { border-color: #1B4FD8 !important; background: #F0F5FF !important; }
+        .drop-zone:hover { border-color: #2563eb !important; background: #eff6ff !important; }
       `}</style>
 
-      {/* ── Top nav ── */}
-      <nav style={{ background: '#0D1B2A', borderBottom: '1px solid rgba(255,255,255,.08)', padding: '0 28px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <Link href="/coordinator" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: '#1B4FD8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </div>
-            <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>TalentMap</span>
-          </Link>
-          <svg width="4" height="14" viewBox="0 0 4 14" fill="none"><path d="M2 1v12" stroke="rgba(255,255,255,.2)" strokeWidth="1.5" strokeLinecap="round"/></svg>
-          <span style={{ color: 'rgba(255,255,255,.6)', fontSize: 13 }}>Import CVs</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ color: 'rgba(255,255,255,.5)', fontSize: 12 }}>{user.name}</span>
-          <Link href="/coordinator" style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(255,255,255,.15)', color: 'rgba(255,255,255,.7)', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>← Dashboard</Link>
-        </div>
-      </nav>
+      <PageHeader title="TalentMap" subtitle="CV Upload" />
 
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px 80px' }}>
+        <Link href="/coordinator" style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none' }}>← Dashboard</Link>
 
         {/* ── Page header ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0D1B2A', letterSpacing: '-0.5px', marginBottom: 5 }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0a1f5c', letterSpacing: '-0.5px', marginBottom: 5 }}>
               Import de CVs
             </h1>
-            <p style={{ color: '#64748B', fontSize: 14, lineHeight: 1.5 }}>
-              Chargez jusqu'à <strong style={{ color: '#0D1B2A' }}>{MAX_CVS} CVs</strong> · Analyse IA automatique · Amélioration professionnelle en un clic
+            <p style={{ color: '#6b7280', fontSize: 14, lineHeight: 1.5 }}>
+              Chargez jusqu'à <strong style={{ color: '#0a1f5c' }}>{MAX_CVS} CVs</strong> · Analyse IA automatique · Amélioration professionnelle en un clic
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -466,7 +452,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </button>
             )}
             {total > 0 && (
-              <button onClick={clearAll} className="action-btn" style={{ padding: '8px 14px', background: 'transparent', color: '#64748B', border: '1.5px solid #E2E8F0', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              <button onClick={clearAll} className="action-btn" style={{ padding: '8px 14px', background: 'transparent', color: '#6b7280', border: '1.5px solid #e5e7eb', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 Vider
               </button>
             )}
@@ -475,10 +461,10 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
         {/* ── CV counter ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <div style={{ flex: 1, height: 6, background: '#E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 3, background: atLimit ? '#E8A020' : '#1B4FD8', width: `${(total / MAX_CVS) * 100}%`, transition: 'width .4s ease' }} />
+          <div style={{ flex: 1, height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 3, background: atLimit ? '#f59e0b' : '#2563eb', width: `${(total / MAX_CVS) * 100}%`, transition: 'width .4s ease' }} />
           </div>
-          <span style={{ fontSize: 12, fontWeight: 700, color: atLimit ? '#E8A020' : '#64748B', whiteSpace: 'nowrap', minWidth: 60, textAlign: 'right' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: atLimit ? '#f59e0b' : '#6b7280', whiteSpace: 'nowrap', minWidth: 60, textAlign: 'right' }}>
             {total}/{MAX_CVS} CVs
           </span>
         </div>
@@ -492,19 +478,19 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
             onClick={() => fileInputRef.current?.click()}
             style={{
-              border: `2px dashed ${dragging ? '#1B4FD8' : '#CBD5E1'}`,
+              border: `2px dashed ${dragging ? '#2563eb' : '#d1d5db'}`,
               background: dragging ? '#EFF6FF' : '#fff',
               borderRadius: 14, padding: '32px 24px', textAlign: 'center',
               cursor: 'pointer', transition: 'all 0.18s', marginBottom: 20,
             }}>
             <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} onChange={e => e.target.files && handleFiles(e.target.files)} />
             <div style={{ width: 52, height: 52, borderRadius: 12, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="#1B4FD8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0D1B2A', marginBottom: 6 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0a1f5c', marginBottom: 6 }}>
               {dragging ? 'Déposez ici' : 'Glissez vos CVs ici'}
             </h3>
-            <p style={{ color: '#64748B', fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
               Jusqu'à <strong>{MAX_CVS - total}</strong> CV{MAX_CVS - total > 1 ? 's' : ''} restant{MAX_CVS - total > 1 ? 's' : ''} · PDF, DOCX, DOC, JPG, PNG
             </p>
             <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 18 }}>
@@ -515,7 +501,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             <button
               className="action-btn"
               onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}
-              style={{ padding: '10px 24px', background: '#1B4FD8', color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              style={{ padding: '10px 24px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
               Sélectionner des fichiers
             </button>
           </div>
@@ -526,33 +512,33 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
             <span style={{ fontSize: 18 }}>⚠</span>
             <div>
               <span style={{ fontWeight: 700, fontSize: 13, color: '#92400E' }}>Limite atteinte · </span>
-              <span style={{ fontSize: 13, color: '#78350F' }}>Vous avez atteint le maximum de {MAX_CVS} CVs. Videz la liste pour en importer de nouveaux.</span>
+              <span style={{ fontSize: 13, color: '#92400E' }}>Vous avez atteint le maximum de {MAX_CVS} CVs. Videz la liste pour en importer de nouveaux.</span>
             </div>
           </div>
         )}
 
         {/* ── Progress bar (while processing) ── */}
         {total > 0 && (queued > 0 || processing > 0) && (
-          <div style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', marginBottom: 16, border: '1px solid #E2E8F0', animation: 'slideDown .2s ease' }}>
+          <div style={{ background: '#fff', borderRadius: 10, padding: '14px 18px', marginBottom: 16, border: '1px solid #e5e7eb', animation: 'slideDown .2s ease' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ display: 'flex', gap: 18 }}>
                 {[
-                  { label: 'Total', value: total, color: '#0D1B2A' },
+                  { label: 'Total', value: total, color: '#0a1f5c' },
                   queued > 0 && { label: 'En attente', value: queued, color: '#F59E0B' },
-                  processing > 0 && { label: 'Analyse', value: processing, color: '#1B4FD8' },
+                  processing > 0 && { label: 'Analyse', value: processing, color: '#2563eb' },
                   { label: 'Terminés', value: done, color: '#16A34A' },
                   errors > 0 && { label: 'Erreurs', value: errors, color: '#DC2626' },
                 ].filter(Boolean).map((s: any) => (
                   <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
                     <span style={{ fontWeight: 800, fontSize: 20, color: s.color, fontVariantNumeric: 'tabular-nums' }}>{s.value}</span>
-                    <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>{s.label}</span>
+                    <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>{s.label}</span>
                   </div>
                 ))}
               </div>
-              <span style={{ fontWeight: 800, fontSize: 14, color: '#1B4FD8', fontVariantNumeric: 'tabular-nums' }}>{progressPct}%</span>
+              <span style={{ fontWeight: 800, fontSize: 14, color: '#2563eb', fontVariantNumeric: 'tabular-nums' }}>{progressPct}%</span>
             </div>
-            <div style={{ height: 5, background: '#F1F5F9', borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: 'linear-gradient(90deg,#1B4FD8,#16A34A)', borderRadius: 3, width: `${progressPct}%`, transition: 'width 0.5s ease' }} />
+            <div style={{ height: 5, background: '#f3f4f6', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: 'linear-gradient(90deg,#2563eb,#16A34A)', borderRadius: 3, width: `${progressPct}%`, transition: 'width 0.5s ease' }} />
             </div>
           </div>
         )}
@@ -580,34 +566,34 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         {total > 0 && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: '1 1 220px' }}>
-              <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: .4 }} width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="#0D1B2A" strokeWidth="2"/><path d="m21 21-4.35-4.35" stroke="#0D1B2A" strokeWidth="2" strokeLinecap="round"/></svg>
+              <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: .4 }} width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="#0a1f5c" strokeWidth="2"/><path d="m21 21-4.35-4.35" stroke="#0a1f5c" strokeWidth="2" strokeLinecap="round"/></svg>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Nom, fichier, compétence…"
-                style={{ width: '100%', padding: '9px 10px 9px 30px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#0D1B2A' }} />
+                style={{ width: '100%', padding: '9px 10px 9px 30px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#0a1f5c' }} />
             </div>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)}
-              style={{ padding: '9px 12px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#0D1B2A', cursor: 'pointer' }}>
+              style={{ padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#0a1f5c', cursor: 'pointer' }}>
               <option value="all">Tous ({total})</option>
               {done > 0 && <option value="done">Analysés ({done})</option>}
               {processing > 0 && <option value="processing">En cours ({processing})</option>}
               {queued > 0 && <option value="queued">En attente ({queued})</option>}
               {errors > 0 && <option value="error">Erreurs ({errors})</option>}
             </select>
-            <span style={{ fontSize: 12, color: '#94A3B8', whiteSpace: 'nowrap' }}>{filtered.length} résultat{filtered.length !== 1 ? 's' : ''}</span>
+            <span style={{ fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>{filtered.length} résultat{filtered.length !== 1 ? 's' : ''}</span>
           </div>
         )}
 
         {/* ── CV list ── */}
         {filtered.length > 0 && (
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#0D1B2A' }}>CVs importés ({filtered.length}{filtered.length !== total ? ` / ${total}` : ''})</span>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#0a1f5c' }}>CVs importés ({filtered.length}{filtered.length !== total ? ` / ${total}` : ''})</span>
               {enhanced > 0 && <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, background: '#F5F3FF', padding: '3px 10px', borderRadius: 999 }}>✦ {enhanced} CV{enhanced > 1 ? 's' : ''} amélioré{enhanced > 1 ? 's' : ''}</span>}
             </div>
             <div>
               {filtered.map((cv, idx) => {
                 const isExpanded = expanded === cv.id;
                 return (
-                  <div key={cv.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #F8FAFC' : 'none' }}>
+                  <div key={cv.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #f9fafb' : 'none' }}>
                     {/* Main row */}
                     <div
                       className="cv-row"
@@ -619,21 +605,21 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
                       {/* Name + filename */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: '#0D1B2A', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: '#0a1f5c', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {cv.status === 'done' && cv.name ? cv.name : cv.fileName}
                         </div>
-                        <div style={{ fontSize: 11, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: 11, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           {cv.status === 'done' && cv.name && <span>{cv.fileName}</span>}
                           <span>{cv.fileSize}</span>
                           {cv.sector && <span style={{ background: '#EFF6FF', color: '#1E40AF', borderRadius: 4, padding: '1px 7px', fontWeight: 600, fontSize: 10 }}>{cv.sector}</span>}
-                          {cv.experience && <span style={{ background: '#F0FDF4', color: '#166534', borderRadius: 4, padding: '1px 7px', fontWeight: 600, fontSize: 10 }}>{cv.experience}</span>}
+                          {cv.experience && <span style={{ background: '#F0FDF4', color: '#065F46', borderRadius: 4, padding: '1px 7px', fontWeight: 600, fontSize: 10 }}>{cv.experience}</span>}
                         </div>
                         {cv.status === 'done' && cv.skills.length > 0 && (
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
                             {cv.skills.slice(0, 4).map(s => (
-                              <span key={s} style={{ background: '#F1F5F9', color: '#475569', borderRadius: 4, padding: '1px 7px', fontSize: 10, fontWeight: 600 }}>{s}</span>
+                              <span key={s} style={{ background: '#f3f4f6', color: '#374151', borderRadius: 4, padding: '1px 7px', fontSize: 10, fontWeight: 600 }}>{s}</span>
                             ))}
-                            {cv.skills.length > 4 && <span style={{ fontSize: 10, color: '#94A3B8' }}>+{cv.skills.length - 4}</span>}
+                            {cv.skills.length > 4 && <span style={{ fontSize: 10, color: '#9ca3af' }}>+{cv.skills.length - 4}</span>}
                           </div>
                         )}
                       </div>
@@ -683,7 +669,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                         )}
 
                         {cv.status === 'done' && (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: '#94A3B8', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: '#9ca3af', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>
                             <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         )}
@@ -692,23 +678,23 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
                     {/* Expanded detail */}
                     {isExpanded && cv.status === 'done' && (
-                      <div style={{ padding: '0 20px 18px', borderTop: '1px solid #F1F5F9', background: '#FAFBFD', animation: 'slideDown .18s ease' }}>
+                      <div style={{ padding: '0 20px 18px', borderTop: '1px solid #f3f4f6', background: '#FAFBFD', animation: 'slideDown .18s ease' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginTop: 14 }}>
                           {cv.email && (
-                            <div style={{ background: '#fff', borderRadius: 8, padding: '10px 13px', border: '1px solid #F1F5F9' }}>
-                              <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 3 }}>Email</div>
-                              <div style={{ fontSize: 13, color: '#0D1B2A', fontWeight: 500 }}>{cv.email}</div>
+                            <div style={{ background: '#fff', borderRadius: 8, padding: '10px 13px', border: '1px solid #f3f4f6' }}>
+                              <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 3 }}>Email</div>
+                              <div style={{ fontSize: 13, color: '#0a1f5c', fontWeight: 500 }}>{cv.email}</div>
                             </div>
                           )}
                           {cv.phone && (
-                            <div style={{ background: '#fff', borderRadius: 8, padding: '10px 13px', border: '1px solid #F1F5F9' }}>
-                              <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 3 }}>Téléphone</div>
-                              <div style={{ fontSize: 13, color: '#0D1B2A', fontWeight: 500 }}>{cv.phone}</div>
+                            <div style={{ background: '#fff', borderRadius: 8, padding: '10px 13px', border: '1px solid #f3f4f6' }}>
+                              <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 3 }}>Téléphone</div>
+                              <div style={{ fontSize: 13, color: '#0a1f5c', fontWeight: 500 }}>{cv.phone}</div>
                             </div>
                           )}
                         </div>
                         {cv.summary && (
-                          <div style={{ marginTop: 10, fontSize: 13, color: '#475569', fontStyle: 'italic', lineHeight: 1.65, borderLeft: '3px solid #1B4FD8', paddingLeft: 12, background: '#F8FAFF', borderRadius: '0 8px 8px 0', padding: '10px 14px 10px 13px' }}>
+                          <div style={{ marginTop: 10, fontSize: 13, color: '#374151', fontStyle: 'italic', lineHeight: 1.65, borderLeft: '3px solid #2563eb', paddingLeft: 12, background: '#eff6ff', borderRadius: '0 8px 8px 0', padding: '10px 14px 10px 13px' }}>
                             {cv.summary}
                           </div>
                         )}
@@ -730,12 +716,12 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
         {/* ── Empty state ── */}
         {total === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px 24px', color: '#94A3B8' }}>
-            <div style={{ width: 64, height: 64, borderRadius: 16, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <div style={{ textAlign: 'center', padding: '60px 24px', color: '#9ca3af' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 16, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
-            <p style={{ fontWeight: 700, color: '#475569', fontSize: 16, marginBottom: 6 }}>Aucun CV importé</p>
-            <p style={{ fontSize: 14, color: '#94A3B8', maxWidth: 340, margin: '0 auto' }}>
+            <p style={{ fontWeight: 700, color: '#374151', fontSize: 16, marginBottom: 6 }}>Aucun CV importé</p>
+            <p style={{ fontSize: 14, color: '#9ca3af', maxWidth: 340, margin: '0 auto' }}>
               Glissez des fichiers dans la zone ci-dessus ou cliquez pour sélectionner jusqu'à {MAX_CVS} CVs.
             </p>
           </div>

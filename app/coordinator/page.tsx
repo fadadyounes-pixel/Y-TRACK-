@@ -3,27 +3,24 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Logo from '../../components/Logo';
+import PageHeader from '../../components/PageHeader';
 import { useAuth } from '../../contexts/AuthContext';
 import { computeMatch, scoreColor, EXP_ORDER, type MatchBreakdown } from '@/lib/matching';
 import { generateCVHtml, type WorkEntry, type Education, type CVStyle } from '@/lib/cvTemplate';
 import { regionDisplay } from '@/lib/morocco';
 
-/* ── Dark theme card/button styles ──────────────────────────────────────
- * globals.css's shared `.card`/`.btn-primary` classes are used site-wide
- * (candidate pages included) and stay light on purpose — this dashboard's
- * dark theme is scoped to this file only, so it's applied as inline
- * styles instead of touching those shared classes. Colors match the
- * admin dashboard's own dark/brand-blue palette for a consistent pair.
+/* ── Card/button styles (TALENTMAP.md spec) ─────────────────────────────
+ * Matches globals.css's shared `.card`/`.btn-primary` values, kept as
+ * local constants since this file also composes them inline (e.g.
+ * ...CARD_STYLE spreads) alongside per-element overrides.
  */
 const CARD_STYLE: React.CSSProperties = {
-  background: '#111827', borderRadius: 10, border: '1px solid rgba(255,255,255,.08)',
-  boxShadow: '0 1px 3px rgba(0,0,0,.3)', padding: '1.5rem',
+  background: '#ffffff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04)', padding: '1.5rem',
 };
 const BTN_PRIMARY_STYLE: React.CSSProperties = {
-  background: '#3B82F6', color: '#fff', padding: '0.65rem 1.5rem', borderRadius: 8,
-  fontWeight: 600, fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center',
-  gap: '0.45rem', letterSpacing: '0.01em',
+  background: '#1d4ed8', color: '#fff', padding: '0.75rem 1.75rem', borderRadius: 8,
+  fontWeight: 600, fontSize: '0.95rem', display: 'inline-flex', alignItems: 'center',
+  gap: '0.45rem',
 };
 
 /* ── Types ─────────────────────────────────────────── */
@@ -96,11 +93,11 @@ interface Application {
 }
 
 const APPLICATION_STAGES: { key: Application['status']; label: string; color: string }[] = [
-  { key: 'Applied',   label: 'Candidatures', color: '#94A3B8' },
+  { key: 'Applied',   label: 'Candidatures', color: '#6b7280' },
   { key: 'Reviewed',  label: 'En examen',    color: '#38BDF8' },
-  { key: 'Interview', label: 'Entretien',    color: '#FCD34D' },
-  { key: 'Hired',     label: 'Recruté(e)',   color: '#22C55E' },
-  { key: 'Rejected',  label: 'Non retenu(e)', color: '#FCA5A5' },
+  { key: 'Interview', label: 'Entretien',    color: '#f59e0b' },
+  { key: 'Hired',     label: 'Recruté(e)',   color: '#059669' },
+  { key: 'Rejected',  label: 'Non retenu(e)', color: '#991b1b' },
 ];
 
 function initials(name: string) {
@@ -118,10 +115,10 @@ function ScoreBar({ label, pts, max, color }: { label: string; pts: number; max:
   return (
     <div style={{ marginBottom: '4px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', marginBottom: '2px' }}>
-        <span style={{ color: '#8B95A8' }}>{label}</span>
-        <span style={{ fontWeight: 700, color: '#CBD5E1' }}>{pts}/{max}</span>
+        <span style={{ color: '#9ca3af' }}>{label}</span>
+        <span style={{ fontWeight: 700, color: '#374151' }}>{pts}/{max}</span>
       </div>
-      <div style={{ height: '4px', background: 'rgba(255,255,255,.08)', borderRadius: '2px', overflow: 'hidden' }}>
+      <div style={{ height: '4px', background: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
         <div style={{ height: '100%', borderRadius: '2px', background: color, width: `${(pts / max) * 100}%`, transition: 'width 0.4s ease' }} />
       </div>
     </div>
@@ -195,32 +192,32 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
       {/* Drawer */}
       <div style={{
         position: 'fixed', top: 0, right: 0, bottom: 0, width: '480px', maxWidth: '100vw',
-        background: '#111827', boxShadow: '-4px 0 32px rgba(0,0,0,0.15)',
+        background: '#ffffff', boxShadow: '-4px 0 32px rgba(0,0,0,0.15)',
         zIndex: 50, overflowY: 'auto', display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
-        <div style={{ padding: '1.5rem 1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,.08)', position: 'sticky', top: 0, background: '#111827', zIndex: 10 }}>
+        <div style={{ padding: '1.5rem 1.5rem 1.25rem', borderBottom: '1px solid #e5e7eb', position: 'sticky', top: 0, background: '#ffffff', zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
             <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: av.bg, color: av.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 800, flexShrink: 0 }}>
               {initials(cv.name || cv.fileName)}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#F1F5F9', marginBottom: '0.2rem' }}>{cv.name || cv.fileName}</div>
-              <div style={{ fontSize: '0.75rem', color: '#8B95A8', marginBottom: '0.5rem' }}>{cv.fileName} · {cv.fileSize}</div>
+              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0a1f5c', marginBottom: '0.2rem' }}>{cv.name || cv.fileName}</div>
+              <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.5rem' }}>{cv.fileName} · {cv.fileSize}</div>
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                {cv.sector && <span style={{ padding: '0.15rem 0.6rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 700, background: 'rgba(59,130,246,.10)', color: '#60A5FA' }}>{cv.sector}</span>}
-                {cv.experience && <span style={{ padding: '0.15rem 0.6rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 700, background: 'rgba(34,197,94,.10)', color: '#4ADE80' }}>{cv.experience}</span>}
+                {cv.sector && <span style={{ padding: '0.15rem 0.6rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 700, background: '#eff6ff', color: '#2563eb' }}>{cv.sector}</span>}
+                {cv.experience && <span style={{ padding: '0.15rem 0.6rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 700, background: '#d1fae5', color: '#065f46' }}>{cv.experience}</span>}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
               <button
                 onClick={() => downloadCvPDF(cv)}
                 title="Télécharger PDF"
-                style={{ background: 'rgba(59,130,246,.10)', border: '1.5px solid rgba(59,130,246,.35)', borderRadius: '8px', padding: '0 12px', height: '32px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+                style={{ background: '#eff6ff', border: '1.5px solid #93c5fd', borderRadius: '8px', padding: '0 12px', height: '32px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
               >
                 ⬇ PDF
               </button>
-              <button onClick={onClose} style={{ background: 'rgba(255,255,255,.08)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>✕</button>
+              <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}>✕</button>
             </div>
           </div>
         </div>
@@ -228,28 +225,28 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
         <div style={{ padding: '1.25rem 1.5rem', flex: 1 }}>
           {/* Contact */}
           <section style={{ marginBottom: '1.25rem' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#8B95A8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>Contact</div>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>Contact</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-              <div style={{ padding: '0.65rem', background: 'rgba(255,255,255,.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,.08)' }}>
-                <div style={{ fontSize: '0.68rem', color: '#8B95A8', fontWeight: 700 }}>CIN</div>
-                <div style={{ fontSize: '0.82rem', color: '#F1F5F9', fontWeight: 500, marginTop: '2px', fontFamily: 'monospace' }}>{cv.id}</div>
+              <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>CIN</div>
+                <div style={{ fontSize: '0.82rem', color: '#0a1f5c', fontWeight: 500, marginTop: '2px', fontFamily: 'monospace' }}>{cv.id}</div>
               </div>
               {cv.email && (
-                <div style={{ padding: '0.65rem', background: 'rgba(255,255,255,.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,.08)' }}>
-                  <div style={{ fontSize: '0.68rem', color: '#8B95A8', fontWeight: 700 }}>Email</div>
-                  <div style={{ fontSize: '0.82rem', color: '#F1F5F9', fontWeight: 500, marginTop: '2px', wordBreak: 'break-all' }}>{cv.email}</div>
+                <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>Email</div>
+                  <div style={{ fontSize: '0.82rem', color: '#0a1f5c', fontWeight: 500, marginTop: '2px', wordBreak: 'break-all' }}>{cv.email}</div>
                 </div>
               )}
               {cv.phone && (
-                <div style={{ padding: '0.65rem', background: 'rgba(255,255,255,.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,.08)' }}>
-                  <div style={{ fontSize: '0.68rem', color: '#8B95A8', fontWeight: 700 }}>Téléphone</div>
-                  <div style={{ fontSize: '0.82rem', color: '#F1F5F9', fontWeight: 500, marginTop: '2px' }}>{cv.phone}</div>
+                <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>Téléphone</div>
+                  <div style={{ fontSize: '0.82rem', color: '#0a1f5c', fontWeight: 500, marginTop: '2px' }}>{cv.phone}</div>
                 </div>
               )}
               {regionDisplay(cv.region, cv.prefecture, cv.arrondissement) && (
-                <div style={{ padding: '0.65rem', background: 'rgba(255,255,255,.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,.08)' }}>
-                  <div style={{ fontSize: '0.68rem', color: '#8B95A8', fontWeight: 700 }}>Région</div>
-                  <div style={{ fontSize: '0.82rem', color: '#F1F5F9', fontWeight: 500, marginTop: '2px' }}>{regionDisplay(cv.region, cv.prefecture, cv.arrondissement)}</div>
+                <div style={{ padding: '0.65rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#9ca3af', fontWeight: 700 }}>Région</div>
+                  <div style={{ fontSize: '0.82rem', color: '#0a1f5c', fontWeight: 500, marginTop: '2px' }}>{regionDisplay(cv.region, cv.prefecture, cv.arrondissement)}</div>
                 </div>
               )}
             </div>
@@ -258,8 +255,8 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
           {/* Summary */}
           {cv.summary && (
             <section style={{ marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#8B95A8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>Accroche</div>
-              <div style={{ fontSize: '0.875rem', color: '#CBD5E1', lineHeight: 1.65, fontStyle: 'italic', borderLeft: '3px solid #3B82F6', paddingLeft: '0.75rem', background: 'rgba(59,130,246,.08)', borderRadius: '0 8px 8px 0', padding: '0.75rem 0.75rem 0.75rem 1rem' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>Accroche</div>
+              <div style={{ fontSize: '0.875rem', color: '#374151', lineHeight: 1.65, fontStyle: 'italic', borderLeft: '3px solid #2563eb', paddingLeft: '0.75rem', background: '#eff6ff', borderRadius: '0 8px 8px 0', padding: '0.75rem 0.75rem 0.75rem 1rem' }}>
                 {cv.summary}
               </div>
             </section>
@@ -268,10 +265,10 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
           {/* Skills */}
           {cv.skills.length > 0 && (
             <section style={{ marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#8B95A8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>Compétences</div>
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>Compétences</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                 {cv.skills.map(s => (
-                  <span key={s} style={{ padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(59,130,246,.14)', color: '#93C5FD' }}>{s}</span>
+                  <span key={s} style={{ padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, background: '#dbeafe', color: '#93C5FD' }}>{s}</span>
                 ))}
               </div>
             </section>
@@ -279,11 +276,11 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
 
           {/* Best matching jobs */}
           <section>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#8B95A8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>
               🎯 Meilleures offres ({topMatches.length})
             </div>
             {topMatches.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '1.5rem', color: '#8B95A8', fontSize: '0.85rem' }}>
+              <div style={{ textAlign: 'center', padding: '1.5rem', color: '#9ca3af', fontSize: '0.85rem' }}>
                 Aucune offre ouverte pour le moment
               </div>
             ) : (
@@ -291,26 +288,26 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
                 {topMatches.map(({ job, match }) => {
                   const sc = scoreColor(match.total);
                   return (
-                    <div key={job.id} style={{ padding: '0.9rem', background: 'rgba(255,255,255,.04)', borderRadius: '10px', border: '1px solid rgba(255,255,255,.08)' }}>
+                    <div key={job.id} style={{ padding: '0.9rem', background: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#F1F5F9' }}>{job.title}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{job.company} · {job.location}</div>
+                          <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0a1f5c' }}>{job.title}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{job.company} · {job.location}</div>
                         </div>
                         <span style={{ padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: 800, background: sc.bg, color: sc.color, flexShrink: 0, marginLeft: '0.5rem' }}>
                           {match.total}%
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <ScoreBar label="Compétences" pts={match.skillsPts} max={40} color="#3B82F6" />
-                        <ScoreBar label="Expérience" pts={match.experiencePts} max={30} color="#22C55E" />
+                        <ScoreBar label="Compétences" pts={match.skillsPts} max={40} color="#2563eb" />
+                        <ScoreBar label="Expérience" pts={match.experiencePts} max={30} color="#059669" />
                         <ScoreBar label="Formation" pts={match.educationPts} max={20} color="#38BDF8" />
-                        <ScoreBar label="Langues" pts={match.languagePts} max={10} color="#A78BFA" />
+                        <ScoreBar label="Langues" pts={match.languagePts} max={10} color="#7c3aed" />
                       </div>
                       {match.matchedSkills.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.5rem' }}>
                           {match.matchedSkills.map(s => (
-                            <span key={s} style={{ padding: '0.1rem 0.45rem', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 700, background: 'rgba(34,197,94,.14)', color: '#4ADE80' }}>{s}</span>
+                            <span key={s} style={{ padding: '0.1rem 0.45rem', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 700, background: '#d1fae5', color: '#065f46' }}>{s}</span>
                           ))}
                         </div>
                       )}
@@ -337,15 +334,15 @@ function JobMatchPanel({ job, cvs, onSelectCV }: { job: Job; cvs: CV[]; onSelect
 
   if (ranked.length === 0) {
     return (
-      <div style={{ padding: '1.5rem', textAlign: 'center', color: '#8B95A8', fontSize: '0.85rem' }}>
-        Aucun candidat disponible — <Link href="/coordinator/upload" style={{ color: '#3B82F6', fontWeight: 600 }}>Importer des CVs</Link>
+      <div style={{ padding: '1.5rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.85rem' }}>
+        Aucun candidat disponible — <Link href="/coordinator/upload" style={{ color: '#2563eb', fontWeight: 600 }}>Importer des CVs</Link>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '0.75rem 1rem 1rem', borderTop: '1px solid rgba(255,255,255,.10)', background: 'rgba(255,255,255,.02)' }}>
-      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#8B95A8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
+    <div style={{ padding: '0.75rem 1rem 1rem', borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
+      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
         🎯 {ranked.length} candidat{ranked.length !== 1 ? 's' : ''} classés par pertinence
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
@@ -355,25 +352,25 @@ function JobMatchPanel({ job, cvs, onSelectCV }: { job: Job; cvs: CV[]; onSelect
           return (
             <div key={cv.id}
               onClick={() => onSelectCV(cv)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 0.85rem', background: '#111827', borderRadius: '8px', border: `1.5px solid ${i < 3 && match.total >= 50 ? 'rgba(59,130,246,.35)' : 'rgba(255,255,255,.08)'}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 0.85rem', background: '#ffffff', borderRadius: '8px', border: `1.5px solid ${i < 3 && match.total >= 50 ? '#93c5fd' : '#e5e7eb'}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
             >
               <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: av.bg, color: av.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800, flexShrink: 0 }}>
                 {initials(cv.name || cv.fileName)}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#F1F5F9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cv.name || cv.fileName}</div>
+                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#0a1f5c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cv.name || cv.fileName}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem', marginTop: '0.2rem' }}>
                   {match.matchedSkills.slice(0, 3).map(s => (
-                    <span key={s} style={{ padding: '0.05rem 0.4rem', borderRadius: '3px', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(34,197,94,.14)', color: '#4ADE80' }}>{s}</span>
+                    <span key={s} style={{ padding: '0.05rem 0.4rem', borderRadius: '3px', fontSize: '0.65rem', fontWeight: 700, background: '#d1fae5', color: '#065f46' }}>{s}</span>
                   ))}
                   {cv.skills.filter(s => !match.matchedSkills.includes(s)).slice(0, 2).map(s => (
-                    <span key={s} style={{ padding: '0.05rem 0.4rem', borderRadius: '3px', fontSize: '0.65rem', fontWeight: 600, background: 'rgba(255,255,255,.08)', color: '#94A3B8' }}>{s}</span>
+                    <span key={s} style={{ padding: '0.05rem 0.4rem', borderRadius: '3px', fontSize: '0.65rem', fontWeight: 600, background: '#f3f4f6', color: '#6b7280' }}>{s}</span>
                   ))}
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: 800, background: sc.bg, color: sc.color }}>{match.total}%</div>
-                <div style={{ fontSize: '0.65rem', color: '#8B95A8', marginTop: '2px' }}>Voir CV →</div>
+                <div style={{ fontSize: '0.65rem', color: '#9ca3af', marginTop: '2px' }}>Voir CV →</div>
               </div>
             </div>
           );
@@ -385,7 +382,7 @@ function JobMatchPanel({ job, cvs, onSelectCV }: { job: Job; cvs: CV[]; onSelect
 
 /* ── Main Dashboard ─────────────────────────────────── */
 export default function CoordinatorDashboard() {
-  const { user, initialized, logout } = useAuth();
+  const { user, initialized } = useAuth();
   const router = useRouter();
 
   const [tab, setTab] = useState<'overview' | 'candidates' | 'jobs' | 'matching' | 'applications'>('overview');
@@ -559,10 +556,10 @@ export default function CoordinatorDashboard() {
   }
 
   /* ── Styles ── */
-  const inp: React.CSSProperties = { padding: '0.55rem 0.9rem', border: '1.5px solid rgba(255,255,255,.10)', borderRadius: '8px', fontSize: '0.85rem', fontFamily: 'inherit', background: '#111827' };
+  const inp: React.CSSProperties = { padding: '0.55rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.85rem', fontFamily: 'inherit', background: '#ffffff' };
   const tabBtn = (active: boolean): React.CSSProperties => ({
     padding: '0.55rem 1.25rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', border: 'none',
-    background: active ? '#3B82F6' : 'white', color: active ? 'white' : '#94A3B8', transition: 'all 0.15s',
+    background: active ? '#2563eb' : 'white', color: active ? 'white' : '#6b7280', transition: 'all 0.15s',
   });
 
   /* ── Sidebar nav items ── */
@@ -575,97 +572,64 @@ export default function CoordinatorDashboard() {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif' }}>
-      {/* Dark sidebar */}
-      <aside style={{
-        width: '220px', flexShrink: 0, background: '#0A0E1A',
-        display: 'flex', flexDirection: 'column',
-        position: 'sticky', top: 0, height: '100vh',
-      }}>
-        {/* Logo area */}
-        <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
-          <Logo size="md" variant="light" />
-        </div>
+    <div style={{ minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif' }}>
+      <PageHeader title="TalentMap" subtitle="Coordinator Portal" />
 
-        {/* User pill */}
-        <div style={{ margin: '0.75rem 0.875rem', padding: '0.6rem 0.875rem', borderRadius: '8px', background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)' }}>
-          <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '2px' }}>Coordinateur</div>
-          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.id}</div>
-        </div>
-
-        {/* Nav items */}
-        <nav style={{ flex: 1, padding: '0.5rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {NAV.map(n => {
-            const active = tab === n.key;
-            return (
-              <button key={n.key} onClick={() => setTab(n.key)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '0.6rem',
-                  padding: '0.6rem 0.75rem', borderRadius: '7px', border: 'none',
-                  background: active ? 'rgba(27,79,216,.85)' : 'transparent',
-                  color: active ? '#FFFFFF' : 'rgba(255,255,255,.5)',
-                  fontSize: '0.82rem', fontWeight: active ? 700 : 500,
-                  cursor: 'pointer', textAlign: 'left', transition: 'all .18s',
-                  fontFamily: 'inherit',
-                }}>
-                <span style={{ fontSize: '0.9rem', width: '18px', flexShrink: 0, textAlign: 'center' }}>{n.icon}</span>
-                {n.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Action buttons */}
-        <div style={{ padding: '0.75rem', borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <Link href="/coordinator/upload" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.55rem 0.75rem', borderRadius: '7px', background: '#3B82F6', color: '#fff', fontSize: '0.78rem', fontWeight: 700, textDecoration: 'none' }}>
-            📁 Importer CVs
-          </Link>
-          <Link href="/coordinator/jobs" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.55rem 0.75rem', borderRadius: '7px', background: 'rgba(255,255,255,.07)', color: 'rgba(255,255,255,.7)', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(255,255,255,.1)' }}>
-            ➕ Nouvelle offre
-          </Link>
-          <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.75rem', borderRadius: '7px', background: 'transparent', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.35)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', marginTop: '2px' }}>
-            ↩ Déconnexion
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <main style={{ flex: 1, minWidth: 0, background: '#0A0E1A', overflowY: 'auto' }}>
-        {/* Top bar */}
-        <div style={{ background: '#111827', borderBottom: '1px solid rgba(255,255,255,.10)', padding: '0.875rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
-          <div>
-            <h1 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#F1F5F9', margin: 0 }}>
-              { NAV.find(n => n.key === tab)?.label ?? 'Dashboard' }
-            </h1>
+      {/* ── Tab bar ── */}
+      <div style={{ background: '#ffffff', borderBottom: '1px solid #e5e7eb', padding: '0.875rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', position: 'sticky', top: 0, zIndex: 20 }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', padding: 0 }}>
+          <div className="tab-group">
+            {NAV.map(n => {
+              const active = tab === n.key;
+              return (
+                <button key={n.key} onClick={() => setTab(n.key)} className={`tab-button${active ? ' active-coordinator' : ''}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ fontSize: '0.9rem' }}>{n.icon}</span>
+                  {n.label}
+                </button>
+              );
+            })}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {!loading && cvs.length === 0 && (
-              <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginRight: '0.5rem' }}>Aucun CV — commencez par en importer</span>
-            )}
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 600 }}>{user.name || user.id}</span>
+            <Link href="/coordinator/upload" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.9rem', borderRadius: '7px', background: '#2563eb', color: '#fff', fontSize: '0.78rem', fontWeight: 700, textDecoration: 'none' }}>
+              📁 Importer CVs
+            </Link>
+            <Link href="/coordinator/jobs" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.9rem', borderRadius: '7px', background: 'transparent', color: '#1d4ed8', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'none', border: '1.5px solid #1d4ed8' }}>
+              ➕ Nouvelle offre
+            </Link>
           </div>
         </div>
+      </div>
+
+      <main style={{ background: '#f9fafb' }}>
+        {!loading && cvs.length === 0 && (
+          <div className="container" style={{ padding: '0.6rem 1.5rem 0' }}>
+            <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>Aucun CV — commencez par en importer</span>
+          </div>
+        )}
 
         {/* CV Panel */}
         {selectedCV && <CVPanel cv={selectedCV} jobs={jobs} onClose={() => setSelectedCV(null)} />}
 
-        <div style={{ padding: '1.75rem 2rem' }}>
+        <div className="container" style={{ padding: '1.75rem 1.5rem' }}>
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
           {[
-            { label: 'CVs importés',        value: loading ? '…' : stats.totalCvs,         accent: '#3B82F6' },
+            { label: 'CVs importés',        value: loading ? '…' : stats.totalCvs,         accent: '#2563eb' },
             { label: 'Offres ouvertes',      value: loading ? '…' : stats.openJobs,         accent: '#38BDF8' },
-            { label: 'Profils excellents',   value: loading ? '…' : stats.excellentMatches, accent: '#22C55E' },
-            { label: 'Score moy. matching',  value: loading ? '…' : (stats.avgScore > 0 ? stats.avgScore + '%' : '—'), accent: '#A78BFA' },
+            { label: 'Profils excellents',   value: loading ? '…' : stats.excellentMatches, accent: '#059669' },
+            { label: 'Score moy. matching',  value: loading ? '…' : (stats.avgScore > 0 ? stats.avgScore + '%' : '—'), accent: '#7c3aed' },
           ].map(s => (
             <div key={s.label} style={{
-              background: '#111827', borderRadius: '10px',
-              border: '1px solid rgba(255,255,255,.10)', padding: '1.25rem 1.5rem',
+              background: '#ffffff', borderRadius: '10px',
+              border: '1px solid #e5e7eb', padding: '1.25rem 1.5rem',
               boxShadow: '0 1px 3px rgba(0,0,0,.04)',
               borderLeft: `3px solid ${s.accent}`,
             }}>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#F1F5F9', lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: '0.73rem', color: '#94A3B8', marginTop: '0.4rem', fontWeight: 500 }}>{s.label}</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0a1f5c', lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: '0.73rem', color: '#6b7280', marginTop: '0.4rem', fontWeight: 500 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -674,11 +638,11 @@ export default function CoordinatorDashboard() {
         {tab === 'overview' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 340px', gap: '1.5rem' }}>
             <div style={CARD_STYLE}>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#F1F5F9', marginBottom: '1.25rem' }}>🎯 Top profils / offres</h2>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0a1f5c', marginBottom: '1.25rem' }}>🎯 Top profils / offres</h2>
               {topMatches.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2.5rem', color: '#8B95A8' }}>
+                <div style={{ textAlign: 'center', padding: '2.5rem', color: '#9ca3af' }}>
                   <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🤖</div>
-                  <p style={{ fontWeight: 600, color: '#94A3B8', marginBottom: '0.5rem' }}>Le matching IA attend vos données</p>
+                  <p style={{ fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>Le matching IA attend vos données</p>
                   <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>Importez des CVs et créez des offres pour voir les matches automatiques.</p>
                   <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, fontSize: '0.85rem', padding: '0.5rem 1rem', textDecoration: 'none' }}>📁 Importer CVs</Link>
@@ -688,9 +652,9 @@ export default function CoordinatorDashboard() {
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+                    <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
                       {['Candidat', 'Meilleure offre', 'Compétences clés', 'Score'].map(h => (
-                        <th key={h} style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.72rem', color: '#8B95A8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                        <th key={h} style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.72rem', color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -699,28 +663,28 @@ export default function CoordinatorDashboard() {
                       const sc = scoreColor(bestScore);
                       const av = avatarColor(cv.name || cv.fileName);
                       return (
-                        <tr key={cv.id} onClick={() => setSelectedCV(cv)} style={{ borderBottom: '1px solid rgba(255,255,255,.04)', cursor: 'pointer' }}>
+                        <tr key={cv.id} onClick={() => setSelectedCV(cv)} style={{ borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}>
                           <td style={{ padding: '0.7rem 0.75rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: av.bg, color: av.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.68rem', fontWeight: 800, flexShrink: 0 }}>
                                 {initials(cv.name || cv.fileName)}
                               </div>
                               <div>
-                                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#F1F5F9' }}>{cv.name || cv.fileName}</div>
-                                <div style={{ fontSize: '0.7rem', color: '#8B95A8' }}>{cv.experience}</div>
+                                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#0a1f5c' }}>{cv.name || cv.fileName}</div>
+                                <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{cv.experience}</div>
                               </div>
                             </div>
                           </td>
-                          <td style={{ padding: '0.7rem 0.75rem', fontSize: '0.82rem', color: '#94A3B8' }}>
+                          <td style={{ padding: '0.7rem 0.75rem', fontSize: '0.82rem', color: '#6b7280' }}>
                             {bestJob?.title}<br /><span style={{ fontSize: '0.7rem' }}>{bestJob?.company}</span>
                           </td>
                           <td style={{ padding: '0.7rem 0.75rem' }}>
                             <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
                               {(bestMatch?.matchedSkills || []).slice(0, 2).map(s => (
-                                <span key={s} style={{ background: 'rgba(34,197,94,.14)', color: '#4ADE80', borderRadius: '4px', padding: '0.1rem 0.4rem', fontSize: '0.65rem', fontWeight: 700 }}>{s}</span>
+                                <span key={s} style={{ background: '#d1fae5', color: '#065f46', borderRadius: '4px', padding: '0.1rem 0.4rem', fontSize: '0.65rem', fontWeight: 700 }}>{s}</span>
                               ))}
                               {cv.skills.filter(s => !(bestMatch?.matchedSkills || []).includes(s)).slice(0, 1).map(s => (
-                                <span key={s} style={{ background: 'rgba(59,130,246,.10)', color: '#60A5FA', borderRadius: '4px', padding: '0.1rem 0.4rem', fontSize: '0.65rem', fontWeight: 600 }}>{s}</span>
+                                <span key={s} style={{ background: '#eff6ff', color: '#2563eb', borderRadius: '4px', padding: '0.1rem 0.4rem', fontSize: '0.65rem', fontWeight: 600 }}>{s}</span>
                               ))}
                             </div>
                           </td>
@@ -738,13 +702,13 @@ export default function CoordinatorDashboard() {
             {/* Active jobs sidebar */}
             <div style={CARD_STYLE}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#F1F5F9' }}>💼 Offres actives</h2>
-                <Link href="/coordinator/jobs" style={{ fontSize: '0.78rem', color: '#3B82F6', fontWeight: 600, textDecoration: 'none' }}>Gérer →</Link>
+                <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0a1f5c' }}>💼 Offres actives</h2>
+                <Link href="/coordinator/jobs" style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>Gérer →</Link>
               </div>
               {jobs.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '1.5rem', color: '#8B95A8', fontSize: '0.85rem' }}>
+                <div style={{ textAlign: 'center', padding: '1.5rem', color: '#9ca3af', fontSize: '0.85rem' }}>
                   <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
-                  <p>Aucune offre — <Link href="/coordinator/jobs" style={{ color: '#3B82F6', fontWeight: 600 }}>créer une offre</Link></p>
+                  <p>Aucune offre — <Link href="/coordinator/jobs" style={{ color: '#2563eb', fontWeight: 600 }}>créer une offre</Link></p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
@@ -754,14 +718,14 @@ export default function CoordinatorDashboard() {
                     return (
                       <div key={j.id}
                         onClick={() => { setTab('matching'); setMatchJob(j.id); }}
-                        style={{ padding: '0.85rem', background: isOpen ? 'rgba(56,189,248,.10)' : 'rgba(255,255,255,.04)', borderRadius: '8px', borderLeft: `3px solid ${isOpen ? '#3B82F6' : 'rgba(255,255,255,.25)'}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#F1F5F9', marginBottom: '0.2rem' }}>{j.title}</div>
-                        <div style={{ fontSize: '0.78rem', color: '#94A3B8', marginBottom: '0.4rem' }}>{j.company} · {j.sector}</div>
+                        style={{ padding: '0.85rem', background: isOpen ? '#e0f2fe' : '#f9fafb', borderRadius: '8px', borderLeft: `3px solid ${isOpen ? '#2563eb' : '#e5e7eb'}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0a1f5c', marginBottom: '0.2rem' }}>{j.title}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.4rem' }}>{j.company} · {j.sector}</div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.75rem', color: '#3B82F6', fontWeight: 700 }}>
+                          <span style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: 700 }}>
                             {matchCount} profil{matchCount !== 1 ? 's' : ''} ≥50%
                           </span>
-                          <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.55rem', borderRadius: '9999px', background: isOpen ? 'rgba(34,197,94,.14)' : 'rgba(255,255,255,.08)', color: isOpen ? '#4ADE80' : '#94A3B8', fontWeight: 700 }}>{j.status}</span>
+                          <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.55rem', borderRadius: '9999px', background: isOpen ? '#d1fae5' : '#f3f4f6', color: isOpen ? '#065f46' : '#6b7280', fontWeight: 700 }}>{j.status}</span>
                         </div>
                       </div>
                     );
@@ -783,19 +747,19 @@ export default function CoordinatorDashboard() {
               <select value={filterExp} onChange={e => setFilterExp(e.target.value)} style={inp}>
                 {['All', ...EXP_ORDER].map(e => <option key={e}>{e}</option>)}
               </select>
-              <span style={{ fontSize: '0.8rem', color: '#8B95A8' }}>{filteredCvs.length} résultat{filteredCvs.length !== 1 ? 's' : ''}</span>
+              <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{filteredCvs.length} résultat{filteredCvs.length !== 1 ? 's' : ''}</span>
             </div>
 
             {loading ? (
-              <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem', color: '#8B95A8' }}>
+              <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
                 <p>Chargement des candidats…</p>
               </div>
             ) : cvs.length === 0 ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📭</div>
-                <p style={{ fontWeight: 700, color: '#CBD5E1', marginBottom: '0.5rem' }}>Aucun CV importé</p>
-                <p style={{ color: '#8B95A8', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
+                <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucun CV importé</p>
+                <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
                   Importez des CVs pour les voir apparaître ici avec leurs profils extraits par l'IA.
                 </p>
                 <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -804,9 +768,9 @@ export default function CoordinatorDashboard() {
               </div>
             ) : (
               <div style={{ ...CARD_STYLE, padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#F1F5F9' }}>Candidats ({filteredCvs.length})</h2>
-                  <Link href="/coordinator/upload" style={{ fontSize: '0.78rem', color: '#3B82F6', fontWeight: 600, textDecoration: 'none' }}>+ Importer</Link>
+                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0a1f5c' }}>Candidats ({filteredCvs.length})</h2>
+                  <Link href="/coordinator/upload" style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>+ Importer</Link>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {filteredCvs.map((cv, i) => {
@@ -819,33 +783,33 @@ export default function CoordinatorDashboard() {
                     return (
                       <div key={cv.id}
                         onClick={() => setSelectedCV(cv)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem', borderBottom: i < filteredCvs.length - 1 ? '1px solid rgba(255,255,255,.08)' : 'none', cursor: 'pointer', transition: 'background 0.15s', background: '#111827' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.04)')}
+                        style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem', borderBottom: i < filteredCvs.length - 1 ? '1px solid #f3f4f6' : 'none', cursor: 'pointer', transition: 'background 0.15s', background: '#ffffff' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f9fafb')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'white')}
                       >
                         <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: av.bg, color: av.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800, flexShrink: 0 }}>
                           {initials(cv.name || cv.fileName)}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#F1F5F9', marginBottom: '0.15rem' }}>{cv.name || cv.fileName}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginBottom: '0.35rem' }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0a1f5c', marginBottom: '0.15rem' }}>{cv.name || cv.fileName}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.35rem' }}>
                             {cv.sector && <span style={{ marginRight: '0.5rem' }}>{cv.sector}</span>}
-                            {cv.experience && <span style={{ color: '#8B95A8' }}>{cv.experience}</span>}
+                            {cv.experience && <span style={{ color: '#9ca3af' }}>{cv.experience}</span>}
                           </div>
                           <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                            {cv.skills.slice(0, 4).map(s => <span key={s} style={{ background: 'rgba(59,130,246,.14)', color: '#93C5FD', borderRadius: '4px', padding: '0.1rem 0.45rem', fontSize: '0.68rem', fontWeight: 600 }}>{s}</span>)}
-                            {cv.skills.length > 4 && <span style={{ fontSize: '0.68rem', color: '#8B95A8', alignSelf: 'center' }}>+{cv.skills.length - 4}</span>}
+                            {cv.skills.slice(0, 4).map(s => <span key={s} style={{ background: '#dbeafe', color: '#93C5FD', borderRadius: '4px', padding: '0.1rem 0.45rem', fontSize: '0.68rem', fontWeight: 600 }}>{s}</span>)}
+                            {cv.skills.length > 4 && <span style={{ fontSize: '0.68rem', color: '#9ca3af', alignSelf: 'center' }}>+{cv.skills.length - 4}</span>}
                           </div>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
                           {sc && bestScore !== null ? (
                             <span style={{ padding: '0.25rem 0.7rem', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: 800, background: sc.bg, color: sc.color }}>{bestScore}%</span>
                           ) : (
-                            <span style={{ fontSize: '0.75rem', color: '#8B95A8' }}>—</span>
+                            <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>—</span>
                           )}
                           <button
                             onClick={e => { e.stopPropagation(); downloadCvPDF(cv); }}
-                            style={{ padding: '0.2rem 0.6rem', borderRadius: '6px', border: '1.5px solid rgba(59,130,246,.35)', background: 'rgba(59,130,246,.10)', color: '#60A5FA', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}
+                            style={{ padding: '0.2rem 0.6rem', borderRadius: '6px', border: '1.5px solid #93c5fd', background: '#eff6ff', color: '#2563eb', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}
                           >
                             ⬇ PDF
                           </button>
@@ -855,7 +819,7 @@ export default function CoordinatorDashboard() {
                   })}
                 </div>
                 {filteredCvs.length === 0 && (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#8B95A8', fontSize: '0.875rem' }}>Aucun candidat ne correspond à votre recherche.</div>
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.875rem' }}>Aucun candidat ne correspond à votre recherche.</div>
                 )}
               </div>
             )}
@@ -866,20 +830,20 @@ export default function CoordinatorDashboard() {
         {tab === 'jobs' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F1F5F9' }}>Toutes les offres ({jobs.length})</h2>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0a1f5c' }}>Toutes les offres ({jobs.length})</h2>
               <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', fontSize: '0.85rem', padding: '0.5rem 1rem' }}>➕ Nouvelle offre</Link>
             </div>
 
             {loading ? (
-              <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem', color: '#8B95A8' }}>
+              <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
                 <p>Chargement des offres…</p>
               </div>
             ) : jobs.length === 0 ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📋</div>
-                <p style={{ fontWeight: 700, color: '#CBD5E1', marginBottom: '0.5rem' }}>Aucune offre d'emploi</p>
-                <p style={{ color: '#8B95A8', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez des offres pour permettre à l'IA de matcher les candidats.</p>
+                <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucune offre d'emploi</p>
+                <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez des offres pour permettre à l'IA de matcher les candidats.</p>
                 <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                   ➕ Créer une offre
                 </Link>
@@ -891,30 +855,30 @@ export default function CoordinatorDashboard() {
                   const isExpanded = expandedJob === j.id;
                   const matchCount = cvs.filter(cv => computeMatch(cv, j).total >= 50).length;
                   return (
-                    <div key={j.id} style={{ ...CARD_STYLE, padding: 0, overflow: 'hidden', borderLeft: `4px solid ${isOpen ? '#3B82F6' : 'rgba(255,255,255,.25)'}` }}>
+                    <div key={j.id} style={{ ...CARD_STYLE, padding: 0, overflow: 'hidden', borderLeft: `4px solid ${isOpen ? '#2563eb' : '#e5e7eb'}` }}>
                       <div
                         onClick={() => setExpandedJob(isExpanded ? null : j.id)}
                         style={{ padding: '1.1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', gap: '1rem', flexWrap: 'wrap' }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '1rem', color: '#F1F5F9', marginBottom: '0.25rem' }}>{j.title}</div>
-                          <div style={{ fontSize: '0.825rem', color: '#94A3B8' }}>
+                          <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0a1f5c', marginBottom: '0.25rem' }}>{j.title}</div>
+                          <div style={{ fontSize: '0.825rem', color: '#6b7280' }}>
                             {j.company} · {j.sector} · {j.experience} · {j.location}
                           </div>
                           {j.skills?.length > 0 && (
                             <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-                              {j.skills.slice(0, 5).map(s => <span key={s} style={{ background: 'rgba(255,255,255,.08)', color: '#CBD5E1', borderRadius: '4px', padding: '0.1rem 0.45rem', fontSize: '0.68rem', fontWeight: 600 }}>{s}</span>)}
-                              {j.skills.length > 5 && <span style={{ fontSize: '0.68rem', color: '#8B95A8' }}>+{j.skills.length - 5}</span>}
+                              {j.skills.slice(0, 5).map(s => <span key={s} style={{ background: '#f3f4f6', color: '#374151', borderRadius: '4px', padding: '0.1rem 0.45rem', fontSize: '0.68rem', fontWeight: 600 }}>{s}</span>)}
+                              {j.skills.length > 5 && <span style={{ fontSize: '0.68rem', color: '#9ca3af' }}>+{j.skills.length - 5}</span>}
                             </div>
                           )}
                         </div>
                         <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center', flexShrink: 0 }}>
                           <button
                             onClick={e => { e.stopPropagation(); setTab('matching'); setMatchJob(j.id); }}
-                            style={{ padding: '0.4rem 0.85rem', borderRadius: '7px', border: '1.5px solid #3B82F6', background: 'transparent', color: '#3B82F6', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                            style={{ padding: '0.4rem 0.85rem', borderRadius: '7px', border: '1.5px solid #2563eb', background: 'transparent', color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
                             🎯 {matchCount} match{matchCount !== 1 ? 'es' : ''}
                           </button>
-                          <span style={{ fontSize: '0.78rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', background: isOpen ? 'rgba(34,197,94,.14)' : 'rgba(255,255,255,.08)', color: isOpen ? '#4ADE80' : '#94A3B8', fontWeight: 700 }}>{j.status}</span>
-                          <span style={{ fontSize: '0.85rem', color: '#8B95A8' }}>{isExpanded ? '▲' : '▼'}</span>
+                          <span style={{ fontSize: '0.78rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', background: isOpen ? '#d1fae5' : '#f3f4f6', color: isOpen ? '#065f46' : '#6b7280', fontWeight: 700 }}>{j.status}</span>
+                          <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>{isExpanded ? '▲' : '▼'}</span>
                         </div>
                       </div>
 
@@ -935,20 +899,20 @@ export default function CoordinatorDashboard() {
             {/* Job selector */}
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#CBD5E1', display: 'block', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sélectionner une offre</label>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sélectionner une offre</label>
                 <select
                   value={matchJob || (jobs[0]?.id ?? '')}
                   onChange={e => { setMatchJob(e.target.value); setAiInsights(null); }}
-                  style={{ ...inp, minWidth: '300px', fontWeight: 600, color: '#F1F5F9' }}>
+                  style={{ ...inp, minWidth: '300px', fontWeight: 600, color: '#0a1f5c' }}>
                   {jobs.map(j => (
                     <option key={j.id} value={j.id}>{j.title} — {j.company}</option>
                   ))}
                 </select>
               </div>
               {activeMatchJob && (
-                <div style={{ padding: '0.65rem 1rem', background: 'rgba(56,189,248,.10)', borderRadius: '8px', border: '1.5px solid rgba(59,130,246,.35)' }}>
+                <div style={{ padding: '0.65rem 1rem', background: '#e0f2fe', borderRadius: '8px', border: '1.5px solid #93c5fd' }}>
                   <div style={{ fontSize: '0.7rem', color: '#93C5FD', fontWeight: 700, marginBottom: '0.2rem' }}>{activeMatchJob.sector} · {activeMatchJob.experience}</div>
-                  <div style={{ fontSize: '0.78rem', color: '#CBD5E1' }}>{activeMatchJob.location}</div>
+                  <div style={{ fontSize: '0.78rem', color: '#374151' }}>{activeMatchJob.location}</div>
                 </div>
               )}
             </div>
@@ -956,44 +920,44 @@ export default function CoordinatorDashboard() {
             {!activeMatchJob || jobs.length === 0 ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📋</div>
-                <p style={{ fontWeight: 700, color: '#CBD5E1', marginBottom: '0.5rem' }}>Aucune offre disponible</p>
-                <p style={{ color: '#8B95A8', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez une offre d'emploi pour lancer le matching IA.</p>
+                <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucune offre disponible</p>
+                <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez une offre d'emploi pour lancer le matching IA.</p>
                 <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none' }}>➕ Créer une offre</Link>
               </div>
             ) : cvs.length === 0 ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📭</div>
-                <p style={{ fontWeight: 700, color: '#CBD5E1', marginBottom: '0.5rem' }}>Aucun CV importé</p>
-                <p style={{ color: '#8B95A8', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Importez des CVs pour démarrer le matching automatique.</p>
+                <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucun CV importé</p>
+                <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Importez des CVs pour démarrer le matching automatique.</p>
                 <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none' }}>📁 Importer des CVs</Link>
               </div>
             ) : (
               <>
                 {/* Job info card */}
                 {activeMatchJob && (
-                  <div style={{ ...CARD_STYLE, marginBottom: '1.5rem', borderLeft: '4px solid #3B82F6', padding: '1.1rem 1.25rem' }}>
+                  <div style={{ ...CARD_STYLE, marginBottom: '1.5rem', borderLeft: '4px solid #2563eb', padding: '1.1rem 1.25rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#F1F5F9', marginBottom: '0.3rem' }}>{activeMatchJob.title}</div>
-                        <div style={{ fontSize: '0.875rem', color: '#94A3B8', marginBottom: '0.5rem' }}>{activeMatchJob.company} · {activeMatchJob.sector} · {activeMatchJob.experience} · {activeMatchJob.location}</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0a1f5c', marginBottom: '0.3rem' }}>{activeMatchJob.title}</div>
+                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>{activeMatchJob.company} · {activeMatchJob.sector} · {activeMatchJob.experience} · {activeMatchJob.location}</div>
                         {activeMatchJob.skills?.length > 0 && (
                           <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                            {activeMatchJob.skills.map(s => <span key={s} style={{ background: 'rgba(255,255,255,.08)', color: '#CBD5E1', borderRadius: '4px', padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 600 }}>{s}</span>)}
+                            {activeMatchJob.skills.map(s => <span key={s} style={{ background: '#f3f4f6', color: '#374151', borderRadius: '4px', padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 600 }}>{s}</span>)}
                           </div>
                         )}
                       </div>
                       <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <div style={{ textAlign: 'center', padding: '0.6rem 1rem', background: 'rgba(34,197,94,.14)', borderRadius: '8px' }}>
-                          <div style={{ fontWeight: 800, fontSize: '1.3rem', color: '#4ADE80' }}>{excellent.length}</div>
-                          <div style={{ fontSize: '0.68rem', color: '#4ADE80', fontWeight: 700 }}>Excellent</div>
+                        <div style={{ textAlign: 'center', padding: '0.6rem 1rem', background: '#d1fae5', borderRadius: '8px' }}>
+                          <div style={{ fontWeight: 800, fontSize: '1.3rem', color: '#065f46' }}>{excellent.length}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#065f46', fontWeight: 700 }}>Excellent</div>
                         </div>
-                        <div style={{ textAlign: 'center', padding: '0.6rem 1rem', background: 'rgba(59,130,246,.14)', borderRadius: '8px' }}>
+                        <div style={{ textAlign: 'center', padding: '0.6rem 1rem', background: '#dbeafe', borderRadius: '8px' }}>
                           <div style={{ fontWeight: 800, fontSize: '1.3rem', color: '#93C5FD' }}>{good.length}</div>
                           <div style={{ fontSize: '0.68rem', color: '#93C5FD', fontWeight: 700 }}>Bon match</div>
                         </div>
-                        <div style={{ textAlign: 'center', padding: '0.6rem 1rem', background: 'rgba(255,255,255,.08)', borderRadius: '8px' }}>
-                          <div style={{ fontWeight: 800, fontSize: '1.3rem', color: '#94A3B8' }}>{others.length}</div>
-                          <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700 }}>Autres</div>
+                        <div style={{ textAlign: 'center', padding: '0.6rem 1rem', background: '#f3f4f6', borderRadius: '8px' }}>
+                          <div style={{ fontWeight: 800, fontSize: '1.3rem', color: '#6b7280' }}>{others.length}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#6b7280', fontWeight: 700 }}>Autres</div>
                         </div>
                       </div>
                     </div>
@@ -1006,39 +970,39 @@ export default function CoordinatorDashboard() {
                     <button
                       onClick={generateAiInsights}
                       disabled={aiLoading || matchRanked.length === 0}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', borderRadius: '8px', border: 'none', background: aiLoading ? 'rgba(255,255,255,.10)' : 'linear-gradient(135deg,#3B82F6,#60A5FA)', color: aiLoading ? '#8B95A8' : 'white', fontSize: '0.85rem', fontWeight: 700, cursor: aiLoading || matchRanked.length === 0 ? 'not-allowed' : 'pointer', transition: 'all 0.15s', opacity: matchRanked.length === 0 ? 0.5 : 1 }}>
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', borderRadius: '8px', border: 'none', background: aiLoading ? '#e5e7eb' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: aiLoading ? '#9ca3af' : 'white', fontSize: '0.85rem', fontWeight: 700, cursor: aiLoading || matchRanked.length === 0 ? 'not-allowed' : 'pointer', transition: 'all 0.15s', opacity: matchRanked.length === 0 ? 0.5 : 1 }}>
                       {aiLoading ? '⏳ Analyse en cours…' : '🤖 Générer analyse IA'}
                     </button>
                     {aiInsights && !aiLoading && (
-                      <button onClick={() => setAiInsights(null)} style={{ background: 'none', border: 'none', color: '#8B95A8', fontSize: '0.8rem', cursor: 'pointer' }}>✕ Effacer</button>
+                      <button onClick={() => setAiInsights(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.8rem', cursor: 'pointer' }}>✕ Effacer</button>
                     )}
                   </div>
                   {aiInsights && (
-                    <div style={{ background: '#111827', borderRadius: '12px', border: '1.5px solid rgba(59,130,246,.14)', overflow: 'hidden' }}>
-                      <div style={{ padding: '0.85rem 1.1rem', background: 'linear-gradient(135deg,rgba(59,130,246,.10),rgba(59,130,246,.14))', borderBottom: '1px solid rgba(59,130,246,.14)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ background: '#ffffff', borderRadius: '12px', border: '1.5px solid #dbeafe', overflow: 'hidden' }}>
+                      <div style={{ padding: '0.85rem 1.1rem', background: 'linear-gradient(135deg,#eff6ff,#dbeafe)', borderBottom: '1px solid #dbeafe', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontSize: '1.1rem' }}>🤖</span>
                         <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#93C5FD' }}>Analyse IA — {activeMatchJob?.title}</span>
                       </div>
                       <div style={{ padding: '1rem 1.1rem', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1rem' }}>
                         <div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#22C55E', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>⭐ Meilleur candidat</div>
-                          <div style={{ fontSize: '0.875rem', color: '#F1F5F9', lineHeight: 1.55 }}>{aiInsights.topPick}</div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.85rem', marginBottom: '0.4rem' }}>📋 Synthèse du classement</div>
-                          <div style={{ fontSize: '0.82rem', color: '#CBD5E1', lineHeight: 1.6 }}>{aiInsights.rationale}</div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>⭐ Meilleur candidat</div>
+                          <div style={{ fontSize: '0.875rem', color: '#0a1f5c', lineHeight: 1.55 }}>{aiInsights.topPick}</div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.85rem', marginBottom: '0.4rem' }}>📋 Synthèse du classement</div>
+                          <div style={{ fontSize: '0.82rem', color: '#374151', lineHeight: 1.6 }}>{aiInsights.rationale}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#FCA5A5', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>⚠️ Lacunes identifiées</div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>⚠️ Lacunes identifiées</div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '1rem' }}>
                             {(aiInsights.gaps || []).map((g, i) => (
-                              <div key={i} style={{ display: 'flex', gap: '0.4rem', fontSize: '0.8rem', color: '#CBD5E1' }}>
-                                <span style={{ color: '#FCA5A5', fontWeight: 700, flexShrink: 0 }}>•</span>{g}
+                              <div key={i} style={{ display: 'flex', gap: '0.4rem', fontSize: '0.8rem', color: '#374151' }}>
+                                <span style={{ color: '#991b1b', fontWeight: 700, flexShrink: 0 }}>•</span>{g}
                               </div>
                             ))}
                           </div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#C4B5FD', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>💬 Questions d'entretien suggérées</div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>💬 Questions d'entretien suggérées</div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                             {(aiInsights.questions || []).map((q, i) => (
-                              <div key={i} style={{ padding: '0.45rem 0.75rem', background: 'rgba(167,139,250,.10)', borderRadius: '6px', fontSize: '0.78rem', color: '#C4B5FD', borderLeft: '2px solid #C4B5FD' }}>
+                              <div key={i} style={{ padding: '0.45rem 0.75rem', background: '#ede9fe', borderRadius: '6px', fontSize: '0.78rem', color: '#6d28d9', borderLeft: '2px solid #6d28d9' }}>
                                 {i + 1}. {q}
                               </div>
                             ))}
@@ -1055,8 +1019,8 @@ export default function CoordinatorDashboard() {
                   <div>
                     {excellent.length > 0 && (
                       <>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#4ADE80', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#059669', display: 'inline-block' }} />
                           Excellent match ≥70% ({excellent.length})
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
@@ -1065,24 +1029,24 @@ export default function CoordinatorDashboard() {
                             return (
                               <div key={cv.id}
                                 onClick={() => setSelectedCV(cv)}
-                                style={{ padding: '0.9rem', background: '#111827', borderRadius: '10px', border: '1.5px solid rgba(34,197,94,.35)', cursor: 'pointer', transition: 'box-shadow 0.15s' }}>
+                                style={{ padding: '0.9rem', background: '#ffffff', borderRadius: '10px', border: '1.5px solid #86efac', cursor: 'pointer', transition: 'box-shadow 0.15s' }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.6rem' }}>
                                   <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: av.bg, color: av.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 800, flexShrink: 0 }}>{initials(cv.name || cv.fileName)}</div>
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#F1F5F9' }}>{cv.name || cv.fileName}</div>
-                                    <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>{cv.sector} · {cv.experience}</div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0a1f5c' }}>{cv.name || cv.fileName}</div>
+                                    <div style={{ fontSize: '0.72rem', color: '#6b7280' }}>{cv.sector} · {cv.experience}</div>
                                   </div>
-                                  <span style={{ padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: 800, background: 'rgba(34,197,94,.14)', color: '#4ADE80', flexShrink: 0 }}>{match.total}%</span>
+                                  <span style={{ padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: 800, background: '#d1fae5', color: '#065f46', flexShrink: 0 }}>{match.total}%</span>
                                 </div>
                                 <div style={{ marginBottom: '0.5rem' }}>
-                                  <ScoreBar label="Compétences" pts={match.skillsPts} max={40} color="#3B82F6" />
-                                  <ScoreBar label="Expérience" pts={match.experiencePts} max={30} color="#22C55E" />
+                                  <ScoreBar label="Compétences" pts={match.skillsPts} max={40} color="#2563eb" />
+                                  <ScoreBar label="Expérience" pts={match.experiencePts} max={30} color="#059669" />
                                   <ScoreBar label="Formation" pts={match.educationPts} max={20} color="#38BDF8" />
-                                  <ScoreBar label="Langues" pts={match.languagePts} max={10} color="#A78BFA" />
+                                  <ScoreBar label="Langues" pts={match.languagePts} max={10} color="#7c3aed" />
                                 </div>
                                 {match.matchedSkills.length > 0 && (
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                                    {match.matchedSkills.map(s => <span key={s} style={{ padding: '0.1rem 0.4rem', borderRadius: '3px', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(34,197,94,.14)', color: '#4ADE80' }}>{s}</span>)}
+                                    {match.matchedSkills.map(s => <span key={s} style={{ padding: '0.1rem 0.4rem', borderRadius: '3px', fontSize: '0.65rem', fontWeight: 700, background: '#d1fae5', color: '#065f46' }}>{s}</span>)}
                                   </div>
                                 )}
                               </div>
@@ -1095,7 +1059,7 @@ export default function CoordinatorDashboard() {
                     {good.length > 0 && (
                       <>
                         <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#93C5FD', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3B82F6', display: 'inline-block' }} />
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2563eb', display: 'inline-block' }} />
                           Bon match 50–69% ({good.length})
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1104,20 +1068,20 @@ export default function CoordinatorDashboard() {
                             return (
                               <div key={cv.id}
                                 onClick={() => setSelectedCV(cv)}
-                                style={{ padding: '0.9rem', background: '#111827', borderRadius: '10px', border: '1.5px solid rgba(59,130,246,.35)', cursor: 'pointer' }}>
+                                style={{ padding: '0.9rem', background: '#ffffff', borderRadius: '10px', border: '1.5px solid #93c5fd', cursor: 'pointer' }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.5rem' }}>
                                   <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: av.bg, color: av.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800, flexShrink: 0 }}>{initials(cv.name || cv.fileName)}</div>
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F1F5F9' }}>{cv.name || cv.fileName}</div>
-                                    <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>{cv.sector} · {cv.experience}</div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0a1f5c' }}>{cv.name || cv.fileName}</div>
+                                    <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{cv.sector} · {cv.experience}</div>
                                   </div>
-                                  <span style={{ padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: 800, background: 'rgba(59,130,246,.14)', color: '#93C5FD', flexShrink: 0 }}>{match.total}%</span>
+                                  <span style={{ padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: 800, background: '#dbeafe', color: '#93C5FD', flexShrink: 0 }}>{match.total}%</span>
                                 </div>
                                 <div>
-                                  <ScoreBar label="Compétences" pts={match.skillsPts} max={40} color="#3B82F6" />
-                                  <ScoreBar label="Expérience" pts={match.experiencePts} max={30} color="#22C55E" />
+                                  <ScoreBar label="Compétences" pts={match.skillsPts} max={40} color="#2563eb" />
+                                  <ScoreBar label="Expérience" pts={match.experiencePts} max={30} color="#059669" />
                                   <ScoreBar label="Formation" pts={match.educationPts} max={20} color="#38BDF8" />
-                                  <ScoreBar label="Langues" pts={match.languagePts} max={10} color="#A78BFA" />
+                                  <ScoreBar label="Langues" pts={match.languagePts} max={10} color="#7c3aed" />
                                 </div>
                               </div>
                             );
@@ -1131,8 +1095,8 @@ export default function CoordinatorDashboard() {
                   <div>
                     {others.length > 0 && (
                       <>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(255,255,255,.25)', display: 'inline-block' }} />
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d1d5db', display: 'inline-block' }} />
                           Autres &lt;50% ({others.length})
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -1141,13 +1105,13 @@ export default function CoordinatorDashboard() {
                             return (
                               <div key={cv.id}
                                 onClick={() => setSelectedCV(cv)}
-                                style={{ padding: '0.75rem 0.9rem', background: '#111827', borderRadius: '9px', border: '1px solid rgba(255,255,255,.08)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                style={{ padding: '0.75rem 0.9rem', background: '#ffffff', borderRadius: '9px', border: '1px solid #e5e7eb', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                                 <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: av.bg, color: av.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, flexShrink: 0 }}>{initials(cv.name || cv.fileName)}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#F1F5F9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cv.name || cv.fileName}</div>
-                                  <div style={{ fontSize: '0.68rem', color: '#8B95A8' }}>{cv.sector} · {cv.experience}</div>
+                                  <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#0a1f5c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cv.name || cv.fileName}</div>
+                                  <div style={{ fontSize: '0.68rem', color: '#9ca3af' }}>{cv.sector} · {cv.experience}</div>
                                 </div>
-                                <span style={{ padding: '0.15rem 0.55rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700, background: 'rgba(248,113,113,.14)', color: '#FCA5A5', flexShrink: 0 }}>{match.total}%</span>
+                                <span style={{ padding: '0.15rem 0.55rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700, background: '#fee2e2', color: '#991b1b', flexShrink: 0 }}>{match.total}%</span>
                               </div>
                             );
                           })}
@@ -1155,7 +1119,7 @@ export default function CoordinatorDashboard() {
                       </>
                     )}
                     {others.length === 0 && excellent.length === 0 && good.length === 0 && (
-                      <div style={{ textAlign: 'center', padding: '2rem', color: '#8B95A8', fontSize: '0.85rem' }}>Aucun candidat disponible</div>
+                      <div style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af', fontSize: '0.85rem' }}>Aucun candidat disponible</div>
                     )}
                   </div>
                 </div>
@@ -1167,15 +1131,15 @@ export default function CoordinatorDashboard() {
         {/* ══════════════════════════ APPLICATIONS ══════════════════════════ */}
         {tab === 'applications' && (
           <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F1F5F9', marginBottom: '0.3rem' }}>Suivi des candidatures</h2>
-            <p style={{ fontSize: '0.82rem', color: '#94A3B8', marginBottom: '1.25rem' }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0a1f5c', marginBottom: '0.3rem' }}>Suivi des candidatures</h2>
+            <p style={{ fontSize: '0.82rem', color: '#6b7280', marginBottom: '1.25rem' }}>
               {applications.length} candidature{applications.length !== 1 ? 's' : ''} reçue{applications.length !== 1 ? 's' : ''} sur vos offres
             </p>
 
             {applications.length === 0 ? (
-              <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem', color: '#8B95A8' }}>
+              <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>📨</div>
-                <p style={{ fontWeight: 600, color: '#94A3B8' }}>Aucune candidature pour le moment</p>
+                <p style={{ fontWeight: 600, color: '#6b7280' }}>Aucune candidature pour le moment</p>
                 <p style={{ fontSize: '0.82rem', marginTop: '0.25rem' }}>Les candidats qui postulent à vos offres apparaîtront ici.</p>
               </div>
             ) : (
@@ -1184,38 +1148,38 @@ export default function CoordinatorDashboard() {
                   const stageApps = applications.filter(a => a.status === stage.key)
                     .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
                   return (
-                    <div key={stage.key} style={{ background: 'rgba(255,255,255,.04)', borderRadius: '10px', border: '1px solid rgba(255,255,255,.08)', minHeight: '120px' }}>
+                    <div key={stage.key} style={{ background: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb', minHeight: '120px' }}>
                       <div style={{ padding: '0.65rem 0.85rem', borderBottom: `2px solid ${stage.color}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '0.78rem', fontWeight: 800, color: stage.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{stage.label}</span>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#8B95A8' }}>{stageApps.length}</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#9ca3af' }}>{stageApps.length}</span>
                       </div>
                       <div style={{ padding: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         {stageApps.length === 0 && (
-                          <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,.25)', textAlign: 'center', padding: '0.75rem 0' }}>—</div>
+                          <div style={{ fontSize: '0.72rem', color: '#d1d5db', textAlign: 'center', padding: '0.75rem 0' }}>—</div>
                         )}
                         {stageApps.map(app => {
                           const cv = cvs.find(c => c.id === app.candidateId);
                           return (
-                            <div key={app.id} style={{ background: '#111827', borderRadius: '8px', border: '1px solid rgba(255,255,255,.10)', padding: '0.65rem 0.75rem' }}>
-                              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#F1F5F9', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div key={app.id} style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '0.65rem 0.75rem' }}>
+                              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0a1f5c', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {app.candidateName}
                               </div>
-                              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#6b7280', marginBottom: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {app.jobTitle} · {app.company}
                               </div>
-                              <div style={{ fontSize: '0.66rem', color: '#8B95A8', marginBottom: '0.5rem' }}>
+                              <div style={{ fontSize: '0.66rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
                                 {new Date(app.appliedAt).toLocaleDateString('fr-MA')}
                               </div>
                               <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                                 <select
                                   value={app.status}
                                   onChange={e => updateApplicationStatus(app, e.target.value as Application['status'])}
-                                  style={{ flex: 1, padding: '0.3rem 0.4rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,.10)', fontSize: '0.68rem', fontFamily: 'inherit', color: '#CBD5E1', background: '#111827' }}>
+                                  style={{ flex: 1, padding: '0.3rem 0.4rem', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '0.68rem', fontFamily: 'inherit', color: '#374151', background: '#ffffff' }}>
                                   {APPLICATION_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                                 </select>
                                 {cv && (
                                   <button onClick={() => setSelectedCV(cv)} title="Voir le CV"
-                                    style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(59,130,246,.35)', background: 'rgba(59,130,246,.14)', color: '#93C5FD', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                                    style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid #93c5fd', background: '#dbeafe', color: '#93C5FD', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
                                     CV
                                   </button>
                                 )}

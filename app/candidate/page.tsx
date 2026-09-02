@@ -3,28 +3,28 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Logo from '../../components/Logo';
+import PageHeader from '../../components/PageHeader';
 import { useAuth } from '../../contexts/AuthContext';
 import { isProfileComplete } from '@/lib/profile';
 import { regionDisplay } from '@/lib/morocco';
 import { scoreCV } from '@/lib/cvScore';
 
-const INK    = '#0B1629';
-const COBALT = '#1B4FD8';
-const BG     = '#F6F8FC';
-const BORDER = '#E2E8F0';
-const TEXT   = '#0F172A';
-const MUTED  = '#64748B';
-const FAINT  = '#94A3B8';
-const LBLUE  = '#EFF6FF';
+const INK    = '#0a1f5c';
+const COBALT = '#2563eb';
+const BG     = '#f9fafb';
+const BORDER = '#e5e7eb';
+const TEXT   = '#111827';
+const MUTED  = '#6b7280';
+const FAINT  = '#9ca3af';
+const LBLUE  = '#eff6ff';
 const WHITE  = '#ffffff';
-const PURPLE = '#7C3AED';
-const LPURP  = '#EDE9FE';
+const PURPLE = '#7c3aed';
+const LPURP  = '#ede9fe';
 const GREEN  = '#059669';
-const LGREEN = '#D1FAE5';
+const LGREEN = '#d1fae5';
 
 export default function CandidateDashboard() {
-  const { user, initialized, logout } = useAuth();
+  const { user, initialized } = useAuth();
   const router = useRouter();
   const [info, setInfo]       = useState<Record<string, any> | null>(null);
   const [cvData, setCvData]   = useState<Record<string, any> | null>(null);
@@ -110,59 +110,7 @@ export default function CandidateDashboard() {
 
   return (
     <main style={{ minHeight: '100vh', background: BG, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-
-      {/* ── Navbar ── */}
-      <nav style={{
-        background: INK,
-        height: 60,
-        padding: '0 1.5rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        borderBottom: '1px solid rgba(255,255,255,.06)',
-        boxShadow: '0 2px 16px rgba(0,0,0,.35)',
-      }}>
-        <Logo size="md" variant="light" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
-            background: 'rgba(255,255,255,.08)',
-            border: '1px solid rgba(255,255,255,.12)',
-            borderRadius: 9999,
-            padding: '0.3rem 0.9rem 0.3rem 0.45rem',
-            display: 'flex', alignItems: 'center', gap: '0.5rem',
-          }}>
-            <div style={{
-              width: 26, height: 26, borderRadius: '50%',
-              background: `linear-gradient(135deg,${COBALT},${PURPLE})`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, fontWeight: 900, color: WHITE,
-            }}>
-              {firstName[0]?.toUpperCase()}
-            </div>
-            <span style={{ color: 'rgba(255,255,255,.88)', fontSize: '0.82rem', fontWeight: 600 }}>{firstName}</span>
-          </div>
-          <button
-            onClick={logout}
-            style={{
-              background: 'transparent',
-              color: 'rgba(255,255,255,.45)',
-              border: '1px solid rgba(255,255,255,.15)',
-              borderRadius: 8,
-              padding: '0.35rem 0.85rem',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'color .15s',
-              fontFamily: 'inherit',
-            }}
-          >
-            Déconnexion
-          </button>
-        </div>
-      </nav>
+      <PageHeader title="TalentMap" subtitle="Candidate Portal" />
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '2rem 1.25rem 5rem' }}>
 
@@ -350,7 +298,7 @@ export default function CandidateDashboard() {
                   }}>{s}</span>
                 ))}
                 {skills.length > 7 && (
-                  <span style={{ padding: '0.2rem 0.65rem', borderRadius: 9999, background: '#F1F5F9', color: MUTED, fontSize: '0.75rem', fontWeight: 600 }}>
+                  <span style={{ padding: '0.2rem 0.65rem', borderRadius: 9999, background: '#f3f4f6', color: MUTED, fontSize: '0.75rem', fontWeight: 600 }}>
                     +{skills.length - 7}
                   </span>
                 )}
@@ -361,8 +309,8 @@ export default function CandidateDashboard() {
           <Link href="/candidate/info" style={{
             padding: '0.55rem 1rem',
             borderRadius: 9,
-            background: '#F8FAFC',
-            color: '#334155',
+            background: '#f9fafb',
+            color: '#374151',
             fontSize: '0.82rem',
             fontWeight: 600,
             textDecoration: 'none',

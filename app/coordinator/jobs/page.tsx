@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Logo from '../../../components/Logo';
+import PageHeader from '../../../components/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, EDU_LEVELS, LANGUAGES as MATCH_LANGUAGES } from '@/lib/matching';
 
@@ -155,7 +155,7 @@ export default function CoordinatorJobs() {
     return ms && mq;
   });
 
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.9rem', color: '#111827', background: 'white', fontFamily: 'inherit' };
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.9rem', color: '#0f172a', background: 'white', fontFamily: 'inherit' };
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' };
 
   async function generateDescription() {
@@ -180,20 +180,15 @@ export default function CoordinatorJobs() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#F6F8FC' }}>
-      <nav style={{ background: '#0B1629', height: 60, padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,.06)', boxShadow: '0 2px 16px rgba(0,0,0,.35)' }}>
-        <Logo size="md" variant="light" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ color: 'rgba(255,255,255,.75)', fontSize: '0.875rem', fontWeight: 600 }}>{user.name}</span>
-          <Link href="/coordinator" style={{ color: 'rgba(255,255,255,.55)', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>← Tableau de bord</Link>
-        </div>
-      </nav>
+    <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      <PageHeader title="TalentMap" subtitle="Job Offers" />
 
       <div className="container" style={{ maxWidth: '900px', padding: '2rem 1.5rem' }}>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#111827', marginBottom: '0.2rem' }}>💼 Offres d'emploi</h1>
+            <Link href="/coordinator" style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none' }}>← Tableau de bord</Link>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0a1f5c', margin: '0.3rem 0 0.2rem' }}>💼 Offres d'emploi</h1>
             <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>{jobs.filter(j => j.status === 'Open').length} poste{jobs.filter(j => j.status === 'Open').length !== 1 ? 's' : ''} ouvert{jobs.filter(j => j.status === 'Open').length !== 1 ? 's' : ''} sur {jobs.length} total</p>
           </div>
           <button className="btn-primary" onClick={showForm && !editId ? () => { setShowForm(false); resetForm(); } : openNewForm}>
@@ -210,7 +205,7 @@ export default function CoordinatorJobs() {
         {/* Form */}
         {showForm && (
           <div className="card" style={{ marginBottom: '1.5rem', border: '1.5px solid #dbeafe' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0a1f5c', marginBottom: '1.25rem' }}>
               {editId ? '✏️ Modifier l\'offre' : '🆕 Nouvelle offre d\'emploi'}
             </h2>
 
@@ -254,7 +249,7 @@ export default function CoordinatorJobs() {
                   type="button"
                   onClick={generateDescription}
                   disabled={descLoading || (!title && !sector)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', background: descLoading ? '#e5e7eb' : 'linear-gradient(135deg,#1B4FD8,#1443B8)', color: descLoading ? '#9ca3af' : 'white', fontSize: '0.75rem', fontWeight: 700, cursor: descLoading || (!title && !sector) ? 'not-allowed' : 'pointer', opacity: (!title && !sector) ? 0.5 : 1 }}>
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', background: descLoading ? '#e5e7eb' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: descLoading ? '#9ca3af' : 'white', fontSize: '0.75rem', fontWeight: 700, cursor: descLoading || (!title && !sector) ? 'not-allowed' : 'pointer', opacity: (!title && !sector) ? 0.5 : 1 }}>
                   {descLoading ? '⏳ Génération…' : '🤖 Générer avec IA'}
                 </button>
               </div>
@@ -269,8 +264,8 @@ export default function CoordinatorJobs() {
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.5rem' }}>
                 {skills.map(s => (
-                  <span key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#EFF6FF', color: '#1B4FD8', borderRadius: '9999px', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 600 }}>
-                    {s}<button onClick={() => setSkills(p => p.filter(x => x !== s))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1B4FD8', fontSize: '0.9rem' }}>×</button>
+                  <span key={s} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#EFF6FF', color: '#2563eb', borderRadius: '9999px', padding: '0.3rem 0.75rem', fontSize: '0.82rem', fontWeight: 600 }}>
+                    {s}<button onClick={() => setSkills(p => p.filter(x => x !== s))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', fontSize: '0.9rem' }}>×</button>
                   </span>
                 ))}
               </div>
@@ -295,7 +290,7 @@ export default function CoordinatorJobs() {
                   {MATCH_LANGUAGES.map(l => (
                     <button key={l} type="button"
                       onClick={() => setJobLanguages(p => p.includes(l) ? p.filter(x => x !== l) : [...p, l])}
-                      style={{ padding: '0.3rem 0.75rem', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', border: `1.5px solid ${jobLanguages.includes(l) ? '#1B4FD8' : '#e5e7eb'}`, background: jobLanguages.includes(l) ? '#EFF6FF' : 'white', color: jobLanguages.includes(l) ? '#1B4FD8' : '#6b7280' }}>
+                      style={{ padding: '0.3rem 0.75rem', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', border: `1.5px solid ${jobLanguages.includes(l) ? '#2563eb' : '#e5e7eb'}`, background: jobLanguages.includes(l) ? '#EFF6FF' : 'white', color: jobLanguages.includes(l) ? '#2563eb' : '#6b7280' }}>
                       {jobLanguages.includes(l) ? '✓ ' : ''}{l}
                     </button>
                   ))}
@@ -326,7 +321,7 @@ export default function CoordinatorJobs() {
 
         {/* Job list */}
         <div className="card">
-          <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0a1f5c', marginBottom: '1.25rem' }}>
             Toutes les offres ({filtered.length})
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -337,10 +332,10 @@ export default function CoordinatorJobs() {
               </div>
             )}
             {filtered.map(j => (
-              <div key={j.id} style={{ padding: '1.25rem', background: '#F6F8FC', borderRadius: '12px', borderLeft: `4px solid ${j.status === 'Open' ? '#1B4FD8' : '#d1d5db'}` }}>
+              <div key={j.id} style={{ padding: '1.25rem', background: '#f9fafb', borderRadius: '12px', borderLeft: `4px solid ${j.status === 'Open' ? '#2563eb' : '#d1d5db'}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.65rem' }}>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: '1rem', color: '#111827', marginBottom: '0.2rem' }}>{j.title}</div>
+                    <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0a1f5c', marginBottom: '0.2rem' }}>{j.title}</div>
                     <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{j.company} · {j.sector} · {j.experience}</div>
                     <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.2rem' }}>
                       📍 {j.location}{j.salary ? ` · 💰 ${j.salary}` : ''}{j.createdAt ? ` · 📅 ${j.createdAt}` : ''}
@@ -358,7 +353,7 @@ export default function CoordinatorJobs() {
                     <span style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem', borderRadius: '9999px', background: j.status === 'Open' ? '#d1fae5' : '#f3f4f6', color: j.status === 'Open' ? '#065f46' : '#6b7280', fontWeight: 600 }}>
                       {j.status === 'Open' ? '🟢 Ouverte' : '⚫ Fermée'}
                     </span>
-                    <button onClick={() => openEdit(j)} style={{ fontSize: '0.78rem', color: '#1B4FD8', background: 'none', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>✏️</button>
+                    <button onClick={() => openEdit(j)} style={{ fontSize: '0.78rem', color: '#2563eb', background: 'none', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>✏️</button>
                     <button onClick={() => toggleStatus(j.id)} style={{ fontSize: '0.78rem', color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>
                       {j.status === 'Open' ? 'Fermer' : 'Rouvrir'}
                     </button>
@@ -367,20 +362,20 @@ export default function CoordinatorJobs() {
                 </div>
                 {j.description && <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.75rem', lineHeight: 1.55 }}>{j.description}</p>}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.75rem' }}>
-                  {j.skills.map(s => <span key={s} style={{ background: '#EFF6FF', color: '#1B4FD8', borderRadius: '4px', padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 600 }}>{s}</span>)}
+                  {j.skills.map(s => <span key={s} style={{ background: '#EFF6FF', color: '#2563eb', borderRadius: '4px', padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 600 }}>{s}</span>)}
                 </div>
                 {/* Ranked candidates panel */}
                 <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '0.75rem' }}>
                   <button
                     onClick={() => setExpandedJob(expandedJob === j.id ? null : j.id)}
-                    style={{ fontSize: '0.8rem', color: '#1B4FD8', fontWeight: 700, background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '0.35rem 0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                    style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 700, background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '0.35rem 0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                     🎯 {expandedJob === j.id ? 'Masquer' : `Candidats classés (${coordCvs.length})`}
                   </button>
                   {expandedJob === j.id && (
                     <div style={{ marginTop: '0.75rem' }}>
                       {coordCvs.length === 0 ? (
-                        <div style={{ padding: '0.9rem', background: '#F6F8FC', borderRadius: '8px', fontSize: '0.82rem', color: '#6b7280', textAlign: 'center' }}>
-                          Aucun CV importé. <Link href="/coordinator/upload" style={{ color: '#1B4FD8', fontWeight: 600 }}>Importer des CVs →</Link>
+                        <div style={{ padding: '0.9rem', background: '#f9fafb', borderRadius: '8px', fontSize: '0.82rem', color: '#6b7280', textAlign: 'center' }}>
+                          Aucun CV importé. <Link href="/coordinator/upload" style={{ color: '#2563eb', fontWeight: 600 }}>Importer des CVs →</Link>
                         </div>
                       ) : (() => {
                         const ranked = coordCvs
@@ -399,11 +394,11 @@ export default function CoordinatorJobs() {
                                     {cv.score}%
                                   </div>
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cv.name || cv.fileName}</div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0a1f5c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cv.name || cv.fileName}</div>
                                     <div style={{ fontSize: '0.72rem', color: '#6b7280' }}>{cv.sector} · {cv.experience}{cv.phone ? ` · ${cv.phone}` : ''}</div>
                                   </div>
                                   {cv.email ? (
-                                    <a href={`mailto:${cv.email}?subject=Offre: ${j.title} chez ${j.company}`} style={{ fontSize: '0.73rem', color: '#1B4FD8', fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none', padding: '0.25rem 0.6rem', borderRadius: '5px', border: '1px solid #bfdbfe', background: 'white' }}>
+                                    <a href={`mailto:${cv.email}?subject=Offre: ${j.title} chez ${j.company}`} style={{ fontSize: '0.73rem', color: '#2563eb', fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none', padding: '0.25rem 0.6rem', borderRadius: '5px', border: '1px solid #bfdbfe', background: 'white' }}>
                                       ✉ Contacter
                                     </a>
                                   ) : null}

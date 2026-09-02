@@ -29,11 +29,11 @@ function detectRole(val: string): DetectedRole {
   return null;
 }
 
-const ROLE_CONFIG: Record<string, { color: string; bg: string; label: { fr: string; en: string }; icon: string }> = {
-  admin:       { color: '#7C3AED', bg: '#EDE9FE', label: { fr: 'Administrateur',  en: 'Administrator' }, icon: '⚙' },
-  coordinator: { color: '#059669', bg: '#D1FAE5', label: { fr: 'Conseiller RH',   en: 'HR Advisor'    }, icon: '👔' },
-  candidate:   { color: '#1B4FD8', bg: '#DBEAFE', label: { fr: 'Candidat',        en: 'Candidate'     }, icon: '🎓' },
-  unknown:     { color: '#DC2626', bg: '#FEE2E2', label: { fr: 'Code non reconnu', en: 'Unrecognized'  }, icon: '✕' },
+const ROLE_CONFIG: Record<string, { color: string; label: { fr: string; en: string }; icon: string }> = {
+  admin:       { color: '#7c3aed', label: { fr: 'Administrateur',  en: 'Administrator' }, icon: '⚙' },
+  coordinator: { color: '#059669', label: { fr: 'Conseiller RH',   en: 'HR Advisor'    }, icon: '👔' },
+  candidate:   { color: '#2563eb', label: { fr: 'Candidat',        en: 'Candidate'     }, icon: '🎓' },
+  unknown:     { color: '#dc2626', label: { fr: 'Code non reconnu', en: 'Unrecognized'  }, icon: '✕' },
 };
 
 const TX = {
@@ -97,12 +97,12 @@ export default function LoginPage() {
     setIsLoading(false);
   };
 
-  const borderColor = error ? '#DC2626' : cfg && cfg.color !== ROLE_CONFIG.unknown.color ? cfg.color : '#E2E8F0';
+  const borderColor = error ? '#dc2626' : cfg && cfg.color !== ROLE_CONFIG.unknown.color ? cfg.color : '#E2E8F0';
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#0B1629',
+      background: 'linear-gradient(135deg, #0a1f5c 0%, #1a3a8f 100%)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -142,10 +142,10 @@ export default function LoginPage() {
       <div className="animate-fade-up" style={{
         background: '#FFFFFF',
         borderRadius: '16px',
-        padding: '2.5rem 2.25rem',
+        padding: '2.5rem 2rem',
         width: '100%',
-        maxWidth: '400px',
-        boxShadow: '0 32px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06)',
+        maxWidth: '420px',
+        boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
         position: 'relative',
         zIndex: 1,
       }}>
@@ -157,8 +157,8 @@ export default function LoginPage() {
         {/* Heading */}
         <div style={{ marginBottom: '1.75rem' }}>
           <h1 style={{
-            fontSize: '1.35rem', fontWeight: 800, color: '#0B1629',
-            letterSpacing: '-0.03em', margin: '0 0 0.35rem',
+            fontSize: '1.5rem', fontWeight: 800, color: '#0a1f5c',
+            letterSpacing: '-0.02em', margin: '0 0 0.35rem',
           }}>
             {t.tagline}
           </h1>
@@ -201,9 +201,9 @@ export default function LoginPage() {
             {cfg && !error && (
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
-                padding: '4px 10px', borderRadius: '6px',
-                background: cfg.bg,
-                border: `1px solid ${cfg.color}22`,
+                padding: '4px 10px', borderRadius: '8px',
+                background: `${cfg.color}12`,
+                border: `1px solid ${cfg.color}30`,
                 width: 'fit-content',
               }}>
                 <span style={{ fontSize: '12px' }}>{cfg.icon}</span>
@@ -241,10 +241,10 @@ export default function LoginPage() {
               fontWeight: 700,
               color: '#ffffff',
               background: isLoading || !code.trim()
-                ? '#94A3B8'
+                ? '#93c5fd'
                 : cfg && cfg.color !== ROLE_CONFIG.unknown.color
                   ? cfg.color
-                  : '#1B4FD8',
+                  : '#1d4ed8',
               border: 'none',
               borderRadius: '9px',
               cursor: isLoading || !code.trim() ? 'not-allowed' : 'pointer',

@@ -29,8 +29,8 @@ export interface Education {
 }
 
 export const LANG_FLAGS: Record<string, string> = {
-  'Français': '🇫🇷', 'Anglais': '🇬🇧', 'Arabe': '🇲🇦', 'Espagnol': '🇪🇸',
-  'Allemand': '🇩🇪', 'Néerlandais': '🇳🇱', 'Italien': '🇮🇹', 'Portugais': '🇵🇹',
+  'Français': '', 'Anglais': '', 'Arabe': '', 'Espagnol': '',
+  'Allemand': '', 'Néerlandais': '', 'Italien': '', 'Portugais': '',
 };
 
 // All CV fields are user-typed or AI-generated free text — escape before
@@ -91,14 +91,14 @@ export const CV_THEMES: CVTheme[] = [
   { id: 'ocean',    name: 'Océan',        dark: '#0a1631', mid: '#1a3a6b', accent: '#2563eb', tint: '#eff6ff', tintBorder: '#bfdbfe', textOnDark: '#ffffff' },
   { id: 'emerald',  name: 'Émeraude',     dark: '#022c22', mid: '#065f46', accent: '#059669', tint: '#ecfdf5', tintBorder: '#a7f3d0', textOnDark: '#ffffff' },
   { id: 'slate',    name: 'Ardoise',      dark: '#0f172a', mid: '#334155', accent: '#475569', tint: '#f1f5f9', tintBorder: '#cbd5e1', textOnDark: '#ffffff' },
-  { id: 'burgundy', name: 'Bordeaux',     dark: '#450a1e', mid: '#881337', accent: '#be123c', tint: '#fff1f2', tintBorder: '#fecdd3', textOnDark: '#ffffff' },
+  { id: 'burgundy', name: 'Bordeaux',     dark: '#450a1e', mid: '#7f1d3a', accent: '#9f1239', tint: '#fff1f2', tintBorder: '#fecdd3', textOnDark: '#ffffff' },
   { id: 'violet',   name: 'Violet Royal', dark: '#2e1065', mid: '#5b21b6', accent: '#7c3aed', tint: '#f5f3ff', tintBorder: '#ddd6fe', textOnDark: '#ffffff' },
-  { id: 'amber',    name: 'Ambre',        dark: '#451a03', mid: '#92400e', accent: '#d97706', tint: '#fffbeb', tintBorder: '#fde68a', textOnDark: '#ffffff' },
+  { id: 'amber',    name: 'Ambre',        dark: '#451a03', mid: '#7c2d12', accent: '#b45309', tint: '#fffbeb', tintBorder: '#fde68a', textOnDark: '#ffffff' },
   { id: 'teal',     name: 'Sarcelle',     dark: '#042f2e', mid: '#115e59', accent: '#0d9488', tint: '#f0fdfa', tintBorder: '#99f6e4', textOnDark: '#ffffff' },
   { id: 'navy',     name: 'Marine',       dark: '#0f172a', mid: '#1e3a8a', accent: '#1d4ed8', tint: '#eff6ff', tintBorder: '#bfdbfe', textOnDark: '#ffffff' },
   { id: 'forest',   name: 'Forêt',        dark: '#052e16', mid: '#166534', accent: '#16a34a', tint: '#f0fdf4', tintBorder: '#bbf7d0', textOnDark: '#ffffff' },
   { id: 'graphite', name: 'Graphite',     dark: '#18181b', mid: '#3f3f46', accent: '#52525b', tint: '#fafafa', tintBorder: '#d4d4d8', textOnDark: '#ffffff' },
-  { id: 'copper',   name: 'Cuivre',       dark: '#431407', mid: '#9a3412', accent: '#c2410c', tint: '#fff7ed', tintBorder: '#fed7aa', textOnDark: '#ffffff' },
+  { id: 'copper',   name: 'Cuivre',       dark: '#431407', mid: '#7c2d12', accent: '#9a3412', tint: '#fff7ed', tintBorder: '#fed7aa', textOnDark: '#ffffff' },
 ];
 
 /* ── Layouts ───────────────────────────────────────────────────────────── */
@@ -163,11 +163,11 @@ function buildCtx(data: CVTemplateData, t: CVTheme): Ctx {
   // still accepted on CVTemplateData purely as a deterministic seed for
   // pickStyle() so each candidate's default CV style is stable.
   const contacts = [
-    data.email && `✉ ${e(data.email)}`,
-    data.phone && `📞 ${e(data.phone)}`,
-    data.address && `📍 ${e(data.address)}`,
-    data.linkedin && `🔗 ${e(data.linkedin)}`,
-    data.portfolio && `💻 ${e(data.portfolio)}`,
+    data.email && e(data.email),
+    data.phone && e(data.phone),
+    data.address && e(data.address),
+    data.linkedin && e(data.linkedin),
+    data.portfolio && e(data.portfolio),
   ].filter(Boolean) as string[];
   return { e, data, t, today, avatarHtml, contacts };
 }
@@ -178,13 +178,11 @@ const PRINT_GUARD = '.entry,.edu-entry,.tl-item,.hdr,.sec-title{break-inside:avo
 function renderSidebar(ctx: Ctx): string {
   const { e, data, t, today, avatarHtml, contacts } = ctx;
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:840px;margin:2rem auto;background:#fff;box-shadow:0 12px 48px rgba(0,0,0,.14);overflow:hidden}
 .hdr{background:linear-gradient(135deg,${t.dark} 0%,${t.mid} 50%,${t.accent} 100%);padding:2.5rem 2.75rem 2rem;color:${t.textOnDark};position:relative;overflow:hidden;display:flex;align-items:center;gap:2rem}
-.hdr::before{content:'';position:absolute;top:-80px;right:-80px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.06)}
-.hdr-avatar{width:90px;height:90px;border-radius:50%;border:3px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.9rem;font-weight:900;color:#fff;flex-shrink:0;position:relative;z-index:1;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.hdr-avatar{width:90px;height:90px;border-radius:50%;border:3px solid rgba(255,255,255,.5);background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:1.9rem;font-weight:900;color:#fff;flex-shrink:0;position:relative;z-index:1;overflow:hidden}
 .hdr-info{flex:1;position:relative;z-index:1}
 .hdr-name{font-size:1.95rem;font-weight:900;letter-spacing:-.03em;line-height:1.1}
 .hdr-role{margin-top:.4rem;font-size:1rem;font-weight:600;opacity:.75}
@@ -226,19 +224,19 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
   </div>
   <div class="body">
     <div class="main">
-      ${data.summary ? `<div class="sec"><div class="sec-title">✦ Profil Professionnel</div><p class="summary-text">${e(data.summary)}</p></div>` : ''}
-      ${data.work.some(w => w.company) ? `<div class="sec"><div class="sec-title">✦ Expériences Professionnelles</div>${data.work.filter(w => w.company).map(w => `
+      ${data.summary ? `<div class="sec"><div class="sec-title">Profil Professionnel</div><p class="summary-text">${e(data.summary)}</p></div>` : ''}
+      ${data.work.some(w => w.company) ? `<div class="sec"><div class="sec-title">Expériences Professionnelles</div>${data.work.filter(w => w.company).map(w => `
         <div class="entry"><h4>${e(w.title) || 'Poste'}</h4><div class="co">${e(w.company)}</div>
-        <div class="meta">📅 ${e(w.startDate)}${w.startDate && (w.endDate || 'Présent') ? ' – ' + e(w.endDate || 'Présent') : e(w.endDate) || ''}</div>
+        <div class="meta">${e(w.startDate)}${w.startDate && (w.endDate || 'Présent') ? ' – ' + e(w.endDate || 'Présent') : e(w.endDate) || ''}</div>
         ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
-      ${data.education.degree ? `<div class="sec"><div class="sec-title">✦ Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
-      ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">✦ Postes Recherchés</div><div class="pills">${data.targetRoles.map(r => `<span class="pill role">🎯 ${e(r)}</span>`).join('')}</div></div>` : ''}
+      ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
+      ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="pills">${data.targetRoles.map(r => `<span class="pill role">${e(r)}</span>`).join('')}</div></div>` : ''}
     </div>
     <div class="side">
-      <div class="sec"><div class="sec-title">Niveau</div><span class="badge">⭐ ${e(data.experience)}</span></div>
+      <div class="sec"><div class="sec-title">Niveau</div><span class="badge">${e(data.experience)}</span></div>
       ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><div class="pills">${data.skills.map(s => `<span class="pill">${e(s)}</span>`).join('')}</div></div>` : ''}
-      ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.languages.map(l => `<span class="pill lang">${LANG_FLAGS[l] || '🌐'} ${e(l)}</span>`).join('')}</div></div>` : ''}
-      ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.certifications.map(c => `<span class="pill cert">🏅 ${e(c)}</span>`).join('')}</div></div>` : ''}
+      ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.languages.map(l => `<span class="pill lang">${e(l)}</span>`).join('')}</div></div>` : ''}
+      ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div style="display:flex;flex-direction:column;gap:.4rem">${data.certifications.map(c => `<span class="pill cert">${e(c)}</span>`).join('')}</div></div>` : ''}
     </div>
   </div>
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
@@ -250,9 +248,8 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
 function renderExecutive(ctx: Ctx): string {
   const { e, data, t, today, avatarHtml, contacts } = ctx;
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#f4f4f5;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f4f5;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:760px;margin:2rem auto;background:#fff;box-shadow:0 12px 48px rgba(0,0,0,.12);padding:3rem 3.5rem}
 .hdr{text-align:center;padding-bottom:1.75rem;border-bottom:3px solid ${t.accent}}
 .avatar{width:96px;height:96px;border-radius:50%;margin:0 auto 1rem;background:${t.tint};border:2px solid ${t.accent};display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:900;color:${t.dark};overflow:hidden}
@@ -294,9 +291,9 @@ body{font-family:'Inter',Arial,sans-serif;background:#f4f4f5;color:#1e293b;-webk
     ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
   ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
   ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><div class="chips">${data.skills.map(s => `<span class="chip">${e(s)}</span>`).join('')}</div></div>` : ''}
-  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="chips">${data.languages.map(l => `<span class="chip">${LANG_FLAGS[l] || '🌐'} ${e(l)}</span>`).join('')}</div></div>` : ''}
-  ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div class="chips">${data.certifications.map(c => `<span class="chip">🏅 ${e(c)}</span>`).join('')}</div></div>` : ''}
-  ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="chips">${data.targetRoles.map(r => `<span class="chip">🎯 ${e(r)}</span>`).join('')}</div></div>` : ''}
+  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="chips">${data.languages.map(l => `<span class="chip">${e(l)}</span>`).join('')}</div></div>` : ''}
+  ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div class="chips">${data.certifications.map(c => `<span class="chip">${e(c)}</span>`).join('')}</div></div>` : ''}
+  ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="chips">${data.targetRoles.map(r => `<span class="chip">${e(r)}</span>`).join('')}</div></div>` : ''}
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
 </div>
 </body></html>`;
@@ -306,12 +303,11 @@ body{font-family:'Inter',Arial,sans-serif;background:#f4f4f5;color:#1e293b;-webk
 function renderRail(ctx: Ctx): string {
   const { e, data, t, today, avatarHtml, contacts } = ctx;
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:880px;margin:2rem auto;background:#fff;box-shadow:0 12px 48px rgba(0,0,0,.14);display:grid;grid-template-columns:260px 1fr;overflow:hidden;min-height:900px}
 .rail{background:linear-gradient(195deg,${t.dark},${t.mid});color:${t.textOnDark};padding:2.25rem 1.75rem}
-.avatar{width:88px;height:88px;border-radius:50%;margin:0 auto 1rem;background:rgba(255,255,255,.12);border:3px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-size:1.85rem;font-weight:900;overflow:hidden}
+.avatar{width:88px;height:88px;border-radius:50%;margin:0 auto 1rem;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:1.85rem;font-weight:900;overflow:hidden}
 .rail-name{text-align:center;font-size:1.25rem;font-weight:800;letter-spacing:-.02em;line-height:1.2}
 .rail-role{text-align:center;font-size:.78rem;opacity:.7;margin-top:.35rem;font-weight:600}
 .rail-sec{margin-top:1.9rem}
@@ -342,17 +338,17 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
     <div class="rail-role">${e(data.experience)} · ${e(data.sector)}</div>
     <div class="rail-sec"><div class="rail-title">Contact</div>${contacts.map(c => `<div class="rail-contact">${c}</div>`).join('')}</div>
     ${data.skills.length ? `<div class="rail-sec"><div class="rail-title">Compétences</div>${data.skills.map(s => `<span class="rail-pill">${e(s)}</span>`).join('')}</div>` : ''}
-    ${data.languages.length ? `<div class="rail-sec"><div class="rail-title">Langues</div>${data.languages.map(l => `<span class="rail-pill">${LANG_FLAGS[l] || '🌐'} ${e(l)}</span>`).join('')}</div>` : ''}
-    ${data.certifications?.length ? `<div class="rail-sec"><div class="rail-title">Certifications</div>${data.certifications.map(c => `<span class="rail-pill">🏅 ${e(c)}</span>`).join('')}</div>` : ''}
+    ${data.languages.length ? `<div class="rail-sec"><div class="rail-title">Langues</div>${data.languages.map(l => `<span class="rail-pill">${e(l)}</span>`).join('')}</div>` : ''}
+    ${data.certifications?.length ? `<div class="rail-sec"><div class="rail-title">Certifications</div>${data.certifications.map(c => `<span class="rail-pill">${e(c)}</span>`).join('')}</div>` : ''}
   </div>
   <div class="main">
     ${data.summary ? `<div class="sec"><div class="sec-title">Profil Professionnel</div><p class="summary-text">${e(data.summary)}</p></div>` : ''}
     ${data.work.some(w => w.company) ? `<div class="sec"><div class="sec-title">Expériences Professionnelles</div>${data.work.filter(w => w.company).map(w => `
       <div class="entry"><h4>${e(w.title) || 'Poste'}</h4><div class="co">${e(w.company)}</div>
-      <div class="meta">📅 ${e(w.startDate)}${w.startDate && (w.endDate || 'Présent') ? ' – ' + e(w.endDate || 'Présent') : e(w.endDate) || ''}</div>
+      <div class="meta">${e(w.startDate)}${w.startDate && (w.endDate || 'Présent') ? ' – ' + e(w.endDate || 'Présent') : e(w.endDate) || ''}</div>
       ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
     ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
-    ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div>${data.targetRoles.map(r => `<span class="rail-pill" style="background:${t.tint};border-color:${t.tintBorder};color:${t.dark}">🎯 ${e(r)}</span>`).join('')}</div>` : ''}
+    ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div>${data.targetRoles.map(r => `<span class="rail-pill" style="background:${t.tint};border-color:${t.tintBorder};color:${t.dark}">${e(r)}</span>`).join('')}</div>` : ''}
   </div>
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
 </div>
@@ -363,9 +359,8 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
 function renderTimeline(ctx: Ctx): string {
   const { e, data, t, today, avatarHtml, contacts } = ctx;
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:800px;margin:2rem auto;background:#fff;box-shadow:0 12px 48px rgba(0,0,0,.12);padding:2.75rem 3rem}
 .hdr{display:flex;align-items:center;gap:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid #e4e4e7}
 .avatar{width:76px;height:76px;border-radius:14px;flex-shrink:0;background:${t.tint};border:2px solid ${t.tintBorder};display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:900;color:${t.dark};overflow:hidden}
@@ -410,9 +405,9 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
     <div class="meta">${e(w.startDate)}${w.startDate && (w.endDate || 'Présent') ? ' – ' + e(w.endDate || 'Présent') : e(w.endDate) || ''}</div>
     ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div></div>` : ''}
   ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
-  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="tags">${data.languages.map(l => `<span class="tag">${LANG_FLAGS[l] || '🌐'} ${e(l)}</span>`).join('')}</div></div>` : ''}
-  ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div class="tags">${data.certifications.map(c => `<span class="tag">🏅 ${e(c)}</span>`).join('')}</div></div>` : ''}
-  ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="tags">${data.targetRoles.map(r => `<span class="tag">🎯 ${e(r)}</span>`).join('')}</div></div>` : ''}
+  ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="tags">${data.languages.map(l => `<span class="tag">${e(l)}</span>`).join('')}</div></div>` : ''}
+  ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div class="tags">${data.certifications.map(c => `<span class="tag">${e(c)}</span>`).join('')}</div></div>` : ''}
+  ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="tags">${data.targetRoles.map(r => `<span class="tag">${e(r)}</span>`).join('')}</div></div>` : ''}
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
 </div>
 </body></html>`;
@@ -473,18 +468,17 @@ body{font-family:Arial,Helvetica,sans-serif;background:#e5e5e5;color:#18181b;-we
 function renderGrid(ctx: Ctx): string {
   const { e, data, t, today, avatarHtml, contacts } = ctx;
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:860px;margin:2rem auto;background:#fff;box-shadow:0 12px 48px rgba(0,0,0,.14);overflow:hidden}
 .hdr{background:${t.dark};padding:1.9rem 2.5rem;color:${t.textOnDark};display:flex;align-items:center;gap:1.5rem}
-.avatar{width:72px;height:72px;border-radius:16px;flex-shrink:0;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;overflow:hidden}
-.name{font-size:1.7rem;font-weight:900;letter-spacing:-.02em}
-.role{margin-top:.3rem;font-size:.88rem;font-weight:600;color:${t.textOnDark};opacity:.75}
-.contacts{margin-top:.6rem;display:flex;flex-wrap:wrap;gap:.35rem 1.1rem}
-.contacts span{font-size:.76rem;opacity:.85}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;padding:1.75rem 2.25rem}
-.card{border:1px solid #e5e7eb;border-radius:12px;padding:1.15rem 1.3rem;background:#fbfcfe}
+.avatar{width:72px;height:72px;border-radius:16px;flex-shrink:0;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;overflow:hidden}
+.name{font-size:1.85rem;font-weight:900;letter-spacing:-.02em}
+.role{margin-top:.35rem;font-size:.9rem;font-weight:600;color:${t.textOnDark};opacity:.78}
+.contacts{margin-top:.65rem;display:flex;flex-wrap:wrap;gap:.4rem 1.2rem}
+.contacts span{font-size:.78rem;opacity:.88}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;padding:1.9rem 2.25rem}
+.card{border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem 1.4rem;background:#fbfcfe}
 .card.full{grid-column:1/-1}
 .card-title{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:${t.accent};margin-bottom:.75rem}
 .summary-text{font-size:.86rem;line-height:1.75;color:#334155}
@@ -519,10 +513,10 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
       <div class="meta">${e(w.startDate)}${w.startDate && (w.endDate || 'Présent') ? ' – ' + e(w.endDate || 'Présent') : e(w.endDate) || ''}</div>
       ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
     ${data.skills.length ? `<div class="card"><div class="card-title">Compétences</div><div class="tiles">${data.skills.map(s => `<span class="tile">${e(s)}</span>`).join('')}</div></div>` : ''}
-    ${data.languages.length ? `<div class="card"><div class="card-title">Langues</div><div class="tiles">${data.languages.map(l => `<span class="tile">${LANG_FLAGS[l] || '🌐'} ${e(l)}</span>`).join('')}</div></div>` : ''}
+    ${data.languages.length ? `<div class="card"><div class="card-title">Langues</div><div class="tiles">${data.languages.map(l => `<span class="tile">${e(l)}</span>`).join('')}</div></div>` : ''}
     ${data.education.degree ? `<div class="card"><div class="card-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
-    ${data.certifications?.length ? `<div class="card"><div class="card-title">Certifications</div><div class="tiles">${data.certifications.map(c => `<span class="tile">🏅 ${e(c)}</span>`).join('')}</div></div>` : ''}
-    ${data.targetRoles?.length ? `<div class="card full"><div class="card-title">Postes Recherchés</div><div class="tiles">${data.targetRoles.map(r => `<span class="tile">🎯 ${e(r)}</span>`).join('')}</div></div>` : ''}
+    ${data.certifications?.length ? `<div class="card"><div class="card-title">Certifications</div><div class="tiles">${data.certifications.map(c => `<span class="tile">${e(c)}</span>`).join('')}</div></div>` : ''}
+    ${data.targetRoles?.length ? `<div class="card full"><div class="card-title">Postes Recherchés</div><div class="tiles">${data.targetRoles.map(r => `<span class="tile">${e(r)}</span>`).join('')}</div></div>` : ''}
   </div>
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
 </div>
@@ -536,9 +530,8 @@ function renderMinimal(ctx: Ctx): string {
   const lastWord = nameParts.length ? nameParts[nameParts.length - 1] : 'Prénom';
   const leadWords = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts.length === 1 ? '' : 'Nom';
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#fafafa;color:#18181b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafafa;color:#18181b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:740px;margin:2.5rem auto;background:#fff;padding:3.25rem 3.75rem}
 .name{font-size:1.9rem;font-weight:300;letter-spacing:.02em;color:#18181b}
 .name b{font-weight:800}
@@ -587,14 +580,13 @@ body{font-family:'Inter',Arial,sans-serif;background:#fafafa;color:#18181b;-webk
 function renderBold(ctx: Ctx): string {
   const { e, data, t, today, avatarHtml, contacts } = ctx;
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:820px;margin:2rem auto;background:#fff;box-shadow:0 12px 48px rgba(0,0,0,.14);overflow:hidden}
 .hdr{background:${t.dark};color:${t.textOnDark};padding:3rem 2.75rem 2.25rem}
 .name{font-size:3rem;font-weight:900;letter-spacing:-.04em;line-height:1}
 .strip{background:${t.accent};color:${t.textOnDark};padding:.9rem 2.75rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
-.avatar{width:52px;height:52px;border-radius:50%;flex-shrink:0;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;overflow:hidden}
+.avatar{width:52px;height:52px;border-radius:50%;flex-shrink:0;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;overflow:hidden}
 .role{font-size:.85rem;font-weight:700}
 .contacts{display:flex;flex-wrap:wrap;gap:.3rem 1.1rem;margin-left:auto}
 .contacts span{font-size:.76rem;font-weight:600}
@@ -632,9 +624,9 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
       ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
     ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
     ${data.skills.length ? `<div class="sec"><div class="sec-title">Compétences</div><div class="pills">${data.skills.map(s => `<span class="pill">${e(s)}</span>`).join('')}</div></div>` : ''}
-    ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="pills">${data.languages.map(l => `<span class="pill">${LANG_FLAGS[l] || '🌐'} ${e(l)}</span>`).join('')}</div></div>` : ''}
-    ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div class="pills">${data.certifications.map(c => `<span class="pill">🏅 ${e(c)}</span>`).join('')}</div></div>` : ''}
-    ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="pills">${data.targetRoles.map(r => `<span class="pill">🎯 ${e(r)}</span>`).join('')}</div></div>` : ''}
+    ${data.languages.length ? `<div class="sec"><div class="sec-title">Langues</div><div class="pills">${data.languages.map(l => `<span class="pill">${e(l)}</span>`).join('')}</div></div>` : ''}
+    ${data.certifications?.length ? `<div class="sec"><div class="sec-title">Certifications</div><div class="pills">${data.certifications.map(c => `<span class="pill">${e(c)}</span>`).join('')}</div></div>` : ''}
+    ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="pills">${data.targetRoles.map(r => `<span class="pill">${e(r)}</span>`).join('')}</div></div>` : ''}
   </div>
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
 </div>
@@ -645,12 +637,11 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
 function renderSplit(ctx: Ctx): string {
   const { e, data, t, today, avatarHtml, contacts } = ctx;
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:880px;margin:2rem auto;background:#fff;box-shadow:0 12px 48px rgba(0,0,0,.14);display:grid;grid-template-columns:1fr 1.35fr;overflow:hidden;min-height:920px}
 .left{background:linear-gradient(200deg,${t.mid},${t.dark});color:${t.textOnDark};padding:2.5rem 2rem;display:flex;flex-direction:column;align-items:center;text-align:center}
-.avatar{width:104px;height:104px;border-radius:50%;background:rgba(255,255,255,.14);border:3px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:2.1rem;font-weight:900;overflow:hidden;margin-bottom:1.1rem}
+.avatar{width:104px;height:104px;border-radius:50%;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:2.1rem;font-weight:900;overflow:hidden;margin-bottom:1.1rem}
 .name{font-size:1.5rem;font-weight:900;letter-spacing:-.02em;line-height:1.15}
 .role{margin-top:.4rem;font-size:.8rem;opacity:.7;font-weight:600}
 .left-sec{margin-top:2rem;width:100%;text-align:left}
@@ -681,8 +672,8 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
     <div class="role">${e(data.experience)} · ${e(data.sector)}</div>
     <div class="left-sec"><div class="left-title">Contact</div>${contacts.map(c => `<div class="left-line">${c}</div>`).join('')}</div>
     ${data.skills.length ? `<div class="left-sec"><div class="left-title">Compétences</div><div class="left-pills">${data.skills.map(s => `<span class="left-pill">${e(s)}</span>`).join('')}</div></div>` : ''}
-    ${data.languages.length ? `<div class="left-sec"><div class="left-title">Langues</div><div class="left-pills">${data.languages.map(l => `<span class="left-pill">${LANG_FLAGS[l] || '🌐'} ${e(l)}</span>`).join('')}</div></div>` : ''}
-    ${data.certifications?.length ? `<div class="left-sec"><div class="left-title">Certifications</div><div class="left-pills">${data.certifications.map(c => `<span class="left-pill">🏅 ${e(c)}</span>`).join('')}</div></div>` : ''}
+    ${data.languages.length ? `<div class="left-sec"><div class="left-title">Langues</div><div class="left-pills">${data.languages.map(l => `<span class="left-pill">${e(l)}</span>`).join('')}</div></div>` : ''}
+    ${data.certifications?.length ? `<div class="left-sec"><div class="left-title">Certifications</div><div class="left-pills">${data.certifications.map(c => `<span class="left-pill">${e(c)}</span>`).join('')}</div></div>` : ''}
   </div>
   <div class="right">
     ${data.summary ? `<div class="sec"><div class="sec-title">Profil Professionnel</div><p class="summary-text">${e(data.summary)}</p></div>` : ''}
@@ -691,7 +682,7 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
       <div class="meta">${e(w.startDate)}${w.startDate && (w.endDate || 'Présent') ? ' – ' + e(w.endDate || 'Présent') : e(w.endDate) || ''}</div>
       ${w.description ? `<ul>${descToBulletList(w.description, e)}</ul>` : ''}</div>`).join('')}</div>` : ''}
     ${data.education.degree ? `<div class="sec"><div class="sec-title">Formation</div><div class="edu-entry"><h4>${e(data.education.degree)}</h4><div class="meta">${e(data.education.institution) || ''}${data.education.year ? ' · ' + e(data.education.year) : ''}</div></div></div>` : ''}
-    ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="left-pills" style="justify-content:flex-start">${data.targetRoles.map(r => `<span class="left-pill" style="background:${t.tint};border-color:${t.tintBorder};color:${t.dark}">🎯 ${e(r)}</span>`).join('')}</div></div>` : ''}
+    ${data.targetRoles?.length ? `<div class="sec"><div class="sec-title">Postes Recherchés</div><div class="left-pills" style="justify-content:flex-start">${data.targetRoles.map(r => `<span class="left-pill" style="background:${t.tint};border-color:${t.tintBorder};color:${t.dark}">${e(r)}</span>`).join('')}</div></div>` : ''}
   </div>
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
 </div>
@@ -702,9 +693,8 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
 function renderMagazine(ctx: Ctx): string {
   const { e, data, t, today, avatarHtml, contacts } = ctx;
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${e(data.name)} — CV</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#eef2f7;color:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:840px;margin:2rem auto;background:#fff;box-shadow:0 12px 48px rgba(0,0,0,.14)}
 .hdr{padding:2.25rem 2.75rem 1.5rem;border-bottom:4px double ${t.accent};display:flex;align-items:center;gap:1.5rem}
 .avatar{width:70px;height:70px;border-radius:50%;flex-shrink:0;background:${t.tint};border:2px solid ${t.tintBorder};display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;color:${t.dark};overflow:hidden}
@@ -751,9 +741,9 @@ body{font-family:'Inter',Arial,sans-serif;background:#eef2f7;color:#1e293b;-webk
   </div>
   <div class="strip">
     ${data.skills.length ? `<div class="strip-col"><div class="strip-title">Compétences</div><p class="strip-line">${data.skills.map(e).join(' · ')}</p></div>` : ''}
-    ${data.languages.length ? `<div class="strip-col"><div class="strip-title">Langues</div><p class="strip-line">${data.languages.map(l => `${LANG_FLAGS[l] || '🌐'} ${e(l)}`).join(' · ')}</p></div>` : ''}
-    ${data.certifications?.length ? `<div class="strip-col"><div class="strip-title">Certifications</div><p class="strip-line">${data.certifications.map(c => `🏅 ${e(c)}`).join(' · ')}</p></div>` : ''}
-    ${data.targetRoles?.length ? `<div class="strip-col"><div class="strip-title">Postes Recherchés</div><p class="strip-line">${data.targetRoles.map(r => `🎯 ${e(r)}`).join(' · ')}</p></div>` : ''}
+    ${data.languages.length ? `<div class="strip-col"><div class="strip-title">Langues</div><p class="strip-line">${data.languages.map(l => `${e(l)}`).join(' · ')}</p></div>` : ''}
+    ${data.certifications?.length ? `<div class="strip-col"><div class="strip-title">Certifications</div><p class="strip-line">${data.certifications.map(c => `${e(c)}`).join(' · ')}</p></div>` : ''}
+    ${data.targetRoles?.length ? `<div class="strip-col"><div class="strip-title">Postes Recherchés</div><p class="strip-line">${data.targetRoles.map(r => `${e(r)}`).join(' · ')}</p></div>` : ''}
   </div>
   <div class="footer">Optimisé par l'Expert RH TalentMap · Marché marocain · ${today}</div>
 </div>

@@ -3,44 +3,40 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
-import Logo from '../../components/Logo';
+import PageHeader from '../../components/PageHeader';
 
-/* ── Design tokens ──────────────────────────────────────────────────────
- * Dark dashboard layout inspired by CareerMap's admin (card structure,
- * avatar shapes, table striping) but recolored to TalentMap's own brand —
- * the cobalt blue from the logo (components/Logo.tsx: #1B4FD8 pin,
- * #3B82F6/#93C5FD for dark backgrounds) instead of CareerMap's teal.
- * No data, tabs, or behavior changed. Token NAMES are kept as-is to
- * minimize the diff; a few no longer match their literal name (WHITE/NAVY
- * now hold surface/text roles instead of literal white/navy) — see the
- * inline notes below.
+/* ── Design tokens (TALENTMAP.md) ───────────────────────────────────────
+ * Light theme per the spec's Brand Gradient / Score & Role Badge systems.
+ * Token names are kept so every existing usage site below inherits the
+ * correct spec value automatically — only the values changed, not the
+ * shape of the file.
  */
-const INK    = '#0A0E1A';   // Page + sidebar background (was dark navy — stays dark)
-const COBALT = '#3B82F6';   // Primary accent — TalentMap brand blue, dark-bg variant from the logo
-const NAVY   = '#F1F5F9';   // Heading/value text on cards — near-white (was dark text)
-const BLUE   = '#60A5FA';   // Secondary accent — lighter brand blue
-const LBLUE  = 'rgba(59,130,246,.14)';  // Brand-blue tint — chip/badge backgrounds
-const MIST   = 'rgba(59,130,246,.22)';  // Stronger brand-blue tint
-const BG     = '#0A0E1A';   // Page background (was light gray)
-const WHITE  = '#111827';   // Card/surface background (was literal white) — literal white text-on-accent uses '#ffffff' directly, see below
-const BORDER = 'rgba(255,255,255,.08)';
-const BORDER2= 'rgba(255,255,255,.16)';
-const TEXT   = '#E2E8F0';   // Primary body text (was dark)
-const TEXT2  = '#CBD5E1';   // Secondary body text
-const MUTED  = '#8B95A8';   // Muted label text
-const FAINT  = '#5B6478';   // Faint/placeholder text
-const GREEN  = '#22C55E';
-const LGREEN = 'rgba(34,197,94,.14)';
-const GTEXT  = '#4ADE80';
-const RED    = '#F87171';
-const LRED   = 'rgba(248,113,113,.14)';
-const RTEXT  = '#FCA5A5';
-const AMBER  = '#F5B301';
-const LAMBER = 'rgba(245,179,1,.14)';
-const ATEXT  = '#FCD34D';
-const PURPLE = '#A78BFA';
-const LPURP  = 'rgba(167,139,250,.14)';
-const PTEXT  = '#C4B5FD';
+const INK    = '#0a1f5c';   // Navy — brand accents, "Full report" tile
+const COBALT = '#1d4ed8';   // Primary accent — CTAs, buttons (blue-700)
+const NAVY   = '#0a1f5c';   // Heading text on cards
+const BLUE   = '#2563eb';   // Secondary accent — links, active states (blue-600)
+const LBLUE  = '#eff6ff';   // Blue tint — chip/badge backgrounds (blue-50)
+const MIST   = '#dbeafe';   // Stronger blue tint (blue-100)
+const BG     = '#f9fafb';   // Page background (gray-50)
+const WHITE  = '#ffffff';   // Card/surface background
+const BORDER = '#e5e7eb';   // Divider (gray-200)
+const BORDER2= '#d1d5db';   // Stronger border (gray-300)
+const TEXT   = '#111827';   // Primary body text (gray-900)
+const TEXT2  = '#374151';   // Secondary body text (gray-700)
+const MUTED  = '#6b7280';   // Muted label text (gray-500)
+const FAINT  = '#9ca3af';   // Faint/placeholder text (gray-400)
+const GREEN  = '#10b981';   // Success
+const LGREEN = '#d1fae5';   // "Excellent" badge bg
+const GTEXT  = '#065f46';   // "Excellent" badge text
+const RED    = '#ef4444';   // Danger
+const LRED   = '#fee2e2';   // "Poor" badge bg
+const RTEXT  = '#991b1b';   // "Poor" badge text
+const AMBER  = '#f59e0b';   // Warning
+const LAMBER = '#fef3c7';   // Admin role badge bg
+const ATEXT  = '#92400e';   // Admin role badge text
+const PURPLE = '#7c3aed';   // Admin role color
+const LPURP  = '#ede9fe';   // Light purple tint
+const PTEXT  = '#4c1d95';   // Purple text on light purple tint
 
 /* ── Helpers ── */
 // Coordinator code shape: NAME + COR + 4 digits (e.g. BENALICOR4821) — mirrors
@@ -146,7 +142,7 @@ function CopyBtn({ text }: { text: string }) {
 }
 
 export default function AdminDashboard() {
-  const { user, initialized, logout } = useAuth();
+  const { user, initialized } = useAuth();
   const router = useRouter();
 
   const [tab, setTab] = useState<Tab>('overview');
@@ -352,7 +348,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
               <span style={{ fontSize: '0.78rem', color: TEXT, fontWeight: 500 }}>{sector}</span>
               <span style={{ fontSize: '0.78rem', fontWeight: 700, color: NAVY }}>{count}</span>
             </div>
-            <div style={{ height: 6, background: 'rgba(255,255,255,.08)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{ height: '100%', borderRadius: 4, background: colors[i % colors.length], width: `${(count / max) * 100}%`, transition: 'width .5s' }} />
             </div>
           </div>
@@ -426,68 +422,38 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
 
   /* ── Render ── */
   return (
-    <div style={{ minHeight: '100vh', background: BG, fontFamily: 'Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: BG, fontFamily: 'Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      <PageHeader title="TalentMap" subtitle="Admin Portal" />
 
-      {/* ── Dark Sidebar ── */}
-      <aside style={{
-        width: 220, flexShrink: 0, background: INK,
-        position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column',
-      }}>
-        {/* Logo */}
-        <div style={{ padding: '1.25rem 1.25rem 1rem', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
-          <Logo size="md" variant="light" />
+      {/* ── Tab bar ── */}
+      <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0.875rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', position: 'sticky', top: 0, zIndex: 20 }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', padding: 0 }}>
+          <div className="tab-group">
+            {NAV.map(item => {
+              const active = tab === item.id;
+              return (
+                <button key={item.id} onClick={() => setTab(item.id)} className={`tab-button${active ? ' active-admin' : ''}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <span style={{ fontSize: '0.9rem' }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                  {item.id === 'coordinators' && coordinators.length > 0 && (
+                    <span style={{ background: active ? 'rgba(255,255,255,.25)' : LBLUE, color: active ? '#fff' : NAVY, borderRadius: 10, padding: '1px 6px', fontSize: '0.65rem', fontWeight: 700 }}>
+                      {coordinators.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ fontSize: '0.8rem', color: MUTED, fontWeight: 600 }}>{user.name || user.id}</span>
+            <button onClick={fetchData} style={{ fontSize: '0.82rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>⟳ Actualiser</button>
+          </div>
         </div>
+      </div>
 
-        {/* User pill */}
-        <div style={{ margin: '0.75rem 0.875rem', padding: '0.6rem 0.875rem', borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)' }}>
-          <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>Administrateur</div>
-          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.id}</div>
-        </div>
-
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: '0.5rem 0.75rem', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {NAV.map(item => {
-            const active = tab === item.id;
-            return (
-              <button key={item.id} onClick={() => setTab(item.id)} style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: '0.6rem',
-                padding: '0.6rem 0.75rem', borderRadius: 7, border: 'none', cursor: 'pointer',
-                background: active ? 'rgba(27,79,216,.85)' : 'transparent',
-                color: active ? WHITE : 'rgba(255,255,255,.5)',
-                fontSize: '0.82rem', fontWeight: active ? 700 : 500,
-                textAlign: 'left', fontFamily: 'inherit', transition: 'all .18s',
-              }}>
-                <span style={{ fontSize: '0.9rem', width: 18, flexShrink: 0, textAlign: 'center' }}>{item.icon}</span>
-                <span style={{ flex: 1 }}>{item.label}</span>
-                {item.id === 'coordinators' && coordinators.length > 0 && (
-                  <span style={{ background: 'rgba(255,255,255,.15)', color: '#ffffff', borderRadius: 10, padding: '1px 6px', fontSize: '0.65rem', fontWeight: 700, flexShrink: 0 }}>
-                    {coordinators.length}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Footer */}
-        <div style={{ padding: '0.75rem', borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.5rem 0.75rem', borderRadius: 7, background: 'transparent', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.35)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-            ↩ Déconnexion
-          </button>
-        </div>
-      </aside>
-
-      {/* ── Main content ── */}
-      <main style={{ flex: 1, minWidth: 0, background: BG, overflowY: 'auto' }}>
-        {/* Top bar */}
-        <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0.875rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
-          <h1 style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, margin: 0 }}>
-            {NAV.find(n => n.id === tab)?.label ?? 'Administration'}
-          </h1>
-          <button onClick={fetchData} style={{ fontSize: '0.78rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>⟳ Actualiser</button>
-        </div>
-
-        <div style={{ padding: '1.75rem 2rem 3rem' }}>
+      <main style={{ background: BG }}>
+        <div className="container" style={{ padding: '1.75rem 1.5rem 3rem' }}>
 
         {loading && tab !== 'overview' ? (
           <div style={{ textAlign: 'center', paddingTop: '6rem', color: MUTED }}>
@@ -570,7 +536,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     {activity.length === 0 ? (
                       <p style={{ fontSize: '0.8rem', color: MUTED }}>Aucune activité enregistrée.</p>
                     ) : activity.slice(0, 8).map((a, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '0.55rem 0', borderBottom: i < 7 ? `1px solid rgba(255,255,255,.06)` : 'none' }}>
+                      <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '0.55rem 0', borderBottom: i < 7 ? `1px solid ${BORDER}` : 'none' }}>
                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: a.color, marginTop: 6, flexShrink: 0 }} />
                         <div style={{ flex: 1, fontSize: '0.8rem', color: TEXT }}>{a.text}</div>
                         <span style={{ fontSize: '0.7rem', color: MUTED, flexShrink: 0 }}>{a.time}</span>
@@ -598,7 +564,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       <input
                         value={newName} onChange={e => { setNewName(e.target.value); setSavedCode(''); }}
                         placeholder="ex: Khalid Benali"
-                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${newName ? COBALT : BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: newName ? LBLUE : 'rgba(255,255,255,.04)', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
+                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${newName ? COBALT : BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: newName ? LBLUE : '#f8fafc', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
                       />
                     </div>
                     <div>
@@ -607,7 +573,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                         value={newEmail} onChange={e => setNewEmail(e.target.value)}
                         placeholder="khalid@entreprise.ma"
                         type="email"
-                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: 'rgba(255,255,255,.04)', boxSizing: 'border-box', outline: 'none' }}
+                        style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: 8, border: `1.5px solid ${BORDER}`, fontSize: '0.875rem', fontFamily: 'inherit', color: TEXT, background: '#f8fafc', boxSizing: 'border-box', outline: 'none' }}
                       />
                     </div>
                     <button
@@ -653,7 +619,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                         <thead>
-                          <tr style={{ background: 'rgba(255,255,255,.04)' }}>
+                          <tr style={{ background: '#f8fafc' }}>
                             {['Coordinateur', 'Email', 'Code d\'accès', 'Créé le', 'Actions'].map(h => (
                               <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: MUTED, whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
@@ -661,7 +627,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                         </thead>
                         <tbody>
                           {coordinators.map((c, i) => (
-                            <tr key={c.id} style={{ borderTop: `1px solid rgba(255,255,255,.06)`, background: i % 2 === 0 ? WHITE : 'rgba(255,255,255,.02)' }}>
+                            <tr key={c.id} style={{ borderTop: `1px solid ${BORDER}`, background: i % 2 === 0 ? WHITE : '#f9fafb' }}>
                               <td style={{ padding: '0.8rem 1rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                                   <div style={{ width: 32, height: 32, borderRadius: 9, background: PURPLE, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#ffffff' }}>{c.name[0]}</div>
@@ -741,7 +707,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                         <thead>
-                          <tr style={{ background: 'rgba(255,255,255,.04)' }}>
+                          <tr style={{ background: '#f8fafc' }}>
                             {['Titre', 'Entreprise', 'Secteur', 'Expérience', 'Ville', 'Compétences', 'Publiée par', 'Statut', ''].map(h => (
                               <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: MUTED, whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
@@ -749,7 +715,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                         </thead>
                         <tbody>
                           {filteredJobs.map((j, i) => (
-                            <tr key={j.id} style={{ borderTop: `1px solid rgba(255,255,255,.06)`, background: i % 2 === 0 ? WHITE : 'rgba(255,255,255,.02)' }}>
+                            <tr key={j.id} style={{ borderTop: `1px solid ${BORDER}`, background: i % 2 === 0 ? WHITE : '#f9fafb' }}>
                               <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: NAVY, whiteSpace: 'nowrap' }}>{j.title}</td>
                               <td style={{ padding: '0.85rem 1rem', color: TEXT, fontWeight: 500 }}>{j.company}</td>
                               <td style={{ padding: '0.85rem 1rem' }}>
@@ -760,7 +726,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                               <td style={{ padding: '0.85rem 1rem' }}>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                                   {(j.skills || []).slice(0, 3).map(s => (
-                                    <span key={s} style={{ background: 'rgba(255,255,255,.08)', color: MUTED, borderRadius: 4, padding: '1px 6px', fontSize: '0.68rem', fontWeight: 600 }}>{s}</span>
+                                    <span key={s} style={{ background: '#f3f4f6', color: MUTED, borderRadius: 4, padding: '1px 6px', fontSize: '0.68rem', fontWeight: 600 }}>{s}</span>
                                   ))}
                                   {(j.skills || []).length > 3 && <span style={{ color: MUTED, fontSize: '0.68rem' }}>+{(j.skills || []).length - 3}</span>}
                                 </div>
@@ -782,7 +748,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                         </tbody>
                       </table>
                     </div>
-                    <div style={{ padding: '0.75rem 1rem', borderTop: `1px solid ${BORDER}`, background: 'rgba(255,255,255,.04)', fontSize: '0.75rem', color: MUTED }}>
+                    <div style={{ padding: '0.75rem 1rem', borderTop: `1px solid ${BORDER}`, background: '#f8fafc', fontSize: '0.75rem', color: MUTED }}>
                       {filteredJobs.length} offre{filteredJobs.length > 1 ? 's' : ''} affichée{filteredJobs.length > 1 ? 's' : ''}
                     </div>
                   </div>
@@ -942,7 +908,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       { label: 'Secteurs représentés', value: cvSectors.length },
                       { label: 'Offres par secteur', value: jobSectors.length },
                     ].map(s => (
-                      <div key={s.label} style={{ padding: '0.85rem', background: 'rgba(255,255,255,.04)', borderRadius: 9, border: `1px solid ${BORDER}` }}>
+                      <div key={s.label} style={{ padding: '0.85rem', background: '#f9fafb', borderRadius: 9, border: `1px solid ${BORDER}` }}>
                         <div style={{ fontSize: '1.3rem', fontWeight: 800, color: NAVY }}>{s.value}</div>
                         <div style={{ fontSize: '0.72rem', color: MUTED, marginTop: 2 }}>{s.label}</div>
                       </div>

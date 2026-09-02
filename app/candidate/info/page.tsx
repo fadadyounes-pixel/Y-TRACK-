@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Logo from '../../../components/Logo';
+import PageHeader from '../../../components/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { isProfileComplete } from '@/lib/profile';
 import { REGIONS, CASABLANCA_SETTAT, PREFECTURE_CASABLANCA, prefecturesFor, arrondissementsFor } from '@/lib/morocco';
@@ -104,11 +104,11 @@ export default function CandidateInfoPage() {
   /* Show loading spinner while auth hydrates */
   if (!initialized) {
     return (
-      <main style={{ minHeight: '100vh', background: '#F6F8FC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+      <main style={{ minHeight: '100vh', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid #E2E8F0', borderTopColor: '#1B4FD8', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+          <div style={{ width: '40px', height: '40px', border: '3px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Chargement…</p>
+          <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>Chargement…</p>
         </div>
       </main>
     );
@@ -177,12 +177,12 @@ export default function CandidateInfoPage() {
 
   /* Styles */
   const labelStyle: React.CSSProperties = {
-    fontSize: '0.72rem', fontWeight: 700, color: '#64748b',
+    fontSize: '0.72rem', fontWeight: 700, color: '#6b7280',
     textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '0.4rem',
   };
   const inputStyle = (filled: boolean): React.CSSProperties => ({
     width: '100%', padding: '0.75rem 1rem', fontSize: '0.9rem',
-    border: `1.5px solid ${filled ? '#1B4FD8' : '#E2E8F0'}`,
+    border: `1.5px solid ${filled ? '#2563eb' : '#e5e7eb'}`,
     borderRadius: '9px', outline: 'none', background: filled ? '#EFF6FF' : '#f8fafc',
     color: '#0f172a', transition: 'border-color 0.15s, background 0.15s',
     fontFamily: 'inherit', boxSizing: 'border-box',
@@ -201,35 +201,57 @@ export default function CandidateInfoPage() {
   const totalFields = 13;
   const pct = Math.round((filledCount / totalFields) * 100);
 
+  // ── Section header: icon square + bold label + divider (CareerMap pattern) ──
+  const SectionHeader = ({ icon, label }: { icon: string; label: string }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+      <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>
+        {icon}
+      </div>
+      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0a1f5c', whiteSpace: 'nowrap' }}>{label}</span>
+      <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+    </div>
+  );
+
   return (
-    <main style={{ minHeight: '100vh', background: '#F6F8FC', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-      {/* Header */}
-      <nav style={{ background: '#0B1629', height: 60, padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid rgba(255,255,255,.06)', boxShadow: '0 2px 16px rgba(0,0,0,.35)' }}>
-        <Logo size="md" variant="light" />
-        <Link href="/candidate" style={{ color: 'rgba(255,255,255,.75)', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>← Dashboard</Link>
-      </nav>
+    <main style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+      <PageHeader title="TalentMap" subtitle="Candidate Portal" />
+
+      {/* ── Sticky info bar: ID badge + title + progress + Next (CareerMap pattern) ── */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 20 }}>
+        <div style={{ maxWidth: '780px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>
+              Votre ID · <span style={{ color: '#2563eb', fontFamily: 'monospace' }}>{user.idNumber}</span>
+            </p>
+            <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0a1f5c', letterSpacing: '-0.02em', margin: 0 }}>
+              Mes Informations
+            </h1>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ padding: '0.7rem 1.5rem', background: saved ? '#059669' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', whiteSpace: 'nowrap' }}
+          >
+            {saving ? 'Enregistrement…' : saved ? '✅ Enregistré' : 'Suivant →'}
+          </button>
+        </div>
+        <div style={{ maxWidth: '780px', margin: '0.75rem auto 0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ flex: 1, height: '6px', background: '#e5e7eb', borderRadius: '9999px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #2563eb, #1d4ed8)', borderRadius: '9999px', transition: 'width 0.4s ease' }} />
+          </div>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563eb', minWidth: '36px' }}>{pct}%</span>
+        </div>
+      </div>
 
       <div style={{ maxWidth: '780px', margin: '0 auto', padding: '2rem 1.25rem 4rem' }}>
 
-        {/* Title + progress */}
-        <div style={{ marginBottom: '1.75rem' }}>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>
-            Mes Informations
-          </h1>
-          <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1rem' }}>
-            Ces informations apparaîtront dans votre CV et votre profil candidat.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ flex: 1, height: '6px', background: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #1B4FD8, #1443B8)', borderRadius: '9999px', transition: 'width 0.4s ease' }} />
-            </div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1B4FD8', minWidth: '36px' }}>{pct}%</span>
-          </div>
-        </div>
+        <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+          Ces informations apparaîtront dans votre CV et votre profil candidat.
+        </p>
 
         {/* ── Photo card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>📷 Photo de profil</h2>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
+          <SectionHeader icon="📷" label="Photo de profil" />
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             <div
               onClick={() => fileRef.current?.click()}
@@ -247,7 +269,7 @@ export default function CandidateInfoPage() {
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                   onClick={() => fileRef.current?.click()}
-                  style={{ padding: '0.55rem 1.1rem', background: 'linear-gradient(135deg,#0B1629,#1B4FD8)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ padding: '0.55rem 1.1rem', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
                 >
                   {form.photo ? '🔄 Changer la photo' : '📁 Choisir une photo'}
                 </button>
@@ -261,7 +283,7 @@ export default function CandidateInfoPage() {
                 )}
               </div>
               {photoErr && <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.4rem' }}>{photoErr}</p>}
-              <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.4rem' }}>JPG, PNG, WebP — max 2 Mo</p>
+              <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.4rem' }}>JPG, PNG, WebP — max 2 Mo</p>
             </div>
           </div>
           <input
@@ -274,8 +296,8 @@ export default function CandidateInfoPage() {
         </div>
 
         {/* ── Identity card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>🪪 État civil</h2>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
+          <SectionHeader icon="🪪" label="État civil" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
               <label style={labelStyle}>Prénom *</label>
@@ -297,8 +319,8 @@ export default function CandidateInfoPage() {
         </div>
 
         {/* ── Contact card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>📞 Contact & Localisation</h2>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
+          <SectionHeader icon="📞" label="Contact & Localisation" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
               <label style={labelStyle}>Téléphone *</label>
@@ -344,8 +366,8 @@ export default function CandidateInfoPage() {
         </div>
 
         {/* ── Education card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>🎓 Formation & Diplôme</h2>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
+          <SectionHeader icon="🎓" label="Formation & Diplôme" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ ...fieldBlock, gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Niveau de diplôme *</label>
@@ -375,15 +397,15 @@ export default function CandidateInfoPage() {
             </div>
           </div>
           {form.diploma && (
-            <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.9rem', background: '#EFF6FF', borderRadius: '8px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#1B4FD8', fontWeight: 600 }}>
+            <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.9rem', background: '#EFF6FF', borderRadius: '8px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#2563eb', fontWeight: 600 }}>
               ✅ {form.diploma}{form.institution ? ` — ${form.institution}` : ''}{form.graduationYear ? ` (${form.graduationYear})` : ''}
             </div>
           )}
         </div>
 
         {/* ── Professional card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1.25rem' }}>💼 Profil Professionnel</h2>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
+          <SectionHeader icon="💼" label="Profil Professionnel" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
               <label style={labelStyle}>Secteur *</label>
@@ -392,12 +414,23 @@ export default function CandidateInfoPage() {
                 {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <div style={fieldBlock}>
+            <div style={{ ...fieldBlock, gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Niveau d'expérience *</label>
-              <select style={{ ...inputStyle(!!form.experience), cursor: 'pointer' }} value={form.experience} onChange={e => set('experience', e.target.value)}>
-                <option value="">Sélectionner…</option>
-                {EXPERIENCE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {EXPERIENCE_LEVELS.map(l => {
+                  const active = form.experience === l;
+                  return (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => set('experience', l)}
+                      style={{ padding: '0.45rem 1rem', borderRadius: '9999px', border: `2px solid ${active ? '#2563eb' : '#e5e7eb'}`, background: active ? '#eff6ff' : '#f8fafc', color: active ? '#2563eb' : '#6b7280', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
+                    >
+                      {active ? '✓ ' : ''}{l}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div style={fieldBlock}>
               <label style={labelStyle}>LinkedIn (optionnel)</label>
@@ -411,8 +444,8 @@ export default function CandidateInfoPage() {
         </div>
 
         {/* ── Languages card ── */}
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.75rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #E2E8F0' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '1rem' }}>🌐 Langues maîtrisées *</h2>
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.75rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
+          <SectionHeader icon="🌐" label="Langues maîtrisées *" />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {LANGS.map(l => {
               const active = form.languages.includes(l);
@@ -420,7 +453,7 @@ export default function CandidateInfoPage() {
                 <button
                   key={l}
                   onClick={() => toggleLang(l)}
-                  style={{ padding: '0.45rem 1rem', borderRadius: '9999px', border: `2px solid ${active ? '#1B4FD8' : '#E2E8F0'}`, background: active ? '#EFF6FF' : '#f8fafc', color: active ? '#1B4FD8' : '#64748b', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
+                  style={{ padding: '0.45rem 1rem', borderRadius: '9999px', border: `2px solid ${active ? '#2563eb' : '#e5e7eb'}`, background: active ? '#EFF6FF' : '#f8fafc', color: active ? '#2563eb' : '#6b7280', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
                 >
                   {active ? '✓ ' : ''}{l}
                 </button>
@@ -434,7 +467,7 @@ export default function CandidateInfoPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            style={{ padding: '0.9rem 2rem', background: saved ? '#059669' : 'linear-gradient(135deg,#0B1629,#1B4FD8)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', minWidth: '160px' }}
+            style={{ padding: '0.9rem 2rem', background: saved ? '#059669' : 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', minWidth: '160px' }}
           >
             {saving ? 'Enregistrement…' : saved ? '✅ Enregistré !' : '💾 Enregistrer'}
           </button>
@@ -454,7 +487,7 @@ export default function CandidateInfoPage() {
         </div>
 
         {!saved && pct < 50 && (
-          <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+          <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#9ca3af' }}>
             Remplissez au moins les champs obligatoires (*) pour continuer.
           </p>
         )}

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
-import Logo from '../../../components/Logo';
+import PageHeader from '../../../components/PageHeader';
 import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 
 type FlowStep = 'intro' | 'qa' | 'generating' | 'result';
@@ -137,7 +137,6 @@ export default function EmailGenerator() {
 
   if (!initialized || !user || user.role !== 'candidate' || !info) return null;
 
-  const firstName = info?.firstName || user.name.split(' ')[0] || 'Candidat';
   const currentQ = QA[qaIndex];
 
   const handleSuggestion = (s: string) => {
@@ -258,28 +257,13 @@ Email: ${email}`;
 
   // ─── Shared layout wrapper ────────────────────────────────────────────────
   const Wrap = ({ children }: { children: React.ReactNode }) => (
-    <main style={{ minHeight: '100vh', background: '#F6F8FC', fontFamily: "'Inter',-apple-system,sans-serif" }}>
-      {/* Navbar */}
-      <nav style={{
-        background: '#0B1629', height: 60, padding: '0 1.5rem',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'sticky', top: 0, zIndex: 100,
-        borderBottom: '1px solid rgba(255,255,255,.06)',
-        boxShadow: '0 2px 16px rgba(0,0,0,.35)',
-      }}>
-        <Logo size="md" variant="light" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Link href="/candidate" style={{ textDecoration: 'none', color: 'rgba(255,255,255,.55)', fontSize: '0.82rem', fontWeight: 600 }}>
-            ← Tableau de bord
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 9999, padding: '0.25rem 0.75rem 0.25rem 0.35rem' }}>
-            <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg,#1B4FD8,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: '#fff' }}>
-              {firstName[0]?.toUpperCase()}
-            </div>
-            <span style={{ color: 'rgba(255,255,255,.88)', fontSize: '0.82rem', fontWeight: 600 }}>{firstName}</span>
-          </div>
-        </div>
-      </nav>
+    <main style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "'Inter',-apple-system,sans-serif" }}>
+      <PageHeader title="TalentMap" subtitle="Cover Letter" />
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '0.75rem 1.25rem 0' }}>
+        <Link href="/candidate" style={{ textDecoration: 'none', color: '#6b7280', fontSize: '0.8rem', fontWeight: 600 }}>
+          ← Tableau de bord
+        </Link>
+      </div>
       {children}
     </main>
   );
@@ -586,7 +570,7 @@ Email: ${email}`;
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '2.5rem 1.25rem 5rem' }}>
         {/* Success header */}
         <div style={{
-          background: 'linear-gradient(135deg,#0B1629,#1B4FD8)',
+          background: 'linear-gradient(135deg,#0a1f5c,#2563eb)',
           borderRadius: 20, padding: '2rem', marginBottom: '1.5rem', color: '#fff',
           position: 'relative', overflow: 'hidden',
         }}>
@@ -733,7 +717,7 @@ Email: ${email}`;
               flex: 1, minWidth: 140,
               padding: '0.75rem',
               borderRadius: 10,
-              background: '#F6F8FC',
+              background: '#f9fafb',
               color: '#374151',
               fontSize: '0.85rem', fontWeight: 600,
               border: '1.5px solid #e5e7eb',
