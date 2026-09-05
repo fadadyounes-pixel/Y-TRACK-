@@ -90,11 +90,13 @@ const RE_COORD   = /^@[A-Za-z]{2,}COD$/i;
 // Older records (or the very first save this session) may still be a bare code
 // string — these helpers normalize either shape so the rest of the app never has
 // to branch on it.
-type Coord = {code: string; name: string; region: string; arrondissement: string; createdAt: number | null};
+type CoordQuestion = {fr: string; ar: string; en: string};
+type Coord = {code: string; name: string; region: string; arrondissement: string; createdAt: number | null; questionnaire?: CoordQuestion[]};
 const normalizeCoord = (c: any): Coord =>
   typeof c === "string"
     ? {code: c, name: c.replace(/^@/, "").replace(/COD$/i, ""), region: "", arrondissement: "", createdAt: null}
-    : {code: c.code, name: c.name || c.code.replace(/^@/, "").replace(/COD$/i, ""), region: c.region || "", arrondissement: c.arrondissement || "", createdAt: c.createdAt ?? null};
+    : {code: c.code, name: c.name || c.code.replace(/^@/, "").replace(/COD$/i, ""), region: c.region || "", arrondissement: c.arrondissement || "", createdAt: c.createdAt ?? null,
+       questionnaire: Array.isArray(c.questionnaire) && c.questionnaire.length > 0 ? c.questionnaire : undefined};
 
 // Runs async tasks with at most `limit` in flight at once, preserving each task's
 // result at its original index. Used to cap how many AI calls one user's action fires
@@ -1133,7 +1135,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
   const [mode, setMode]       = useState<null | "new">(null);
-  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", region: "", arrondissement: "", sector: "", projType: "", photo: ""});
+  const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", region: "", arrondissement: "", sector: "", projType: "", photo: "", coordCode: ""});
   const [formErr, setFormErr] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const arrRef    = useRef<HTMLDivElement>(null);
@@ -1197,22 +1199,31 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     ...REQUIRED_FIELDS,
     ...(showArrondissement ? [{key:"arrondissement" as keyof typeof form, label:{fr:"Arrondissement",ar:"المقاطعة",en:"District"}}] : []),
   ];
-  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "arrondissement").length
+  const TOTAL_FIELDS = Object.keys(form).filter(k => k !== "photo" && k !== "arrondissement" && k !== "coordCode").length
     + (showArrondissement ? 1 : 0);
   const filledCount  = Object.entries(form).filter(([k,v]) =>
-    k !== "photo" && (k !== "arrondissement" || showArrondissement) && !!v).length;
+    k !== "photo" && k !== "coordCode" && (k !== "arrondissement" || showArrondissement) && !!v).length;
   const fillPct      = Math.round((filledCount / TOTAL_FIELDS) * 100);
   const isEmailValid = (v:string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
+  // Optional — if the holder was referred by a coordinator, their code links this
+  // profile to that coordinator's own custom questionnaire (if they've uploaded
+  // one). Unrecognized codes are rejected rather than silently ignored, so a typo
+  // doesn't look like it worked when it didn't.
+  const coordCodeValid = !form.coordCode ||
+    coords.some(c => (typeof c === "string" ? c : c.code).toUpperCase() === form.coordCode.trim().toUpperCase());
+
   const handleCreate = () => {
     const missing = allRequired.filter(r => !form[r.key]).map(r => r.label[lang] || r.label.fr);
-    if (missing.length > 0 || (form.email && !isEmailValid(form.email))) {
+    if (missing.length > 0 || (form.email && !isEmailValid(form.email)) || !coordCodeValid) {
       const errs = [...missing];
       if (form.email && !isEmailValid(form.email)) errs.push(lang==="ar"?"البريد الإلكتروني غير صالح":lang==="fr"?"Format e-mail invalide":"Invalid email format");
+      if (!coordCodeValid) errs.push(lang==="ar"?"رمز المنسق غير معروف":lang==="fr"?"Code coordinateur non reconnu":"Unrecognized coordinator code");
       setFormErr(errs); return;
     }
     const id = val.trim().toUpperCase();
-    onLogin({id, name:form.firstName, role:"holder", profile:{...form, id}, isNew:true});
+    const coordCode = form.coordCode ? form.coordCode.trim().toUpperCase() : "";
+    onLogin({id, name:form.firstName, role:"holder", profile:{...form, coordCode, id}, isNew:true});
   };
 
   /* ── Dark field helpers (CareerMap style) ── */
@@ -1333,6 +1344,22 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
             {regSec("💼", lang==="ar"?"المشروع":lang==="fr"?"Projet":"Project")}
             <div><label style={lStyle}>{t.sector}</label>{dSel("sector", SECTORS, t.sector as string)}</div>
             <div><label style={lStyle}>{t.projType}</label>{dSel("projType", PROJ_TYPES[lang], t.projType as string)}</div>
+            <div>
+              <label style={{...lStyle, marginBottom:"7px"}}>
+                {lang==="ar"?"رمز المنسق":lang==="fr"?"Code coordinateur":"Coordinator code"} ({lang==="ar"?"اختياري":lang==="fr"?"optionnel":"optional"})
+              </label>
+              <input value={form.coordCode}
+                onChange={e => {setForm(p => ({...p, coordCode:e.target.value})); setFormErr([]);}}
+                placeholder={lang==="ar"?"مثال: @OMARCOD":lang==="fr"?"Ex : @OMARCOD":"E.g. @OMARCOD"}
+                style={{width:"100%", padding:"11px 14px", borderRadius:"10px",
+                  border:`1.5px solid ${form.coordCode ? (coordCodeValid ? Y : RE) : "rgba(28,58,92,.8)"}`,
+                  background:"rgba(255,255,255,.04)", fontSize:"13px",
+                  fontFamily:ff(lang), color:WH,
+                  direction:dir as "rtl"|"ltr", transition:"border-color .2s"}}/>
+              <div style={{fontSize:"10px", color:"rgba(255,255,255,.3)", marginTop:"5px"}}>
+                {lang==="ar"?"إذا وجهك منسق، أدخل رمزه هنا لاستخدام استبيانه الخاص":lang==="fr"?"Si un coordinateur vous a orienté, entrez son code pour utiliser son propre questionnaire":"If a coordinator referred you, enter their code to use their own questionnaire"}
+              </div>
+            </div>
             <div>
               <label style={{...lStyle, marginBottom:"7px"}}>
                 {t.photo as string} ({lang==="ar"?"اختياري":lang==="fr"?"optionnel":"optional"})
@@ -1508,9 +1535,12 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
 /* ════════════════════════════════════════════════════════
    HOLDER APP
 ════════════════════════════════════════════════════════ */
-function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialState}: {
+function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialState, customQuestions}: {
   lang: string; setLang: (l: string) => void; user: any;
   onLogout: () => void; t: any; onSaveProject: (d: any) => void; initialState?: any;
+  // A coordinator's uploaded questionnaire, if the holder registered under a
+  // coordinator who has one — replaces the built-in fixed questions below.
+  customQuestions?: CoordQuestion[];
 }) {
   const [step, setStep]    = useState(initialState?.step || "idea");
   const stepRef = useRef(step);
@@ -1563,7 +1593,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   // AI-generated — so it can never drift into a vague paragraph. Only the tap-to-answer
   // OPTIONS are tailored to the project's nature (sector/idea), via a single upfront AI
   // call in startChat().
-  const FIXED_Q: {fr: string; ar: string; en: string}[] = [
+  const BUILTIN_FIXED_Q: {fr: string; ar: string; en: string}[] = [
     {fr: "Quel est le nom (ou l'enseigne) de votre projet ?", ar: "ما هو اسم مشروعك (أو علامته التجارية)؟", en: "What is the name (or brand) of your project?"},
     {fr: "Dans quel secteur d'activité se situe votre projet ?", ar: "في أي قطاع نشاط يندرج مشروعك؟", en: "What sector does your project belong to?"},
     {fr: "Dans quelle ville, quartier ou douar sera-t-il implanté ?", ar: "في أي مدينة أو حي أو دوار سيقام مشروعك؟", en: "In which city, neighborhood, or village will it be located?"},
@@ -1595,6 +1625,13 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     {fr: "Avez-vous un plan pour faire grandir le projet dans les prochaines années ?", ar: "هل لديك خطة لتطوير المشروع في السنوات القادمة؟", en: "Do you have a plan to grow the project in the coming years?"},
     {fr: "Pourquoi le jury INDH devrait-il choisir votre projet ?", ar: "لماذا يجب على لجنة المبادرة الوطنية اختيار مشروعك؟", en: "Why should the INDH jury choose your project?"},
   ];
+  // A coordinator's uploaded questionnaire replaces the built-in set entirely when
+  // present. Each question already carries its own fr/ar/en text (the upload
+  // pipeline merges bilingual FR/AR pairs in the source document, or translates
+  // a single-language document) — same shape as BUILTIN_FIXED_Q, so it drops in
+  // with no other change needed anywhere the fixed set is used.
+  const usingCustomQ = !!customQuestions && customQuestions.length > 0;
+  const FIXED_Q: {fr: string; ar: string; en: string}[] = usingCustomQ ? customQuestions! : BUILTIN_FIXED_Q;
   const MAX_Q = FIXED_Q.length;
   const fixedQText = (i: number) => FIXED_Q[i][lang as "fr"|"ar"|"en"] || FIXED_Q[i].fr;
 
@@ -1781,6 +1818,11 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   };
 
   const localOptionsFor = (qIndex: number, ideaText: string): string[] => {
+    // The built-in per-index sector heuristics below assume BUILTIN_FIXED_Q's own
+    // question topics — meaningless against a coordinator's arbitrary custom
+    // questionnaire. Generic options until the AI-tailoring batch (which reads the
+    // actual question text, not its index) upgrades them moments later.
+    if (usingCustomQ) return genericOptions();
     const sector = user.profile?.sector || "";
     const city = user.profile?.arrondissement || user.profile?.region || (lang === "ar" ? "منطقتي" : lang === "fr" ? "ma ville" : "my city");
     const sectorLabel = sector || (lang === "ar" ? "نشاطي" : lang === "fr" ? "mon activité" : "my activity");
@@ -4999,15 +5041,20 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 /* ════════════════════════════════════════════════════════
    COORDINATOR DASHBOARD
 ════════════════════════════════════════════════════════ */
-function CoordDash({lang, setLang, user, onLogout, t, holders, syncError}: {
+function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questionnaire, onSaveQuestionnaire}: {
   lang: string; setLang: (l: string) => void; user: any;
   onLogout: () => void; t: any; holders: any[]; syncError?: boolean;
+  questionnaire?: CoordQuestion[]; onSaveQuestionnaire: (questions: CoordQuestion[] | undefined) => void;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("holders");
   const [search, setSearch]     = useState("");
   const [detail, setDetail]     = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [qUploading, setQUploading]   = useState(false);
+  const [qDraft, setQDraft]           = useState<CoordQuestion[] | null>(null);
+  const [qErr, setQErr]               = useState("");
+  const qText = (q: CoordQuestion) => q[lang as "fr"|"ar"|"en"] || q.fr;
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -5470,6 +5517,115 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError}: {
                   </div>
                 </div>
               ))}
+            </Card>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"10px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  📄 {lang==="ar"?"استبيان مخصص":lang==="fr"?"Questionnaire personnalisé":"Custom questionnaire"}
+                </span>
+              </div>
+              <p style={{fontSize:12, color:GR, marginBottom:14, lineHeight:1.6}}>
+                {lang==="ar"?"استوردوا وثيقة Word تحتوي على أسئلتكم الخاصة. الحاملون الذين يدخلون رمزكم عند التسجيل سيجيبون على هذه الأسئلة بدلاً من الأسئلة الافتراضية للتطبيق."
+                  :lang==="fr"?"Importez un document Word contenant vos propres questions. Les porteurs qui entrent votre code à l'inscription répondront à ces questions au lieu des questions par défaut de l'application."
+                  :"Upload a Word document with your own questions. Holders who enter your code at registration will answer these instead of the app's default questions."}
+              </p>
+
+              {questionnaire && !qDraft && (
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:11, fontWeight:700, color:GN, marginBottom:8}}>
+                    ✓ {questionnaire.length} {lang==="ar"?"سؤالاً نشطاً":lang==="fr"?"questions actives":"active questions"}
+                  </div>
+                  <div style={{maxHeight:180, overflowY:"auto", border:`1px solid ${CD}`, borderRadius:8, padding:"8px 12px"}}>
+                    {questionnaire.map((q,i) => (
+                      <div key={i} style={{fontSize:12, color:N, padding:"6px 0", borderBottom: i<questionnaire.length-1?`1px solid ${CD}`:"none"}}>
+                        {i+1}. {qText(q)}
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => onSaveQuestionnaire(undefined)}
+                    style={{marginTop:10, padding:"8px 14px", borderRadius:8, border:`1px solid ${RE}`,
+                      background:"transparent", color:RE, fontSize:12, fontWeight:600, fontFamily:ff(lang), cursor:"pointer"}}>
+                    {lang==="ar"?"إزالة الاستبيان (العودة للأسئلة الافتراضية)":lang==="fr"?"Retirer (revenir aux questions par défaut)":"Remove (revert to default questions)"}
+                  </button>
+                </div>
+              )}
+
+              {qDraft && (
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:11, fontWeight:700, color:Y, marginBottom:8}}>
+                    {lang==="ar"?`تمت قراءة ${qDraft.length} سؤالاً — راجعوها قبل الحفظ`:lang==="fr"?`${qDraft.length} questions extraites — vérifiez avant d'enregistrer`:`${qDraft.length} questions extracted — review before saving`}
+                  </div>
+                  <div style={{maxHeight:220, overflowY:"auto", border:`1px solid ${Y}`, borderRadius:8, padding:"4px 8px"}}>
+                    {qDraft.map((q,i) => (
+                      <div key={i} style={{display:"flex", alignItems:"flex-start", gap:8, padding:"6px 0", borderBottom: i<qDraft.length-1?`1px solid ${CD}`:"none"}}>
+                        <span style={{flex:1, fontSize:12, color:N}}>{i+1}. {qText(q)}</span>
+                        <button onClick={() => setQDraft(qDraft.filter((_,x) => x!==i))}
+                          style={{background:"none", border:"none", color:RE, cursor:"pointer", fontSize:14, flexShrink:0}}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:"flex", gap:8, marginTop:10}}>
+                    <button onClick={() => { onSaveQuestionnaire(qDraft); setQDraft(null); }}
+                      disabled={qDraft.length===0}
+                      style={{padding:"9px 16px", borderRadius:8, border:"none",
+                        background: qDraft.length===0 ? CD : ND, color:WH, fontSize:12, fontWeight:700,
+                        fontFamily:ff(lang), cursor: qDraft.length===0 ? "default" : "pointer"}}>
+                      {lang==="ar"?"✓ حفظ الاستبيان":lang==="fr"?"✓ Enregistrer le questionnaire":"✓ Save questionnaire"}
+                    </button>
+                    <button onClick={() => setQDraft(null)}
+                      style={{padding:"9px 16px", borderRadius:8, border:`1px solid ${CD}`,
+                        background:"transparent", color:GR, fontSize:12, fontFamily:ff(lang), cursor:"pointer"}}>
+                      {lang==="ar"?"إلغاء":lang==="fr"?"Annuler":"Cancel"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {qErr && (
+                <div style={{padding:"10px 12px", background:`${RE}12`, border:`1px solid ${RE}44`,
+                  borderRadius:8, marginBottom:12, fontSize:12, color:RE}}>{qErr}</div>
+              )}
+
+              {!qDraft && (
+                <label style={{display:"flex", alignItems:"center", gap:10, padding:"11px 14px",
+                  borderRadius:10, border:`1.5px dashed ${Y}`, background:YL, cursor: qUploading ? "default" : "pointer",
+                  opacity: qUploading ? .6 : 1}}>
+                  <span style={{fontSize:20}}>{qUploading ? "⏳" : "📁"}</span>
+                  <div>
+                    <div style={{fontSize:12, fontWeight:600, color:ND}}>
+                      {qUploading
+                        ? (lang==="ar"?"جارٍ التحليل...":lang==="fr"?"Analyse en cours...":"Analyzing...")
+                        : (questionnaire
+                          ? (lang==="ar"?"استبدال بوثيقة أخرى":lang==="fr"?"Remplacer par un autre document":"Replace with another document")
+                          : (lang==="ar"?"استيراد وثيقة (Word أو PDF)":lang==="fr"?"Importer un document (Word ou PDF)":"Upload a document (Word or PDF)"))}
+                    </div>
+                    <div style={{fontSize:10, color:GR}}>DOCX, PDF — max 5 MB</div>
+                  </div>
+                  <input type="file" accept=".docx,.pdf" disabled={qUploading} style={{display:"none"}}
+                    onChange={async e => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!f) return;
+                      if (f.size > 5*1024*1024) { setQErr(lang==="ar"?"الملف كبير جداً (الحد 5 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 5 Mo)":"File too large (max 5 MB)"); return; }
+                      setQErr(""); setQUploading(true);
+                      try {
+                        const buf = await f.arrayBuffer();
+                        const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+                        const r = await fetch("/api/parse-questionnaire", {
+                          method: "POST", headers: {"Content-Type": "application/json"},
+                          body: JSON.stringify({fileBase64: b64}),
+                        });
+                        const d = await r.json();
+                        if (d.questions?.length > 0) setQDraft(d.questions);
+                        else setQErr(lang==="ar"?"تعذر العثور على أسئلة في هذه الوثيقة":lang==="fr"?"Aucune question trouvée dans ce document":"No questions found in this document");
+                      } catch {
+                        setQErr(lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file");
+                      } finally {
+                        setQUploading(false);
+                      }
+                    }}/>
+                </label>
+              )}
             </Card>
           </>)}
 
@@ -6731,17 +6887,27 @@ export default function IdeaMapPage() {
 
   if (user.role === "holder") {
     const saved = holders.find(h => h.id === user.id);
+    const referredCoord = user.profile?.coordCode
+      ? coords.find(c => c.code.toUpperCase() === user.profile.coordCode.toUpperCase())
+      : undefined;
     return <>
       <SyncDot/>
       <HolderApp lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
-        t={t} onSaveProject={onSaveProject} initialState={saved}/>
+        t={t} onSaveProject={onSaveProject} initialState={saved}
+        customQuestions={referredCoord?.questionnaire}/>
     </>;
   }
 
   if (user.role === "coord") return <>
     <SyncDot/>
     <CoordDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
-      t={t} holders={holders} syncError={syncError}/>
+      t={t} holders={holders} syncError={syncError}
+      questionnaire={coords.find(c => c.code.toUpperCase() === user.id.toUpperCase())?.questionnaire}
+      onSaveQuestionnaire={(questions: CoordQuestion[] | undefined) => {
+        const next = coords.map(c => c.code.toUpperCase() === user.id.toUpperCase() ? {...c, questionnaire: questions} : c);
+        setCoords(next);
+        persistCoords(next);
+      }}/>
   </>;
 
   if (user.role === "admin") return <>
