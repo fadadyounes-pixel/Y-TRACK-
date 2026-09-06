@@ -1532,6 +1532,343 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   );
 }
 
+// Builds and downloads the Pitch Deck (5 slides) or Dossier Jury (9 slides) .pptx
+// for a given project record. Extracted as a standalone function (rather than
+// living inside HolderApp) so it can be called for ANY holder's saved data, not
+// just the currently-logged-in holder's own live state — specifically, so a
+// coordinator can generate a holder's deck straight from their own dashboard
+// (CoordDash) without asking the holder to send it themselves.
+async function generatePptxDeck(
+  type: "pitch" | "jury",
+  exportLang: string,
+  data: {proj: any; plan: any; budget: any; comp: any; docs: Record<number, boolean>; logo: any; profile: any; name: string},
+  lang: string,
+  showToast: (msg: string, type?: "error" | "success") => void,
+) {
+  const {proj, plan, budget, comp, docs, logo, profile, name} = data;
+  try {
+    const PptxGenJS = (await import("pptxgenjs")).default;
+    const prs = new (PptxGenJS as any)();
+    prs.layout = "LAYOUT_16x9";
+    const NAVY = "0F2233"; const YELLOW = "FFB703"; const WHITE = "FFFFFF";
+    const total = budget?.items?.reduce((s: number, x: any) => s + (x.total || 0), 0) || 0;
+    const indh = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
+    const bene = budget?.beneficiaryContribution || (total - indh);
+
+    const isAr = exportLang === "ar";
+    const isEn = exportLang === "en";
+    const T = {
+      problem: isAr?"الإشكالية والحل":isEn?"Problem & Solution":"Problème & Solution",
+      model: isAr?"النموذج الاقتصادي والأثر":isEn?"Business Model & Impact":"Modèle Économique & Impact",
+      budget: isAr?"ميزانية المبادرة الوطنية":isEn?"INDH Budget":"Budget INDH",
+      steps: isAr?"الخطوات التالية":isEn?"Next Steps":"Étapes Suivantes",
+      summary: isAr?"الملخص التنفيذي":isEn?"Executive Summary":"Résumé Exécutif",
+      plan: isAr?"خطة الأعمال":isEn?"Business Plan":"Plan d'Affaires",
+      impact: isAr?"الأثر الاجتماعي والمحاذاة":isEn?"Social Impact & INDH Alignment":"Impact Social & Alignement INDH",
+      budgetPrev: isAr?"الميزانية التفصيلية":isEn?"Detailed Budget":"Budget Prévisionnel",
+      compliance: isAr?"الامتثال للمبادرة":isEn?"INDH Compliance":"Conformité INDH",
+      docs: isAr?"الوثائق المطلوبة":isEn?"Required Documents":"Documents Requis",
+      submission: isAr?"مراحل تقديم الملف":isEn?"Submission Steps":"Étapes de Soumission",
+      holder: isAr?"الحامل":isEn?"Holder":"Porteur",
+      eligible: isAr?"مؤهل للتمويل ✓":isEn?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
+      notElig: isAr?"يحتاج تعديلات ✗":isEn?"NOT ELIGIBLE ✗":"NON ÉLIGIBLE ✗",
+      totalLabel: isAr?"المجموع":"Total",
+      indhLabel: isAr?"المبادرة (90%)":"INDH (90%)",
+      holdLabel: isAr?"مساهمة الحامل (10%)":isEn?"Holder (10%)":"Apport porteur (10%)",
+      stepsText: isAr
+        ? "1. إعداد الملف الكامل للمبادرة الوطنية\n2. جمع الوثائق المطلوبة\n3. إيداع الملف لدى مديرية العمل الاجتماعي\n4. الاستماع أمام لجنة التحكيم\n5. التوقيع على اتفاقية المبادرة الوطنية"
+        : isEn
+          ? "1. Finalize the INDH application file\n2. Gather all required documents\n3. Submit to the Division of Social Action (DAS)\n4. Present to INDH selection jury\n5. Sign the INDH convention"
+          : "1. Finaliser le dossier INDH\n2. Rassembler tous les documents requis\n3. Déposer auprès du CPDH\n4. Passage devant le jury de sélection\n5. Signature de la convention INDH",
+      submissionText: isAr
+        ? "1. إيداع الملف لدى مديرية العمل الاجتماعي (DAS)\n2. الحصول على وصل الإيداع\n3. دراسة الملف من طرف اللجنة الإقليمية (CPDH)\n4. المثول أمام لجنة تحكيم المبادرة الوطنية\n5. إشعار بالقرار\n6. التوقيع على الاتفاقية وانطلاق المشروع"
+        : isEn
+          ? "1. Submit file to Division of Social Action (DAS)\n2. Receive deposit receipt\n3. Review by local CPDH committee\n4. Present before INDH jury\n5. Decision notification\n6. Sign convention and start project"
+          : "1. Déposer le dossier à la Division de l'Action Sociale (DAS)\n2. Récépissé de dépôt délivré\n3. Instruction par le CPDH local\n4. Passage devant le jury INDH\n5. Notification de décision\n6. Signature de la convention et démarrage",
+      catLabel: isAr?"الفئة":isEn?"Category":"Catégorie",
+      itemLabel: isAr?"البند":isEn?"Item":"Désignation",
+      totalCol: isAr?"المجموع (درهم)":isEn?"Total (MAD)":"Total (MAD)",
+      criteriaLabel: isAr?"المعيار":isEn?"Criteria":"Critère",
+      weightLabel: isAr?"الوزن":isEn?"Weight":"Poids",
+      scoreLabel: isAr?"النقطة":isEn?"Score":"Score",
+      docLabel: isAr?"الوثيقة":isEn?"Document":"Document",
+      statusLabel: isAr?"الحالة":isEn?"Status":"Statut",
+      ready: isAr?"✓ جاهز":isEn?"✓ Ready":"✓ Prêt",
+      pending: isAr?"⏳ قيد الإعداد":isEn?"⏳ Pending":"⏳ En attente",
+      docsCount: isAr
+        ? `${Object.values(docs).filter(Boolean).length}/${DOCS.length} وثيقة جاهزة`
+        : `${Object.values(docs).filter(Boolean).length}/${DOCS.length} ${isEn?"documents ready":"documents préparés"}`,
+    };
+    const align = isAr ? "right" : "center";
+
+    if (type === "pitch") {
+      let s = prs.addSlide(); s.background = {color: NAVY};
+      s.addText(proj?.projectName || "Mon Projet", {x:0.5,y:1.6,w:9,h:1.4,fontSize:34,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
+      s.addText(logo?.concept?.tagline || proj?.sector || "", {x:0.5,y:3.1,w:9,h:0.6,fontSize:15,color:WHITE,align:"center",fontFace:"Arial"});
+      s.addText(`${proj?.location || ""} · INDH Phase 3`, {x:0.5,y:3.9,w:9,h:0.4,fontSize:11,color:"AAAAAA",align:"center"});
+      s.addText("IdeaMap", {x:0.5,y:4.5,w:9,h:0.3,fontSize:9,color:"666666",align:"center"});
+
+      s = prs.addSlide(); s.background = {color:"FAF7F0"};
+      s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
+      s.addText(T.problem, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:26,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+      if (plan?.problemStatement) s.addText(plan.problemStatement, {x:0.4,y:1.1,w:4.3,h:3.8,fontSize:11,color:"333333",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+      if (plan?.solution) s.addText(plan.solution, {x:5.1,y:1.1,w:4.3,h:3.8,fontSize:11,color:"333333",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+
+      s = prs.addSlide(); s.background = {color:"FAF7F0"};
+      s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
+      s.addText(T.model, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:26,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+      if (plan?.businessModel) s.addText(plan.businessModel, {x:0.4,y:1.1,w:9.1,h:2,fontSize:12,color:"222222",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+      if (plan?.socialImpact) s.addText(plan.socialImpact, {x:0.4,y:3.3,w:9.1,h:1.8,fontSize:12,color:"1C3A5C",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+
+      s = prs.addSlide(); s.background = {color:NAVY};
+      s.addText(T.budget, {x:0.5,y:0.3,w:9,h:0.7,fontSize:26,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
+      s.addText(`${T.totalLabel} : ${total.toLocaleString()} MAD`, {x:0.5,y:1.4,w:9,h:0.7,fontSize:22,color:WHITE,align:"center",bold:true});
+      s.addText(`${T.indhLabel} : ${indh.toLocaleString()} MAD`, {x:0.5,y:2.3,w:9,h:0.6,fontSize:18,color:YELLOW,align:"center"});
+      s.addText(`${T.holdLabel} : ${bene.toLocaleString()} MAD`, {x:0.5,y:3.1,w:9,h:0.6,fontSize:18,color:"CCCCCC",align:"center"});
+
+      s = prs.addSlide(); s.background = {color:"FAF7F0"};
+      s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
+      s.addText(T.steps, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:26,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+      s.addText(T.stepsText, {x:0.4,y:1.1,w:9.1,h:4,fontSize:15,color:"222222",fontFace:"Arial",align:isAr?"right":"left"});
+      await prs.writeFile({fileName: `PitchDeck_${proj?.projectName || "IdeaMap"}.pptx`});
+    } else {
+      // ── 9-slide INDH jury presentation — presentation-ready with talking points ──
+      const clip = (txt: string, n: number) => {
+        if (!txt) return "";
+        if (txt.length <= n) return txt;
+        return txt.slice(0, n).replace(/\s\S*$/, "…");
+      };
+      const bpts = (txt: string, max: number = 3): string[] => {
+        if (!txt) return [];
+        return txt.split(/\.\s+|;\s+|\n+/).map((x: string) => x.trim()).filter((x: string) => x.length > 10).slice(0, max);
+      };
+
+      const SH = (prs as any).ShapeType?.rect || "rect";
+      const jTalk = (sl: any, txt: string, bg: string = "EFF6FF", txtCol: string = "1C3A5C") => {
+        sl.addShape(SH, {x:0.3,y:4.55,w:9.4,h:0.78,fill:{color:bg},line:{color:"CCCCCC",pt:0.5}});
+        sl.addText(`🎤 ${txt}`, {x:0.45,y:4.6,w:9.1,h:0.7,fontSize:9.5,color:txtCol,italic:true,wrap:true,fontFace:"Arial"});
+      };
+      const headerBar = (sl: any, txt: string, colHex: string, scoreStr: string, subLabel: string) => {
+        sl.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:colHex}});
+        sl.addText(txt, {x:0.25,y:0,w:7.2,h:0.82,fontSize:18,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
+        sl.addShape(SH, {x:7.6,y:0.1,w:2.15,h:0.62,fill:{color:"00000033"},line:{color:WHITE,pt:1}});
+        sl.addText(scoreStr, {x:7.6,y:0.1,w:2.15,h:0.62,fontSize:20,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
+        if (subLabel) sl.addText(subLabel, {x:7.6,y:0.74,w:2.15,h:0.22,fontSize:7.5,color:colHex,align:"center",fontFace:"Arial",bold:true});
+      };
+
+      // ── Slide 1: Cover ──
+      let s = prs.addSlide(); s.background = {color:NAVY};
+      s.addShape(SH, {x:0,y:0,w:10,h:0.1,fill:{color:"2A5CE0"}});
+      s.addShape(SH, {x:0,y:5.53,w:10,h:0.1,fill:{color:"2A5CE0"}});
+      s.addText(proj?.projectName || "", {x:0.5,y:0.6,w:9,h:1.0,fontSize:30,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
+      if (logo?.concept?.tagline) s.addText(`« ${logo.concept.tagline} »`, {x:0.5,y:1.72,w:9,h:0.38,fontSize:14,color:"CCCCCC",align:"center",fontFace:"Arial",italic:true});
+      s.addText(`${proj?.sector||""} · 📍 ${proj?.location||regionDisplay(profile)||""}`, {x:0.5,y:2.18,w:9,h:0.32,fontSize:12,color:"AAAAAA",align:"center",fontFace:"Arial"});
+      s.addShape(SH, {x:0.5,y:2.6,w:9,h:0.04,fill:{color:"2A5CE044"}});
+      const metricTotal = budget?.items?.reduce((s2: number, x: any)=>s2+(x.total||0),0)||0;
+      const chips = [
+        {l:isAr?"النقطة":isEn?"Score":"Score", v:comp?`${comp.score}/100`:"—", col:comp?.eligible?"22C55E":"EF4444"},
+        {l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—", col:YELLOW},
+        {l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:proj?.beneficiaries?String(proj.beneficiaries):"—", col:"60A5FA"},
+        {l:isAr?"مساهمة INDH":isEn?"INDH Grant":"Subvention INDH", v:metricTotal?`${Math.min(Math.round(metricTotal*.90),100000).toLocaleString()} MAD`:"—", col:"A78BFA"},
+      ];
+      chips.forEach((m, i) => {
+        const bx = 0.3 + i * 2.4;
+        s.addShape(SH, {x:bx,y:2.82,w:2.2,h:1.1,fill:{color:"141B45"},line:{color:"2A5CE0",pt:1}});
+        s.addText(m.l, {x:bx+0.1,y:2.87,w:2,h:0.28,fontSize:7.5,color:"888888",fontFace:"Arial",bold:true});
+        s.addText(m.v, {x:bx+0.1,y:3.12,w:2,h:0.55,fontSize:12,color:m.col,bold:true,fontFace:"Arial"});
+      });
+      s.addText(`${T.holder}: ${name} ${profile?.lastName||""} · ${proj?.pillar||"INDH Phase 3"}`, {x:0.5,y:4.15,w:9,h:0.3,fontSize:10,color:"888888",align:"center",fontFace:"Arial"});
+      s.addText("IdeaMap · ideamaponline.org", {x:0.5,y:4.6,w:9,h:0.25,fontSize:8,color:"444444",align:"center",fontFace:"Arial"});
+
+      // ── Slide 2: Mon Projet en 30 secondes ──
+      s = prs.addSlide(); s.background = {color:"F8F9FF"};
+      s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:"0A0F2C"}});
+      s.addText(isAr?"مشروعي في 30 ثانية":isEn?"My Project in 30 Seconds":"Mon Projet en 30 Secondes", {x:0.25,y:0,w:9.5,h:0.82,fontSize:20,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
+      if (plan?.executiveSummary) s.addText(clip(plan.executiveSummary, 280), {x:0.35,y:0.98,w:9.2,h:1.0,fontSize:12.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+      const infoChips = [
+        {icon:"🏭", l:isAr?"القطاع":isEn?"Sector":"Secteur", v:proj?.sector||""},
+        {icon:"👥", l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:String(proj?.beneficiaries||"—")},
+        {icon:"💰", l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—"},
+      ];
+      infoChips.forEach((ic, i) => {
+        const bx = 0.35 + i * 3.1;
+        s.addShape(SH, {x:bx,y:2.1,w:2.85,h:0.85,fill:{color:"EFF6FF"},line:{color:"2A5CE055",pt:1}});
+        s.addText(`${ic.icon} ${ic.l}`, {x:bx+0.1,y:2.15,w:2.65,h:0.25,fontSize:8,color:"5B6178",bold:true,fontFace:"Arial"});
+        s.addText(ic.v, {x:bx+0.1,y:2.4,w:2.65,h:0.45,fontSize:11,color:"0A0F2C",bold:true,fontFace:"Arial",wrap:true});
+      });
+      s.addShape(SH, {x:0.35,y:3.1,w:9.2,h:0.7,fill:{color:"0A0F2C"},line:{color:"2A5CE0",pt:1}});
+      s.addText(`🏛️ ${comp?.pillar||proj?.pillar||"INDH Phase 3"}`, {x:0.55,y:3.1,w:8.8,h:0.7,fontSize:13,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
+      jTalk(s, isAr?"أنا [اسمك]، وأريد [الحل] لـ [المستفيدين] في [المنطقة]. مشروعي يطلب [الميزانية] من المبادرة الوطنية.":isEn?"I am [Name]. I want to [solution] for [beneficiaries] in [location]. My project requests [budget] from INDH.":"Je suis [Nom]. Je veux [solution] pour [bénéficiaires] à [lieu]. Mon projet demande [budget] à l'INDH.", "EFF6FF");
+
+      // ── Slide 3: Impact Social [25 pts] ──
+      s = prs.addSlide(); s.background = {color:"FAFFF9"};
+      const impScore = comp?.juryScore?.impact||0;
+      headerBar(s, isAr?"الأثر الاجتماعي والمستفيدون":isEn?"Social Impact & Beneficiaries":"Impact Social & Bénéficiaires", "1C7A62", `${impScore}/25`, isAr?"25 نقطة — الأعلى وزناً":isEn?"25 pts — highest weight":"25 pts — critère n°1");
+      s.addShape(SH, {x:0.35,y:1.0,w:2.6,h:1.4,fill:{color:"1C7A62"},line:{color:"FFFFFF",pt:0}});
+      s.addText(String(proj?.beneficiaries||""), {x:0.35,y:1.05,w:2.6,h:0.8,fontSize:44,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
+      s.addText(isAr?"مستفيد مباشر":isEn?"direct beneficiaries":"bénéficiaires directs", {x:0.35,y:1.86,w:2.6,h:0.4,fontSize:9,color:"DDFFEE",align:"center",fontFace:"Arial"});
+      if (proj?.targetProfile) {
+        s.addShape(SH, {x:3.15,y:1.0,w:6.5,h:0.6,fill:{color:"EAF5F0"},line:{color:"1C7A6244",pt:0.5}});
+        s.addText(`👥 ${clip(proj.targetProfile, 120)}`, {x:3.3,y:1.0,w:6.2,h:0.6,fontSize:11,color:"1C3A5C",bold:true,fontFace:"Arial",valign:"middle",wrap:true});
+      }
+      const impBpts = bpts(plan?.socialImpact, 3);
+      impBpts.forEach((bp, i) => {
+        s.addText(`• ${clip(bp, 130)}`, {x:3.15,y:1.72+i*0.5,w:6.5,h:0.48,fontSize:10.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+      });
+      if (plan?.indh_alignment) {
+        s.addShape(SH, {x:0.35,y:3.25,w:9.2,h:0.04,fill:{color:"1C7A6244"}});
+        s.addText(`🏛️ ${clip(plan.indh_alignment, 200)}`, {x:0.35,y:3.35,w:9.2,h:0.8,fontSize:9.5,color:"1C3A5C",wrap:true,fontFace:"Arial",italic:true,align:isAr?"right":"left"});
+      }
+      jTalk(s, isAr?"مشروعي سيستفيد [العدد] شخصاً من [الفئة] في [المنطقة]. كل مستفيد سيحصل على دخل إضافي يقدر بـ [المبلغ] درهماً شهرياً.":isEn?"My project benefits [N] people from [profile] in [location]. Each will earn an extra [amount] MAD/month.":"Mon projet bénéficiera à [N] personnes de [profil] à [lieu]. Chacun gagnera [montant] MAD/mois supplémentaires.", "E8F5F0", "1C4A3A");
+
+      // ── Slide 4: Pertinence Territoriale [20 pts] ──
+      s = prs.addSlide(); s.background = {color:"F8F9FF"};
+      const relScore = comp?.juryScore?.relevance||0;
+      headerBar(s, isAr?"الملاءمة الترابية والإشكالية":isEn?"Territorial Relevance & Problem":"Pertinence Territoriale & Problématique", "2A5CE0", `${relScore}/20`, isAr?"20 نقطة":isEn?"20 pts":"20 pts");
+      s.addShape(SH, {x:0.35,y:1.0,w:9.2,h:0.55,fill:{color:"EFF6FF"},line:{color:"2A5CE055",pt:0.8}});
+      s.addText(`📍 ${proj?.location||regionDisplay(profile)||""}`, {x:0.55,y:1.0,w:8.8,h:0.55,fontSize:15,color:"0A0F2C",bold:true,fontFace:"Arial",valign:"middle"});
+      if (proj?.localProblem) {
+        s.addShape(SH, {x:0.35,y:1.68,w:9.2,h:0.75,fill:{color:"DDEEFF"},line:{color:"2A5CE033",pt:0.5}});
+        s.addText(`⚠️ ${clip(proj.localProblem, 160)}`, {x:0.5,y:1.7,w:8.9,h:0.7,fontSize:11.5,color:"0A0F2C",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+      }
+      const solBpts = bpts(plan?.solution, 3);
+      if (solBpts.length > 0) {
+        s.addText(isAr?"الحل المقترح:":isEn?"Proposed solution:":"Solution proposée :", {x:0.35,y:2.56,w:9.2,h:0.28,fontSize:9,color:"2A5CE0",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+        solBpts.forEach((bp, i) => {
+          s.addText(`→ ${clip(bp, 130)}`, {x:0.5,y:2.87+i*0.44,w:9.0,h:0.42,fontSize:10.5,color:"1C3A5C",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+        });
+      }
+      jTalk(s, isAr?"في [المنطقة]، [المشكلة المحلية]. مشروعي يقدم [الحل] مباشرةً لمن يحتاجونه هناك.":isEn?"In [area], [local problem]. My project brings [solution] directly to those who need it.":"À [lieu], [problème local]. Mon projet apporte [solution] directement à ceux qui en ont besoin.", "EFF6FF");
+
+      // ── Slide 5: Viabilité Économique [20 pts] ──
+      s = prs.addSlide(); s.background = {color:"FBF8FF"};
+      const viaScore = comp?.juryScore?.viability||0;
+      headerBar(s, isAr?"الجدوى الاقتصادية والتوقعات المالية":isEn?"Economic Viability & Projections":"Viabilité Économique & Projections", "7C3AED", `${viaScore}/20`, isAr?"20 نقطة":isEn?"20 pts":"20 pts");
+      if (proj?.revenueModel) {
+        s.addShape(SH, {x:0.35,y:1.0,w:9.2,h:0.72,fill:{color:"EDE9FE"},line:{color:"7C3AED44",pt:0.5}});
+        s.addText(`💡 ${clip(proj.revenueModel, 200)}`, {x:0.5,y:1.02,w:9.0,h:0.68,fontSize:11,color:"3B007A",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+      }
+      const bisBpts = bpts(plan?.businessModel, 2);
+      bisBpts.forEach((bp, i) => {
+        s.addText(`• ${clip(bp, 120)}`, {x:0.5,y:1.86+i*0.44,w:9.0,h:0.42,fontSize:10.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+      });
+      if (plan?.projections) {
+        s.addText(isAr?"التوقعات المالية (درهم)":isEn?"Financial Projections (MAD)":"Projections Financières (MAD)", {x:0.35,y:2.85,w:9.2,h:0.28,fontSize:9,color:"7C3AED",bold:true,fontFace:"Arial"});
+        const projEntries = Object.entries(plan.projections);
+        projEntries.forEach(([yr, val], i) => {
+          const bx = 0.35 + i * 3.1;
+          const prev = i > 0 ? Number(projEntries[i-1][1]) : 0;
+          const growth = prev > 0 ? Math.round(((Number(val)-prev)/prev)*100) : null;
+          s.addShape(SH, {x:bx,y:3.18,w:2.85,h:1.02,fill:{color:"EDE9FE"},line:{color:"7C3AED55",pt:1}});
+          s.addText(`${isAr?"السنة":isEn?"Year":"An"} ${yr.replace("year","")}`, {x:bx+0.1,y:3.23,w:2.65,h:0.25,fontSize:8,color:"7C3AED",bold:true,fontFace:"Arial"});
+          s.addText(`${Number(val).toLocaleString()} MAD`, {x:bx+0.1,y:3.5,w:2.65,h:0.45,fontSize:13,color:NAVY,bold:true,fontFace:"Arial"});
+          if (growth !== null) s.addText(`▲ ${growth}%`, {x:bx+0.1,y:3.97,w:2.65,h:0.22,fontSize:9,color:"1C7A62",bold:true,fontFace:"Arial"});
+        });
+      }
+      jTalk(s, isAr?"أتوقع رقم معاملات شهري يبلغ [المبلغ] درهماً منذ الشهر [X]. الربحية تُحقَّق خلال [N] أشهر. بعد المبادرة، [الاستدامة].":isEn?"I expect [amount] MAD/month revenue from month [X]. Break-even in [N] months. After INDH: [sustainability].":"Je prévois [montant] MAD/mois dès le mois [X]. Rentabilité en [N] mois. Après l'INDH : [pérennité].", "EDE9FE", "3B007A");
+
+      // ── Slide 6: Budget INDH 90%/10% ──
+      s = prs.addSlide(); s.background = {color:NAVY};
+      s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:"2A5CE0"}});
+      s.addText(T.budgetPrev, {x:0.25,y:0,w:9.5,h:0.82,fontSize:20,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
+      const indhPct = Math.round((indh/(total||1))*100);
+      const barW = 9.2;
+      s.addShape(SH, {x:0.4,y:0.95,w:barW*(indhPct/100),h:0.3,fill:{color:"2A5CE0"}});
+      s.addShape(SH, {x:0.4+barW*(indhPct/100),y:0.95,w:barW*(1-indhPct/100),h:0.3,fill:{color:"4B5563"}});
+      s.addText(`🏛️ INDH ${indhPct}% = ${indh.toLocaleString()} MAD`, {x:0.4,y:1.3,w:6,h:0.35,fontSize:11,color:"60A5FA",fontFace:"Arial",bold:true});
+      s.addText(`👤 ${100-indhPct}% = ${bene.toLocaleString()} MAD`, {x:6.5,y:1.3,w:3.1,h:0.35,fontSize:11,color:"AAAAAA",fontFace:"Arial"});
+      if (budget?.items?.length) {
+        const rows = [
+          [{text:T.catLabel,options:{bold:true,color:YELLOW}},{text:T.itemLabel,options:{bold:true,color:YELLOW}},{text:T.totalCol,options:{bold:true,color:YELLOW}}],
+          ...budget.items.slice(0,8).map((x: any) => [clip(x.category||"",18), clip(x.item||"",40), `${Number(x.total||0).toLocaleString()} MAD`]),
+          [{text:"",options:{}},{text:T.totalLabel,options:{bold:true,color:YELLOW}},{text:`${total.toLocaleString()} MAD`,options:{bold:true,color:YELLOW}}],
+        ];
+        s.addTable(rows, {x:0.3,y:1.72,w:9.4,colW:[2.0,5.2,2.2],fontSize:8.5,color:WHITE,border:{type:"solid",color:"334466",pt:0.5},fontFace:"Arial"});
+      }
+
+      // ── Slide 7: Gestion, Durabilité & Innovation [35 pts] ──
+      s = prs.addSlide(); s.background = {color:"FFFBF0"};
+      const mgmtScore = comp?.juryScore?.management||0;
+      const sustScore = comp?.juryScore?.sustainability||0;
+      const innScore  = comp?.juryScore?.innovation||0;
+      headerBar(s, isAr?"التسيير والاستدامة والابتكار":isEn?"Management, Sustainability & Innovation":"Gestion, Durabilité & Innovation", "D97706", `${mgmtScore+sustScore+innScore}/35`, isAr?"15+10+10 نقطة":isEn?"15+10+10 pts":"15+10+10 pts");
+      [{l:isAr?"تسيير":isEn?"Mgmt":"Gestion",sc:mgmtScore,mx:15},{l:isAr?"استدامة":isEn?"Sust.":"Durabilité",sc:sustScore,mx:10},{l:isAr?"ابتكار":isEn?"Innov.":"Innovation",sc:innScore,mx:10}].forEach((c, i) => {
+        const bx = 0.35 + i * 3.1;
+        const colChip = (c.sc/c.mx)>=0.7 ? "1C7A62" : (c.sc/c.mx)>=0.5 ? "D97706" : "C0632F";
+        s.addShape(SH, {x:bx,y:0.9,w:2.85,h:0.68,fill:{color:"FEF3C7"},line:{color:"D97706",pt:1}});
+        s.addText(`${c.l}: ${c.sc}/${c.mx}`, {x:bx+0.1,y:0.94,w:2.65,h:0.58,fontSize:13,color:colChip,bold:true,fontFace:"Arial",align:"center"});
+      });
+      if (proj?.holderExperience) {
+        s.addText(isAr?"خبرة الحامل:":isEn?"Holder experience:":"Expérience du porteur :", {x:0.35,y:1.72,w:9.2,h:0.28,fontSize:9,color:"D97706",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+        s.addShape(SH, {x:0.35,y:2.0,w:9.2,h:0.65,fill:{color:"FEF3C7"},line:{color:"D9770644",pt:0.5}});
+        s.addText(`⭐ ${clip(proj.holderExperience, 180)}`, {x:0.5,y:2.02,w:9.0,h:0.6,fontSize:11,color:"7A3C00",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
+      }
+      const actList = proj?.activities || [];
+      if (actList.length > 0) {
+        s.addText(isAr?"الأنشطة الرئيسية:":isEn?"Core activities:":"Activités clés :", {x:0.35,y:2.76,w:9.2,h:0.28,fontSize:9,color:"D97706",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+        actList.slice(0,3).forEach((act: string, i: number) => {
+          s.addShape(SH, {x:0.35,y:3.08+i*0.38,w:9.2,h:0.34,fill:{color:i%2===0?"FFFBF0":"FEF3C7"},line:{color:"D9770633",pt:0.3}});
+          s.addText(`✓ ${clip(act, 100)}`, {x:0.5,y:3.1+i*0.38,w:9.0,h:0.3,fontSize:10,color:"3A2000",fontFace:"Arial",align:isAr?"right":"left"});
+        });
+      }
+      jTalk(s, isAr?"لدي [الخبرة]. سأُدير المشروع بنفسي بمساعدة [المساعدين]. خطة التشغيل لدي واضحة: [الخطة].":isEn?"I have [experience]. I will manage with [team]. My operational plan: [plan].":"J'ai [expérience]. Je gèrerai avec [équipe]. Mon plan opérationnel : [plan].", "FFF8E8", "7A3C00");
+
+      // ── Slide 8: Grille Jury INDH — KEY SLIDE ──
+      s = prs.addSlide(); s.background = {color:"F8F9FF"};
+      const eligBg = comp?.eligible ? "0A0F2C" : "FFF0F0";
+      s.addShape(SH, {x:0,y:0,w:10,h:0.85,fill:{color:eligBg}});
+      s.addText(`${isAr?"تقييم لجنة التحكيم INDH":isEn?"INDH Jury Evaluation Grid":"Grille d'Évaluation du Jury INDH"}`, {x:0.3,y:0,w:7,h:0.85,fontSize:20,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
+      if (comp) {
+        const sc = comp.score;
+        s.addText(`${sc}/100`, {x:7.5,y:0,w:2.1,h:0.85,fontSize:30,color:sc>=60?"22C55E":"EF4444",bold:true,align:"right",fontFace:"Arial",valign:"middle"});
+        s.addText(comp.eligible?`✅ ${T.eligible}`:`⚠️ ${T.notElig}`, {x:7.5,y:0.0,w:2.2,h:0.85,fontSize:9,color:comp.eligible?"22C55E":"EF4444",bold:true,align:"right",fontFace:"Arial",valign:"bottom"});
+      }
+      const juryDef = [
+        {key:"impact",lbl:isAr?"الأثر الاجتماعي":isEn?"Social Impact":"Impact social",w:25,col:"1C7A62"},
+        {key:"viability",lbl:isAr?"الجدوى الاقتصادية":isEn?"Economic Viability":"Viabilité économique",w:20,col:"7C3AED"},
+        {key:"relevance",lbl:isAr?"الملاءمة الترابية":isEn?"Territorial Relevance":"Pertinence territoriale",w:20,col:"2A5CE0"},
+        {key:"management",lbl:isAr?"قدرة التسيير":isEn?"Management Capacity":"Capacité de gestion",w:15,col:"D97706"},
+        {key:"sustainability",lbl:isAr?"الاستدامة":isEn?"Sustainability":"Durabilité",w:10,col:"0891B2"},
+        {key:"innovation",lbl:isAr?"الابتكار":isEn?"Innovation":"Innovation",w:10,col:"DB2777"},
+      ];
+      juryDef.forEach((j, i) => {
+        const yPos = 1.0 + i * 0.73;
+        const sc = comp?.juryScore?.[j.key]||0;
+        const pct = Math.min(sc/j.w, 1);
+        s.addText(`${j.lbl} (/${j.w})`, {x:0.3,y:yPos,w:4.5,h:0.3,fontSize:10.5,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
+        s.addText(`${sc}/${j.w}`, {x:9.2,y:yPos,w:0.6,h:0.3,fontSize:11,color:j.col,bold:true,fontFace:"Arial",align:"right"});
+        s.addShape(SH, {x:4.9,y:yPos+0.05,w:4.2,h:0.22,fill:{color:"E4E7ED"}});
+        if (pct>0) s.addShape(SH, {x:4.9,y:yPos+0.05,w:4.2*pct,h:0.22,fill:{color:j.col}});
+        s.addText(`${Math.round(pct*100)}%`, {x:4.9+4.2*pct+0.05,y:yPos+0.05,w:0.5,h:0.22,fontSize:7,color:"666666",fontFace:"Arial"});
+      });
+
+      // ── Slide 9: Documents + Soumission ──
+      s = prs.addSlide(); s.background = {color:NAVY};
+      s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:YELLOW}});
+      s.addText(`${T.docs} · ${T.submission}`, {x:0.25,y:0,w:9.5,h:0.82,fontSize:18,color:NAVY,bold:true,fontFace:"Arial",valign:"middle"});
+      s.addText(T.docsCount, {x:0.35,y:0.9,w:9.2,h:0.28,fontSize:11,color:"CCCCCC",fontFace:"Arial"});
+      const dRows2 = [
+        [{text:T.docLabel,options:{bold:true,color:NAVY}},{text:T.statusLabel,options:{bold:true,color:NAVY}}],
+        ...DOCS.slice(0,8).map(d => [{text:d.name,options:{color:"111111"}},{text:(docs[d.id]?T.ready:T.pending),options:{color:docs[d.id]?"1C7A62":"C0632F"}}])
+      ];
+      s.addTable(dRows2, {x:0.3,y:1.22,w:5.5,fontSize:8,color:"222222",border:{type:"solid",color:"334466",pt:0.5},fill:{color:WHITE},fontFace:"Arial"});
+      const subSteps = isAr
+        ? ["إيداع الملف (DAS)","وصل الإيداع","CPDH — 4 إلى 8 أسابيع","لجنة التحكيم INDH","القرار → الاتفاقية → الانطلاق"]
+        : isEn
+        ? ["Submit to DAS","Deposit receipt","CPDH review — 4-8 wks","INDH jury panel","Decision → Convention → Launch"]
+        : ["Dépôt DAS","Récépissé délivré","CPDH — 4 à 8 semaines","Jury INDH","Décision → Convention → Démarrage"];
+      subSteps.forEach((step, i) => {
+        s.addShape(SH, {x:6.0,y:1.22+i*0.78,w:0.36,h:0.36,fill:{color:YELLOW}});
+        s.addText(String(i+1), {x:6.0,y:1.22+i*0.78,w:0.36,h:0.36,fontSize:11,color:NAVY,bold:true,align:"center",fontFace:"Arial",valign:"middle"});
+        s.addText(step, {x:6.45,y:1.22+i*0.78,w:3.25,h:0.62,fontSize:9.5,color:"DDDDDD",fontFace:"Arial",wrap:true,valign:"middle"});
+      });
+      s.addText("IdeaMap · ideamaponline.org", {x:0.35,y:5.2,w:9.2,h:0.25,fontSize:8,color:"555555",align:"center",fontFace:"Arial"});
+
+      await prs.writeFile({fileName: `DossierJury_${proj?.projectName || "IdeaMap"}.pptx`});
+    }
+  } catch (e) { console.error("PPTX error:", e); showToast(lang==="ar"?"فشل إنشاء ملف PowerPoint":lang==="fr"?"Erreur lors de la création du fichier PowerPoint":"PowerPoint generation failed", "error"); }
+}
+
 /* ════════════════════════════════════════════════════════
    HOLDER APP
 ════════════════════════════════════════════════════════ */
@@ -2195,329 +2532,8 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
     else { showToast(lang==="ar"?"يُرجى السماح بالنوافذ المنبثقة في المتصفح للتحميل":lang==="fr"?"Autorisez les popups dans votre navigateur pour générer le PDF":"Allow popups in your browser to download the PDF", "error"); }
   };
 
-  const dlPPTX = async (type: "pitch" | "jury", exportLang: string = dlLang) => {
-    try {
-      const PptxGenJS = (await import("pptxgenjs")).default;
-      const prs = new (PptxGenJS as any)();
-      prs.layout = "LAYOUT_16x9";
-      const NAVY = "0F2233"; const YELLOW = "FFB703"; const WHITE = "FFFFFF";
-      const total = budget?.items?.reduce((s: number, x: any) => s + (x.total || 0), 0) || 0;
-      const indh = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
-      const bene = budget?.beneficiaryContribution || (total - indh);
-
-      const isAr = exportLang === "ar";
-      const isEn = exportLang === "en";
-      const T = {
-        problem: isAr?"الإشكالية والحل":isEn?"Problem & Solution":"Problème & Solution",
-        model: isAr?"النموذج الاقتصادي والأثر":isEn?"Business Model & Impact":"Modèle Économique & Impact",
-        budget: isAr?"ميزانية المبادرة الوطنية":isEn?"INDH Budget":"Budget INDH",
-        steps: isAr?"الخطوات التالية":isEn?"Next Steps":"Étapes Suivantes",
-        summary: isAr?"الملخص التنفيذي":isEn?"Executive Summary":"Résumé Exécutif",
-        plan: isAr?"خطة الأعمال":isEn?"Business Plan":"Plan d'Affaires",
-        impact: isAr?"الأثر الاجتماعي والمحاذاة":isEn?"Social Impact & INDH Alignment":"Impact Social & Alignement INDH",
-        budgetPrev: isAr?"الميزانية التفصيلية":isEn?"Detailed Budget":"Budget Prévisionnel",
-        compliance: isAr?"الامتثال للمبادرة":isEn?"INDH Compliance":"Conformité INDH",
-        docs: isAr?"الوثائق المطلوبة":isEn?"Required Documents":"Documents Requis",
-        submission: isAr?"مراحل تقديم الملف":isEn?"Submission Steps":"Étapes de Soumission",
-        holder: isAr?"الحامل":isEn?"Holder":"Porteur",
-        eligible: isAr?"مؤهل للتمويل ✓":isEn?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
-        notElig: isAr?"يحتاج تعديلات ✗":isEn?"NOT ELIGIBLE ✗":"NON ÉLIGIBLE ✗",
-        totalLabel: isAr?"المجموع":"Total",
-        indhLabel: isAr?"المبادرة (90%)":"INDH (90%)",
-        holdLabel: isAr?"مساهمة الحامل (10%)":isEn?"Holder (10%)":"Apport porteur (10%)",
-        stepsText: isAr
-          ? "1. إعداد الملف الكامل للمبادرة الوطنية\n2. جمع الوثائق المطلوبة\n3. إيداع الملف لدى مديرية العمل الاجتماعي\n4. الاستماع أمام لجنة التحكيم\n5. التوقيع على اتفاقية المبادرة الوطنية"
-          : isEn
-            ? "1. Finalize the INDH application file\n2. Gather all required documents\n3. Submit to the Division of Social Action (DAS)\n4. Present to INDH selection jury\n5. Sign the INDH convention"
-            : "1. Finaliser le dossier INDH\n2. Rassembler tous les documents requis\n3. Déposer auprès du CPDH\n4. Passage devant le jury de sélection\n5. Signature de la convention INDH",
-        submissionText: isAr
-          ? "1. إيداع الملف لدى مديرية العمل الاجتماعي (DAS)\n2. الحصول على وصل الإيداع\n3. دراسة الملف من طرف اللجنة الإقليمية (CPDH)\n4. المثول أمام لجنة تحكيم المبادرة الوطنية\n5. إشعار بالقرار\n6. التوقيع على الاتفاقية وانطلاق المشروع"
-          : isEn
-            ? "1. Submit file to Division of Social Action (DAS)\n2. Receive deposit receipt\n3. Review by local CPDH committee\n4. Present before INDH jury\n5. Decision notification\n6. Sign convention and start project"
-            : "1. Déposer le dossier à la Division de l'Action Sociale (DAS)\n2. Récépissé de dépôt délivré\n3. Instruction par le CPDH local\n4. Passage devant le jury INDH\n5. Notification de décision\n6. Signature de la convention et démarrage",
-        catLabel: isAr?"الفئة":isEn?"Category":"Catégorie",
-        itemLabel: isAr?"البند":isEn?"Item":"Désignation",
-        totalCol: isAr?"المجموع (درهم)":isEn?"Total (MAD)":"Total (MAD)",
-        criteriaLabel: isAr?"المعيار":isEn?"Criteria":"Critère",
-        weightLabel: isAr?"الوزن":isEn?"Weight":"Poids",
-        scoreLabel: isAr?"النقطة":isEn?"Score":"Score",
-        docLabel: isAr?"الوثيقة":isEn?"Document":"Document",
-        statusLabel: isAr?"الحالة":isEn?"Status":"Statut",
-        ready: isAr?"✓ جاهز":isEn?"✓ Ready":"✓ Prêt",
-        pending: isAr?"⏳ قيد الإعداد":isEn?"⏳ Pending":"⏳ En attente",
-        docsCount: isAr
-          ? `${Object.values(docs).filter(Boolean).length}/${DOCS.length} وثيقة جاهزة`
-          : `${Object.values(docs).filter(Boolean).length}/${DOCS.length} ${isEn?"documents ready":"documents préparés"}`,
-      };
-      const align = isAr ? "right" : "center";
-
-      if (type === "pitch") {
-        let s = prs.addSlide(); s.background = {color: NAVY};
-        s.addText(proj?.projectName || "Mon Projet", {x:0.5,y:1.6,w:9,h:1.4,fontSize:34,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
-        s.addText(logo?.concept?.tagline || proj?.sector || "", {x:0.5,y:3.1,w:9,h:0.6,fontSize:15,color:WHITE,align:"center",fontFace:"Arial"});
-        s.addText(`${proj?.location || ""} · INDH Phase 3`, {x:0.5,y:3.9,w:9,h:0.4,fontSize:11,color:"AAAAAA",align:"center"});
-        s.addText("IdeaMap", {x:0.5,y:4.5,w:9,h:0.3,fontSize:9,color:"666666",align:"center"});
-
-        s = prs.addSlide(); s.background = {color:"FAF7F0"};
-        s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-        s.addText(T.problem, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:26,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        if (plan?.problemStatement) s.addText(plan.problemStatement, {x:0.4,y:1.1,w:4.3,h:3.8,fontSize:11,color:"333333",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        if (plan?.solution) s.addText(plan.solution, {x:5.1,y:1.1,w:4.3,h:3.8,fontSize:11,color:"333333",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-
-        s = prs.addSlide(); s.background = {color:"FAF7F0"};
-        s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-        s.addText(T.model, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:26,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        if (plan?.businessModel) s.addText(plan.businessModel, {x:0.4,y:1.1,w:9.1,h:2,fontSize:12,color:"222222",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        if (plan?.socialImpact) s.addText(plan.socialImpact, {x:0.4,y:3.3,w:9.1,h:1.8,fontSize:12,color:"1C3A5C",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-
-        s = prs.addSlide(); s.background = {color:NAVY};
-        s.addText(T.budget, {x:0.5,y:0.3,w:9,h:0.7,fontSize:26,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
-        s.addText(`${T.totalLabel} : ${total.toLocaleString()} MAD`, {x:0.5,y:1.4,w:9,h:0.7,fontSize:22,color:WHITE,align:"center",bold:true});
-        s.addText(`${T.indhLabel} : ${indh.toLocaleString()} MAD`, {x:0.5,y:2.3,w:9,h:0.6,fontSize:18,color:YELLOW,align:"center"});
-        s.addText(`${T.holdLabel} : ${bene.toLocaleString()} MAD`, {x:0.5,y:3.1,w:9,h:0.6,fontSize:18,color:"CCCCCC",align:"center"});
-
-        s = prs.addSlide(); s.background = {color:"FAF7F0"};
-        s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-        s.addText(T.steps, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:26,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        s.addText(T.stepsText, {x:0.4,y:1.1,w:9.1,h:4,fontSize:15,color:"222222",fontFace:"Arial",align:isAr?"right":"left"});
-        await prs.writeFile({fileName: `PitchDeck_${proj?.projectName || "IdeaMap"}.pptx`});
-      } else {
-        // ── 9-slide INDH jury presentation — presentation-ready with talking points ──
-        const clip = (txt: string, n: number) => {
-          if (!txt) return "";
-          if (txt.length <= n) return txt;
-          return txt.slice(0, n).replace(/\s\S*$/, "…");
-        };
-        const bpts = (txt: string, max: number = 3): string[] => {
-          if (!txt) return [];
-          return txt.split(/\.\s+|;\s+|\n+/).map((x: string) => x.trim()).filter((x: string) => x.length > 10).slice(0, max);
-        };
-
-        const SH = (prs as any).ShapeType?.rect || "rect";
-        const jTalk = (sl: any, txt: string, bg: string = "EFF6FF", txtCol: string = "1C3A5C") => {
-          sl.addShape(SH, {x:0.3,y:4.55,w:9.4,h:0.78,fill:{color:bg},line:{color:"CCCCCC",pt:0.5}});
-          sl.addText(`🎤 ${txt}`, {x:0.45,y:4.6,w:9.1,h:0.7,fontSize:9.5,color:txtCol,italic:true,wrap:true,fontFace:"Arial"});
-        };
-        const headerBar = (sl: any, txt: string, colHex: string, scoreStr: string, subLabel: string) => {
-          sl.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:colHex}});
-          sl.addText(txt, {x:0.25,y:0,w:7.2,h:0.82,fontSize:18,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-          sl.addShape(SH, {x:7.6,y:0.1,w:2.15,h:0.62,fill:{color:"00000033"},line:{color:WHITE,pt:1}});
-          sl.addText(scoreStr, {x:7.6,y:0.1,w:2.15,h:0.62,fontSize:20,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
-          if (subLabel) sl.addText(subLabel, {x:7.6,y:0.74,w:2.15,h:0.22,fontSize:7.5,color:colHex,align:"center",fontFace:"Arial",bold:true});
-        };
-
-        // ── Slide 1: Cover ──
-        let s = prs.addSlide(); s.background = {color:NAVY};
-        s.addShape(SH, {x:0,y:0,w:10,h:0.1,fill:{color:"2A5CE0"}});
-        s.addShape(SH, {x:0,y:5.53,w:10,h:0.1,fill:{color:"2A5CE0"}});
-        s.addText(proj?.projectName || "", {x:0.5,y:0.6,w:9,h:1.0,fontSize:30,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
-        if (logo?.concept?.tagline) s.addText(`« ${logo.concept.tagline} »`, {x:0.5,y:1.72,w:9,h:0.38,fontSize:14,color:"CCCCCC",align:"center",fontFace:"Arial",italic:true});
-        s.addText(`${proj?.sector||""} · 📍 ${proj?.location||regionDisplay(user.profile)||""}`, {x:0.5,y:2.18,w:9,h:0.32,fontSize:12,color:"AAAAAA",align:"center",fontFace:"Arial"});
-        s.addShape(SH, {x:0.5,y:2.6,w:9,h:0.04,fill:{color:"2A5CE044"}});
-        const metricTotal = budget?.items?.reduce((s2: number, x: any)=>s2+(x.total||0),0)||0;
-        const chips = [
-          {l:isAr?"النقطة":isEn?"Score":"Score", v:comp?`${comp.score}/100`:"—", col:comp?.eligible?"22C55E":"EF4444"},
-          {l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—", col:YELLOW},
-          {l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:proj?.beneficiaries?String(proj.beneficiaries):"—", col:"60A5FA"},
-          {l:isAr?"مساهمة INDH":isEn?"INDH Grant":"Subvention INDH", v:metricTotal?`${Math.min(Math.round(metricTotal*.90),100000).toLocaleString()} MAD`:"—", col:"A78BFA"},
-        ];
-        chips.forEach((m, i) => {
-          const bx = 0.3 + i * 2.4;
-          s.addShape(SH, {x:bx,y:2.82,w:2.2,h:1.1,fill:{color:"141B45"},line:{color:"2A5CE0",pt:1}});
-          s.addText(m.l, {x:bx+0.1,y:2.87,w:2,h:0.28,fontSize:7.5,color:"888888",fontFace:"Arial",bold:true});
-          s.addText(m.v, {x:bx+0.1,y:3.12,w:2,h:0.55,fontSize:12,color:m.col,bold:true,fontFace:"Arial"});
-        });
-        s.addText(`${T.holder}: ${user.name} ${user.profile?.lastName||""} · ${proj?.pillar||"INDH Phase 3"}`, {x:0.5,y:4.15,w:9,h:0.3,fontSize:10,color:"888888",align:"center",fontFace:"Arial"});
-        s.addText("IdeaMap · ideamaponline.org", {x:0.5,y:4.6,w:9,h:0.25,fontSize:8,color:"444444",align:"center",fontFace:"Arial"});
-
-        // ── Slide 2: Mon Projet en 30 secondes ──
-        s = prs.addSlide(); s.background = {color:"F8F9FF"};
-        s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:"0A0F2C"}});
-        s.addText(isAr?"مشروعي في 30 ثانية":isEn?"My Project in 30 Seconds":"Mon Projet en 30 Secondes", {x:0.25,y:0,w:9.5,h:0.82,fontSize:20,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-        if (plan?.executiveSummary) s.addText(clip(plan.executiveSummary, 280), {x:0.35,y:0.98,w:9.2,h:1.0,fontSize:12.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        const infoChips = [
-          {icon:"🏭", l:isAr?"القطاع":isEn?"Sector":"Secteur", v:proj?.sector||""},
-          {icon:"👥", l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:String(proj?.beneficiaries||"—")},
-          {icon:"💰", l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—"},
-        ];
-        infoChips.forEach((ic, i) => {
-          const bx = 0.35 + i * 3.1;
-          s.addShape(SH, {x:bx,y:2.1,w:2.85,h:0.85,fill:{color:"EFF6FF"},line:{color:"2A5CE055",pt:1}});
-          s.addText(`${ic.icon} ${ic.l}`, {x:bx+0.1,y:2.15,w:2.65,h:0.25,fontSize:8,color:"5B6178",bold:true,fontFace:"Arial"});
-          s.addText(ic.v, {x:bx+0.1,y:2.4,w:2.65,h:0.45,fontSize:11,color:"0A0F2C",bold:true,fontFace:"Arial",wrap:true});
-        });
-        s.addShape(SH, {x:0.35,y:3.1,w:9.2,h:0.7,fill:{color:"0A0F2C"},line:{color:"2A5CE0",pt:1}});
-        s.addText(`🏛️ ${comp?.pillar||proj?.pillar||"INDH Phase 3"}`, {x:0.55,y:3.1,w:8.8,h:0.7,fontSize:13,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-        jTalk(s, isAr?"أنا [اسمك]، وأريد [الحل] لـ [المستفيدين] في [المنطقة]. مشروعي يطلب [الميزانية] من المبادرة الوطنية.":isEn?"I am [Name]. I want to [solution] for [beneficiaries] in [location]. My project requests [budget] from INDH.":"Je suis [Nom]. Je veux [solution] pour [bénéficiaires] à [lieu]. Mon projet demande [budget] à l'INDH.", "EFF6FF");
-
-        // ── Slide 3: Impact Social [25 pts] ──
-        s = prs.addSlide(); s.background = {color:"FAFFF9"};
-        const impScore = comp?.juryScore?.impact||0;
-        headerBar(s, isAr?"الأثر الاجتماعي والمستفيدون":isEn?"Social Impact & Beneficiaries":"Impact Social & Bénéficiaires", "1C7A62", `${impScore}/25`, isAr?"25 نقطة — الأعلى وزناً":isEn?"25 pts — highest weight":"25 pts — critère n°1");
-        s.addShape(SH, {x:0.35,y:1.0,w:2.6,h:1.4,fill:{color:"1C7A62"},line:{color:"FFFFFF",pt:0}});
-        s.addText(String(proj?.beneficiaries||""), {x:0.35,y:1.05,w:2.6,h:0.8,fontSize:44,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
-        s.addText(isAr?"مستفيد مباشر":isEn?"direct beneficiaries":"bénéficiaires directs", {x:0.35,y:1.86,w:2.6,h:0.4,fontSize:9,color:"DDFFEE",align:"center",fontFace:"Arial"});
-        if (proj?.targetProfile) {
-          s.addShape(SH, {x:3.15,y:1.0,w:6.5,h:0.6,fill:{color:"EAF5F0"},line:{color:"1C7A6244",pt:0.5}});
-          s.addText(`👥 ${clip(proj.targetProfile, 120)}`, {x:3.3,y:1.0,w:6.2,h:0.6,fontSize:11,color:"1C3A5C",bold:true,fontFace:"Arial",valign:"middle",wrap:true});
-        }
-        const impBpts = bpts(plan?.socialImpact, 3);
-        impBpts.forEach((bp, i) => {
-          s.addText(`• ${clip(bp, 130)}`, {x:3.15,y:1.72+i*0.5,w:6.5,h:0.48,fontSize:10.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        });
-        if (plan?.indh_alignment) {
-          s.addShape(SH, {x:0.35,y:3.25,w:9.2,h:0.04,fill:{color:"1C7A6244"}});
-          s.addText(`🏛️ ${clip(plan.indh_alignment, 200)}`, {x:0.35,y:3.35,w:9.2,h:0.8,fontSize:9.5,color:"1C3A5C",wrap:true,fontFace:"Arial",italic:true,align:isAr?"right":"left"});
-        }
-        jTalk(s, isAr?"مشروعي سيستفيد [العدد] شخصاً من [الفئة] في [المنطقة]. كل مستفيد سيحصل على دخل إضافي يقدر بـ [المبلغ] درهماً شهرياً.":isEn?"My project benefits [N] people from [profile] in [location]. Each will earn an extra [amount] MAD/month.":"Mon projet bénéficiera à [N] personnes de [profil] à [lieu]. Chacun gagnera [montant] MAD/mois supplémentaires.", "E8F5F0", "1C4A3A");
-
-        // ── Slide 4: Pertinence Territoriale [20 pts] ──
-        s = prs.addSlide(); s.background = {color:"F8F9FF"};
-        const relScore = comp?.juryScore?.relevance||0;
-        headerBar(s, isAr?"الملاءمة الترابية والإشكالية":isEn?"Territorial Relevance & Problem":"Pertinence Territoriale & Problématique", "2A5CE0", `${relScore}/20`, isAr?"20 نقطة":isEn?"20 pts":"20 pts");
-        s.addShape(SH, {x:0.35,y:1.0,w:9.2,h:0.55,fill:{color:"EFF6FF"},line:{color:"2A5CE055",pt:0.8}});
-        s.addText(`📍 ${proj?.location||regionDisplay(user.profile)||""}`, {x:0.55,y:1.0,w:8.8,h:0.55,fontSize:15,color:"0A0F2C",bold:true,fontFace:"Arial",valign:"middle"});
-        if (proj?.localProblem) {
-          s.addShape(SH, {x:0.35,y:1.68,w:9.2,h:0.75,fill:{color:"DDEEFF"},line:{color:"2A5CE033",pt:0.5}});
-          s.addText(`⚠️ ${clip(proj.localProblem, 160)}`, {x:0.5,y:1.7,w:8.9,h:0.7,fontSize:11.5,color:"0A0F2C",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        }
-        const solBpts = bpts(plan?.solution, 3);
-        if (solBpts.length > 0) {
-          s.addText(isAr?"الحل المقترح:":isEn?"Proposed solution:":"Solution proposée :", {x:0.35,y:2.56,w:9.2,h:0.28,fontSize:9,color:"2A5CE0",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-          solBpts.forEach((bp, i) => {
-            s.addText(`→ ${clip(bp, 130)}`, {x:0.5,y:2.87+i*0.44,w:9.0,h:0.42,fontSize:10.5,color:"1C3A5C",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-          });
-        }
-        jTalk(s, isAr?"في [المنطقة]، [المشكلة المحلية]. مشروعي يقدم [الحل] مباشرةً لمن يحتاجونه هناك.":isEn?"In [area], [local problem]. My project brings [solution] directly to those who need it.":"À [lieu], [problème local]. Mon projet apporte [solution] directement à ceux qui en ont besoin.", "EFF6FF");
-
-        // ── Slide 5: Viabilité Économique [20 pts] ──
-        s = prs.addSlide(); s.background = {color:"FBF8FF"};
-        const viaScore = comp?.juryScore?.viability||0;
-        headerBar(s, isAr?"الجدوى الاقتصادية والتوقعات المالية":isEn?"Economic Viability & Projections":"Viabilité Économique & Projections", "7C3AED", `${viaScore}/20`, isAr?"20 نقطة":isEn?"20 pts":"20 pts");
-        if (proj?.revenueModel) {
-          s.addShape(SH, {x:0.35,y:1.0,w:9.2,h:0.72,fill:{color:"EDE9FE"},line:{color:"7C3AED44",pt:0.5}});
-          s.addText(`💡 ${clip(proj.revenueModel, 200)}`, {x:0.5,y:1.02,w:9.0,h:0.68,fontSize:11,color:"3B007A",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        }
-        const bisBpts = bpts(plan?.businessModel, 2);
-        bisBpts.forEach((bp, i) => {
-          s.addText(`• ${clip(bp, 120)}`, {x:0.5,y:1.86+i*0.44,w:9.0,h:0.42,fontSize:10.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        });
-        if (plan?.projections) {
-          s.addText(isAr?"التوقعات المالية (درهم)":isEn?"Financial Projections (MAD)":"Projections Financières (MAD)", {x:0.35,y:2.85,w:9.2,h:0.28,fontSize:9,color:"7C3AED",bold:true,fontFace:"Arial"});
-          const projEntries = Object.entries(plan.projections);
-          projEntries.forEach(([yr, val], i) => {
-            const bx = 0.35 + i * 3.1;
-            const prev = i > 0 ? Number(projEntries[i-1][1]) : 0;
-            const growth = prev > 0 ? Math.round(((Number(val)-prev)/prev)*100) : null;
-            s.addShape(SH, {x:bx,y:3.18,w:2.85,h:1.02,fill:{color:"EDE9FE"},line:{color:"7C3AED55",pt:1}});
-            s.addText(`${isAr?"السنة":isEn?"Year":"An"} ${yr.replace("year","")}`, {x:bx+0.1,y:3.23,w:2.65,h:0.25,fontSize:8,color:"7C3AED",bold:true,fontFace:"Arial"});
-            s.addText(`${Number(val).toLocaleString()} MAD`, {x:bx+0.1,y:3.5,w:2.65,h:0.45,fontSize:13,color:NAVY,bold:true,fontFace:"Arial"});
-            if (growth !== null) s.addText(`▲ ${growth}%`, {x:bx+0.1,y:3.97,w:2.65,h:0.22,fontSize:9,color:"1C7A62",bold:true,fontFace:"Arial"});
-          });
-        }
-        jTalk(s, isAr?"أتوقع رقم معاملات شهري يبلغ [المبلغ] درهماً منذ الشهر [X]. الربحية تُحقَّق خلال [N] أشهر. بعد المبادرة، [الاستدامة].":isEn?"I expect [amount] MAD/month revenue from month [X]. Break-even in [N] months. After INDH: [sustainability].":"Je prévois [montant] MAD/mois dès le mois [X]. Rentabilité en [N] mois. Après l'INDH : [pérennité].", "EDE9FE", "3B007A");
-
-        // ── Slide 6: Budget INDH 90%/10% ──
-        s = prs.addSlide(); s.background = {color:NAVY};
-        s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:"2A5CE0"}});
-        s.addText(T.budgetPrev, {x:0.25,y:0,w:9.5,h:0.82,fontSize:20,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-        const indhPct = Math.round((indh/(total||1))*100);
-        const barW = 9.2;
-        s.addShape(SH, {x:0.4,y:0.95,w:barW*(indhPct/100),h:0.3,fill:{color:"2A5CE0"}});
-        s.addShape(SH, {x:0.4+barW*(indhPct/100),y:0.95,w:barW*(1-indhPct/100),h:0.3,fill:{color:"4B5563"}});
-        s.addText(`🏛️ INDH ${indhPct}% = ${indh.toLocaleString()} MAD`, {x:0.4,y:1.3,w:6,h:0.35,fontSize:11,color:"60A5FA",fontFace:"Arial",bold:true});
-        s.addText(`👤 ${100-indhPct}% = ${bene.toLocaleString()} MAD`, {x:6.5,y:1.3,w:3.1,h:0.35,fontSize:11,color:"AAAAAA",fontFace:"Arial"});
-        if (budget?.items?.length) {
-          const rows = [
-            [{text:T.catLabel,options:{bold:true,color:YELLOW}},{text:T.itemLabel,options:{bold:true,color:YELLOW}},{text:T.totalCol,options:{bold:true,color:YELLOW}}],
-            ...budget.items.slice(0,8).map((x: any) => [clip(x.category||"",18), clip(x.item||"",40), `${Number(x.total||0).toLocaleString()} MAD`]),
-            [{text:"",options:{}},{text:T.totalLabel,options:{bold:true,color:YELLOW}},{text:`${total.toLocaleString()} MAD`,options:{bold:true,color:YELLOW}}],
-          ];
-          s.addTable(rows, {x:0.3,y:1.72,w:9.4,colW:[2.0,5.2,2.2],fontSize:8.5,color:WHITE,border:{type:"solid",color:"334466",pt:0.5},fontFace:"Arial"});
-        }
-
-        // ── Slide 7: Gestion, Durabilité & Innovation [35 pts] ──
-        s = prs.addSlide(); s.background = {color:"FFFBF0"};
-        const mgmtScore = comp?.juryScore?.management||0;
-        const sustScore = comp?.juryScore?.sustainability||0;
-        const innScore  = comp?.juryScore?.innovation||0;
-        headerBar(s, isAr?"التسيير والاستدامة والابتكار":isEn?"Management, Sustainability & Innovation":"Gestion, Durabilité & Innovation", "D97706", `${mgmtScore+sustScore+innScore}/35`, isAr?"15+10+10 نقطة":isEn?"15+10+10 pts":"15+10+10 pts");
-        [{l:isAr?"تسيير":isEn?"Mgmt":"Gestion",sc:mgmtScore,mx:15},{l:isAr?"استدامة":isEn?"Sust.":"Durabilité",sc:sustScore,mx:10},{l:isAr?"ابتكار":isEn?"Innov.":"Innovation",sc:innScore,mx:10}].forEach((c, i) => {
-          const bx = 0.35 + i * 3.1;
-          const colChip = (c.sc/c.mx)>=0.7 ? "1C7A62" : (c.sc/c.mx)>=0.5 ? "D97706" : "C0632F";
-          s.addShape(SH, {x:bx,y:0.9,w:2.85,h:0.68,fill:{color:"FEF3C7"},line:{color:"D97706",pt:1}});
-          s.addText(`${c.l}: ${c.sc}/${c.mx}`, {x:bx+0.1,y:0.94,w:2.65,h:0.58,fontSize:13,color:colChip,bold:true,fontFace:"Arial",align:"center"});
-        });
-        if (proj?.holderExperience) {
-          s.addText(isAr?"خبرة الحامل:":isEn?"Holder experience:":"Expérience du porteur :", {x:0.35,y:1.72,w:9.2,h:0.28,fontSize:9,color:"D97706",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-          s.addShape(SH, {x:0.35,y:2.0,w:9.2,h:0.65,fill:{color:"FEF3C7"},line:{color:"D9770644",pt:0.5}});
-          s.addText(`⭐ ${clip(proj.holderExperience, 180)}`, {x:0.5,y:2.02,w:9.0,h:0.6,fontSize:11,color:"7A3C00",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        }
-        const actList = proj?.activities || [];
-        if (actList.length > 0) {
-          s.addText(isAr?"الأنشطة الرئيسية:":isEn?"Core activities:":"Activités clés :", {x:0.35,y:2.76,w:9.2,h:0.28,fontSize:9,color:"D97706",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-          actList.slice(0,3).forEach((act: string, i: number) => {
-            s.addShape(SH, {x:0.35,y:3.08+i*0.38,w:9.2,h:0.34,fill:{color:i%2===0?"FFFBF0":"FEF3C7"},line:{color:"D9770633",pt:0.3}});
-            s.addText(`✓ ${clip(act, 100)}`, {x:0.5,y:3.1+i*0.38,w:9.0,h:0.3,fontSize:10,color:"3A2000",fontFace:"Arial",align:isAr?"right":"left"});
-          });
-        }
-        jTalk(s, isAr?"لدي [الخبرة]. سأُدير المشروع بنفسي بمساعدة [المساعدين]. خطة التشغيل لدي واضحة: [الخطة].":isEn?"I have [experience]. I will manage with [team]. My operational plan: [plan].":"J'ai [expérience]. Je gèrerai avec [équipe]. Mon plan opérationnel : [plan].", "FFF8E8", "7A3C00");
-
-        // ── Slide 8: Grille Jury INDH — KEY SLIDE ──
-        s = prs.addSlide(); s.background = {color:"F8F9FF"};
-        const eligBg = comp?.eligible ? "0A0F2C" : "FFF0F0";
-        s.addShape(SH, {x:0,y:0,w:10,h:0.85,fill:{color:eligBg}});
-        s.addText(`${isAr?"تقييم لجنة التحكيم INDH":isEn?"INDH Jury Evaluation Grid":"Grille d'Évaluation du Jury INDH"}`, {x:0.3,y:0,w:7,h:0.85,fontSize:20,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-        if (comp) {
-          const sc = comp.score;
-          s.addText(`${sc}/100`, {x:7.5,y:0,w:2.1,h:0.85,fontSize:30,color:sc>=60?"22C55E":"EF4444",bold:true,align:"right",fontFace:"Arial",valign:"middle"});
-          s.addText(comp.eligible?`✅ ${T.eligible}`:`⚠️ ${T.notElig}`, {x:7.5,y:0.0,w:2.2,h:0.85,fontSize:9,color:comp.eligible?"22C55E":"EF4444",bold:true,align:"right",fontFace:"Arial",valign:"bottom"});
-        }
-        const juryDef = [
-          {key:"impact",lbl:isAr?"الأثر الاجتماعي":isEn?"Social Impact":"Impact social",w:25,col:"1C7A62"},
-          {key:"viability",lbl:isAr?"الجدوى الاقتصادية":isEn?"Economic Viability":"Viabilité économique",w:20,col:"7C3AED"},
-          {key:"relevance",lbl:isAr?"الملاءمة الترابية":isEn?"Territorial Relevance":"Pertinence territoriale",w:20,col:"2A5CE0"},
-          {key:"management",lbl:isAr?"قدرة التسيير":isEn?"Management Capacity":"Capacité de gestion",w:15,col:"D97706"},
-          {key:"sustainability",lbl:isAr?"الاستدامة":isEn?"Sustainability":"Durabilité",w:10,col:"0891B2"},
-          {key:"innovation",lbl:isAr?"الابتكار":isEn?"Innovation":"Innovation",w:10,col:"DB2777"},
-        ];
-        juryDef.forEach((j, i) => {
-          const yPos = 1.0 + i * 0.73;
-          const sc = comp?.juryScore?.[j.key]||0;
-          const pct = Math.min(sc/j.w, 1);
-          s.addText(`${j.lbl} (/${j.w})`, {x:0.3,y:yPos,w:4.5,h:0.3,fontSize:10.5,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-          s.addText(`${sc}/${j.w}`, {x:9.2,y:yPos,w:0.6,h:0.3,fontSize:11,color:j.col,bold:true,fontFace:"Arial",align:"right"});
-          s.addShape(SH, {x:4.9,y:yPos+0.05,w:4.2,h:0.22,fill:{color:"E4E7ED"}});
-          if (pct>0) s.addShape(SH, {x:4.9,y:yPos+0.05,w:4.2*pct,h:0.22,fill:{color:j.col}});
-          s.addText(`${Math.round(pct*100)}%`, {x:4.9+4.2*pct+0.05,y:yPos+0.05,w:0.5,h:0.22,fontSize:7,color:"666666",fontFace:"Arial"});
-        });
-
-        // ── Slide 9: Documents + Soumission ──
-        s = prs.addSlide(); s.background = {color:NAVY};
-        s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:YELLOW}});
-        s.addText(`${T.docs} · ${T.submission}`, {x:0.25,y:0,w:9.5,h:0.82,fontSize:18,color:NAVY,bold:true,fontFace:"Arial",valign:"middle"});
-        s.addText(T.docsCount, {x:0.35,y:0.9,w:9.2,h:0.28,fontSize:11,color:"CCCCCC",fontFace:"Arial"});
-        const dRows2 = [
-          [{text:T.docLabel,options:{bold:true,color:NAVY}},{text:T.statusLabel,options:{bold:true,color:NAVY}}],
-          ...DOCS.slice(0,8).map(d => [{text:d.name,options:{color:"111111"}},{text:(docs[d.id]?T.ready:T.pending),options:{color:docs[d.id]?"1C7A62":"C0632F"}}])
-        ];
-        s.addTable(dRows2, {x:0.3,y:1.22,w:5.5,fontSize:8,color:"222222",border:{type:"solid",color:"334466",pt:0.5},fill:{color:WHITE},fontFace:"Arial"});
-        const subSteps = isAr
-          ? ["إيداع الملف (DAS)","وصل الإيداع","CPDH — 4 إلى 8 أسابيع","لجنة التحكيم INDH","القرار → الاتفاقية → الانطلاق"]
-          : isEn
-          ? ["Submit to DAS","Deposit receipt","CPDH review — 4-8 wks","INDH jury panel","Decision → Convention → Launch"]
-          : ["Dépôt DAS","Récépissé délivré","CPDH — 4 à 8 semaines","Jury INDH","Décision → Convention → Démarrage"];
-        subSteps.forEach((step, i) => {
-          s.addShape(SH, {x:6.0,y:1.22+i*0.78,w:0.36,h:0.36,fill:{color:YELLOW}});
-          s.addText(String(i+1), {x:6.0,y:1.22+i*0.78,w:0.36,h:0.36,fontSize:11,color:NAVY,bold:true,align:"center",fontFace:"Arial",valign:"middle"});
-          s.addText(step, {x:6.45,y:1.22+i*0.78,w:3.25,h:0.62,fontSize:9.5,color:"DDDDDD",fontFace:"Arial",wrap:true,valign:"middle"});
-        });
-        s.addText("IdeaMap · ideamaponline.org", {x:0.35,y:5.2,w:9.2,h:0.25,fontSize:8,color:"555555",align:"center",fontFace:"Arial"});
-
-        await prs.writeFile({fileName: `DossierJury_${proj?.projectName || "IdeaMap"}.pptx`});
-      }
-    } catch (e) { console.error("PPTX error:", e); showToast(lang==="ar"?"فشل إنشاء ملف PowerPoint":lang==="fr"?"Erreur lors de la création du fichier PowerPoint":"PowerPoint generation failed", "error"); }
-  };
+  const dlPPTX = (type: "pitch" | "jury", exportLang: string = dlLang) =>
+    generatePptxDeck(type, exportLang, {proj, plan, budget, comp, docs, logo, profile: user.profile, name: user.name}, lang, showToast);
 
   // ── Fiche Synthétique — 1-page HTML print-to-PDF ──────────────────────────
   const dlFicheSynthetique = (exportLang: string = dlLang) => {
@@ -5054,6 +5070,24 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
   const [qUploading, setQUploading]   = useState(false);
   const [qDraft, setQDraft]           = useState<CoordQuestion[] | null>(null);
   const [qErr, setQErr]               = useState("");
+  const [pptxBusy, setPptxBusy]       = useState<"pitch" | "jury" | null>(null);
+  const [pptxLang, setPptxLang]       = useState(lang);
+  const [pptxErr, setPptxErr]         = useState("");
+
+  // Lets the coordinator generate a holder's Pitch Deck / Dossier Jury straight
+  // from this dashboard, using the exact same generator holders use themselves —
+  // no need to ask the holder to send it. Uses the holder's own logo language
+  // if picked, since these decks are meant to go to the same jury either way.
+  const downloadHolderDeck = async (h: any, type: "pitch" | "jury") => {
+    setPptxBusy(type); setPptxErr("");
+    try {
+      await generatePptxDeck(type, pptxLang,
+        {proj: h.proj, plan: h.plan, budget: h.budget, comp: h.comp, docs: h.docs || {}, logo: h.logo, profile: h.profile, name: h.name},
+        lang, (msg) => setPptxErr(msg));
+    } finally {
+      setPptxBusy(null);
+    }
+  };
   const qText = (q: CoordQuestion) => q[lang as "fr"|"ar"|"en"] || q.fr;
 
   useEffect(() => {
@@ -5190,6 +5224,65 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
                   {h.comp.pillar && <div style={{fontSize:"12px", color:GR}}>📌 {h.comp.pillar}</div>}
                 </div>
               </div>
+            </Card>}
+            {h.plan && <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  📋 {lang==="ar"?"خطة الأعمال":lang==="fr"?"Plan d'Affaires":"Business Plan"}
+                </span>
+              </div>
+              {[
+                {l:lang==="ar"?"الملخص التنفيذي":lang==="fr"?"Résumé Exécutif":"Executive Summary", v:h.plan.executiveSummary},
+                {l:lang==="ar"?"الحل المقترح":lang==="fr"?"Solution Proposée":"Proposed Solution", v:h.plan.solution},
+                {l:lang==="ar"?"النموذج الاقتصادي":lang==="fr"?"Modèle Économique":"Business Model", v:h.plan.businessModel},
+                {l:lang==="ar"?"الأثر الاجتماعي":lang==="fr"?"Impact Social":"Social Impact", v:h.plan.socialImpact},
+              ].filter(x => x.v).map((x, i) => (
+                <div key={i} style={{padding:"10px 12px", background:CR, borderRadius:"10px",
+                  borderLeft:`3px solid ${Y}`, marginBottom:"8px"}}>
+                  <div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase", marginBottom:"4px"}}>{x.l}</div>
+                  <div style={{fontSize:"13px", color:ND, lineHeight:"1.6"}}>{x.v}</div>
+                </div>
+              ))}
+            </Card>}
+            {(h.plan || h.budget) && <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  📥 {lang==="ar"?"تنزيل الملفات":lang==="fr"?"Télécharger les documents":"Download documents"}
+                </span>
+              </div>
+              <div style={{display:"flex", gap:"8px", marginBottom:"10px"}}>
+                {["fr","ar","en"].map(l => (
+                  <button key={l} onClick={() => setPptxLang(l)}
+                    style={{padding:"5px 12px", borderRadius:"7px", border:`1px solid ${pptxLang===l?Y:CD}`,
+                      background: pptxLang===l ? Y : WH, color: pptxLang===l ? WH : GR,
+                      fontSize:"11px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
+                    {l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <div style={{display:"flex", gap:"10px", flexWrap:"wrap"}}>
+                <button onClick={() => downloadHolderDeck(h, "pitch")} disabled={pptxBusy!==null}
+                  style={{padding:"10px 16px", borderRadius:"10px", border:"none",
+                    background: pptxBusy==="pitch" ? CD : ND, color:WH, fontSize:"12px", fontWeight:"700",
+                    fontFamily:ff(lang), cursor: pptxBusy!==null ? "default" : "pointer"}}>
+                  {pptxBusy==="pitch"
+                    ? (lang==="ar"?"جارٍ الإنشاء...":lang==="fr"?"Génération...":"Generating...")
+                    : `🎯 ${lang==="ar"?"عرض تقديمي (.pptx)":lang==="fr"?"Pitch Deck (.pptx)":"Pitch Deck (.pptx)"}`}
+                </button>
+                <button onClick={() => downloadHolderDeck(h, "jury")} disabled={pptxBusy!==null}
+                  style={{padding:"10px 16px", borderRadius:"10px", border:`1.5px solid ${Y}`,
+                    background: pptxBusy==="jury" ? CD : "transparent", color: pptxBusy==="jury" ? WH : Y,
+                    fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor: pptxBusy!==null ? "default" : "pointer"}}>
+                  {pptxBusy==="jury"
+                    ? (lang==="ar"?"جارٍ الإنشاء...":lang==="fr"?"Génération...":"Generating...")
+                    : `⚖️ ${lang==="ar"?"دوسيي اللجنة (.pptx)":lang==="fr"?"Dossier Jury (.pptx)":"Dossier Jury (.pptx)"}`}
+                </button>
+              </div>
+              {pptxErr && <div style={{marginTop:10, padding:"8px 12px", background:`${RE}12`,
+                border:`1px solid ${RE}44`, borderRadius:8, fontSize:12, color:RE}}>{pptxErr}</div>}
+              {!h.plan && <div style={{fontSize:12, color:GR, marginTop:6}}>
+                {lang==="ar"?"لم يصل الحامل بعد إلى خطوة خطة الأعمال.":lang==="fr"?"Ce porteur n'a pas encore atteint l'étape Plan d'Affaires.":"This holder hasn't reached the Business Plan step yet."}
+              </div>}
             </Card>}
           </div>
         </div>
