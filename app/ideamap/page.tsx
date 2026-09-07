@@ -5057,10 +5057,11 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 /* ════════════════════════════════════════════════════════
    COORDINATOR DASHBOARD
 ════════════════════════════════════════════════════════ */
-function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questionnaire, onSaveQuestionnaire}: {
+function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questionnaire, onSaveQuestionnaire, onImportApplication}: {
   lang: string; setLang: (l: string) => void; user: any;
   onLogout: () => void; t: any; holders: any[]; syncError?: boolean;
   questionnaire?: CoordQuestion[]; onSaveQuestionnaire: (questions: CoordQuestion[] | undefined) => void;
+  onImportApplication: (holder: any) => void;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("holders");
@@ -5073,6 +5074,8 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
   const [pptxBusy, setPptxBusy]       = useState<"pitch" | "jury" | null>(null);
   const [pptxLang, setPptxLang]       = useState(lang);
   const [pptxErr, setPptxErr]         = useState("");
+  const [appUploading, setAppUploading] = useState(false);
+  const [appErr, setAppErr]             = useState("");
 
   // Lets the coordinator generate a holder's Pitch Deck / Dossier Jury straight
   // from this dashboard, using the exact same generator holders use themselves —
@@ -5187,6 +5190,65 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
                   </div>
                 ))}
               </div>
+            </Card>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  📝 {lang==="ar"?"استيراد إجابات الترشيح":lang==="fr"?"Importer les réponses de candidature":"Import application answers"}
+                </span>
+              </div>
+              <div style={{fontSize:12, color:GR, marginBottom:12, lineHeight:1.6}}>
+                {lang==="ar"
+                  ? "استورد وثيقة (Word أو PDF) تحتوي على أسئلة الترشيح وإجاباتها المكتوبة من طرف هذا الحامل — سيتم بناء ملف مشروعه تلقائياً والانتقال مباشرة إلى مرحلة الملف الشخصي."
+                  : lang==="fr"
+                  ? "Importez un document (Word ou PDF) contenant les questions de candidature et les réponses écrites de ce porteur — son profil de projet sera reconstruit automatiquement et il passera directement à l'étape Profil."
+                  : "Upload a document (Word or PDF) containing the application questions and this holder's written answers — their project profile will be built automatically and they'll land directly on the Profile step."}
+              </div>
+              {appErr && (
+                <div style={{padding:"10px 12px", background:`${RE}12`, border:`1px solid ${RE}44`,
+                  borderRadius:8, marginBottom:12, fontSize:12, color:RE}}>{appErr}</div>
+              )}
+              <label style={{display:"flex", alignItems:"center", gap:10, padding:"11px 14px",
+                borderRadius:10, border:`1.5px dashed ${Y}`, background:YL, cursor: appUploading ? "default" : "pointer",
+                opacity: appUploading ? .6 : 1}}>
+                <span style={{fontSize:20}}>{appUploading ? "⏳" : "📁"}</span>
+                <div>
+                  <div style={{fontSize:12, fontWeight:600, color:ND}}>
+                    {appUploading
+                      ? (lang==="ar"?"جارٍ التحليل...":lang==="fr"?"Analyse en cours...":"Analyzing...")
+                      : (lang==="ar"?"استيراد وثيقة (Word أو PDF)":lang==="fr"?"Importer un document (Word ou PDF)":"Upload a document (Word or PDF)")}
+                  </div>
+                  <div style={{fontSize:10, color:GR}}>DOCX, PDF — max 5 MB</div>
+                </div>
+                <input type="file" accept=".docx,.pdf" disabled={appUploading} style={{display:"none"}}
+                  onChange={async e => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!f) return;
+                    if (f.size > 5*1024*1024) { setAppErr(lang==="ar"?"الملف كبير جداً (الحد 5 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 5 Mo)":"File too large (max 5 MB)"); return; }
+                    setAppErr(""); setAppUploading(true);
+                    try {
+                      const buf = await f.arrayBuffer();
+                      const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+                      const r = await fetch("/api/parse-application", {
+                        method: "POST", headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({fileBase64: b64, lang}),
+                      });
+                      const d = await r.json();
+                      if (d.proj && d.msgs?.length > 0) {
+                        const updated = {...h, msgs: d.msgs, qN: d.msgs.length / 2, proj: d.proj, step: "profile"};
+                        onImportApplication(updated);
+                        setDetail(updated);
+                      } else {
+                        setAppErr(d.error || (lang==="ar"?"تعذر العثور على إجابات في هذه الوثيقة":lang==="fr"?"Aucune réponse trouvée dans ce document":"No answers found in this document"));
+                      }
+                    } catch {
+                      setAppErr(lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file");
+                    } finally {
+                      setAppUploading(false);
+                    }
+                  }}/>
+              </label>
             </Card>
             {h.proj && <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
@@ -6948,6 +7010,24 @@ export default function IdeaMapPage() {
     }, 2000);
   }
 
+  /* ── Coordinator imports a holder's completed application ──
+     Unlike onSaveProject (debounced, fired on every dialogue message), this is
+     a one-off action — persist immediately so the coordinator sees it land. */
+  function onImportApplication(holder: any) {
+    setHolders(p => {
+      const idx = p.findIndex(h => h.id === holder.id);
+      return idx >= 0 ? p.map((h, i) => i === idx ? holder : h) : [...p, holder];
+    });
+    try {
+      const cur = JSON.parse(localStorage.getItem("idm_holders") || "[]") as any[];
+      const idx = cur.findIndex(h => h.id === holder.id);
+      localStorage.setItem("idm_holders", JSON.stringify(
+        idx >= 0 ? cur.map((h, i) => i === idx ? holder : h) : [...cur, holder]
+      ));
+    } catch {}
+    persistHolder(holder);
+  }
+
   function onAddCoord(c: Coord) {
     const next = [...coords, c];
     setCoords(next);
@@ -7000,7 +7080,8 @@ export default function IdeaMapPage() {
         const next = coords.map(c => c.code.toUpperCase() === user.id.toUpperCase() ? {...c, questionnaire: questions} : c);
         setCoords(next);
         persistCoords(next);
-      }}/>
+      }}
+      onImportApplication={onImportApplication}/>
   </>;
 
   if (user.role === "admin") return <>
