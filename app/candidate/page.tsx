@@ -66,32 +66,22 @@ export default function CandidateDashboard() {
 
   const TOOLS = [
     {
-      id: 'email',
-      icon: 'mail' as IconName,
-      title: 'Lettre de Candidature',
-      sub: 'Outil Expert RH · Guidé étape par étape',
-      desc: "Répondez à 4 questions simples. L'Expert RH rédige pour vous une lettre professionnelle prête à envoyer.",
-      href: '/candidate/email',
-      accent: PURPLE,
-      light: LPURP,
-      badge: 'Nouveau',
-      badgeColor: PURPLE,
-      cta: 'Créer ma lettre →',
-      featured: true,
-    },
-    {
+      // CV comes first and is the featured tool — it's the document every
+      // employer actually asks for at interview stage, including (and
+      // especially) for unqualified/entry-level roles where a cover letter
+      // is rarely requested at all.
       id: 'cv',
       icon: 'file-text' as IconName,
       title: 'Mon CV',
       sub: 'Créer · Améliorer · Télécharger',
-      desc: "Importez votre CV ou créez-en un depuis zéro. L'Expert RH l'améliore et l'adapte à chaque offre.",
+      desc: "Importez votre CV ou créez-en un depuis zéro, avec un choix de 10 designs professionnels. L'Expert RH l'améliore et l'adapte à chaque offre.",
       href: '/candidate/upload',
       accent: COBALT,
       light: LBLUE,
-      badge: cvScore ? `${cvScore.total}/100` : null,
-      badgeColor: cvScore ? (cvScore.total >= 65 ? GREEN : cvScore.total >= 40 ? '#b45309' : '#dc2626') : GREEN,
+      badge: cvScore ? `${cvScore.total}/100` : 'Essentiel',
+      badgeColor: cvScore ? (cvScore.total >= 65 ? GREEN : cvScore.total >= 40 ? '#b45309' : '#dc2626') : COBALT,
       cta: hasCV ? 'Mettre à jour mon CV →' : 'Créer mon CV →',
-      featured: false,
+      featured: true,
     },
     {
       id: 'jobs',
@@ -105,6 +95,22 @@ export default function CandidateDashboard() {
       badge: null,
       badgeColor: null,
       cta: 'Voir les offres →',
+      featured: false,
+    },
+    {
+      // Cover letter stays useful but optional — most recruiters, especially
+      // for entry-level/unqualified job seeking, only ask for the CV.
+      id: 'email',
+      icon: 'mail' as IconName,
+      title: 'Lettre de Candidature',
+      sub: 'Outil Expert RH · Guidé étape par étape',
+      desc: "Optionnel — un plus pour certaines candidatures. Répondez à 4 questions simples, l'Expert RH rédige votre lettre.",
+      href: '/candidate/email',
+      accent: PURPLE,
+      light: LPURP,
+      badge: 'Optionnel',
+      badgeColor: MUTED,
+      cta: 'Créer ma lettre →',
       featured: false,
     },
   ];

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import PageHeader from '../../../components/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, inferEducationLevel } from '@/lib/matching';
-import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, type WorkEntry } from '@/lib/cvTemplate';
+import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, CV_LAYOUTS, CV_THEMES, type WorkEntry } from '@/lib/cvTemplate';
 import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 import { scoreCV, scoreBandStyle } from '@/lib/cvScore';
 
@@ -123,6 +123,11 @@ export default function CandidateUpload() {
   const [photoErr, setPhotoErr] = useState('');
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  // CV design — 10 professional layouts to choose from (see CV_LAYOUTS). Null
+  // means "use the auto-assigned design" (deterministic from the candidate's
+  // ID, so it stays stable until they explicitly pick one here).
+  const [layoutOverride, setLayoutOverride] = useState<string | null>(null);
+
   function handlePhotoUpload(file: File) {
     setPhotoErr('');
     if (file.size > 2 * 1024 * 1024) { setPhotoErr('Photo trop lourde — max 2 Mo.'); return; }
@@ -189,6 +194,7 @@ export default function CandidateUpload() {
         if (cv.targetRoles?.length) setTargetRoles(cv.targetRoles);
         if (cv.certifications?.length) setCertifications(cv.certifications);
         if (cv.experience) setExperience(cv.experience);
+        if (cv.cvLayout) setLayoutOverride(cv.cvLayout);
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -198,9 +204,9 @@ export default function CandidateUpload() {
   useEffect(() => {
     if (!user) return;
     try {
-      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience }));
+      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience, cvLayout: layoutOverride }));
     } catch {}
-  }, [user, summary, skills, work, education, targetRoles, certifications, experience]);
+  }, [user, summary, skills, work, education, targetRoles, certifications, experience, layoutOverride]);
 
   // Load jobs + this candidate's applications from Redis
   useEffect(() => {
@@ -277,17 +283,23 @@ export default function CandidateUpload() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, coordJobs, name, skillsKey]);
 
-  // CV visual style is always deterministically derived from the candidate's
-  // ID — never shown or made pickable in the UI (see note above).
+  // CV color theme is always deterministically derived from the candidate's
+  // ID (kept consistent regardless of which of the 10 designs they pick).
+  // The layout (the actual "design") defaults to that same deterministic
+  // pick but can be overridden by the candidate via the design picker below.
   const autoStyle = useMemo(() => pickStyle(user?.idNumber || email || name), [user, email, name]);
+  const effectiveStyle = useMemo(
+    () => ({ layout: layoutOverride || autoStyle.layout, theme: autoStyle.theme }),
+    [layoutOverride, autoStyle]
+  );
 
   const cvHtml = useMemo(() => {
     if (!user) return '';
     return generateCVHtml(
       { name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, languageLevels, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio },
-      autoStyle
+      effectiveStyle
     );
-  }, [user, name, email, phone, address, summary, skills, languages, languageLevels, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio, autoStyle]);
+  }, [user, name, email, phone, address, summary, skills, languages, languageLevels, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio, effectiveStyle]);
 
   // Free, deterministic CV health check — no AI call needed, so it's instant
   // and always available even if the AI provider cascade is degraded.
@@ -520,7 +532,7 @@ export default function CandidateUpload() {
           languages: extracted.languages?.length
             ? extracted.languages.filter((l: string) => LANGUAGES.includes(l))
             : languages,
-          cvStyle: pickStyle(user!.idNumber),
+          cvStyle: effectiveStyle,
           uploadedAt: new Date().toISOString(),
           fileName: file.name,
           fileSize: `${Math.round(file.size / 1024)} KB`,
@@ -615,7 +627,7 @@ export default function CandidateUpload() {
       fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, languageLevels, cvStyle: pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
+        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, languageLevels, cvStyle: effectiveStyle, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
       }).catch(() => {});
       setStep('preview');
       return;
@@ -652,7 +664,7 @@ export default function CandidateUpload() {
     fetch('/api/sheets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, languageLevels, cvStyle: pickStyle(user!.idNumber), uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
+      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, languageLevels, cvStyle: effectiveStyle, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
     }).catch(() => {});
     setGeneratingCV(false);
     setStep('preview');
@@ -1207,6 +1219,47 @@ export default function CandidateUpload() {
             <p style={{ fontSize: '0.78rem', color: '#9ca3af', marginBottom: '1.5rem' }}>
               💡 La fenêtre d'impression s'ouvre directement. Choisissez <strong>"Enregistrer en PDF"</strong> pour télécharger votre CV.
             </p>
+
+            {/* Design picker — 10 professional CV designs, live preview below */}
+            {(() => {
+              const theme = CV_THEMES.find(t => t.id === autoStyle.theme) || CV_THEMES[0];
+              return (
+                <div style={{ background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+                    <span style={{ fontSize: '1.1rem' }}>🎨</span>
+                    <span style={{ fontWeight: 800, color: '#111827', fontSize: '0.95rem' }}>Choisissez votre design</span>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '1rem' }}>
+                    10 designs professionnels — le contenu de votre CV ne change pas, seule la mise en page. Cliquez pour prévisualiser instantanément.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.7rem' }}>
+                    {CV_LAYOUTS.map(l => {
+                      const selected = (layoutOverride || autoStyle.layout) === l.id;
+                      return (
+                        <button
+                          key={l.id}
+                          onClick={() => setLayoutOverride(l.id)}
+                          title={l.desc}
+                          style={{
+                            textAlign: 'left', padding: '0.7rem 0.8rem', borderRadius: '10px', cursor: 'pointer',
+                            border: selected ? `2px solid ${theme.accent}` : '1.5px solid #e5e7eb',
+                            background: selected ? theme.tint : 'white',
+                            boxShadow: selected ? `0 2px 10px ${theme.accent}22` : 'none',
+                            transition: 'all .15s',
+                          }}>
+                          <div style={{ width: '100%', height: 6, borderRadius: 3, marginBottom: '0.5rem', background: `linear-gradient(90deg,${theme.dark},${theme.accent})` }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.15rem' }}>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#111827' }}>{l.name}</span>
+                            {selected && <span style={{ fontSize: '0.9rem', color: theme.accent }}>✓</span>}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#6b7280', lineHeight: 1.4 }}>{l.desc}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* CV Preview */}
             <div style={{ borderRadius: '14px', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,.12)', border: '1px solid #e5e7eb' }}>
