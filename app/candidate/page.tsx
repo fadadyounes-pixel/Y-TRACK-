@@ -3,28 +3,29 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Logo from '../../components/Logo';
+import PageHeader from '../../components/PageHeader';
+import Icon, { type IconName } from '../../components/Icon';
 import { useAuth } from '../../contexts/AuthContext';
 import { isProfileComplete } from '@/lib/profile';
 import { regionDisplay } from '@/lib/morocco';
 import { scoreCV } from '@/lib/cvScore';
 
-const INK    = '#0B1629';
-const COBALT = '#1B4FD8';
-const BG     = '#F6F8FC';
-const BORDER = '#E2E8F0';
-const TEXT   = '#0F172A';
-const MUTED  = '#64748B';
-const FAINT  = '#94A3B8';
-const LBLUE  = '#EFF6FF';
+const INK    = '#0a1f5c';
+const COBALT = '#2563eb';
+const BG     = '#f9fafb';
+const BORDER = '#e5e7eb';
+const TEXT   = '#111827';
+const MUTED  = '#6b7280';
+const FAINT  = '#9ca3af';
+const LBLUE  = '#eff6ff';
 const WHITE  = '#ffffff';
-const PURPLE = '#7C3AED';
-const LPURP  = '#EDE9FE';
+const PURPLE = '#7c3aed';
+const LPURP  = '#ede9fe';
 const GREEN  = '#059669';
-const LGREEN = '#D1FAE5';
+const LGREEN = '#d1fae5';
 
 export default function CandidateDashboard() {
-  const { user, initialized, logout } = useAuth();
+  const { user, initialized } = useAuth();
   const router = useRouter();
   const [info, setInfo]       = useState<Record<string, any> | null>(null);
   const [cvData, setCvData]   = useState<Record<string, any> | null>(null);
@@ -65,39 +66,29 @@ export default function CandidateDashboard() {
 
   const TOOLS = [
     {
-      id: 'email',
-      icon: '✉️',
-      title: 'Lettre de Candidature',
-      sub: 'Outil IA · Guidé étape par étape',
-      desc: "Répondez à 4 questions simples. L'IA rédige pour vous une lettre professionnelle prête à envoyer.",
-      href: '/candidate/email',
-      accent: PURPLE,
-      light: LPURP,
-      badge: 'Nouveau',
-      badgeColor: PURPLE,
-      cta: 'Créer ma lettre →',
-      featured: true,
-    },
-    {
+      // CV comes first and is the featured tool — it's the document every
+      // employer actually asks for at interview stage, including (and
+      // especially) for unqualified/entry-level roles where a cover letter
+      // is rarely requested at all.
       id: 'cv',
-      icon: '📄',
+      icon: 'file-text' as IconName,
       title: 'Mon CV',
       sub: 'Créer · Améliorer · Télécharger',
-      desc: "Importez votre CV ou créez-en un depuis zéro. L'IA l'améliore et l'adapte à chaque offre.",
+      desc: "Importez votre CV ou créez-en un depuis zéro, avec un choix de 10 designs professionnels. L'Expert RH l'améliore et l'adapte à chaque offre.",
       href: '/candidate/upload',
       accent: COBALT,
       light: LBLUE,
-      badge: cvScore ? `${cvScore.total}/100` : null,
-      badgeColor: cvScore ? (cvScore.total >= 65 ? GREEN : cvScore.total >= 40 ? '#b45309' : '#dc2626') : GREEN,
+      badge: cvScore ? `${cvScore.total}/100` : 'Essentiel',
+      badgeColor: cvScore ? (cvScore.total >= 65 ? GREEN : cvScore.total >= 40 ? '#b45309' : '#dc2626') : COBALT,
       cta: hasCV ? 'Mettre à jour mon CV →' : 'Créer mon CV →',
-      featured: false,
+      featured: true,
     },
     {
       id: 'jobs',
-      icon: '🎯',
+      icon: 'target' as IconName,
       title: "Offres d'Emploi",
-      sub: 'Compatibilité · Matching IA',
-      desc: "Consultez les postes disponibles et découvrez votre score de compatibilité grâce à l'IA.",
+      sub: 'Compatibilité · Matching Expert RH',
+      desc: "Consultez les postes disponibles et découvrez votre score de compatibilité grâce à l'Expert RH.",
       href: '/candidate/upload',
       accent: GREEN,
       light: LGREEN,
@@ -106,63 +97,27 @@ export default function CandidateDashboard() {
       cta: 'Voir les offres →',
       featured: false,
     },
+    {
+      // Cover letter stays useful but optional — most recruiters, especially
+      // for entry-level/unqualified job seeking, only ask for the CV.
+      id: 'email',
+      icon: 'mail' as IconName,
+      title: 'Lettre de Candidature',
+      sub: 'Outil Expert RH · Guidé étape par étape',
+      desc: "Optionnel — un plus pour certaines candidatures. Répondez à 4 questions simples, l'Expert RH rédige votre lettre.",
+      href: '/candidate/email',
+      accent: PURPLE,
+      light: LPURP,
+      badge: 'Optionnel',
+      badgeColor: MUTED,
+      cta: 'Créer ma lettre →',
+      featured: false,
+    },
   ];
 
   return (
     <main style={{ minHeight: '100vh', background: BG, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-
-      {/* ── Navbar ── */}
-      <nav style={{
-        background: INK,
-        height: 60,
-        padding: '0 1.5rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        borderBottom: '1px solid rgba(255,255,255,.06)',
-        boxShadow: '0 2px 16px rgba(0,0,0,.35)',
-      }}>
-        <Logo size="md" variant="light" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
-            background: 'rgba(255,255,255,.08)',
-            border: '1px solid rgba(255,255,255,.12)',
-            borderRadius: 9999,
-            padding: '0.3rem 0.9rem 0.3rem 0.45rem',
-            display: 'flex', alignItems: 'center', gap: '0.5rem',
-          }}>
-            <div style={{
-              width: 26, height: 26, borderRadius: '50%',
-              background: `linear-gradient(135deg,${COBALT},${PURPLE})`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, fontWeight: 900, color: WHITE,
-            }}>
-              {firstName[0]?.toUpperCase()}
-            </div>
-            <span style={{ color: 'rgba(255,255,255,.88)', fontSize: '0.82rem', fontWeight: 600 }}>{firstName}</span>
-          </div>
-          <button
-            onClick={logout}
-            style={{
-              background: 'transparent',
-              color: 'rgba(255,255,255,.45)',
-              border: '1px solid rgba(255,255,255,.15)',
-              borderRadius: 8,
-              padding: '0.35rem 0.85rem',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'color .15s',
-              fontFamily: 'inherit',
-            }}
-          >
-            Déconnexion
-          </button>
-        </div>
-      </nav>
+      <PageHeader label="Candidate Portal" icon="user" />
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '2rem 1.25rem 5rem' }}>
 
@@ -186,20 +141,20 @@ export default function CandidateDashboard() {
               Bonjour, {firstName} 👋
             </h1>
             <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,.72)', marginBottom: '1.75rem', maxWidth: 460, lineHeight: 1.6 }}>
-              Vos outils IA pour trouver un emploi — simples, guidés, et adaptés à votre profil.
+              Vos outils Expert RH pour trouver un emploi — simples, guidés, et adaptés à votre profil.
             </p>
             {/* Progress pills */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {([['👤', 'Profil', hasProfile], ['📄', 'CV', hasCV], ['✉️', 'Lettre', false]] as [string, string, boolean][]).map(([icon, label, done], i) => (
+              {([['user', 'Profil', hasProfile], ['file-text', 'CV', hasCV], ['mail', 'Lettre', false]] as [IconName, string, boolean][]).map(([icon, label, done], i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: '0.35rem',
                   padding: '0.3rem 0.75rem', borderRadius: 9999,
                   background: done ? 'rgba(16,185,129,.2)' : 'rgba(255,255,255,.08)',
                   border: `1px solid ${done ? 'rgba(16,185,129,.4)' : 'rgba(255,255,255,.12)'}`,
                 }}>
-                  <span style={{ fontSize: '0.75rem' }}>{icon}</span>
+                  <Icon name={icon} size={13} color={done ? '#6ee7b7' : 'rgba(255,255,255,.6)'} />
                   <span style={{ fontSize: '0.72rem', fontWeight: 700, color: done ? '#6ee7b7' : 'rgba(255,255,255,.6)' }}>{label}</span>
-                  {done && <span style={{ fontSize: '0.65rem', color: '#6ee7b7' }}>✓</span>}
+                  {done && <Icon name="check" size={11} color="#6ee7b7" />}
                 </div>
               ))}
               <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,.35)', marginLeft: 'auto' }}>
@@ -211,7 +166,7 @@ export default function CandidateDashboard() {
 
         {/* ── Section heading ── */}
         <p style={{ fontSize: '0.72rem', fontWeight: 800, color: FAINT, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.9rem' }}>
-          Vos Outils IA
+          Vos Outils Expert RH
         </p>
 
         {/* ── Tool cards ── */}
@@ -258,10 +213,10 @@ export default function CandidateDashboard() {
                     width: 50, height: 50, borderRadius: 14,
                     background: tool.featured ? tool.accent : tool.light,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 24, flexShrink: 0,
+                    flexShrink: 0,
                     boxShadow: tool.featured ? `0 4px 14px ${tool.accent}38` : 'none',
                   }}>
-                    {tool.icon}
+                    <Icon name={tool.icon} size={24} color={tool.featured ? '#ffffff' : tool.accent} />
                   </div>
                   {tool.badge && (
                     <span style={{
@@ -350,7 +305,7 @@ export default function CandidateDashboard() {
                   }}>{s}</span>
                 ))}
                 {skills.length > 7 && (
-                  <span style={{ padding: '0.2rem 0.65rem', borderRadius: 9999, background: '#F1F5F9', color: MUTED, fontSize: '0.75rem', fontWeight: 600 }}>
+                  <span style={{ padding: '0.2rem 0.65rem', borderRadius: 9999, background: '#f3f4f6', color: MUTED, fontSize: '0.75rem', fontWeight: 600 }}>
                     +{skills.length - 7}
                   </span>
                 )}
@@ -361,8 +316,8 @@ export default function CandidateDashboard() {
           <Link href="/candidate/info" style={{
             padding: '0.55rem 1rem',
             borderRadius: 9,
-            background: '#F8FAFC',
-            color: '#334155',
+            background: '#f9fafb',
+            color: '#374151',
             fontSize: '0.82rem',
             fontWeight: 600,
             textDecoration: 'none',

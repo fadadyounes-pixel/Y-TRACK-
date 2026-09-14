@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
-import Logo from '../../../components/Logo';
+import PageHeader from '../../../components/PageHeader';
 import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 
 type FlowStep = 'intro' | 'qa' | 'generating' | 'result';
@@ -61,7 +61,7 @@ const QA = [
     icon: '❤️',
     label: 'Votre Motivation',
     question: 'Pourquoi voulez-vous ce poste / travailler dans cette entreprise ?',
-    helper: 'Répondez simplement et sincèrement — l\'IA embellira votre réponse.',
+    helper: 'Répondez simplement et sincèrement — l\'Expert RH embellira votre réponse.',
     placeholder: 'Ex: Je cherche un emploi stable, j\'aime le contact avec les clients...',
     suggestions: [
       'Je cherche un emploi stable et sérieux',
@@ -135,29 +135,11 @@ export default function EmailGenerator() {
     setInfo(loaded);
   }, [user, initialized, router]);
 
-  if (!initialized || !user || user.role !== 'candidate' || !info) return null;
-
-  const firstName = info?.firstName || user.name.split(' ')[0] || 'Candidat';
-  const currentQ = QA[qaIndex];
-
-  const handleSuggestion = (s: string) => {
-    setCurrentInput(s);
-    textareaRef.current?.focus();
-  };
-
-  const handleNext = () => {
-    const val = currentInput.trim();
-    if (!val && !currentQ.optional) return;
-    const next = { ...answers, [currentQ.id]: val };
-    setAnswers(next);
-    setCurrentInput('');
-    if (qaIndex < QA.length - 1) {
-      setQaIndex(i => i + 1);
-    } else {
-      generateEmail(next);
-    }
-  };
-
+  // Declared before the "not ready yet" early return below — every hook in this
+  // component must run unconditionally on every render (Rules of Hooks). This
+  // used to sit after that return, so the very first render (before `info`
+  // loads) skipped it entirely, then a later render reached it — React saw a
+  // different hook count between renders and crashed the whole page.
   const generateEmail = useCallback(async (ans: Record<string, string>) => {
     setFlow('generating');
     setError('');
@@ -168,9 +150,12 @@ export default function EmailGenerator() {
     timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
     const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
 
-    const name = `${info?.firstName || ''} ${info?.lastName || ''}`.trim() || user.name;
+    // Non-null: generateEmail is only ever invoked from handleNext, which is
+    // unreachable until the component has passed its "not ready yet" guard
+    // further down (user/info are both loaded by then).
+    const name = `${info?.firstName || ''} ${info?.lastName || ''}`.trim() || user!.name;
     const phone = info?.phone || '';
-    const email = user.email || '';
+    const email = user!.email || '';
 
     const system = `Rédige une lettre de candidature formelle en français. RÈGLES STRICTES:
 - 3 paragraphes. Commencer par "Madame, Monsieur,". Terminer par "Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées."
@@ -219,6 +204,28 @@ Email: ${email}`;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [info, user]);
 
+  if (!initialized || !user || user.role !== 'candidate' || !info) return null;
+
+  const currentQ = QA[qaIndex];
+
+  const handleSuggestion = (s: string) => {
+    setCurrentInput(s);
+    textareaRef.current?.focus();
+  };
+
+  const handleNext = () => {
+    const val = currentInput.trim();
+    if (!val && !currentQ.optional) return;
+    const next = { ...answers, [currentQ.id]: val };
+    setAnswers(next);
+    setCurrentInput('');
+    if (qaIndex < QA.length - 1) {
+      setQaIndex(i => i + 1);
+    } else {
+      generateEmail(next);
+    }
+  };
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(generatedEmail);
@@ -258,28 +265,13 @@ Email: ${email}`;
 
   // ─── Shared layout wrapper ────────────────────────────────────────────────
   const Wrap = ({ children }: { children: React.ReactNode }) => (
-    <main style={{ minHeight: '100vh', background: '#F6F8FC', fontFamily: "'Inter',-apple-system,sans-serif" }}>
-      {/* Navbar */}
-      <nav style={{
-        background: '#0B1629', height: 60, padding: '0 1.5rem',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'sticky', top: 0, zIndex: 100,
-        borderBottom: '1px solid rgba(255,255,255,.06)',
-        boxShadow: '0 2px 16px rgba(0,0,0,.35)',
-      }}>
-        <Logo size="md" variant="light" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Link href="/candidate" style={{ textDecoration: 'none', color: 'rgba(255,255,255,.55)', fontSize: '0.82rem', fontWeight: 600 }}>
-            ← Tableau de bord
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 9999, padding: '0.25rem 0.75rem 0.25rem 0.35rem' }}>
-            <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg,#1B4FD8,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: '#fff' }}>
-              {firstName[0]?.toUpperCase()}
-            </div>
-            <span style={{ color: 'rgba(255,255,255,.88)', fontSize: '0.82rem', fontWeight: 600 }}>{firstName}</span>
-          </div>
-        </div>
-      </nav>
+    <main style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "'Inter',-apple-system,sans-serif" }}>
+      <PageHeader label="Cover Letter" icon="mail" />
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '0.75rem 1.25rem 0' }}>
+        <Link href="/candidate" style={{ textDecoration: 'none', color: '#6b7280', fontSize: '0.8rem', fontWeight: 600 }}>
+          ← Tableau de bord
+        </Link>
+      </div>
       {children}
     </main>
   );
@@ -301,7 +293,7 @@ Email: ${email}`;
           Votre lettre de candidature en 2 minutes
         </h1>
         <p style={{ fontSize: '1rem', color: '#6b7280', lineHeight: 1.7, maxWidth: 440, marginBottom: '2rem' }}>
-          L'IA vous pose <strong style={{ color: '#111827' }}>4 questions simples</strong> sur le poste que vous visez, puis rédige pour vous une lettre professionnelle et formelle <strong style={{ color: '#111827' }}>prête à envoyer</strong>.
+          L'Expert RH vous pose <strong style={{ color: '#111827' }}>4 questions simples</strong> sur le poste que vous visez, puis rédige pour vous une lettre professionnelle et formelle <strong style={{ color: '#111827' }}>prête à envoyer</strong>.
         </p>
 
         {/* Steps preview */}
@@ -551,7 +543,7 @@ Email: ${email}`;
           boxShadow: '0 8px 40px rgba(124,58,237,.45)' }}>✉️</div>
 
         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', marginBottom: '0.5rem' }}>
-          L'IA rédige votre lettre…
+          L'Expert RH rédige votre lettre…
         </h2>
         <p style={{ fontSize: '0.9rem', color: '#6b7280', lineHeight: 1.7, maxWidth: 360, margin: '0 auto 1.5rem' }}>
           Analyse de vos réponses en cours — prête dans quelques secondes.
@@ -566,7 +558,7 @@ Email: ${email}`;
 
         {/* Live elapsed counter */}
         <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1.5rem' }}>
-          {elapsed < 3 ? '⚡ Connexion à l\'IA…' : elapsed < 6 ? '✍️ Rédaction en cours…' : '🔄 Finalisation…'}
+          {elapsed < 3 ? '⚡ Connexion à l\'Expert RH…' : elapsed < 6 ? '✍️ Rédaction en cours…' : '🔄 Finalisation…'}
           <span style={{ marginLeft: '0.4rem', fontWeight: 700, color: '#7c3aed' }}>{elapsed}s</span>
         </p>
 
@@ -586,7 +578,7 @@ Email: ${email}`;
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '2.5rem 1.25rem 5rem' }}>
         {/* Success header */}
         <div style={{
-          background: 'linear-gradient(135deg,#0B1629,#1B4FD8)',
+          background: 'linear-gradient(135deg,#0a1f5c,#2563eb)',
           borderRadius: 20, padding: '2rem', marginBottom: '1.5rem', color: '#fff',
           position: 'relative', overflow: 'hidden',
         }}>
@@ -733,7 +725,7 @@ Email: ${email}`;
               flex: 1, minWidth: 140,
               padding: '0.75rem',
               borderRadius: 10,
-              background: '#F6F8FC',
+              background: '#f9fafb',
               color: '#374151',
               fontSize: '0.85rem', fontWeight: 600,
               border: '1.5px solid #e5e7eb',

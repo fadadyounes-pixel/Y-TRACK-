@@ -90,6 +90,8 @@ All tokens are defined in `app/globals.css` as CSS custom properties.
 | ≥ 40 "Good" | `#dbeafe` | `#1e40af` |
 | < 40 "Poor" | `#fee2e2` | `#991b1b` |
 
+Implemented in `globals.css` as `.badge-excellent` / `.badge-good` / `.badge-poor` (aliased as `.score-high` / `.score-medium` / `.score-low` for match-score contexts).
+
 ### Role Badge System
 
 | Role | Background | Text |
@@ -320,6 +322,8 @@ background: #f8fafc;
 border-top: 2px solid #e5e7eb;
 ```
 
+Implemented in `globals.css` as `.data-table` (with `.data-table th`/`.data-table td` and a `.table-summary` row modifier for the summary/total row).
+
 ### Tab Buttons
 
 ```css
@@ -341,6 +345,22 @@ upload: #3b82f6  (blue)
 job:    #f59e0b  (amber)
 match:  #10b981  (green)
 ```
+
+---
+
+## Motion
+
+Keyframes are defined once in `globals.css` and applied via utility classes — never inline `<style>` blocks on individual pages:
+
+```
+fadeInUp     .animate-fade-up     — page/card entrance (translateY + fade)
+fadeIn       .animate-fade        — simple fade-in
+slideInRight .animate-slide-right — panel/toast entrance from the right
+pulse        (used directly)       — loading dots, status indicators
+spin         (used directly)       — spinners
+```
+
+`.animate-fade-up` is used for the login card's entrance. Durations follow convention #1 (`all 0.2s` / `all 0.15s` for interactive transitions; keyframe animations themselves run 0.3–0.4s).
 
 ---
 
@@ -376,20 +396,37 @@ match:  #10b981  (green)
 
 ```
 app/
-  page.tsx              ← TalentMap landing/home page
-  login/page.tsx        ← Login with live role detection
-  admin/page.tsx        ← Admin dashboard
-  coordinator/page.tsx  ← Coordinator dashboard
-  candidate/page.tsx    ← Candidate profile + match score
-  candidate/upload/     ← CV upload flow
-  coordinator/jobs/     ← Job offer management
-  globals.css           ← All CSS tokens + utility classes
+  page.tsx                 ← TalentMap landing/home page
+  login/page.tsx           ← Login with live role detection
+  admin/
+    layout.tsx             ← Mounts AIAssistant (role="admin") for this subtree only
+    page.tsx               ← Admin dashboard
+  coordinator/
+    layout.tsx             ← Mounts AIAssistant (role="coordinator") for this subtree only
+    page.tsx               ← Coordinator dashboard
+    jobs/                  ← Job offer management
+    upload/                ← Coordinator-side CV import + AI enhancement
+  candidate/
+    layout.tsx             ← Mounts AIAssistant (role="candidate") for this subtree only
+    page.tsx               ← Candidate profile + match score
+    info/                  ← Mandatory profile-completion form
+    upload/                ← CV upload/build flow
+    email/                 ← AI cover-letter generator
+  components/
+    AIAssistant.tsx        ← Floating role-aware chat widget
+  globals.css              ← All CSS tokens + utility classes
 components/
-  Logo.tsx              ← Brand logo component
-  PageHeader.tsx        ← Shared dark gradient page header
+  Logo.tsx                 ← Brand logo component
+  PageHeader.tsx           ← Shared dark gradient page header
 contexts/
-  AuthContext.tsx       ← Auth state, mock users, localStorage
+  AuthContext.tsx          ← Auth state, mock users, localStorage
+lib/
+  cvTemplate.ts            ← 10 layouts × 11 themes CV export system
 ```
+
+**AI Assistant mounting**: `AIAssistant` is mounted from three role-scoped nested layouts (`app/admin/layout.tsx`, `app/coordinator/layout.tsx`, `app/candidate/layout.tsx`) rather than the shared root layout. Next.js scopes a layout strictly to its own folder subtree, so this guarantees — by construction, not by discipline — that the widget never appears on `/`, `/login`, or any `/ideamap/*` route (IdeaMap is a separate product nested under the same root layout).
+
+**CV export fonts**: `lib/cvTemplate.ts` renders each CV as a standalone HTML document with its own `<style>` block. It declares `font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif` — the same stack the live app uses in `globals.css` — with no `@import` of Inter from Google Fonts. A printed/exported document must not depend on a runtime network fetch to render correctly, so it relies on the system font fallback exactly like the rest of the app already does.
 
 ---
 
