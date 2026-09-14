@@ -916,10 +916,10 @@ export default function CandidateUpload() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>📝 Profil professionnel</h2>
                     <button onClick={enhanceSummary} disabled={enhancing} style={{ padding: '0.45rem 1rem', borderRadius: '8px', background: enhancing ? '#f3f4f6' : '#eff6ff', color: enhancing ? '#9ca3af' : '#2563eb', border: '1.5px solid #bfdbfe', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
-                      {enhancing ? '⟳ Rédaction…' : '✨ Générer avec l\'IA'}
+                      {enhancing ? '⟳ Rédaction…' : '✨ Générer avec l\'Expert RH'}
                     </button>
                   </div>
-                  <textarea value={summary} onChange={e => setSummary(e.target.value)} placeholder="Cliquez sur '✨ Générer avec l'IA' ou rédigez votre accroche…" rows={4} style={{ ...inp, resize: 'vertical', lineHeight: 1.7 }} />
+                  <textarea value={summary} onChange={e => setSummary(e.target.value)} placeholder="Cliquez sur '✨ Générer avec l'Expert RH' ou rédigez votre accroche…" rows={4} style={{ ...inp, resize: 'vertical', lineHeight: 1.7 }} />
                 </div>
 
                 {/* Work */}
@@ -942,10 +942,10 @@ export default function CandidateUpload() {
                             <label style={lbl}>Réalisations</label>
                             <button onClick={() => improveWorkDescription(i)} disabled={workImproving.has(i)}
                               style={{ padding: '0.25rem 0.7rem', borderRadius: '7px', background: workImproving.has(i) ? '#f3f4f6' : '#eff6ff', color: workImproving.has(i) ? '#9ca3af' : '#2563eb', border: '1.5px solid #bfdbfe', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
-                              {workImproving.has(i) ? '⟳ Rédaction…' : '✨ Réécrire (IA)'}
+                              {workImproving.has(i) ? '⟳ Rédaction…' : '✨ Réécrire (Expert RH)'}
                             </button>
                           </div>
-                          <textarea value={w.description} onChange={e => setWork(p => p.map((x, xi) => xi === i ? { ...x, description: e.target.value } : x))} placeholder="Décrivez vos tâches ou réalisations — l'IA les transformera en bullet points professionnels." rows={3} style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} />
+                          <textarea value={w.description} onChange={e => setWork(p => p.map((x, xi) => xi === i ? { ...x, description: e.target.value } : x))} placeholder="Décrivez vos tâches ou réalisations — l'Expert RH les transformera en bullet points professionnels." rows={3} style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} />
                         </div>
                       </div>
                     ))}
@@ -967,7 +967,7 @@ export default function CandidateUpload() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>⚡ Compétences</h2>
                     <button onClick={suggestSkillsAI} disabled={suggestingSkills} style={{ padding: '0.45rem 1rem', borderRadius: '8px', background: suggestingSkills ? '#f3f4f6' : '#eff6ff', color: suggestingSkills ? '#9ca3af' : '#2563eb', border: '1.5px solid #bfdbfe', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
-                      {suggestingSkills ? '⟳ Suggestions…' : '✨ Suggérer (IA)'}
+                      {suggestingSkills ? '⟳ Suggestions…' : '✨ Suggérer (Expert RH)'}
                     </button>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>

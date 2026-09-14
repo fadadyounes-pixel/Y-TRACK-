@@ -69,8 +69,8 @@ export default function CandidateDashboard() {
       id: 'email',
       icon: 'mail' as IconName,
       title: 'Lettre de Candidature',
-      sub: 'Outil IA · Guidé étape par étape',
-      desc: "Répondez à 4 questions simples. L'IA rédige pour vous une lettre professionnelle prête à envoyer.",
+      sub: 'Outil Expert RH · Guidé étape par étape',
+      desc: "Répondez à 4 questions simples. L'Expert RH rédige pour vous une lettre professionnelle prête à envoyer.",
       href: '/candidate/email',
       accent: PURPLE,
       light: LPURP,
@@ -84,7 +84,7 @@ export default function CandidateDashboard() {
       icon: 'file-text' as IconName,
       title: 'Mon CV',
       sub: 'Créer · Améliorer · Télécharger',
-      desc: "Importez votre CV ou créez-en un depuis zéro. L'IA l'améliore et l'adapte à chaque offre.",
+      desc: "Importez votre CV ou créez-en un depuis zéro. L'Expert RH l'améliore et l'adapte à chaque offre.",
       href: '/candidate/upload',
       accent: COBALT,
       light: LBLUE,
@@ -97,8 +97,8 @@ export default function CandidateDashboard() {
       id: 'jobs',
       icon: 'target' as IconName,
       title: "Offres d'Emploi",
-      sub: 'Compatibilité · Matching IA',
-      desc: "Consultez les postes disponibles et découvrez votre score de compatibilité grâce à l'IA.",
+      sub: 'Compatibilité · Matching Expert RH',
+      desc: "Consultez les postes disponibles et découvrez votre score de compatibilité grâce à l'Expert RH.",
       href: '/candidate/upload',
       accent: GREEN,
       light: LGREEN,
@@ -135,7 +135,7 @@ export default function CandidateDashboard() {
               Bonjour, {firstName} 👋
             </h1>
             <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,.72)', marginBottom: '1.75rem', maxWidth: 460, lineHeight: 1.6 }}>
-              Vos outils IA pour trouver un emploi — simples, guidés, et adaptés à votre profil.
+              Vos outils Expert RH pour trouver un emploi — simples, guidés, et adaptés à votre profil.
             </p>
             {/* Progress pills */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -160,7 +160,7 @@ export default function CandidateDashboard() {
 
         {/* ── Section heading ── */}
         <p style={{ fontSize: '0.72rem', fontWeight: 800, color: FAINT, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.9rem' }}>
-          Vos Outils IA
+          Vos Outils Expert RH
         </p>
 
         {/* ── Tool cards ── */}

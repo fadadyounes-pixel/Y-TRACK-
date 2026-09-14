@@ -158,7 +158,7 @@ function generateEnhancedCvHtml(cv: CvEntry, enhanced: {
   </div>
 
   <div class="footer">
-    <span class="footer-brand">TalentMap · CV Amélioré par IA</span>
+    <span class="footer-brand">TalentMap · CV Amélioré par l'Expert RH</span>
     <span class="footer-date">${new Date().toLocaleDateString('fr-MA', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
   </div>
 </body>
@@ -437,7 +437,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               Import de CVs
             </h1>
             <p style={{ color: '#6b7280', fontSize: 14, lineHeight: 1.5 }}>
-              Chargez jusqu'à <strong style={{ color: '#0a1f5c' }}>{MAX_CVS} CVs</strong> · Analyse IA automatique · Amélioration professionnelle en un clic
+              Chargez jusqu'à <strong style={{ color: '#0a1f5c' }}>{MAX_CVS} CVs</strong> · Analyse Expert RH automatique · Amélioration professionnelle en un clic
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -640,7 +640,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                               <button
                                 className="enhance-btn"
                                 onClick={e => { e.stopPropagation(); enhanceCV(cv.id); }}
-                                title="Améliorer ce CV avec l'IA"
+                                title="Améliorer ce CV avec l'Expert RH"
                                 style={{ padding: '6px 12px', borderRadius: 7, border: '1.5px solid #7C3AED', background: 'transparent', color: '#7C3AED', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .15s', whiteSpace: 'nowrap' }}>
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                                 Améliorer
@@ -649,7 +649,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                             {cv.enhanceStatus === 'enhancing' && (
                               <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 1s linear infinite' }}><circle cx="12" cy="12" r="10" stroke="#7C3AED" strokeWidth="2" strokeDasharray="40" strokeDashoffset="10"/></svg>
-                                IA en cours…
+                                Expert RH en cours…
                               </span>
                             )}
                             {/* Download enhanced */}

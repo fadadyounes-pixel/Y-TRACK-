@@ -575,7 +575,7 @@ export default function CoordinatorDashboard() {
     { key: 'overview',     icon: 'chart-bar', label: 'Vue d\'ensemble' },
     { key: 'candidates',   icon: 'users',     label: `Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}` },
     { key: 'jobs',         icon: 'briefcase', label: `Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}` },
-    { key: 'matching',     icon: 'sparkles',  label: 'Matching IA' },
+    { key: 'matching',     icon: 'sparkles',  label: 'Matching Expert RH' },
     { key: 'applications', icon: 'mail',      label: `Candidatures${applications.length > 0 ? ` (${applications.length})` : ''}` },
   ];
 
@@ -658,7 +658,7 @@ export default function CoordinatorDashboard() {
                   <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
                     <Icon name="sparkles" size={26} color="#2563eb" />
                   </div>
-                  <p style={{ fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>Le matching IA attend vos données</p>
+                  <p style={{ fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>Le matching Expert RH attend vos données</p>
                   <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>Importez des CVs et créez des offres pour voir les matches automatiques.</p>
                   <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, fontSize: '0.85rem', padding: '0.5rem 1rem', textDecoration: 'none' }}>📁 Importer CVs</Link>
@@ -776,7 +776,7 @@ export default function CoordinatorDashboard() {
                 <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📭</div>
                 <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucun CV importé</p>
                 <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
-                  Importez des CVs pour les voir apparaître ici avec leurs profils extraits par l'IA.
+                  Importez des CVs pour les voir apparaître ici avec leurs profils extraits par l'Expert RH.
                 </p>
                 <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                   📁 Importer des CVs (20+ en simultané)
@@ -859,7 +859,7 @@ export default function CoordinatorDashboard() {
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📋</div>
                 <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucune offre d'emploi</p>
-                <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez des offres pour permettre à l'IA de matcher les candidats.</p>
+                <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez des offres pour permettre à l'Expert RH de matcher les candidats.</p>
                 <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                   ➕ Créer une offre
                 </Link>
@@ -909,7 +909,7 @@ export default function CoordinatorDashboard() {
           </div>
         )}
 
-        {/* ══════════════════════════ MATCHING IA ══════════════════════════ */}
+        {/* ══════════════════════════ MATCHING EXPERT RH ══════════════════════════ */}
         {tab === 'matching' && (
           <div>
             {/* Job selector */}
@@ -937,7 +937,7 @@ export default function CoordinatorDashboard() {
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📋</div>
                 <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucune offre disponible</p>
-                <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez une offre d'emploi pour lancer le matching IA.</p>
+                <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez une offre d'emploi pour lancer le matching Expert RH.</p>
                 <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none' }}>➕ Créer une offre</Link>
               </div>
             ) : cvs.length === 0 ? (
@@ -987,7 +987,7 @@ export default function CoordinatorDashboard() {
                       onClick={generateAiInsights}
                       disabled={aiLoading || matchRanked.length === 0}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', borderRadius: '8px', border: 'none', background: aiLoading ? '#e5e7eb' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: aiLoading ? '#9ca3af' : 'white', fontSize: '0.85rem', fontWeight: 700, cursor: aiLoading || matchRanked.length === 0 ? 'not-allowed' : 'pointer', transition: 'all 0.15s', opacity: matchRanked.length === 0 ? 0.5 : 1 }}>
-                      {aiLoading ? '⏳ Analyse en cours…' : '🤖 Générer analyse IA'}
+                      {aiLoading ? '⏳ Analyse en cours…' : '🤖 Générer analyse Expert RH'}
                     </button>
                     {aiInsights && !aiLoading && (
                       <button onClick={() => setAiInsights(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.8rem', cursor: 'pointer' }}>✕ Effacer</button>
@@ -997,7 +997,7 @@ export default function CoordinatorDashboard() {
                     <div style={{ background: '#ffffff', borderRadius: '12px', border: '1.5px solid #dbeafe', overflow: 'hidden' }}>
                       <div style={{ padding: '0.85rem 1.1rem', background: 'linear-gradient(135deg,#eff6ff,#dbeafe)', borderBottom: '1px solid #dbeafe', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontSize: '1.1rem' }}>🤖</span>
-                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#93C5FD' }}>Analyse IA — {activeMatchJob?.title}</span>
+                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#93C5FD' }}>Analyse Expert RH — {activeMatchJob?.title}</span>
                       </div>
                       <div style={{ padding: '1rem 1.1rem', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1rem' }}>
                         <div>

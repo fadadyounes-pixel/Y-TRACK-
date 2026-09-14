@@ -16,8 +16,8 @@ const ROLES: { label: string; badgeBg: string; badgeText: string; icon: IconName
     badgeBg: '#ecfdf5',
     badgeText: '#047857',
     icon: 'briefcase',
-    title: 'Post jobs, screen with AI',
-    desc: 'Manage job offers, review incoming CVs, and let AI-assisted matching surface your strongest candidates first.',
+    title: 'Post jobs, screen with an HR Expert',
+    desc: 'Manage job offers, review incoming CVs, and let HR Expert-assisted matching surface your strongest candidates first.',
   },
   {
     label: 'Admin',
@@ -30,7 +30,7 @@ const ROLES: { label: string; badgeBg: string; badgeText: string; icon: IconName
 ];
 
 const STATS = [
-  { icon: 'sparkles' as IconName, label: 'AI-assisted matching' },
+  { icon: 'sparkles' as IconName, label: 'HR Expert-assisted matching' },
   { icon: 'file-text' as IconName, label: '100+ CV templates' },
   { icon: 'shield-check' as IconName, label: 'Built for the Moroccan market' },
 ];
@@ -95,7 +95,7 @@ export default function Home() {
               margin: 0,
               lineHeight: 1.25,
             }}>
-              The AI-powered recruitment platform matching talent to opportunity
+              The HR Expert-powered recruitment platform matching talent to opportunity
             </h1>
             <p style={{
               fontSize: '0.98rem',
@@ -104,7 +104,7 @@ export default function Home() {
               margin: 0,
               lineHeight: 1.6,
             }}>
-              CV analysis, AI-assisted candidate matching, and a full recruitment pipeline — built for candidates, coordinators, and admins alike.
+              CV analysis, HR Expert-assisted candidate matching, and a full recruitment pipeline — built for candidates, coordinators, and admins alike.
             </p>
             <div>
               <Link href="/login" className="btn-white">

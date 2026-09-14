@@ -146,12 +146,12 @@ export default function LoginPage() {
           </h2>
           <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, margin: '0 0 2rem', maxWidth: '400px' }}>
             {lang === 'fr'
-              ? 'La plateforme de recrutement IA qui connecte candidats, conseillers RH et administrateurs sur un seul flux.'
-              : 'The AI recruitment platform connecting candidates, HR advisors, and admins on one shared pipeline.'}
+              ? 'La plateforme de recrutement propulsée par un Expert RH qui connecte candidats, conseillers RH et administrateurs sur un seul flux.'
+              : 'The recruitment platform powered by an HR Expert, connecting candidates, HR advisors, and admins on one shared pipeline.'}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
             {[
-              { icon: 'sparkles' as const, fr: 'CV optimisé par IA en quelques minutes', en: 'AI-optimized CV in minutes' },
+              { icon: 'sparkles' as const, fr: 'CV optimisé par l\'Expert RH en quelques minutes', en: 'HR Expert-optimized CV in minutes' },
               { icon: 'target' as const, fr: 'Score de compatibilité instantané', en: 'Instant compatibility scoring' },
               { icon: 'shield-check' as const, fr: 'Conçu pour le marché marocain', en: 'Built for the Moroccan market' },
             ].map(item => (

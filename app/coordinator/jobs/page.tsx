@@ -254,10 +254,10 @@ export default function CoordinatorJobs() {
                   onClick={generateDescription}
                   disabled={descLoading || (!title && !sector)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', background: descLoading ? '#e5e7eb' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: descLoading ? '#9ca3af' : 'white', fontSize: '0.75rem', fontWeight: 700, cursor: descLoading || (!title && !sector) ? 'not-allowed' : 'pointer', opacity: (!title && !sector) ? 0.5 : 1 }}>
-                  {descLoading ? '⏳ Génération…' : '🤖 Générer avec IA'}
+                  {descLoading ? '⏳ Génération…' : '🤖 Générer avec l\'Expert RH'}
                 </button>
               </div>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Missions, responsabilités, environnement de travail… ou cliquez « Générer avec IA »" style={{ ...inputStyle, resize: 'vertical' }} />
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Missions, responsabilités, environnement de travail… ou cliquez « Générer avec l'Expert RH »" style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
 
             <div style={{ marginBottom: '1.25rem' }}>

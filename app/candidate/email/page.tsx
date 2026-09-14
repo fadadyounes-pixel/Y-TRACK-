@@ -61,7 +61,7 @@ const QA = [
     icon: '❤️',
     label: 'Votre Motivation',
     question: 'Pourquoi voulez-vous ce poste / travailler dans cette entreprise ?',
-    helper: 'Répondez simplement et sincèrement — l\'IA embellira votre réponse.',
+    helper: 'Répondez simplement et sincèrement — l\'Expert RH embellira votre réponse.',
     placeholder: 'Ex: Je cherche un emploi stable, j\'aime le contact avec les clients...',
     suggestions: [
       'Je cherche un emploi stable et sérieux',
@@ -293,7 +293,7 @@ Email: ${email}`;
           Votre lettre de candidature en 2 minutes
         </h1>
         <p style={{ fontSize: '1rem', color: '#6b7280', lineHeight: 1.7, maxWidth: 440, marginBottom: '2rem' }}>
-          L'IA vous pose <strong style={{ color: '#111827' }}>4 questions simples</strong> sur le poste que vous visez, puis rédige pour vous une lettre professionnelle et formelle <strong style={{ color: '#111827' }}>prête à envoyer</strong>.
+          L'Expert RH vous pose <strong style={{ color: '#111827' }}>4 questions simples</strong> sur le poste que vous visez, puis rédige pour vous une lettre professionnelle et formelle <strong style={{ color: '#111827' }}>prête à envoyer</strong>.
         </p>
 
         {/* Steps preview */}
@@ -543,7 +543,7 @@ Email: ${email}`;
           boxShadow: '0 8px 40px rgba(124,58,237,.45)' }}>✉️</div>
 
         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', marginBottom: '0.5rem' }}>
-          L'IA rédige votre lettre…
+          L'Expert RH rédige votre lettre…
         </h2>
         <p style={{ fontSize: '0.9rem', color: '#6b7280', lineHeight: 1.7, maxWidth: 360, margin: '0 auto 1.5rem' }}>
           Analyse de vos réponses en cours — prête dans quelques secondes.
@@ -558,7 +558,7 @@ Email: ${email}`;
 
         {/* Live elapsed counter */}
         <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1.5rem' }}>
-          {elapsed < 3 ? '⚡ Connexion à l\'IA…' : elapsed < 6 ? '✍️ Rédaction en cours…' : '🔄 Finalisation…'}
+          {elapsed < 3 ? '⚡ Connexion à l\'Expert RH…' : elapsed < 6 ? '✍️ Rédaction en cours…' : '🔄 Finalisation…'}
           <span style={{ marginLeft: '0.4rem', fontWeight: 700, color: '#7c3aed' }}>{elapsed}s</span>
         </p>
 
