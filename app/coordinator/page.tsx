@@ -501,8 +501,6 @@ export default function CoordinatorDashboard() {
     });
   }, [cvs, search, filterSector, filterExp]);
 
-  if (!initialized || !user || user.role !== 'coordinator') return null;
-
   /* ── Matching tab job ── */
   const activeMatchJob = matchJob ? jobs.find(j => j.id === matchJob) : jobs[0];
   const matchRanked = useMemo(() => {
@@ -512,6 +510,13 @@ export default function CoordinatorDashboard() {
       .map(cv => ({ cv, match: computeMatch(cv, activeMatchJob) }))
       .sort((a, b) => b.match.total - a.match.total);
   }, [cvs, activeMatchJob]);
+
+  // Every hook above must run unconditionally on every render (Rules of
+  // Hooks) — this guard used to sit before matchRanked's useMemo, so the
+  // first render (before user/initialized load) skipped that hook entirely
+  // while a later render reached it, and React crashed on the mismatched
+  // hook count.
+  if (!initialized || !user || user.role !== 'coordinator') return null;
 
   /* ── AI Insights generator ── */
   const generateAiInsights = async () => {
@@ -532,7 +537,7 @@ export default function CoordinatorDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Offre: ${activeMatchJob.title} chez ${activeMatchJob.company}\nSecteur: ${activeMatchJob.sector} | Expérience: ${activeMatchJob.experience}\nCompétences requises: ${activeMatchJob.skills.join(', ')}\n\nTop candidats (par score):\n${top5.map((c, i) => `${i + 1}. ${c.name} — ${c.sector} / ${c.experience} — Score: ${c.score}% — Skills correspondantes: ${c.matchedSkills.join(', ') || 'aucune'}`).join('\n')}` }],
-          system: 'Analyse ces candidats pour ce poste. Réponds UNIQUEMENT avec ce JSON valide sans markdown:\n{"topPick":"nom du meilleur candidat + 1 phrase courte expliquant pourquoi il est le meilleur fit","rationale":"2-3 phrases synthétisant le classement global et les forces communes","gaps":["lacune ou besoin de formation identifié 1","lacune 2","lacune 3"],"questions":["Question entretien ciblée au poste 1","Question 2","Question 3"]}',
+          system: 'Tu es un expert en recrutement sur le marché marocain, familier des attentes des employeurs locaux (grandes entreprises et PME) et des réalités du marché de l\'emploi au Maroc. Analyse ces candidats pour ce poste. Réponds UNIQUEMENT avec ce JSON valide sans markdown:\n{"topPick":"nom du meilleur candidat + 1 phrase courte expliquant pourquoi il est le meilleur fit","rationale":"2-3 phrases synthétisant le classement global et les forces communes","gaps":["lacune ou besoin de formation identifié 1","lacune 2","lacune 3"],"questions":["Question entretien ciblée au poste 1","Question 2","Question 3"]}',
           task: 'json',
           max_tokens: 700,
         }),

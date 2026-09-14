@@ -36,7 +36,7 @@ const EXPERIENCE_LEVELS = ['Entry-Level', 'Junior', 'Mid-Level', 'Senior', 'Lead
 const CITIES = ['Casablanca', 'Rabat', 'Tanger', 'Marrakech', 'Fès', 'Agadir', 'Oujda', 'Kénitra', 'Meknès', 'Autre'];
 
 export default function CoordinatorJobs() {
-  const { user } = useAuth();
+  const { user, initialized } = useAuth();
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -63,8 +63,12 @@ export default function CoordinatorJobs() {
   const [descLoading, setDescLoading] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== 'coordinator') router.push('/login');
-  }, [user, router]);
+    // Gate on `initialized` — without it, this fires during the brief window
+    // before AuthContext finishes reading the user from localStorage, bouncing
+    // an already-logged-in coordinator straight back to /login on every hard
+    // page load or refresh.
+    if (initialized && (!user || user.role !== 'coordinator')) router.push('/login');
+  }, [user, initialized, router]);
 
   // Load jobs + CVs from Redis on mount
   useEffect(() => {
@@ -103,7 +107,7 @@ export default function CoordinatorJobs() {
     }).catch(() => {});
   }, [jobs, loaded]);
 
-  if (!user || user.role !== 'coordinator') return null;
+  if (!initialized || !user || user.role !== 'coordinator') return null;
 
   function resetForm() {
     setTitle(''); setCompany(''); setSector('Technology'); setExperience('Mid-Level');
@@ -167,7 +171,7 @@ export default function CoordinatorJobs() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Poste: ${title || 'Non précisé'}\nSecteur: ${sector}\nNiveau: ${experience}\nVille: ${location}${skills.length ? '\nCompétences: ' + skills.join(', ') : ''}` }],
-          system: 'Rédige une description de poste professionnelle et concise (3-4 phrases) en français, directement utilisable dans une offre d\'emploi. Pas de titre, pas de bullet points, juste le texte de description. Maximum 120 mots.',
+          system: 'Tu es un expert en recrutement au Maroc. Rédige une description de poste professionnelle et concise (3-4 phrases) en français, adaptée aux attentes des employeurs et candidats marocains, directement utilisable dans une offre d\'emploi. Pas de titre, pas de bullet points, juste le texte de description. Maximum 120 mots.',
           task: 'dialogue',
           max_tokens: 250,
         }),

@@ -135,28 +135,11 @@ export default function EmailGenerator() {
     setInfo(loaded);
   }, [user, initialized, router]);
 
-  if (!initialized || !user || user.role !== 'candidate' || !info) return null;
-
-  const currentQ = QA[qaIndex];
-
-  const handleSuggestion = (s: string) => {
-    setCurrentInput(s);
-    textareaRef.current?.focus();
-  };
-
-  const handleNext = () => {
-    const val = currentInput.trim();
-    if (!val && !currentQ.optional) return;
-    const next = { ...answers, [currentQ.id]: val };
-    setAnswers(next);
-    setCurrentInput('');
-    if (qaIndex < QA.length - 1) {
-      setQaIndex(i => i + 1);
-    } else {
-      generateEmail(next);
-    }
-  };
-
+  // Declared before the "not ready yet" early return below — every hook in this
+  // component must run unconditionally on every render (Rules of Hooks). This
+  // used to sit after that return, so the very first render (before `info`
+  // loads) skipped it entirely, then a later render reached it — React saw a
+  // different hook count between renders and crashed the whole page.
   const generateEmail = useCallback(async (ans: Record<string, string>) => {
     setFlow('generating');
     setError('');
@@ -167,9 +150,12 @@ export default function EmailGenerator() {
     timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
     const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
 
-    const name = `${info?.firstName || ''} ${info?.lastName || ''}`.trim() || user.name;
+    // Non-null: generateEmail is only ever invoked from handleNext, which is
+    // unreachable until the component has passed its "not ready yet" guard
+    // further down (user/info are both loaded by then).
+    const name = `${info?.firstName || ''} ${info?.lastName || ''}`.trim() || user!.name;
     const phone = info?.phone || '';
-    const email = user.email || '';
+    const email = user!.email || '';
 
     const system = `Rédige une lettre de candidature formelle en français. RÈGLES STRICTES:
 - 3 paragraphes. Commencer par "Madame, Monsieur,". Terminer par "Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées."
@@ -217,6 +203,28 @@ Email: ${email}`;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [info, user]);
+
+  if (!initialized || !user || user.role !== 'candidate' || !info) return null;
+
+  const currentQ = QA[qaIndex];
+
+  const handleSuggestion = (s: string) => {
+    setCurrentInput(s);
+    textareaRef.current?.focus();
+  };
+
+  const handleNext = () => {
+    const val = currentInput.trim();
+    if (!val && !currentQ.optional) return;
+    const next = { ...answers, [currentQ.id]: val };
+    setAnswers(next);
+    setCurrentInput('');
+    if (qaIndex < QA.length - 1) {
+      setQaIndex(i => i + 1);
+    } else {
+      generateEmail(next);
+    }
+  };
 
   const handleCopy = async () => {
     try {

@@ -223,7 +223,7 @@ function EnhancePill({ status }: { status: CvEntry['enhanceStatus'] }) {
 }
 
 export default function CoordinatorUpload() {
-  const { user } = useAuth();
+  const { user, initialized } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cvList, setCvList] = useState<CvEntry[]>([]);
@@ -237,8 +237,12 @@ export default function CoordinatorUpload() {
   const activeRef = useRef(0);
 
   useEffect(() => {
-    if (!user || user.role !== 'coordinator') router.push('/login');
-  }, [user, router]);
+    // Gate on `initialized` — without it, this fires during the brief window
+    // before AuthContext finishes reading the user from localStorage, bouncing
+    // an already-logged-in coordinator straight back to /login on every hard
+    // page load or refresh.
+    if (initialized && (!user || user.role !== 'coordinator')) router.push('/login');
+  }, [user, initialized, router]);
 
   // Persist done CVs
   useEffect(() => {
@@ -252,7 +256,7 @@ export default function CoordinatorUpload() {
     }).catch(() => {});
   }, [cvList]);
 
-  if (!user || user.role !== 'coordinator') return null;
+  if (!initialized || !user || user.role !== 'coordinator') return null;
 
   /* ── Process single CV (extract) ── */
   async function processOne(id: string) {
