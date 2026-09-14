@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PageHeader from '../../components/PageHeader';
+import Icon, { type IconName } from '../../components/Icon';
 import { useAuth } from '../../contexts/AuthContext';
 import { computeMatch, scoreColor, EXP_ORDER, type MatchBreakdown } from '@/lib/matching';
 import { generateCVHtml, type WorkEntry, type Education, type CVStyle } from '@/lib/cvTemplate';
@@ -565,17 +566,17 @@ export default function CoordinatorDashboard() {
   });
 
   /* ── Sidebar nav items ── */
-  const NAV: { key: typeof tab; icon: string; label: string }[] = [
-    { key: 'overview',     icon: '⊞',  label: 'Vue d\'ensemble' },
-    { key: 'candidates',   icon: '👥', label: `Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}` },
-    { key: 'jobs',         icon: '💼', label: `Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}` },
-    { key: 'matching',     icon: '✦',  label: 'Matching IA' },
-    { key: 'applications', icon: '📨', label: `Candidatures${applications.length > 0 ? ` (${applications.length})` : ''}` },
+  const NAV: { key: typeof tab; icon: IconName; label: string }[] = [
+    { key: 'overview',     icon: 'chart-bar', label: 'Vue d\'ensemble' },
+    { key: 'candidates',   icon: 'users',     label: `Candidats${cvs.length > 0 ? ` (${cvs.length})` : ''}` },
+    { key: 'jobs',         icon: 'briefcase', label: `Offres${jobs.length > 0 ? ` (${jobs.length})` : ''}` },
+    { key: 'matching',     icon: 'sparkles',  label: 'Matching IA' },
+    { key: 'applications', icon: 'mail',      label: `Candidatures${applications.length > 0 ? ` (${applications.length})` : ''}` },
   ];
 
   return (
     <div style={{ minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif' }}>
-      <PageHeader title="TalentMap" subtitle="Coordinator Portal" />
+      <PageHeader label="Coordinator Portal" icon="briefcase" />
 
       {/* ── Tab bar ── */}
       <div style={{ background: '#ffffff', borderBottom: '1px solid #e5e7eb', padding: '0.875rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', position: 'sticky', top: 0, zIndex: 20 }}>
@@ -586,7 +587,7 @@ export default function CoordinatorDashboard() {
               return (
                 <button key={n.key} onClick={() => setTab(n.key)} className={`tab-button${active ? ' active-coordinator' : ''}`}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ fontSize: '0.9rem' }}>{n.icon}</span>
+                  <Icon name={n.icon} size={15} />
                   {n.label}
                 </button>
               );
@@ -618,20 +619,26 @@ export default function CoordinatorDashboard() {
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
-          {[
-            { label: 'CVs importés',        value: loading ? '…' : stats.totalCvs,         accent: '#2563eb' },
-            { label: 'Offres ouvertes',      value: loading ? '…' : stats.openJobs,         accent: '#38BDF8' },
-            { label: 'Profils excellents',   value: loading ? '…' : stats.excellentMatches, accent: '#059669' },
-            { label: 'Score moy. matching',  value: loading ? '…' : (stats.avgScore > 0 ? stats.avgScore + '%' : '—'), accent: '#7c3aed' },
-          ].map(s => (
+          {([
+            { label: 'CVs importés',        value: loading ? '…' : stats.totalCvs,         accent: '#2563eb', icon: 'file-text' },
+            { label: 'Offres ouvertes',      value: loading ? '…' : stats.openJobs,         accent: '#38BDF8', icon: 'briefcase' },
+            { label: 'Profils excellents',   value: loading ? '…' : stats.excellentMatches, accent: '#059669', icon: 'star' },
+            { label: 'Score moy. matching',  value: loading ? '…' : (stats.avgScore > 0 ? stats.avgScore + '%' : '—'), accent: '#7c3aed', icon: 'chart-bar' },
+          ] as { label: string; value: string | number; accent: string; icon: IconName }[]).map(s => (
             <div key={s.label} style={{
               background: '#ffffff', borderRadius: '10px',
               border: '1px solid #e5e7eb', padding: '1.25rem 1.5rem',
               boxShadow: '0 1px 3px rgba(0,0,0,.04)',
               borderLeft: `3px solid ${s.accent}`,
+              display: 'flex', alignItems: 'center', gap: '1rem',
             }}>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0a1f5c', lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: '0.73rem', color: '#6b7280', marginTop: '0.4rem', fontWeight: 500 }}>{s.label}</div>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: `${s.accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name={s.icon} size={20} color={s.accent} />
+              </div>
+              <div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0a1f5c', lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: '0.73rem', color: '#6b7280', marginTop: '0.4rem', fontWeight: 500 }}>{s.label}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -643,7 +650,9 @@ export default function CoordinatorDashboard() {
               <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0a1f5c', marginBottom: '1.25rem' }}>🎯 Top profils / offres</h2>
               {topMatches.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2.5rem', color: '#9ca3af' }}>
-                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🤖</div>
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
+                    <Icon name="sparkles" size={26} color="#2563eb" />
+                  </div>
                   <p style={{ fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>Le matching IA attend vos données</p>
                   <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>Importez des CVs et créez des offres pour voir les matches automatiques.</p>
                   <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>

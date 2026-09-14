@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import PageHeader from '../../components/PageHeader';
+import Icon, { type IconName } from '../../components/Icon';
 
 /* ── Design tokens (TALENTMAP.md) ───────────────────────────────────────
  * Light theme per the spec's Brand Gradient / Score & Role Badge systems.
@@ -104,16 +105,22 @@ interface CV {
 }
 
 /* ── Sub-components ── */
-function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
+function StatCard({ label, value, accent, icon }: { label: string; value: string | number; accent: string; icon: IconName }) {
   return (
     <div style={{
       background: WHITE, borderRadius: 10,
       border: `1px solid ${BORDER}`, padding: '1.25rem 1.5rem',
       boxShadow: '0 1px 3px rgba(0,0,0,.04)',
       borderLeft: `3px solid ${accent}`,
+      display: 'flex', alignItems: 'center', gap: '1rem',
     }}>
-      <div style={{ fontSize: '1.65rem', fontWeight: 800, color: NAVY, lineHeight: 1, marginBottom: 4 }}>{value}</div>
-      <div style={{ fontSize: '0.75rem', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em' }}>{label}</div>
+      <div style={{ width: 40, height: 40, borderRadius: 10, background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon name={icon} size={20} color={accent} />
+      </div>
+      <div>
+        <div style={{ fontSize: '1.65rem', fontWeight: 800, color: NAVY, lineHeight: 1, marginBottom: 4 }}>{value}</div>
+        <div style={{ fontSize: '0.75rem', color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em' }}>{label}</div>
+      </div>
     </div>
   );
 }
@@ -325,12 +332,12 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
   }
 
   /* ── Sidebar nav ── */
-  const NAV: { id: Tab; icon: string; label: string }[] = [
-    { id: 'overview',     icon: '📊', label: 'Vue d\'ensemble' },
-    { id: 'coordinators', icon: '👥', label: 'Coordinateurs' },
-    { id: 'jobs',         icon: '💼', label: 'Offres d\'emploi' },
-    { id: 'candidates',   icon: '🎯', label: 'Candidats' },
-    { id: 'reports',      icon: '📋', label: 'Rapports' },
+  const NAV: { id: Tab; icon: IconName; label: string }[] = [
+    { id: 'overview',     icon: 'chart-bar', label: 'Vue d\'ensemble' },
+    { id: 'coordinators', icon: 'users',     label: 'Coordinateurs' },
+    { id: 'jobs',         icon: 'briefcase', label: 'Offres d\'emploi' },
+    { id: 'candidates',   icon: 'target',    label: 'Candidats' },
+    { id: 'reports',      icon: 'file-text', label: 'Rapports' },
   ];
 
   /* ── Sector bar helper ── */
@@ -423,7 +430,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
   /* ── Render ── */
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: 'Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
-      <PageHeader title="TalentMap" subtitle="Admin Portal" />
+      <PageHeader label="Admin Portal" icon="settings" />
 
       {/* ── Tab bar ── */}
       <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0.875rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', position: 'sticky', top: 0, zIndex: 20 }}>
@@ -434,7 +441,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
               return (
                 <button key={item.id} onClick={() => setTab(item.id)} className={`tab-button${active ? ' active-admin' : ''}`}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <span style={{ fontSize: '0.9rem' }}>{item.icon}</span>
+                  <Icon name={item.icon} size={15} />
                   <span>{item.label}</span>
                   {item.id === 'coordinators' && coordinators.length > 0 && (
                     <span style={{ background: active ? 'rgba(255,255,255,.25)' : LBLUE, color: active ? '#fff' : NAVY, borderRadius: 10, padding: '1px 6px', fontSize: '0.65rem', fontWeight: 700 }}>
@@ -471,10 +478,10 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
 
                 {/* KPI grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
-                  <StatCard label="Coordinateurs" value={coordinators.length} accent={PURPLE} />
-                  <StatCard label="Offres d'emploi" value={jobs.length} accent={AMBER} />
-                  <StatCard label="Candidats" value={cvs.length} accent={COBALT} />
-                  <StatCard label="Score moyen" value={avgMatch ? avgMatch + '%' : '—'} accent={GREEN} />
+                  <StatCard label="Coordinateurs" value={coordinators.length} accent={PURPLE} icon="users" />
+                  <StatCard label="Offres d'emploi" value={jobs.length} accent={AMBER} icon="briefcase" />
+                  <StatCard label="Candidats" value={cvs.length} accent={COBALT} icon="target" />
+                  <StatCard label="Score moyen" value={avgMatch ? avgMatch + '%' : '—'} accent={GREEN} icon="chart-bar" />
                 </div>
 
                 {/* Charts row */}
@@ -514,9 +521,11 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     </div>
                     {coordinators.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '2rem', color: MUTED }}>
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>👤</div>
-                        <div style={{ fontSize: '0.82rem' }}>Aucun coordinateur créé</div>
-                        <button onClick={() => setTab('coordinators')} style={{ marginTop: 10, padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${COBALT}`, background: LBLUE, color: NAVY, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>+ Ajouter</button>
+                        <div style={{ width: 48, height: 48, borderRadius: '50%', background: LBLUE, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+                          <Icon name="users" size={22} color={COBALT} />
+                        </div>
+                        <div style={{ fontSize: '0.82rem' }}>Aucun coordinateur pour l&apos;instant</div>
+                        <button onClick={() => setTab('coordinators')} style={{ marginTop: 10, padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${COBALT}`, background: LBLUE, color: NAVY, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>+ Ajouter un coordinateur</button>
                       </div>
                     ) : coordinators.slice(-5).reverse().map(c => (
                       <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.6rem 0', borderBottom: `1px solid ${BORDER}` }}>

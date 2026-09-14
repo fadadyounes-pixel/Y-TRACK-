@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Logo from '../../components/Logo';
+import Icon, { type IconName } from '../../components/Icon';
 import { useAuth } from '../../contexts/AuthContext';
 import type { UserRole } from '../../contexts/AuthContext';
 import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
@@ -29,11 +30,11 @@ function detectRole(val: string): DetectedRole {
   return null;
 }
 
-const ROLE_CONFIG: Record<string, { color: string; label: { fr: string; en: string }; icon: string }> = {
-  admin:       { color: '#7c3aed', label: { fr: 'Administrateur',  en: 'Administrator' }, icon: '⚙' },
-  coordinator: { color: '#059669', label: { fr: 'Conseiller RH',   en: 'HR Advisor'    }, icon: '👔' },
-  candidate:   { color: '#2563eb', label: { fr: 'Candidat',        en: 'Candidate'     }, icon: '🎓' },
-  unknown:     { color: '#dc2626', label: { fr: 'Code non reconnu', en: 'Unrecognized'  }, icon: '✕' },
+const ROLE_CONFIG: Record<string, { color: string; label: { fr: string; en: string }; icon: IconName }> = {
+  admin:       { color: '#7c3aed', label: { fr: 'Administrateur',  en: 'Administrator' }, icon: 'settings' },
+  coordinator: { color: '#059669', label: { fr: 'Conseiller RH',   en: 'HR Advisor'    }, icon: 'briefcase' },
+  candidate:   { color: '#2563eb', label: { fr: 'Candidat',        en: 'Candidate'     }, icon: 'graduation-cap' },
+  unknown:     { color: '#dc2626', label: { fr: 'Code non reconnu', en: 'Unrecognized'  }, icon: 'x' },
 };
 
 const TX = {
@@ -103,11 +104,6 @@ export default function LoginPage() {
     <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #0a1f5c 0%, #1a3a8f 100%)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '1.5rem',
       fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       position: 'relative',
       overflow: 'hidden',
@@ -138,7 +134,41 @@ export default function LoginPage() {
         ))}
       </div>
 
-      {/* Card */}
+      {/* Split-screen shell: brand panel (wide viewports only) + form column */}
+      <div className="login-shell" style={{
+        display: 'flex', alignItems: 'center', minHeight: '100vh',
+        padding: '1.5rem', gap: '3rem', position: 'relative', zIndex: 1,
+      }}>
+        {/* Brand panel — hidden below the login-shell breakpoint */}
+        <div className="login-brand" style={{ flex: '1 1 460px', maxWidth: '480px', color: '#fff' }}>
+          <h2 style={{ fontSize: '1.9rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.3, margin: '0 0 1rem' }}>
+            {lang === 'fr' ? 'Votre carrière, cartographiée.' : 'Your career, mapped.'}
+          </h2>
+          <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, margin: '0 0 2rem', maxWidth: '400px' }}>
+            {lang === 'fr'
+              ? 'La plateforme de recrutement IA qui connecte candidats, conseillers RH et administrateurs sur un seul flux.'
+              : 'The AI recruitment platform connecting candidates, HR advisors, and admins on one shared pipeline.'}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            {[
+              { icon: 'sparkles' as const, fr: 'CV optimisé par IA en quelques minutes', en: 'AI-optimized CV in minutes' },
+              { icon: 'target' as const, fr: 'Score de compatibilité instantané', en: 'Instant compatibility scoring' },
+              { icon: 'shield-check' as const, fr: 'Conçu pour le marché marocain', en: 'Built for the Moroccan market' },
+            ].map(item => (
+              <div key={item.en} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name={item.icon} size={17} color="#93c5fd" />
+                </div>
+                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>
+                  {lang === 'fr' ? item.fr : item.en}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Form column */}
+        <div className="login-form-col" style={{ flex: '1 1 420px', display: 'flex', justifyContent: 'center' }}>
       <div className="animate-fade-up" style={{
         background: '#FFFFFF',
         borderRadius: '16px',
@@ -206,7 +236,7 @@ export default function LoginPage() {
                 border: `1px solid ${cfg.color}30`,
                 width: 'fit-content',
               }}>
-                <span style={{ fontSize: '12px' }}>{cfg.icon}</span>
+                <Icon name={cfg.icon} size={12} color={cfg.color} />
                 <span style={{ fontSize: '11px', fontWeight: 700, color: cfg.color }}>
                   {cfg.label[lang]}
                 </span>
@@ -278,15 +308,24 @@ export default function LoginPage() {
           {t.hint}
         </p>
       </div>
+        </div>
+      </div>
 
       {/* Footer */}
       <p style={{
-        position: 'absolute', bottom: 16,
+        position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center',
         fontSize: '0.7rem', color: 'rgba(255,255,255,.2)',
         letterSpacing: '.04em',
       }}>
         © 2026 TalentMap
       </p>
+
+      <style>{`
+        @media (max-width: 900px) {
+          .login-brand { display: none; }
+          .login-shell { justify-content: center; }
+        }
+      `}</style>
     </div>
   );
 }

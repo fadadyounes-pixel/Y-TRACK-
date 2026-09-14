@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PageHeader from '../../../components/PageHeader';
+import Icon, { type IconName } from '../../../components/Icon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { isProfileComplete } from '@/lib/profile';
 import { REGIONS, CASABLANCA_SETTAT, PREFECTURE_CASABLANCA, prefecturesFor, arrondissementsFor } from '@/lib/morocco';
@@ -219,10 +220,10 @@ export default function CandidateInfoPage() {
   const pct = Math.round((filledCount / totalFields) * 100);
 
   // ── Section header: icon square + bold label + divider (CareerMap pattern) ──
-  const SectionHeader = ({ icon, label }: { icon: string; label: string }) => (
+  const SectionHeader = ({ icon, label }: { icon: IconName; label: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-      <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>
-        {icon}
+      <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon name={icon} size={16} color="#2563eb" />
       </div>
       <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0a1f5c', whiteSpace: 'nowrap' }}>{label}</span>
       <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
@@ -263,7 +264,7 @@ export default function CandidateInfoPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-      <PageHeader title="TalentMap" subtitle="Candidate Portal" />
+      <PageHeader label="Candidate Portal" icon="user" />
 
       {/* ── Sticky info bar: ID badge + title + progress + Next (CareerMap pattern) ── */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 20 }}>
@@ -300,7 +301,7 @@ export default function CandidateInfoPage() {
 
         {/* ── Photo card ── */}
         <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
-          <SectionHeader icon="📷" label="Photo de profil" />
+          <SectionHeader icon="camera" label="Photo de profil" />
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             <div
               onClick={() => fileRef.current?.click()}
@@ -309,7 +310,7 @@ export default function CandidateInfoPage() {
             >
               {form.photo
                 ? <img src={form.photo} alt="Photo de profil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: '2rem' }}>👤</span>}
+                : <Icon name="user" size={36} color="#93c5fd" />}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.875rem', color: '#374151', marginBottom: '0.75rem', lineHeight: 1.6 }}>
@@ -346,7 +347,7 @@ export default function CandidateInfoPage() {
 
         {/* ── Identity card ── */}
         <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
-          <SectionHeader icon="🪪" label="État civil" />
+          <SectionHeader icon="id-card" label="État civil" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
               <label style={labelStyle}>Prénom *</label>
@@ -369,7 +370,7 @@ export default function CandidateInfoPage() {
 
         {/* ── Contact card ── */}
         <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
-          <SectionHeader icon="📞" label="Contact & Localisation" />
+          <SectionHeader icon="phone" label="Contact & Localisation" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
               <label style={labelStyle}>Téléphone *</label>
@@ -412,7 +413,7 @@ export default function CandidateInfoPage() {
 
         {/* ── Education card ── */}
         <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
-          <SectionHeader icon="🎓" label="Formation & Diplôme" />
+          <SectionHeader icon="graduation-cap" label="Formation & Diplôme" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ ...fieldBlock, gridColumn: '1 / -1' }}>
               <SelectWithOther label="Niveau de diplôme *" value={form.diploma} options={DIPLOMA_LEVELS} onChange={v => set('diploma', v)} placeholder="Sélectionner votre diplôme…" />
@@ -446,7 +447,7 @@ export default function CandidateInfoPage() {
 
         {/* ── Professional card ── */}
         <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
-          <SectionHeader icon="💼" label="Profil Professionnel" />
+          <SectionHeader icon="briefcase" label="Profil Professionnel" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={fieldBlock}>
               <SelectWithOther label="Secteur *" value={form.sector} options={SECTORS} onChange={v => set('sector', v)} placeholder="Sélectionner un secteur…" />
@@ -482,7 +483,7 @@ export default function CandidateInfoPage() {
 
         {/* ── Languages card ── */}
         <div style={{ background: '#fff', borderRadius: '14px', padding: '1.75rem', marginBottom: '1.75rem', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
-          <SectionHeader icon="🌐" label="Langues maîtrisées *" />
+          <SectionHeader icon="globe" label="Langues maîtrisées *" />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {LANGS.map(l => {
               const active = form.languages.includes(l);

@@ -1,14 +1,18 @@
 'use client';
 
 import Logo from './Logo';
+import Icon, { type IconName } from './Icon';
 import { useAuth } from '../contexts/AuthContext';
 
 interface PageHeaderProps {
-  title: string;
-  subtitle?: string;
+  // Portal label shown next to the logo (e.g. "Admin Portal") — the logo
+  // itself already renders the "TalentMap" wordmark, so this must never
+  // repeat it.
+  label: string;
+  icon?: IconName;
 }
 
-export default function PageHeader({ title, subtitle }: PageHeaderProps) {
+export default function PageHeader({ label, icon }: PageHeaderProps) {
   const { logout } = useAuth();
 
   return (
@@ -23,22 +27,25 @@ export default function PageHeader({ title, subtitle }: PageHeaderProps) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
           <Logo size="md" variant="light" />
           <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,.12)' }} />
-          <div>
-            <h1 style={{
-              fontSize: '1.4rem',
-              fontWeight: 800,
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            {icon && (
+              <div style={{
+                width: '30px', height: '30px', borderRadius: '8px',
+                background: 'rgba(255,255,255,0.12)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <Icon name={icon} size={17} color="#93c5fd" />
+              </div>
+            )}
+            <span style={{
+              fontSize: '1.05rem',
+              fontWeight: 700,
               color: '#FFFFFF',
-              letterSpacing: '-0.02em',
-              margin: 0,
+              letterSpacing: '-0.01em',
               lineHeight: 1.2,
             }}>
-              {title}
-            </h1>
-            {subtitle && (
-              <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', margin: '2px 0 0', lineHeight: 1.2 }}>
-                {subtitle}
-              </p>
-            )}
+              {label}
+            </span>
           </div>
         </div>
         <button

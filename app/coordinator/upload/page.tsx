@@ -421,7 +421,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         .drop-zone:hover { border-color: #2563eb !important; background: #eff6ff !important; }
       `}</style>
 
-      <PageHeader title="TalentMap" subtitle="CV Upload" />
+      <PageHeader label="CV Upload" icon="file-text" />
 
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px 80px' }}>
         <Link href="/coordinator" style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none' }}>← Dashboard</Link>

@@ -258,7 +258,7 @@ Email: ${email}`;
   // ─── Shared layout wrapper ────────────────────────────────────────────────
   const Wrap = ({ children }: { children: React.ReactNode }) => (
     <main style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: "'Inter',-apple-system,sans-serif" }}>
-      <PageHeader title="TalentMap" subtitle="Cover Letter" />
+      <PageHeader label="Cover Letter" icon="mail" />
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '0.75rem 1.25rem 0' }}>
         <Link href="/candidate" style={{ textDecoration: 'none', color: '#6b7280', fontSize: '0.8rem', fontWeight: 600 }}>
           ← Tableau de bord

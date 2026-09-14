@@ -181,7 +181,7 @@ export default function CoordinatorJobs() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      <PageHeader title="TalentMap" subtitle="Job Offers" />
+      <PageHeader label="Job Offers" icon="briefcase" />
 
       <div className="container" style={{ maxWidth: '900px', padding: '2rem 1.5rem' }}>
 

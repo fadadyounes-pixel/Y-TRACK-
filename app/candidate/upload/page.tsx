@@ -723,7 +723,7 @@ export default function CandidateUpload() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      <PageHeader title="TalentMap" subtitle="CV Builder" />
+      <PageHeader label="CV Builder" icon="file-text" />
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 1.5rem' }}>
         <Link href="/candidate" style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none', display: 'inline-block', marginBottom: '1rem' }}>← Dashboard</Link>
