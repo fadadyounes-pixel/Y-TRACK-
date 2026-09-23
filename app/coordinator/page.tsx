@@ -220,7 +220,7 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
               >
                 ⬇ PDF
               </button>
-              <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}>✕</button>
+              <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}><Icon name="x" size={15}/></button>
             </div>
           </div>
         </div>
@@ -279,8 +279,8 @@ function CVPanel({ cv, jobs, onClose }: { cv: CV; jobs: Job[]; onClose: () => vo
 
           {/* Best matching jobs */}
           <section>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>
-              🎯 Meilleures offres ({topMatches.length})
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>
+              <Icon name="target" size={12}/>Meilleures offres ({topMatches.length})
             </div>
             {topMatches.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '1.5rem', color: '#9ca3af', fontSize: '0.85rem' }}>
@@ -345,8 +345,8 @@ function JobMatchPanel({ job, cvs, onSelectCV }: { job: Job; cvs: CV[]; onSelect
 
   return (
     <div style={{ padding: '0.75rem 1rem 1rem', borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
-      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
-        🎯 {ranked.length} candidat{ranked.length !== 1 ? 's' : ''} classés par pertinence
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
+        <Icon name="target" size={12}/>{ranked.length} candidat{ranked.length !== 1 ? 's' : ''} classés par pertinence
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
         {ranked.map(({ cv, match }, i) => {
@@ -601,10 +601,10 @@ export default function CoordinatorDashboard() {
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 600 }}>{user.name || user.id}</span>
             <Link href="/coordinator/upload" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.9rem', borderRadius: '7px', background: '#2563eb', color: '#fff', fontSize: '0.78rem', fontWeight: 700, textDecoration: 'none' }}>
-              📁 Importer CVs
+              <Icon name="folder" size={14}/>Importer CVs
             </Link>
             <Link href="/coordinator/jobs" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.9rem', borderRadius: '7px', background: 'transparent', color: '#1d4ed8', fontSize: '0.78rem', fontWeight: 600, textDecoration: 'none', border: '1.5px solid #1d4ed8' }}>
-              ➕ Nouvelle offre
+              <Icon name="plus" size={14}/>Nouvelle offre
             </Link>
           </div>
         </div>
@@ -652,7 +652,7 @@ export default function CoordinatorDashboard() {
         {tab === 'overview' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 340px', gap: '1.5rem' }}>
             <div style={CARD_STYLE}>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0a1f5c', marginBottom: '1.25rem' }}>🎯 Top profils / offres</h2>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0a1f5c', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="target" size={18}/>Top profils / offres</h2>
               {topMatches.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2.5rem', color: '#9ca3af' }}>
                   <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
@@ -661,8 +661,8 @@ export default function CoordinatorDashboard() {
                   <p style={{ fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>Le matching Expert RH attend vos données</p>
                   <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>Importez des CVs et créez des offres pour voir les matches automatiques.</p>
                   <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, fontSize: '0.85rem', padding: '0.5rem 1rem', textDecoration: 'none' }}>📁 Importer CVs</Link>
-                    <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, background: '#38BDF8', fontSize: '0.85rem', padding: '0.5rem 1rem', textDecoration: 'none' }}>➕ Créer offre</Link>
+                    <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', padding: '0.5rem 1rem', textDecoration: 'none' }}><Icon name="folder" size={14}/>Importer CVs</Link>
+                    <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, background: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', padding: '0.5rem 1rem', textDecoration: 'none' }}><Icon name="plus" size={14}/>Créer offre</Link>
                   </div>
                 </div>
               ) : (
@@ -718,12 +718,12 @@ export default function CoordinatorDashboard() {
             {/* Active jobs sidebar */}
             <div style={CARD_STYLE}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0a1f5c' }}>💼 Offres actives</h2>
+                <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0a1f5c', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="briefcase" size={18}/>Offres actives</h2>
                 <Link href="/coordinator/jobs" style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>Gérer →</Link>
               </div>
               {jobs.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '1.5rem', color: '#9ca3af', fontSize: '0.85rem' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}><Icon name="document" size={26} color="#9ca3af"/></div>
                   <p>Aucune offre — <Link href="/coordinator/jobs" style={{ color: '#2563eb', fontWeight: 600 }}>créer une offre</Link></p>
                 </div>
               ) : (
@@ -768,18 +768,18 @@ export default function CoordinatorDashboard() {
 
             {loading ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}><Icon name="clock" size={26} color="#9ca3af"/></div>
                 <p>Chargement des candidats…</p>
               </div>
             ) : cvs.length === 0 ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📭</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}><Icon name="inbox" size={36} color="#9ca3af"/></div>
                 <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucun CV importé</p>
                 <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
                   Importez des CVs pour les voir apparaître ici avec leurs profils extraits par l'Expert RH.
                 </p>
                 <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                  📁 Importer des CVs (20+ en simultané)
+                  <Icon name="folder" size={14}/>Importer des CVs (20+ en simultané)
                 </Link>
               </div>
             ) : (
@@ -847,21 +847,21 @@ export default function CoordinatorDashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0a1f5c' }}>Toutes les offres ({jobs.length})</h2>
-              <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', fontSize: '0.85rem', padding: '0.5rem 1rem' }}>➕ Nouvelle offre</Link>
+              <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="plus" size={14}/>Nouvelle offre</Link>
             </div>
 
             {loading ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}><Icon name="clock" size={26} color="#9ca3af"/></div>
                 <p>Chargement des offres…</p>
               </div>
             ) : jobs.length === 0 ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📋</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}><Icon name="document" size={36} color="#9ca3af"/></div>
                 <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucune offre d'emploi</p>
                 <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez des offres pour permettre à l'Expert RH de matcher les candidats.</p>
                 <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                  ➕ Créer une offre
+                  <Icon name="plus" size={14}/>Créer une offre
                 </Link>
               </div>
             ) : (
@@ -890,8 +890,8 @@ export default function CoordinatorDashboard() {
                         <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center', flexShrink: 0 }}>
                           <button
                             onClick={e => { e.stopPropagation(); setTab('matching'); setMatchJob(j.id); }}
-                            style={{ padding: '0.4rem 0.85rem', borderRadius: '7px', border: '1.5px solid #2563eb', background: 'transparent', color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
-                            🎯 {matchCount} match{matchCount !== 1 ? 'es' : ''}
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.85rem', borderRadius: '7px', border: '1.5px solid #2563eb', background: 'transparent', color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                            <Icon name="target" size={13}/>{matchCount} match{matchCount !== 1 ? 'es' : ''}
                           </button>
                           <span style={{ fontSize: '0.78rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', background: isOpen ? '#d1fae5' : '#f3f4f6', color: isOpen ? '#065f46' : '#6b7280', fontWeight: 700 }}>{j.status}</span>
                           <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>{isExpanded ? '▲' : '▼'}</span>
@@ -935,17 +935,17 @@ export default function CoordinatorDashboard() {
 
             {!activeMatchJob || jobs.length === 0 ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📋</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}><Icon name="document" size={36} color="#9ca3af"/></div>
                 <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucune offre disponible</p>
                 <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Créez une offre d'emploi pour lancer le matching Expert RH.</p>
-                <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none' }}>➕ Créer une offre</Link>
+                <Link href="/coordinator/jobs" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="plus" size={14}/>Créer une offre</Link>
               </div>
             ) : cvs.length === 0 ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📭</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}><Icon name="inbox" size={36} color="#9ca3af"/></div>
                 <p style={{ fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>Aucun CV importé</p>
                 <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Importez des CVs pour démarrer le matching automatique.</p>
-                <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none' }}>📁 Importer des CVs</Link>
+                <Link href="/coordinator/upload" style={{ ...BTN_PRIMARY_STYLE, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="folder" size={14}/>Importer des CVs</Link>
               </div>
             ) : (
               <>
@@ -987,27 +987,27 @@ export default function CoordinatorDashboard() {
                       onClick={generateAiInsights}
                       disabled={aiLoading || matchRanked.length === 0}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1.1rem', borderRadius: '8px', border: 'none', background: aiLoading ? '#e5e7eb' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: aiLoading ? '#9ca3af' : 'white', fontSize: '0.85rem', fontWeight: 700, cursor: aiLoading || matchRanked.length === 0 ? 'not-allowed' : 'pointer', transition: 'all 0.15s', opacity: matchRanked.length === 0 ? 0.5 : 1 }}>
-                      {aiLoading ? '⏳ Analyse en cours…' : '🤖 Générer analyse Expert RH'}
+                      {aiLoading ? <><Icon name="refresh" size={14}/>Analyse en cours…</> : <><Icon name="robot" size={14}/>Générer analyse Expert RH</>}
                     </button>
                     {aiInsights && !aiLoading && (
-                      <button onClick={() => setAiInsights(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.8rem', cursor: 'pointer' }}>✕ Effacer</button>
+                      <button onClick={() => setAiInsights(null)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'none', border: 'none', color: '#9ca3af', fontSize: '0.8rem', cursor: 'pointer' }}><Icon name="x" size={13}/>Effacer</button>
                     )}
                   </div>
                   {aiInsights && (
                     <div style={{ background: '#ffffff', borderRadius: '12px', border: '1.5px solid #dbeafe', overflow: 'hidden' }}>
                       <div style={{ padding: '0.85rem 1.1rem', background: 'linear-gradient(135deg,#eff6ff,#dbeafe)', borderBottom: '1px solid #dbeafe', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '1.1rem' }}>🤖</span>
+                        <Icon name="robot" size={18} color="#2563eb"/>
                         <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#93C5FD' }}>Analyse Expert RH — {activeMatchJob?.title}</span>
                       </div>
                       <div style={{ padding: '1rem 1.1rem', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1rem' }}>
                         <div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>⭐ Meilleur candidat</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}><Icon name="star" size={12}/>Meilleur candidat</div>
                           <div style={{ fontSize: '0.875rem', color: '#0a1f5c', lineHeight: 1.55 }}>{aiInsights.topPick}</div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.85rem', marginBottom: '0.4rem' }}>📋 Synthèse du classement</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.85rem', marginBottom: '0.4rem' }}><Icon name="document" size={12}/>Synthèse du classement</div>
                           <div style={{ fontSize: '0.82rem', color: '#374151', lineHeight: 1.6 }}>{aiInsights.rationale}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>⚠️ Lacunes identifiées</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}><Icon name="alert-triangle" size={12}/>Lacunes identifiées</div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '1rem' }}>
                             {(aiInsights.gaps || []).map((g, i) => (
                               <div key={i} style={{ display: 'flex', gap: '0.4rem', fontSize: '0.8rem', color: '#374151' }}>
@@ -1015,7 +1015,7 @@ export default function CoordinatorDashboard() {
                               </div>
                             ))}
                           </div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>💬 Questions d'entretien suggérées</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}><Icon name="message-circle" size={12}/>Questions d'entretien suggérées</div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                             {(aiInsights.questions || []).map((q, i) => (
                               <div key={i} style={{ padding: '0.45rem 0.75rem', background: '#ede9fe', borderRadius: '6px', fontSize: '0.78rem', color: '#6d28d9', borderLeft: '2px solid #6d28d9' }}>
@@ -1154,7 +1154,7 @@ export default function CoordinatorDashboard() {
 
             {applications.length === 0 ? (
               <div style={{ ...CARD_STYLE, textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>📨</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.6rem' }}><Icon name="inbox" size={32} color="#9ca3af"/></div>
                 <p style={{ fontWeight: 600, color: '#6b7280' }}>Aucune candidature pour le moment</p>
                 <p style={{ fontSize: '0.82rem', marginTop: '0.25rem' }}>Les candidats qui postulent à vos offres apparaîtront ici.</p>
               </div>

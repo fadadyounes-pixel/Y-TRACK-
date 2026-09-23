@@ -138,7 +138,7 @@ export default function CandidateDashboard() {
               Espace Candidat
             </p>
             <h1 style={{ fontSize: '1.9rem', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>
-              Bonjour, {firstName} 👋
+              Bonjour, {firstName}
             </h1>
             <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,.72)', marginBottom: '1.75rem', maxWidth: 460, lineHeight: 1.6 }}>
               Vos outils Expert RH pour trouver un emploi — simples, guidés, et adaptés à votre profil.
@@ -287,7 +287,7 @@ export default function CandidateDashboard() {
               <p style={{ fontWeight: 700, color: TEXT, fontSize: '0.95rem', lineHeight: 1.3 }}>{user.name}</p>
               <p style={{ fontSize: '0.78rem', color: MUTED }}>{user.email}</p>
               <p style={{ fontSize: '0.72rem', color: FAINT, marginTop: '0.1rem' }}>CIN: {user.idNumber}</p>
-              {locationLabel && <p style={{ fontSize: '0.72rem', color: FAINT, marginTop: '0.1rem' }}>📍 {locationLabel}</p>}
+              {locationLabel && <p style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.72rem', color: FAINT, marginTop: '0.1rem' }}><Icon name="map-pin" size={11}/>{locationLabel}</p>}
             </div>
           </div>
 
@@ -329,7 +329,7 @@ export default function CandidateDashboard() {
             whiteSpace: 'nowrap' as const,
             transition: 'border-color .15s',
           }}>
-            👤 Mon Profil
+            <Icon name="user" size={14}/>Mon Profil
           </Link>
         </div>
       </div>

@@ -10,7 +10,10 @@ export type IconName =
   | 'check' | 'check-circle' | 'alert-triangle' | 'lightbulb' | 'download'
   | 'eye' | 'pencil' | 'trash' | 'plus' | 'arrow-right' | 'settings'
   | 'building' | 'star' | 'clock' | 'shield-check' | 'sparkles' | 'file-text'
-  | 'user' | 'x';
+  | 'user' | 'x'
+  | 'folder' | 'book-open' | 'refresh' | 'zap' | 'award' | 'inbox' | 'send'
+  | 'wallet' | 'message-circle' | 'heart' | 'calendar' | 'save' | 'copy'
+  | 'megaphone' | 'circle' | 'palette';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   camera: <><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.5"/></>,
@@ -45,6 +48,22 @@ const PATHS: Record<IconName, React.ReactNode> = {
   'file-text': <><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M9.5 12h5M9.5 15.5h5M9.5 8.5h2"/></>,
   user: <><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7"/></>,
   x: <path d="M6 6l12 12M18 6 6 18"/>,
+  folder: <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18Z"/>,
+  'book-open': <><path d="M12 6.5c-1.8-1.3-4.2-2-7-2v13c2.8 0 5.2.7 7 2"/><path d="M12 6.5c1.8-1.3 4.2-2 7-2v13c-2.8 0-5.2.7-7 2Z"/></>,
+  refresh: <><path d="M20 11a8 8 0 0 0-14.6-4.6M4 13a8 8 0 0 0 14.6 4.6"/><path d="M4.5 4v4.5H9M19.5 20v-4.5H15"/></>,
+  zap: <path d="M13 3 5 13.5h5.5L11 21l8-10.5h-5.5Z"/>,
+  award: <><circle cx="12" cy="8.5" r="5.5"/><path d="M8.3 13.2 6.5 21l5.5-3 5.5 3-1.8-7.8"/></>,
+  inbox: <><path d="M3.5 12h4.4l1.6 3h5l1.6-3h4.4"/><path d="M5 5.5h14L21 12v6a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18v-6Z"/></>,
+  send: <path d="M4 12 20.5 4 14 20.5l-3-7-7-1.5Z"/>,
+  wallet: <><path d="M3 8a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M15.5 12.5h3v2h-3a1 1 0 0 1 0-2Z"/><path d="M3 8.5 14 5h4"/></>,
+  'message-circle': <path d="M4 12a8 8 0 1 1 3.3 6.5L4 20l1.3-3.5A7.96 7.96 0 0 1 4 12Z"/>,
+  heart: <path d="M12 20.5s-7.5-4.6-9.7-9C.5 8 2 4.5 5.5 4c2.2-.3 4 .8 6.5 3.2C14.5 4.8 16.3 3.7 18.5 4 22 4.5 23.5 8 21.7 11.5c-2.2 4.4-9.7 9-9.7 9Z"/>,
+  calendar: <><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></>,
+  save: <><path d="M5 3.5h11L20 8v12.5H5V3.5Z"/><path d="M8 3.5V9h7V3.5"/><path d="M8 14h8v6.5H8Z"/></>,
+  copy: <><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5A2 2 0 0 0 13.5 3.5h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></>,
+  megaphone: <><path d="M3 10.5v3a1.5 1.5 0 0 0 1.5 1.5H6l1 5h2l-1-5h1l9 3.5v-13L9 9H4.5A1.5 1.5 0 0 0 3 10.5Z"/><path d="M19 8.5a4 4 0 0 1 0 7"/></>,
+  circle: <circle cx="12" cy="12" r="6"/>,
+  palette: <><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6h1.9A4.2 4.2 0 0 0 21 11 8.4 8.4 0 0 0 12 3Z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7.5" r="1.2"/><circle cx="15" cy="8" r="1.2"/></>,
 };
 
 export default function Icon({ name, size = 20, strokeWidth = 1.75, color = 'currentColor', style }: {

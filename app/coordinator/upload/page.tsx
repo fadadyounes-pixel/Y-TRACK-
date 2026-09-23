@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import PageHeader from '../../../components/PageHeader';
+import Icon, { type IconName } from '../../../components/Icon';
 
 const MAX_CVS = 20;
 const CONCURRENCY = 4;
@@ -513,7 +514,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
         {atLimit && (
           <div style={{ background: '#FFFBEB', border: '1.5px solid #FCD34D', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 18 }}>⚠</span>
+            <Icon name="alert-triangle" size={17} color="#92400E"/>
             <div>
               <span style={{ fontWeight: 700, fontSize: 13, color: '#92400E' }}>Limite atteinte · </span>
               <span style={{ fontSize: 13, color: '#92400E' }}>Vous avez atteint le maximum de {MAX_CVS} CVs. Videz la liste pour en importer de nouveaux.</span>
@@ -551,14 +552,14 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         {done > 0 && queued === 0 && processing === 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
             {[
-              { label: 'CVs analysés', value: done, icon: '✓', color: '#16A34A', bg: '#F0FDF4' },
-              { label: 'CVs améliorés', value: enhanced, icon: '✦', color: '#7C3AED', bg: '#F5F3FF' },
-              ...(errors > 0 ? [{ label: 'Erreurs', value: errors, icon: '✕', color: '#DC2626', bg: '#FEF2F2' }] : []),
+              { label: 'CVs analysés', value: done, icon: 'check' as IconName, color: '#16A34A', bg: '#F0FDF4' },
+              { label: 'CVs améliorés', value: enhanced, icon: 'sparkles' as IconName, color: '#7C3AED', bg: '#F5F3FF' },
+              ...(errors > 0 ? [{ label: 'Erreurs', value: errors, icon: 'x' as IconName, color: '#DC2626', bg: '#FEF2F2' }] : []),
             ].map(s => (
               <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '14px 16px', border: `1px solid ${s.color}22` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 22, fontWeight: 800, color: s.color, fontVariantNumeric: 'tabular-nums' }}>{s.value}</span>
-                  <span style={{ fontSize: 14, color: s.color, opacity: .5 }}>{s.icon}</span>
+                  <Icon name={s.icon} size={14} color={s.color} style={{ opacity: .5 }}/>
                 </div>
                 <div style={{ fontSize: 11, color: s.color, fontWeight: 600, marginTop: 3, opacity: .8 }}>{s.label}</div>
               </div>
@@ -591,7 +592,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: '#0a1f5c' }}>CVs importés ({filtered.length}{filtered.length !== total ? ` / ${total}` : ''})</span>
-              {enhanced > 0 && <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, background: '#F5F3FF', padding: '3px 10px', borderRadius: 999 }}>✦ {enhanced} CV{enhanced > 1 ? 's' : ''} amélioré{enhanced > 1 ? 's' : ''}</span>}
+              {enhanced > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#7C3AED', fontWeight: 700, background: '#F5F3FF', padding: '3px 10px', borderRadius: 999 }}><Icon name="sparkles" size={11}/>{enhanced} CV{enhanced > 1 ? 's' : ''} amélioré{enhanced > 1 ? 's' : ''}</span>}
             </div>
             <div>
               {filtered.map((cv, idx) => {

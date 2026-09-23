@@ -144,7 +144,7 @@ function CopyBtn({ text }: { text: string }) {
         background: copied ? LGREEN : WHITE, color: copied ? GREEN : MUTED,
         fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', transition: 'all .15s',
       }}
-    >{copied ? '✓' : '⎘'}</button>
+    >{copied ? <Icon name="check" size={12}/> : <Icon name="copy" size={12}/>}</button>
   );
 }
 
@@ -163,6 +163,12 @@ export default function AdminDashboard() {
   const [newEmail, setNewEmail] = useState('');
   const [saving, setSaving]     = useState(false);
   const [savedCode, setSavedCode] = useState('');
+
+  /* Inline delete confirmation — click once to arm, click again to confirm,
+     matching the pattern used elsewhere in the app rather than a native
+     browser confirm() dialog. */
+  const [delConfirmCoordId, setDelConfirmCoordId] = useState<string | null>(null);
+  const [delConfirmJobId, setDelConfirmJobId]     = useState<string | null>(null);
 
   /* Filters */
   const [jobSearch, setJobSearch]         = useState('');
@@ -454,7 +460,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <span style={{ fontSize: '0.8rem', color: MUTED, fontWeight: 600 }}>{user.name || user.id}</span>
-            <button onClick={fetchData} style={{ fontSize: '0.82rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>⟳ Actualiser</button>
+            <button onClick={fetchData} style={{ fontSize: '0.82rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}><span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Icon name="refresh" size={13}/>Actualiser</span></button>
           </div>
         </div>
       </div>
@@ -464,7 +470,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
 
         {loading && tab !== 'overview' ? (
           <div style={{ textAlign: 'center', paddingTop: '6rem', color: MUTED }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name="clock" size={34} color={MUTED}/></div>
             <div style={{ fontSize: '0.9rem' }}>Chargement des données…</div>
           </div>
         ) : (
@@ -594,13 +600,13 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                         fontSize: '0.875rem', fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap',
                         transition: 'background .15s',
                       }}
-                    >{saving ? '⏳ Création…' : '+ Créer le compte'}</button>
+                    >{saving ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Icon name="refresh" size={13}/>Création…</span> : '+ Créer le compte'}</button>
                   </div>
 
                   {/* Success — show generated code */}
                   {savedCode && (
                     <div style={{ marginTop: '1rem', padding: '0.9rem 1.1rem', background: LGREEN, border: `1.5px solid ${GREEN}`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '1rem' }}>✅</span>
+                      <Icon name="check-circle" size={18} color={GREEN}/>
                       <div>
                         <div style={{ fontSize: '0.82rem', fontWeight: 700, color: GREEN, marginBottom: 2 }}>Compte créé avec succès !</div>
                         <div style={{ fontSize: '0.8rem', color: TEXT }}>Code d'accès généré :</div>
@@ -616,11 +622,11 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                 <div style={{ background: WHITE, borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
                   <div style={{ padding: '1.1rem 1.4rem', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, textTransform: 'uppercase', letterSpacing: '.04em' }}>Comptes coordinateurs ({coordinators.length})</h2>
-                    <button onClick={fetchData} style={{ fontSize: '0.78rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>⟳ Actualiser</button>
+                    <button onClick={fetchData} style={{ fontSize: '0.78rem', color: COBALT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}><span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Icon name="refresh" size={13}/>Actualiser</span></button>
                   </div>
                   {coordinators.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '3rem', color: MUTED }}>
-                      <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
+                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name="user" size={40} color={MUTED}/></div>
                       <div style={{ fontSize: '1rem', fontWeight: 700, color: NAVY, marginBottom: 6 }}>Aucun coordinateur</div>
                       <div style={{ fontSize: '0.85rem' }}>Créez votre premier compte coordinateur ci-dessus.</div>
                     </div>
@@ -654,10 +660,23 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                                 {new Date(c.createdAt).toLocaleDateString('fr-MA')}
                               </td>
                               <td style={{ padding: '0.8rem 1rem' }}>
-                                <button
-                                  onClick={() => { if (confirm(`Supprimer le compte de ${c.name} ?`)) deleteCoordinator(c.id); }}
-                                  style={{ padding: '0.3rem 0.75rem', borderRadius: 6, border: `1px solid ${RED}`, background: LRED, color: RED, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
-                                >Supprimer</button>
+                                {delConfirmCoordId === c.id ? (
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    <button
+                                      onClick={() => { deleteCoordinator(c.id); setDelConfirmCoordId(null); }}
+                                      style={{ padding: '0.3rem 0.75rem', borderRadius: 6, border: 'none', background: RED, color: '#ffffff', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                                    >Confirmer</button>
+                                    <button
+                                      onClick={() => setDelConfirmCoordId(null)}
+                                      style={{ padding: '0.3rem 0.75rem', borderRadius: 6, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                                    >Annuler</button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setDelConfirmCoordId(c.id)}
+                                    style={{ padding: '0.3rem 0.75rem', borderRadius: 6, border: `1px solid ${RED}`, background: LRED, color: RED, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                                  >Supprimer</button>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -698,12 +717,12 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     <option value="">Tous les secteurs</option>
                     {jobSectors.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <button onClick={() => { setJobSearch(''); setJobSector(''); }} style={{ padding: '0.65rem 1rem', borderRadius: 9, border: `1px solid ${BORDER}`, background: WHITE, color: MUTED, fontSize: '0.8rem', cursor: 'pointer' }}>✕ Réinitialiser</button>
+                  <button onClick={() => { setJobSearch(''); setJobSector(''); }} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.65rem 1rem', borderRadius: 9, border: `1px solid ${BORDER}`, background: WHITE, color: MUTED, fontSize: '0.8rem', cursor: 'pointer' }}><Icon name="x" size={13}/>Réinitialiser</button>
                 </div>
 
                 {filteredJobs.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '4rem', color: MUTED, background: WHITE, borderRadius: 12, border: `1px solid ${BORDER}` }}>
-                    <div style={{ fontSize: 48, marginBottom: 12 }}>💼</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name="briefcase" size={40} color={MUTED}/></div>
                     <div style={{ fontSize: '1rem', fontWeight: 700, color: NAVY, marginBottom: 6 }}>
                       {jobs.length === 0 ? 'Aucune offre publiée' : 'Aucun résultat'}
                     </div>
@@ -747,10 +766,24 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                                 <Badge label={j.status || 'Active'} color={j.status === 'Fermé' ? RED : GREEN} bg={j.status === 'Fermé' ? LRED : LGREEN} />
                               </td>
                               <td style={{ padding: '0.85rem 1rem' }}>
-                                <button
-                                  onClick={() => { if (confirm(`Supprimer l'offre "${j.title}" ?`)) deleteJob(j.id); }}
-                                  style={{ padding: '0.25rem 0.65rem', borderRadius: 5, border: `1px solid ${BORDER}`, background: WHITE, color: RED, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
-                                >✕</button>
+                                {delConfirmJobId === j.id ? (
+                                  <div style={{ display: 'flex', gap: 5 }}>
+                                    <button
+                                      onClick={() => { deleteJob(j.id); setDelConfirmJobId(null); }}
+                                      style={{ padding: '0.25rem 0.65rem', borderRadius: 5, border: 'none', background: RED, color: '#ffffff', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+                                    >Confirmer</button>
+                                    <button
+                                      onClick={() => setDelConfirmJobId(null)}
+                                      style={{ padding: '0.25rem 0.65rem', borderRadius: 5, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
+                                    >Annuler</button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setDelConfirmJobId(j.id)}
+                                    title="Supprimer l'offre"
+                                    style={{ padding: '0.3rem', borderRadius: 5, border: `1px solid ${BORDER}`, background: WHITE, color: RED, cursor: 'pointer', display: 'flex' }}
+                                  ><Icon name="trash" size={14}/></button>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -785,12 +818,12 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                     <option value="">Tous les secteurs</option>
                     {cvSectors.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <button onClick={() => { setCvSearch(''); setCvSector(''); }} style={{ padding: '0.65rem 1rem', borderRadius: 9, border: `1px solid ${BORDER}`, background: WHITE, color: MUTED, fontSize: '0.8rem', cursor: 'pointer' }}>✕ Réinitialiser</button>
+                  <button onClick={() => { setCvSearch(''); setCvSector(''); }} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.65rem 1rem', borderRadius: 9, border: `1px solid ${BORDER}`, background: WHITE, color: MUTED, fontSize: '0.8rem', cursor: 'pointer' }}><Icon name="x" size={13}/>Réinitialiser</button>
                 </div>
 
                 {filteredCvs.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '4rem', color: MUTED, background: WHITE, borderRadius: 12, border: `1px solid ${BORDER}` }}>
-                    <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name="target" size={40} color={MUTED}/></div>
                     <div style={{ fontSize: '1rem', fontWeight: 700, color: NAVY, marginBottom: 6 }}>
                       {cvs.length === 0 ? 'Aucun candidat' : 'Aucun résultat'}
                     </div>
@@ -878,27 +911,29 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
                   {[
-                    { type: 'Coordinators', icon: '👥', title: 'Rapport coordinateurs', desc: `${coordinators.length} compte${coordinators.length > 1 ? 's' : ''} avec codes d'accès`, color: PURPLE },
-                    { type: 'Jobs',         icon: '💼', title: 'Rapport offres d\'emploi', desc: `${jobs.length} offre${jobs.length > 1 ? 's' : ''} publiée${jobs.length > 1 ? 's' : ''}`, color: AMBER },
-                    { type: 'Candidates',   icon: '🎯', title: 'Rapport candidats',    desc: `${cvs.length} CV en base`, color: BLUE },
-                    { type: 'Full',         icon: '📋', title: 'Rapport complet',      desc: 'Toutes les données consolidées', color: NAVY },
+                    { type: 'Coordinators', icon: 'users' as IconName, title: 'Rapport coordinateurs', desc: `${coordinators.length} compte${coordinators.length > 1 ? 's' : ''} avec codes d'accès`, color: PURPLE },
+                    { type: 'Jobs',         icon: 'briefcase' as IconName, title: 'Rapport offres d\'emploi', desc: `${jobs.length} offre${jobs.length > 1 ? 's' : ''} publiée${jobs.length > 1 ? 's' : ''}`, color: AMBER },
+                    { type: 'Candidates',   icon: 'target' as IconName, title: 'Rapport candidats',    desc: `${cvs.length} CV en base`, color: BLUE },
+                    { type: 'Full',         icon: 'document' as IconName, title: 'Rapport complet',      desc: 'Toutes les données consolidées', color: NAVY },
                   ].map(r => (
                     <div key={r.type} style={{ background: WHITE, borderRadius: 12, padding: '1.5rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.05)' }}>
-                      <div style={{ fontSize: 32, marginBottom: '0.75rem' }}>{r.icon}</div>
+                      <div style={{ marginBottom: '0.75rem' }}><Icon name={r.icon} size={28} color={r.color}/></div>
                       <div style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, marginBottom: 4 }}>{r.title}</div>
                       <div style={{ fontSize: '0.8rem', color: MUTED, marginBottom: '1.25rem' }}>{r.desc}</div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <button onClick={() => generateReport(r.type)} style={{
-                          flex: 1, padding: '0.65rem', borderRadius: 8, border: 'none',
+                          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem',
+                          padding: '0.65rem', borderRadius: 8, border: 'none',
                           background: r.color, color: '#ffffff', fontSize: '0.85rem', fontWeight: 700,
                           cursor: 'pointer', fontFamily: 'inherit',
-                        }}>⬇ HTML</button>
+                        }}><Icon name="download" size={14}/>HTML</button>
                         {r.type !== 'Full' && (
                           <button onClick={() => downloadCSV(r.type as 'Candidates' | 'Jobs' | 'Coordinators')} style={{
-                            flex: 1, padding: '0.65rem', borderRadius: 8, border: `1.5px solid ${r.color}`,
+                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem',
+                            padding: '0.65rem', borderRadius: 8, border: `1.5px solid ${r.color}`,
                             background: WHITE, color: r.color, fontSize: '0.85rem', fontWeight: 700,
                             cursor: 'pointer', fontFamily: 'inherit',
-                          }}>⬇ CSV</button>
+                          }}><Icon name="download" size={14}/>CSV</button>
                         )}
                       </div>
                     </div>
@@ -907,7 +942,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
 
                 {/* Platform summary */}
                 <div style={{ background: WHITE, borderRadius: 12, padding: '1.5rem', border: `1px solid ${BORDER}`, marginTop: '1.5rem' }}>
-                  <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>📊 Résumé de la plateforme</h2>
+                  <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="chart-bar" size={15}/>Résumé de la plateforme</h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem' }}>
                     {[
                       { label: 'Coordinateurs', value: coordinators.length },

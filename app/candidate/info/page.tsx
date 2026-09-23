@@ -280,9 +280,9 @@ export default function CandidateInfoPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            style={{ padding: '0.7rem 1.5rem', background: saved ? '#059669' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', whiteSpace: 'nowrap' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.7rem 1.5rem', background: saved ? '#059669' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', whiteSpace: 'nowrap' }}
           >
-            {saving ? 'Enregistrement…' : saved ? '✅ Enregistré' : 'Suivant →'}
+            {saving ? 'Enregistrement…' : saved ? <><Icon name="check" size={15}/>Enregistré</> : 'Suivant →'}
           </button>
         </div>
         <div style={{ maxWidth: '780px', margin: '0.75rem auto 0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -313,15 +313,15 @@ export default function CandidateInfoPage() {
                 : <Icon name="user" size={36} color="#93c5fd" />}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.875rem', color: '#374151', marginBottom: '0.75rem', lineHeight: 1.6 }}>
-                {form.photo ? '✅ Photo chargée avec succès.' : 'Une photo professionnelle augmente vos chances d\'entretien de 40 %.'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.875rem', color: '#374151', marginBottom: '0.75rem', lineHeight: 1.6 }}>
+                {form.photo ? <><Icon name="check-circle" size={14} color="#059669"/>Photo chargée avec succès.</> : 'Une photo professionnelle augmente vos chances d\'entretien de 40 %.'}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                   onClick={() => fileRef.current?.click()}
-                  style={{ padding: '0.55rem 1.1rem', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.55rem 1.1rem', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
                 >
-                  {form.photo ? '🔄 Changer la photo' : '📁 Choisir une photo'}
+                  {form.photo ? <><Icon name="refresh" size={13}/>Changer la photo</> : <><Icon name="folder" size={13}/>Choisir une photo</>}
                 </button>
                 {form.photo && (
                   <button
@@ -439,8 +439,8 @@ export default function CandidateInfoPage() {
             </div>
           </div>
           {form.diploma && (
-            <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.9rem', background: '#EFF6FF', borderRadius: '8px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#2563eb', fontWeight: 600 }}>
-              ✅ {form.diploma}{form.institution ? ` — ${form.institution}` : ''}{form.graduationYear ? ` (${form.graduationYear})` : ''}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.75rem', padding: '0.6rem 0.9rem', background: '#EFF6FF', borderRadius: '8px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#2563eb', fontWeight: 600 }}>
+              <Icon name="check-circle" size={14}/>{form.diploma}{form.institution ? ` — ${form.institution}` : ''}{form.graduationYear ? ` (${form.graduationYear})` : ''}
             </div>
           )}
         </div>
@@ -529,16 +529,16 @@ export default function CandidateInfoPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            style={{ padding: '0.9rem 2rem', background: saved ? '#059669' : 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', minWidth: '160px' }}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.9rem 2rem', background: saved ? '#059669' : 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', minWidth: '160px' }}
           >
-            {saving ? 'Enregistrement…' : saved ? '✅ Enregistré !' : '💾 Enregistrer'}
+            {saving ? 'Enregistrement…' : saved ? <><Icon name="check" size={15}/>Enregistré !</> : <><Icon name="save" size={15}/>Enregistrer</>}
           </button>
           {saved && !(onboarding && isProfileComplete(form)) && (
             <Link
               href="/candidate/upload"
-              style={{ padding: '0.9rem 2rem', background: 'linear-gradient(135deg,#059669,#10b981)', color: '#fff', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, textDecoration: 'none', display: 'inline-block' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.9rem 2rem', background: 'linear-gradient(135deg,#059669,#10b981)', color: '#fff', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 700, textDecoration: 'none' }}
             >
-              📄 Créer / Mettre à jour mon CV →
+              <Icon name="file-text" size={15}/>Créer / Mettre à jour mon CV →
             </Link>
           )}
           {saved && onboarding && isProfileComplete(form) && (

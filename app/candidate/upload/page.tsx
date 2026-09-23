@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PageHeader from '../../../components/PageHeader';
+import Icon, { type IconName } from '../../../components/Icon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, inferEducationLevel } from '@/lib/matching';
 import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, CV_LAYOUTS, CV_THEMES, type WorkEntry } from '@/lib/cvTemplate';
@@ -728,9 +729,9 @@ export default function CandidateUpload() {
 
   // ─── Step indicator ───────────────────────────────────────────────────────
   const STEPS = [
-    { key: 'cv' as Step,      n: 1, icon: '📄', label: 'Mon CV' },
-    { key: 'preview' as Step, n: 2, icon: '⬇',  label: 'Téléchargement' },
-    { key: 'jobs' as Step,    n: 3, icon: '🎯', label: 'Offres d\'emploi' },
+    { key: 'cv' as Step,      n: 1, label: 'Mon CV' },
+    { key: 'preview' as Step, n: 2, label: 'Téléchargement' },
+    { key: 'jobs' as Step,    n: 3, label: 'Offres d\'emploi' },
   ];
 
   return (
@@ -780,14 +781,15 @@ export default function CandidateUpload() {
             {/* Source selector */}
             <div style={{ display: 'flex', gap: 0, marginBottom: '1.75rem', border: '1.5px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', width: 'fit-content' }}>
               {[
-                { id: 'upload', label: '📁 Téléverser mon CV existant' },
-                { id: 'template', label: '✏️ Créer mon CV' },
+                { id: 'upload', icon: 'folder' as IconName, label: 'Téléverser mon CV existant' },
+                { id: 'template', icon: 'pencil' as IconName, label: 'Créer mon CV' },
               ].map(m => (
                 <button key={m.id} onClick={() => { setCvSource(m.id as 'upload' | 'template'); setProcessStep('idle'); }} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
                   padding: '0.7rem 1.6rem', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', border: 'none',
                   background: cvSource === m.id ? '#2563eb' : 'white',
                   color: cvSource === m.id ? 'white' : '#6b7280',
-                }}>{m.label}</button>
+                }}><Icon name={m.icon} size={16}/>{m.label}</button>
               ))}
             </div>
 
@@ -803,11 +805,13 @@ export default function CandidateUpload() {
                   >
                     <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" style={{ display: 'none' }}
                       onChange={e => { const f = e.target.files?.[0]; if (f) analyzeUpload(f); }} />
-                    <div style={{ fontSize: '3.5rem', marginBottom: '0.75rem' }}>📂</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                      <Icon name="folder" size={48} color="#9ca3af"/>
+                    </div>
                     <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', marginBottom: '0.5rem' }}>Déposez votre CV ici</h3>
                     <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1.25rem' }}>PDF, Word, Image (JPG/PNG)</p>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', background: '#fefce8', borderRadius: '9999px', fontSize: '0.82rem', color: '#92400e', fontWeight: 600, marginBottom: '1rem', border: '1px solid #fde68a' }}>
-                      🇲🇦 L'Expert RH analyse et optimise automatiquement votre CV pour le marché marocain
+                      <Icon name="shield-check" size={14}/> L'Expert RH analyse et optimise automatiquement votre CV pour le marché marocain
                     </div>
                     <br/>
                     <button style={{ padding: '0.7rem 1.75rem', borderRadius: '9px', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: 'white', border: 'none', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }}>
@@ -819,8 +823,8 @@ export default function CandidateUpload() {
                 {/* Processing states */}
                 {(processStep === 'reading' || processStep === 'enhancing') && (
                   <div style={{ background: 'white', borderRadius: '16px', padding: '3rem 2rem', border: '1.5px solid #bfdbfe', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
-                      {processStep === 'reading' ? '📖' : '🇲🇦'}
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                      <Icon name={processStep === 'reading' ? 'book-open' : 'globe'} size={40} color="#2563eb"/>
                     </div>
                     <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', marginBottom: '0.5rem' }}>
                       {processStep === 'reading' ? 'Lecture du CV en cours…' : 'Optimisation pour le marché marocain…'}
@@ -834,12 +838,12 @@ export default function CandidateUpload() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '1.5rem' }}>
                       {[
-                        { label: '📖 Extraction', done: processStep === 'enhancing' },
-                        { label: '🇲🇦 Optimisation', done: false },
-                        { label: '✅ CV prêt', done: false },
+                        { icon: 'book-open' as IconName, label: 'Extraction', done: processStep === 'enhancing' },
+                        { icon: 'globe' as IconName, label: 'Optimisation', done: false },
+                        { icon: 'check-circle' as IconName, label: 'CV prêt', done: false },
                       ].map((s, i) => (
-                        <div key={i} style={{ fontSize: '0.78rem', fontWeight: 600, color: s.done ? '#10b981' : (processStep === 'reading' && i === 0) || (processStep === 'enhancing' && i === 1) ? '#2563eb' : '#9ca3af' }}>
-                          {s.label}
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', fontWeight: 600, color: s.done ? '#10b981' : (processStep === 'reading' && i === 0) || (processStep === 'enhancing' && i === 1) ? '#2563eb' : '#9ca3af' }}>
+                          <Icon name={s.icon} size={13}/>{s.label}
                         </div>
                       ))}
                     </div>
@@ -848,7 +852,9 @@ export default function CandidateUpload() {
 
                 {processStep === 'done' && (
                   <div style={{ background: '#f0fdf4', borderRadius: '16px', padding: '2rem', border: '1.5px solid #86efac', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>✅</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                      <Icon name="check-circle" size={40} color="#15803d"/>
+                    </div>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#15803d', marginBottom: '0.25rem' }}>CV analysé et boosté pour le marché marocain !</h3>
                     <p style={{ color: '#065f46', fontSize: '0.875rem' }}>Résumé rédigé · Compétences optimisées · Postes cibles suggérés</p>
                     <p style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '0.4rem' }}>Redirection vers l'aperçu…</p>
@@ -857,7 +863,9 @@ export default function CandidateUpload() {
 
                 {processStep === 'error' && (
                   <div style={{ background: '#fef2f2', borderRadius: '16px', padding: '2rem', border: '1.5px solid #fecaca', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>❌</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                      <Icon name="x" size={40} color="#dc2626"/>
+                    </div>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#dc2626', marginBottom: '0.5rem' }}>Impossible d'analyser ce fichier</h3>
                     <p style={{ color: '#7f1d1d', fontSize: '0.85rem', marginBottom: '1rem' }}>Le fichier n'a pas pu être lu automatiquement.</p>
                     <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -878,7 +886,7 @@ export default function CandidateUpload() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 {/* Personal info */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
-                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>👤 Informations personnelles</h2>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="user" size={17}/>Informations personnelles</h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '1rem' }}>
                     {[
                       { label: 'Nom complet', val: name, set: setName, ph: 'Votre nom complet' },
@@ -894,7 +902,7 @@ export default function CandidateUpload() {
 
                 {/* Experience + Sector */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
-                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>💼 Expérience & Secteur</h2>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="briefcase" size={17}/>Expérience & Secteur</h2>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                       <label style={lbl}>Niveau d'expérience</label>
@@ -926,18 +934,18 @@ export default function CandidateUpload() {
                 {/* Summary */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>📝 Profil professionnel</h2>
-                    <button onClick={enhanceSummary} disabled={enhancing} style={{ padding: '0.45rem 1rem', borderRadius: '8px', background: enhancing ? '#f3f4f6' : '#eff6ff', color: enhancing ? '#9ca3af' : '#2563eb', border: '1.5px solid #bfdbfe', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
-                      {enhancing ? '⟳ Rédaction…' : '✨ Générer avec l\'Expert RH'}
+                    <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="file-text" size={17}/>Profil professionnel</h2>
+                    <button onClick={enhanceSummary} disabled={enhancing} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.45rem 1rem', borderRadius: '8px', background: enhancing ? '#f3f4f6' : '#eff6ff', color: enhancing ? '#9ca3af' : '#2563eb', border: '1.5px solid #bfdbfe', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+                      {enhancing ? <><Icon name="refresh" size={14}/>Rédaction…</> : <><Icon name="sparkles" size={14}/>Générer avec l'Expert RH</>}
                     </button>
                   </div>
-                  <textarea value={summary} onChange={e => setSummary(e.target.value)} placeholder="Cliquez sur '✨ Générer avec l'Expert RH' ou rédigez votre accroche…" rows={4} style={{ ...inp, resize: 'vertical', lineHeight: 1.7 }} />
+                  <textarea value={summary} onChange={e => setSummary(e.target.value)} placeholder="Cliquez sur 'Générer avec l'Expert RH' ou rédigez votre accroche…" rows={4} style={{ ...inp, resize: 'vertical', lineHeight: 1.7 }} />
                 </div>
 
                 {/* Work */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                    <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>🏢 Expériences professionnelles</h2>
+                    <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="building" size={17}/>Expériences professionnelles</h2>
                     {work.length < 4 && <button onClick={() => setWork(p => [...p, { company: '', title: '', startDate: '', endDate: '', description: '' }])} style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>+ Ajouter</button>}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -953,8 +961,8 @@ export default function CandidateUpload() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                             <label style={lbl}>Réalisations</label>
                             <button onClick={() => improveWorkDescription(i)} disabled={workImproving.has(i)}
-                              style={{ padding: '0.25rem 0.7rem', borderRadius: '7px', background: workImproving.has(i) ? '#f3f4f6' : '#eff6ff', color: workImproving.has(i) ? '#9ca3af' : '#2563eb', border: '1.5px solid #bfdbfe', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
-                              {workImproving.has(i) ? '⟳ Rédaction…' : '✨ Réécrire (Expert RH)'}
+                              style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.7rem', borderRadius: '7px', background: workImproving.has(i) ? '#f3f4f6' : '#eff6ff', color: workImproving.has(i) ? '#9ca3af' : '#2563eb', border: '1.5px solid #bfdbfe', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}>
+                              {workImproving.has(i) ? <><Icon name="refresh" size={12}/>Rédaction…</> : <><Icon name="sparkles" size={12}/>Réécrire (Expert RH)</>}
                             </button>
                           </div>
                           <textarea value={w.description} onChange={e => setWork(p => p.map((x, xi) => xi === i ? { ...x, description: e.target.value } : x))} placeholder="Décrivez vos tâches ou réalisations — l'Expert RH les transformera en bullet points professionnels." rows={3} style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} />
@@ -966,7 +974,7 @@ export default function CandidateUpload() {
 
                 {/* Education */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
-                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem' }}>🎓 Formation</h2>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="graduation-cap" size={17}/>Formation</h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
                     <div><label style={lbl}>Diplôme</label><input value={education.degree} onChange={e => setEducation(p => ({ ...p, degree: e.target.value }))} placeholder="Licence, Master, OFPPT…" style={inp} /></div>
                     <div><label style={lbl}>Établissement</label><input value={education.institution} onChange={e => setEducation(p => ({ ...p, institution: e.target.value }))} placeholder="Université, École…" style={inp} /></div>
@@ -977,9 +985,9 @@ export default function CandidateUpload() {
                 {/* Skills */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>⚡ Compétences</h2>
-                    <button onClick={suggestSkillsAI} disabled={suggestingSkills} style={{ padding: '0.45rem 1rem', borderRadius: '8px', background: suggestingSkills ? '#f3f4f6' : '#eff6ff', color: suggestingSkills ? '#9ca3af' : '#2563eb', border: '1.5px solid #bfdbfe', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
-                      {suggestingSkills ? '⟳ Suggestions…' : '✨ Suggérer (Expert RH)'}
+                    <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="zap" size={17}/>Compétences</h2>
+                    <button onClick={suggestSkillsAI} disabled={suggestingSkills} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.45rem 1rem', borderRadius: '8px', background: suggestingSkills ? '#f3f4f6' : '#eff6ff', color: suggestingSkills ? '#9ca3af' : '#2563eb', border: '1.5px solid #bfdbfe', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+                      {suggestingSkills ? <><Icon name="refresh" size={14}/>Suggestions…</> : <><Icon name="sparkles" size={14}/>Suggérer (Expert RH)</>}
                     </button>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
@@ -1002,7 +1010,7 @@ export default function CandidateUpload() {
 
                 {/* Languages */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
-                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1rem' }}>🌐 Langues</h2>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="globe" size={17}/>Langues</h2>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                     {LANGUAGES.map(l => (
                       <button key={l} onClick={() => toggleLanguage(l)} style={{ padding: '0.35rem 0.9rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', background: languages.includes(l) ? '#065f46' : '#f0fdf4', color: languages.includes(l) ? 'white' : '#065f46', border: `1.5px solid ${languages.includes(l) ? '#065f46' : '#bbf7d0'}` }}>
@@ -1037,7 +1045,7 @@ export default function CandidateUpload() {
 
                 {/* Certifications */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
-                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '0.75rem' }}>🏅 Certifications <span style={{ fontSize: '0.72rem', fontWeight: 400, color: '#6b7280' }}>recommandées ou obtenues</span></h2>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="award" size={17}/>Certifications <span style={{ fontSize: '0.72rem', fontWeight: 400, color: '#6b7280' }}>recommandées ou obtenues</span></h2>
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.65rem' }}>
                     <input id="certIn" placeholder="PMP, AWS, CIMA…" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const v = (e.target as HTMLInputElement).value.trim(); if (v && !certifications.includes(v)) { setCertifications(p => [...p, v]); (e.target as HTMLInputElement).value = ''; } } }} style={{ ...inp, flex: 1 }} />
                     <button onClick={() => { const el = document.getElementById('certIn') as HTMLInputElement; const v = el?.value.trim(); if (v && !certifications.includes(v)) { setCertifications(p => [...p, v]); el.value = ''; } }} style={{ padding: '0.6rem 1.1rem', borderRadius: '8px', background: '#2563eb', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}>+</button>
@@ -1045,7 +1053,7 @@ export default function CandidateUpload() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                     {certifications.map(c => (
                       <span key={c} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fefce8', color: '#713f12', borderRadius: '9999px', padding: '0.28rem 0.75rem', fontSize: '0.8rem', fontWeight: 600, border: '1px solid #fde68a' }}>
-                        🏅 {c}<button onClick={() => setCertifications(p => p.filter(x => x !== c))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: '0.9rem' }}>×</button>
+                        <Icon name="award" size={13}/>{c}<button onClick={() => setCertifications(p => p.filter(x => x !== c))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: '0.9rem' }}>×</button>
                       </span>
                     ))}
                   </div>
@@ -1054,7 +1062,9 @@ export default function CandidateUpload() {
                 {/* CTA */}
                 {generatingCV ? (
                   <div style={{ background: 'white', borderRadius: '14px', padding: '2rem', border: '1.5px solid #bfdbfe', textAlign: 'center' }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🇲🇦</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                      <Icon name="globe" size={36} color="#2563eb"/>
+                    </div>
                     <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '0.4rem' }}>Finalisation de votre CV…</h3>
                     <p style={{ color: '#6b7280', fontSize: '0.84rem', marginBottom: '1rem' }}>L'Expert RH complète votre profil, génère une accroche et suggère des postes cibles.</p>
                     <div style={{ maxWidth: 380, margin: '0 auto', background: '#e5e7eb', borderRadius: 4, height: 5, overflow: 'hidden' }}>
@@ -1066,7 +1076,7 @@ export default function CandidateUpload() {
                   <button
                     onClick={preGenerateAndPreview}
                     style={{ width: '100%', padding: '1.1rem', borderRadius: '12px', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: 'white', border: 'none', fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', boxShadow: '0 4px 16px rgba(37,99,235,.35)' }}>
-                    🇲🇦 Générer mon CV optimisé →
+                    <Icon name="sparkles" size={18}/>Générer mon CV optimisé →
                   </button>
                 )}
               </div>
@@ -1081,7 +1091,7 @@ export default function CandidateUpload() {
           <div>
             {/* Success banner */}
             <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '14px', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-              <span style={{ fontSize: '2.2rem' }}>🎉</span>
+              <Icon name="check-circle" size={34} color="#15803d"/>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, color: '#15803d', fontSize: '1rem', marginBottom: '0.25rem' }}>Votre CV est optimisé pour le marché marocain !</div>
                 <div style={{ fontSize: '0.84rem', color: '#065f46' }}>
@@ -1146,7 +1156,7 @@ export default function CandidateUpload() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       {topTips.map(tip => (
                         <div key={tip.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.6rem 0.8rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10 }}>
-                          <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>💡</span>
+                          <Icon name="lightbulb" size={15} color="#b45309" style={{ flexShrink: 0, marginTop: '0.1rem' }}/>
                           <span style={{ fontSize: '0.78rem', color: '#78350f', lineHeight: 1.55, flex: 1 }}>{tip.text}</span>
                           <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#b45309', flexShrink: 0, whiteSpace: 'nowrap' }}>+{tip.impact} pts</span>
                         </div>
@@ -1157,8 +1167,8 @@ export default function CandidateUpload() {
                             {showAllTips ? '↑ Voir moins' : `↓ Voir les ${s.tips.length - 3} autres conseils`}
                           </button>
                         )}
-                        <button onClick={() => setStep('cv')} style={{ marginLeft: 'auto', background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: '0.4rem 0.9rem', borderRadius: 8 }}>
-                          ✏️ Corriger mon CV
+                        <button onClick={() => setStep('cv')} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.35rem', background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#2563eb', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', padding: '0.4rem 0.9rem', borderRadius: 8 }}>
+                          <Icon name="pencil" size={13}/>Corriger mon CV
                         </button>
                       </div>
                     </div>
@@ -1174,16 +1184,16 @@ export default function CandidateUpload() {
                 style={{ width: '64px', height: '64px', borderRadius: '50%', border: '2.5px dashed #93c5fd', background: photo ? 'transparent' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}
                 title="Cliquez pour ajouter/changer la photo"
               >
-                {photo ? <img src={photo} alt="Photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '1.5rem' }}>👤</span>}
+                {photo ? <img src={photo} alt="Photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name="user" size={24} color="#93c5fd"/>}
               </div>
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827', marginBottom: '0.3rem' }}>📷 Photo du CV (optionnel)</div>
-                <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.5rem' }}>
-                  {photo ? '✅ Photo ajoutée.' : "Non renseignée sur votre profil — vous pouvez l'ajouter ici, uniquement pour ce CV."}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: '#111827', marginBottom: '0.3rem' }}><Icon name="camera" size={15}/>Photo du CV (optionnel)</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                  {photo ? <><Icon name="check-circle" size={13} color="#16a34a"/>Photo ajoutée.</> : "Non renseignée sur votre profil — vous pouvez l'ajouter ici, uniquement pour ce CV."}
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button onClick={() => photoInputRef.current?.click()} style={{ padding: '0.4rem 0.9rem', background: '#eff6ff', color: '#2563eb', border: '1.5px solid #bfdbfe', borderRadius: '7px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
-                    {photo ? '🔄 Changer' : '📁 Choisir une photo'}
+                  <button onClick={() => photoInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.9rem', background: '#eff6ff', color: '#2563eb', border: '1.5px solid #bfdbfe', borderRadius: '7px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                    {photo ? <><Icon name="refresh" size={13}/>Changer</> : <><Icon name="folder" size={13}/>Choisir une photo</>}
                   </button>
                   {photo && (
                     <button onClick={() => setPhoto('')} style={{ padding: '0.4rem 0.85rem', background: 'transparent', color: '#ef4444', border: '1.5px solid #fca5a5', borderRadius: '7px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
@@ -1202,22 +1212,22 @@ export default function CandidateUpload() {
               <button
                 onClick={downloadPDF}
                 style={{ flex: '1 1 auto', minWidth: 200, padding: '1rem 2rem', borderRadius: '10px', background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', color: 'white', border: 'none', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', boxShadow: '0 4px 16px rgba(37,99,235,.35)' }}>
-                ⬇ Télécharger en PDF
+                <Icon name="download" size={18}/>Télécharger en PDF
               </button>
               <button
                 onClick={() => setStep('jobs')}
                 style={{ flex: '1 1 auto', minWidth: 200, padding: '1rem 2rem', borderRadius: '10px', background: '#10b981', color: 'white', border: 'none', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', boxShadow: '0 4px 16px rgba(16,185,129,.3)' }}>
-                🎯 Voir les offres d'emploi →
+                <Icon name="target" size={18}/>Voir les offres d'emploi →
               </button>
               <button
                 onClick={() => setStep('cv')}
-                style={{ padding: '1rem 1.5rem', borderRadius: '10px', border: '1.5px solid #e5e7eb', background: 'white', color: '#374151', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer' }}>
-                ✏️ Modifier
+                style={{ padding: '1rem 1.5rem', borderRadius: '10px', border: '1.5px solid #e5e7eb', background: 'white', color: '#374151', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Icon name="pencil" size={15}/>Modifier
               </button>
             </div>
 
-            <p style={{ fontSize: '0.78rem', color: '#9ca3af', marginBottom: '1.5rem' }}>
-              💡 La fenêtre d'impression s'ouvre directement. Choisissez <strong>"Enregistrer en PDF"</strong> pour télécharger votre CV.
+            <p style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: '#9ca3af', marginBottom: '1.5rem' }}>
+              <Icon name="lightbulb" size={14}/>La fenêtre d'impression s'ouvre directement. Choisissez <strong>"Enregistrer en PDF"</strong> pour télécharger votre CV.
             </p>
 
             {/* Design picker — 10 professional CV designs, live preview below */}
@@ -1226,7 +1236,7 @@ export default function CandidateUpload() {
               return (
                 <div style={{ background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-                    <span style={{ fontSize: '1.1rem' }}>🎨</span>
+                    <Icon name="palette" size={18} color="#2563eb"/>
                     <span style={{ fontWeight: 800, color: '#111827', fontSize: '0.95rem' }}>Choisissez votre design</span>
                   </div>
                   <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '1rem' }}>
@@ -1250,7 +1260,7 @@ export default function CandidateUpload() {
                           <div style={{ width: '100%', height: 6, borderRadius: 3, marginBottom: '0.5rem', background: `linear-gradient(90deg,${theme.dark},${theme.accent})` }} />
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.15rem' }}>
                             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#111827' }}>{l.name}</span>
-                            {selected && <span style={{ fontSize: '0.9rem', color: theme.accent }}>✓</span>}
+                            {selected && <Icon name="check" size={14} color={theme.accent}/>}
                           </div>
                           <div style={{ fontSize: '0.72rem', color: '#6b7280', lineHeight: 1.4 }}>{l.desc}</div>
                         </button>
@@ -1264,7 +1274,7 @@ export default function CandidateUpload() {
             {/* CV Preview */}
             <div style={{ borderRadius: '14px', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,.12)', border: '1px solid #e5e7eb' }}>
               <div style={{ background: 'linear-gradient(135deg,#0a1f5c,#2563eb)', padding: '0.85rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: 'white', fontWeight: 700, fontSize: '0.9rem' }}>👁 Aperçu de votre CV</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'white', fontWeight: 700, fontSize: '0.9rem' }}><Icon name="eye" size={16}/>Aperçu de votre CV</span>
                 <button
                   onClick={() => { const w = window.open('', '_blank'); if (w) { w.document.write(cvHtml); w.document.close(); } }}
                   style={{ padding: '0.35rem 0.9rem', borderRadius: '7px', border: '1.5px solid rgba(255,255,255,.35)', background: 'transparent', color: 'white', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
@@ -1283,7 +1293,7 @@ export default function CandidateUpload() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
               <div>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827' }}>🎯 Offres adaptées à votre profil</h1>
+                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name="target" size={22}/>Offres adaptées à votre profil</h1>
                 <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.2rem' }}>{experience} · {sector} · {skills.length} compétences détectées</p>
               </div>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -1296,7 +1306,9 @@ export default function CandidateUpload() {
               const openJobs = coordJobs.filter(j => j.status === 'Open');
               if (!openJobs.length) return (
                 <div style={{ background: 'white', borderRadius: '14px', padding: '3rem', textAlign: 'center', border: '1.5px solid #e5e7eb' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📭</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                    <Icon name="inbox" size={36} color="#9ca3af"/>
+                  </div>
                   <h3 style={{ fontWeight: 700, color: '#111827', marginBottom: '0.5rem' }}>Aucune offre disponible pour le moment</h3>
                   <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Revenez bientôt — de nouvelles offres sont ajoutées régulièrement.</p>
                 </div>
@@ -1314,9 +1326,12 @@ export default function CandidateUpload() {
                     const scoreBorder = j.score >= 70 ? '#86efac' : j.score >= 45 ? '#fde68a' : '#e5e7eb';
                     const application = applications[j.id];
                     const isApplying = applyingJob === j.id;
-                    const APP_STATUS_LABELS: Record<string, string> = {
-                      Applied: '✓ Candidature envoyée', Reviewed: '👀 En cours d\'examen',
-                      Interview: '📅 Entretien programmé', Hired: '🎉 Recruté(e) !', Rejected: 'Non retenu(e)',
+                    const APP_STATUS_LABELS: Record<string, React.ReactNode> = {
+                      Applied: <><Icon name="check" size={13}/>Candidature envoyée</>,
+                      Reviewed: <><Icon name="eye" size={13}/>En cours d'examen</>,
+                      Interview: <><Icon name="calendar" size={13}/>Entretien programmé</>,
+                      Hired: <><Icon name="award" size={13}/>Recruté(e) !</>,
+                      Rejected: 'Non retenu(e)',
                     };
                     return (
                       <div key={j.id} style={{ background: 'white', borderRadius: '14px', border: `1.5px solid ${scoreBorder}`, overflow: 'hidden' }}>
@@ -1327,35 +1342,37 @@ export default function CandidateUpload() {
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: 700, fontSize: '1rem', color: '#111827' }}>{j.title}</div>
-                            <div style={{ fontSize: '0.82rem', color: '#6b7280', marginTop: '0.15rem' }}>
-                              {j.company} · {j.sector} · {j.experience}
-                              {j.location ? ` · 📍 ${j.location}` : ''}
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem', fontSize: '0.82rem', color: '#6b7280', marginTop: '0.15rem' }}>
+                              <span>{j.company} · {j.sector} · {j.experience}</span>
+                              {j.location && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>· <Icon name="map-pin" size={12}/>{j.location}</span>}
                             </div>
-                            {j.salary && <div style={{ fontSize: '0.78rem', color: '#059669', fontWeight: 600, marginTop: '0.15rem' }}>💰 {j.salary}</div>}
+                            {j.salary && <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.78rem', color: '#059669', fontWeight: 600, marginTop: '0.15rem' }}><Icon name="wallet" size={12}/>{j.salary}</div>}
                             {(j.educationLevel || j.languages?.length > 0) && (
-                              <div style={{ fontSize: '0.76rem', color: '#6b7280', marginTop: '0.15rem' }}>
-                                {j.educationLevel ? `🎓 ${j.educationLevel}` : ''}{j.educationLevel && j.languages?.length ? ' · ' : ''}{j.languages?.length ? `🗣 ${j.languages.join(', ')}` : ''}
+                              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem', fontSize: '0.76rem', color: '#6b7280', marginTop: '0.15rem' }}>
+                                {j.educationLevel && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><Icon name="graduation-cap" size={12}/>{j.educationLevel}</span>}
+                                {j.educationLevel && j.languages?.length ? ' · ' : ''}
+                                {j.languages?.length > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><Icon name="globe" size={12}/>{j.languages.join(', ')}</span>}
                               </div>
                             )}
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0, alignItems: 'flex-end' }}>
                             {application ? (
-                              <span style={{ padding: '0.5rem 0.9rem', borderRadius: '8px', background: application.status === 'Rejected' ? '#fee2e2' : '#d1fae5', color: application.status === 'Rejected' ? '#991b1b' : '#065f46', fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.5rem 0.9rem', borderRadius: '8px', background: application.status === 'Rejected' ? '#fee2e2' : '#d1fae5', color: application.status === 'Rejected' ? '#991b1b' : '#065f46', fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
                                 {APP_STATUS_LABELS[application.status] || application.status}
                               </span>
                             ) : (
                               <button
                                 onClick={() => applyToJob(j)}
                                 disabled={isApplying}
-                                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: isApplying ? '#e5e7eb' : '#059669', color: isApplying ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '0.8rem', cursor: isApplying ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-                                {isApplying ? '⟳ Envoi…' : '📨 Postuler'}
+                                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: isApplying ? '#e5e7eb' : '#059669', color: isApplying ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '0.8rem', cursor: isApplying ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                                {isApplying ? <><Icon name="refresh" size={13}/>Envoi…</> : <><Icon name="send" size={13}/>Postuler</>}
                               </button>
                             )}
                             <button
                               onClick={() => adaptCVForJob(j)}
                               disabled={!!adaptingJob}
-                              style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: isAdapting ? '#e5e7eb' : '#2563eb', color: isAdapting ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '0.8rem', cursor: adaptingJob ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-                              {isAdapting ? '⟳ Adaptation…' : hasAdapted ? '✓ Adapté' : '✨ Adapter mon CV'}
+                              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: isAdapting ? '#e5e7eb' : '#2563eb', color: isAdapting ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '0.8rem', cursor: adaptingJob ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                              {isAdapting ? <><Icon name="refresh" size={13}/>Adaptation…</> : hasAdapted ? <><Icon name="check" size={13}/>Adapté</> : <><Icon name="sparkles" size={13}/>Adapter mon CV</>}
                             </button>
                           </div>
                         </div>
@@ -1377,7 +1394,7 @@ export default function CandidateUpload() {
 
                         {hasAdapted && adaptedCV && (
                           <div style={{ padding: '1.1rem 1.25rem', background: '#f0f9ff', borderTop: '1px solid #bae6fd' }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.5rem' }}>👔 Version CV adaptée par l'Expert RH</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.5rem' }}><Icon name="briefcase" size={14}/>Version CV adaptée par l'Expert RH</div>
                             <p style={{ fontSize: '0.84rem', color: '#374151', lineHeight: 1.65, marginBottom: '0.65rem', fontStyle: 'italic' }}>{adaptedCV.summary}</p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.85rem' }}>
                               {adaptedCV.skills.map(s => <span key={s} style={{ padding: '0.18rem 0.65rem', borderRadius: '9999px', background: '#eff6ff', color: '#2563eb', fontSize: '0.74rem', fontWeight: 600, border: '1px solid #bfdbfe' }}>{s}</span>)}
