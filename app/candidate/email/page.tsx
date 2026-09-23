@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import PageHeader from '../../../components/PageHeader';
+import Icon, { type IconName } from '../../../components/Icon';
 import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 
 type FlowStep = 'intro' | 'qa' | 'generating' | 'result';
@@ -12,7 +13,7 @@ type FlowStep = 'intro' | 'qa' | 'generating' | 'result';
 const QA = [
   {
     id: 'job',
-    icon: '💼',
+    icon: 'briefcase' as IconName,
     label: 'Le Poste',
     question: 'Pour quel poste souhaitez-vous postuler ?',
     helper: 'Indiquez le titre du poste tel qu\'il apparaît dans l\'annonce.',
@@ -33,7 +34,7 @@ const QA = [
   },
   {
     id: 'company',
-    icon: '🏢',
+    icon: 'building' as IconName,
     label: 'L\'Entreprise',
     question: 'Quel est le nom de l\'entreprise (facultatif) ?',
     helper: 'Si vous connaissez l\'entreprise, écrivez le nom. Sinon, appuyez sur "Suivant".',
@@ -43,7 +44,7 @@ const QA = [
   },
   {
     id: 'experience',
-    icon: '📋',
+    icon: 'document' as IconName,
     label: 'Votre Expérience',
     question: 'Parlez-nous de votre expérience en quelques mots simples.',
     helper: 'Pas besoin d\'être formel — dites simplement ce que vous avez fait ou qui vous êtes.',
@@ -58,7 +59,7 @@ const QA = [
   },
   {
     id: 'motivation',
-    icon: '❤️',
+    icon: 'heart' as IconName,
     label: 'Votre Motivation',
     question: 'Pourquoi voulez-vous ce poste / travailler dans cette entreprise ?',
     helper: 'Répondez simplement et sincèrement — l\'Expert RH embellira votre réponse.',
@@ -285,9 +286,9 @@ Email: ${email}`;
           width: 88, height: 88, borderRadius: 24,
           background: 'linear-gradient(135deg,#7c3aed,#2563eb)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 44, marginBottom: '1.5rem',
+          marginBottom: '1.5rem',
           boxShadow: '0 8px 32px rgba(124,58,237,.35)',
-        }}>✉️</div>
+        }}><Icon name="mail" size={40} color="#fff"/></div>
 
         <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#111827', letterSpacing: '-0.03em', marginBottom: '0.75rem' }}>
           Votre lettre de candidature en 2 minutes
@@ -305,9 +306,8 @@ Email: ${email}`;
                 background: 'linear-gradient(135deg,#7c3aed18,#2563eb18)',
                 border: '1.5px solid #7c3aed25',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 18,
               }}>
-                {q.icon}
+                <Icon name={q.icon} size={18} color="#7c3aed"/>
               </div>
               <div>
                 <p style={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827', marginBottom: '0.15rem' }}>{q.label}</p>
@@ -387,9 +387,9 @@ Email: ${email}`;
               width: 52, height: 52, borderRadius: 14, marginBottom: '1.25rem',
               background: 'linear-gradient(135deg,#7c3aed,#2563eb)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 28, boxShadow: '0 4px 16px rgba(124,58,237,.3)',
+              boxShadow: '0 4px 16px rgba(124,58,237,.3)',
             }}>
-              {currentQ.icon}
+              <Icon name={currentQ.icon} size={26} color="#fff"/>
             </div>
             <p style={{ fontSize: '0.72rem', fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase' as const, letterSpacing: '0.12em', marginBottom: '0.5rem' }}>
               {currentQ.label}
@@ -461,8 +461,8 @@ Email: ${email}`;
             </p>
 
             {error && (
-              <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: 10, background: '#fff1f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '0.85rem' }}>
-                ⚠️ {error}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: 10, background: '#fff1f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '0.85rem' }}>
+                <Icon name="alert-triangle" size={15}/>{error}
               </div>
             )}
           </div>
@@ -502,11 +502,12 @@ Email: ${email}`;
                 boxShadow: canContinue ? '0 4px 20px rgba(124,58,237,.35)' : 'none',
                 transition: 'all .2s',
                 letterSpacing: '-0.01em',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
               }}
             >
               {qaIndex < QA.length - 1
                 ? (canSkip && !currentInput.trim() ? 'Passer →' : 'Suivant →')
-                : '✨ Générer ma lettre →'}
+                : <><Icon name="sparkles" size={16}/>Générer ma lettre →</>}
             </button>
           </div>
 
@@ -539,8 +540,8 @@ Email: ${email}`;
         <div style={{ width: 100, height: 100, borderRadius: '50%', margin: '0 auto 2rem',
           background: 'linear-gradient(135deg,#7c3aed,#2563eb)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 48, animation: 'spin2 2s ease infinite',
-          boxShadow: '0 8px 40px rgba(124,58,237,.45)' }}>✉️</div>
+          animation: 'spin2 2s ease infinite',
+          boxShadow: '0 8px 40px rgba(124,58,237,.45)' }}><Icon name="mail" size={44} color="#fff"/></div>
 
         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', marginBottom: '0.5rem' }}>
           L'Expert RH rédige votre lettre…
@@ -557,9 +558,13 @@ Email: ${email}`;
         </div>
 
         {/* Live elapsed counter */}
-        <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1.5rem' }}>
-          {elapsed < 3 ? '⚡ Connexion à l\'Expert RH…' : elapsed < 6 ? '✍️ Rédaction en cours…' : '🔄 Finalisation…'}
-          <span style={{ marginLeft: '0.4rem', fontWeight: 700, color: '#7c3aed' }}>{elapsed}s</span>
+        <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1.5rem' }}>
+          {elapsed < 3
+            ? <><Icon name="zap" size={13}/>Connexion à l'Expert RH…</>
+            : elapsed < 6
+            ? <><Icon name="pencil" size={13}/>Rédaction en cours…</>
+            : <><Icon name="refresh" size={13}/>Finalisation…</>}
+          <span style={{ fontWeight: 700, color: '#7c3aed' }}>{elapsed}s</span>
         </p>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
@@ -585,7 +590,7 @@ Email: ${email}`;
           <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(124,58,237,.3)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>✅</div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check-circle" size={22} color="#fff"/></div>
               <div>
                 <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,.55)', textTransform: 'uppercase' as const, letterSpacing: '0.12em', fontWeight: 700 }}>Lettre générée</p>
                 <h2 style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Votre candidature est prête !</h2>
@@ -612,16 +617,16 @@ Email: ${email}`;
             borderBottom: '1px solid #e5e7eb',
             display: 'flex', alignItems: 'center', gap: '0.5rem',
           }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase' as const, letterSpacing: '0.1em' }}>
-              ✉️ Lettre de Candidature
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase' as const, letterSpacing: '0.1em' }}>
+              <Icon name="mail" size={13}/>Lettre de Candidature
             </span>
             <span style={{
-              marginLeft: 'auto', padding: '0.15rem 0.55rem', borderRadius: 9999,
+              marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.15rem 0.55rem', borderRadius: 9999,
               background: usedFallback ? '#fff7ed' : '#f0fdf4',
               color: usedFallback ? '#c2410c' : '#15803d',
               fontSize: '0.68rem', fontWeight: 700,
             }}>
-              {usedFallback ? '✏️ À personnaliser' : 'Prête à copier'}
+              {usedFallback ? <><Icon name="pencil" size={11}/>À personnaliser</> : 'Prête à copier'}
             </span>
           </div>
           {/* Email body */}
@@ -655,7 +660,7 @@ Email: ${email}`;
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
             }}
           >
-            {copied ? '✓ Copié !' : '📋 Copier la lettre'}
+            {copied ? <><Icon name="check" size={16}/>Copié !</> : <><Icon name="copy" size={16}/>Copier la lettre</>}
           </button>
           <button
             onClick={handleDownload}
@@ -685,8 +690,8 @@ Email: ${email}`;
           padding: '1.25rem 1.5rem',
           marginBottom: '1.25rem',
         }}>
-          <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
-            💡 Conseils pour maximiser vos chances
+          <p style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+            <Icon name="lightbulb" size={15}/>Conseils pour maximiser vos chances
           </p>
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {[
@@ -715,9 +720,10 @@ Email: ${email}`;
               fontSize: '0.85rem', fontWeight: 600,
               border: '1.5px solid #e5e7eb',
               cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
             }}
           >
-            🔄 Créer une nouvelle lettre
+            <Icon name="refresh" size={14}/>Créer une nouvelle lettre
           </button>
           <Link
             href="/candidate"

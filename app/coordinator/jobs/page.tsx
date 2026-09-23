@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PageHeader from '../../../components/PageHeader';
+import Icon from '../../../components/Icon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, EDU_LEVELS, LANGUAGES as MATCH_LANGUAGES } from '@/lib/matching';
 
@@ -192,25 +193,25 @@ export default function CoordinatorJobs() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <Link href="/coordinator" style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none' }}>← Tableau de bord</Link>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0a1f5c', margin: '0.3rem 0 0.2rem' }}>💼 Offres d'emploi</h1>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0a1f5c', margin: '0.3rem 0 0.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name="briefcase" size={24}/>Offres d'emploi</h1>
             <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>{jobs.filter(j => j.status === 'Open').length} poste{jobs.filter(j => j.status === 'Open').length !== 1 ? 's' : ''} ouvert{jobs.filter(j => j.status === 'Open').length !== 1 ? 's' : ''} sur {jobs.length} total</p>
           </div>
-          <button className="btn-primary" onClick={showForm && !editId ? () => { setShowForm(false); resetForm(); } : openNewForm}>
-            {showForm && !editId ? '✕ Annuler' : '+ Publier une offre'}
+          <button className="btn-primary" onClick={showForm && !editId ? () => { setShowForm(false); resetForm(); } : openNewForm} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+            {showForm && !editId ? <><Icon name="x" size={14}/>Annuler</> : <><Icon name="plus" size={14}/>Publier une offre</>}
           </button>
         </div>
 
         {saved && (
-          <div style={{ background: '#d1fae5', color: '#065f46', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1.25rem', fontWeight: 600, fontSize: '0.875rem' }}>
-            ✓ Offre {editId ? 'modifiée' : 'publiée'} avec succès
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#d1fae5', color: '#065f46', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1.25rem', fontWeight: 600, fontSize: '0.875rem' }}>
+            <Icon name="check" size={15}/>Offre {editId ? 'modifiée' : 'publiée'} avec succès
           </div>
         )}
 
         {/* Form */}
         {showForm && (
           <div className="card" style={{ marginBottom: '1.5rem', border: '1.5px solid #dbeafe' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0a1f5c', marginBottom: '1.25rem' }}>
-              {editId ? '✏️ Modifier l\'offre' : '🆕 Nouvelle offre d\'emploi'}
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0a1f5c', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              {editId ? <><Icon name="pencil" size={16}/>Modifier l'offre</> : <><Icon name="plus" size={16}/>Nouvelle offre d'emploi</>}
             </h2>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
@@ -254,7 +255,7 @@ export default function CoordinatorJobs() {
                   onClick={generateDescription}
                   disabled={descLoading || (!title && !sector)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', borderRadius: '6px', border: 'none', background: descLoading ? '#e5e7eb' : 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: descLoading ? '#9ca3af' : 'white', fontSize: '0.75rem', fontWeight: 700, cursor: descLoading || (!title && !sector) ? 'not-allowed' : 'pointer', opacity: (!title && !sector) ? 0.5 : 1 }}>
-                  {descLoading ? '⏳ Génération…' : '🤖 Générer avec l\'Expert RH'}
+                  {descLoading ? <><Icon name="refresh" size={13}/>Génération…</> : <><Icon name="robot" size={13}/>Générer avec l'Expert RH</>}
                 </button>
               </div>
               <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Missions, responsabilités, environnement de travail… ou cliquez « Générer avec l'Expert RH »" style={{ ...inputStyle, resize: 'vertical' }} />
@@ -303,8 +304,8 @@ export default function CoordinatorJobs() {
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button className="btn-primary" onClick={handlePost} disabled={!title.trim() || !company.trim()} style={{ opacity: !title.trim() || !company.trim() ? 0.5 : 1 }}>
-                {editId ? '💾 Enregistrer les modifications' : '📢 Publier l\'offre'}
+              <button className="btn-primary" onClick={handlePost} disabled={!title.trim() || !company.trim()} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', opacity: !title.trim() || !company.trim() ? 0.5 : 1 }}>
+                {editId ? <><Icon name="save" size={14}/>Enregistrer les modifications</> : <><Icon name="megaphone" size={14}/>Publier l'offre</>}
               </button>
               <button onClick={() => { setShowForm(false); resetForm(); }} style={{ padding: '0.6rem 1.2rem', background: 'transparent', color: '#6b7280', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>
                 Annuler
@@ -318,8 +319,8 @@ export default function CoordinatorJobs() {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une offre…" style={{ padding: '0.5rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.875rem', fontFamily: 'inherit', width: '240px' }} />
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} style={{ padding: '0.5rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.875rem', fontFamily: 'inherit' }}>
             <option value="all">Tous les statuts</option>
-            <option value="Open">🟢 Ouvertes</option>
-            <option value="Closed">⚫ Fermées</option>
+            <option value="Open">Ouvertes</option>
+            <option value="Closed">Fermées</option>
           </select>
         </div>
 
@@ -331,7 +332,7 @@ export default function CoordinatorJobs() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {filtered.length === 0 && (
               <div style={{ textAlign: 'center', padding: '2.5rem', color: '#9ca3af' }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '0.6rem' }}>💼</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.6rem' }}><Icon name="briefcase" size={32} color="#9ca3af"/></div>
                 <p style={{ fontWeight: 600, color: '#6b7280' }}>Aucune offre ne correspond</p>
               </div>
             )}
@@ -341,27 +342,31 @@ export default function CoordinatorJobs() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0a1f5c', marginBottom: '0.2rem' }}>{j.title}</div>
                     <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{j.company} · {j.sector} · {j.experience}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.2rem' }}>
-                      📍 {j.location}{j.salary ? ` · 💰 ${j.salary}` : ''}{j.createdAt ? ` · 📅 ${j.createdAt}` : ''}
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.3rem', fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.2rem' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><Icon name="map-pin" size={12}/>{j.location}</span>
+                      {j.salary && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>· <Icon name="wallet" size={12}/>{j.salary}</span>}
+                      {j.createdAt && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>· <Icon name="calendar" size={12}/>{j.createdAt}</span>}
                     </div>
-                    <div style={{ fontSize: '0.76rem', color: '#9ca3af', marginTop: '0.2rem' }}>
-                      👤 Publiée par {j.postedBy?.name || j.postedBy?.code || 'coordinateur inconnu (offre créée avant ce suivi)'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.76rem', color: '#9ca3af', marginTop: '0.2rem' }}>
+                      <Icon name="user" size={11}/>Publiée par {j.postedBy?.name || j.postedBy?.code || 'coordinateur inconnu (offre créée avant ce suivi)'}
                     </div>
                     {(j.educationLevel || (j.languages && j.languages.length > 0)) && (
-                      <div style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '0.2rem' }}>
-                        {j.educationLevel ? `🎓 ${j.educationLevel}` : ''}{j.educationLevel && j.languages?.length ? ' · ' : ''}{j.languages?.length ? `🗣 ${j.languages.join(', ')}` : ''}
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem', fontSize: '0.78rem', color: '#9ca3af', marginTop: '0.2rem' }}>
+                        {j.educationLevel && <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><Icon name="graduation-cap" size={12}/>{j.educationLevel}</span>}
+                        {j.educationLevel && j.languages?.length ? ' · ' : ''}
+                        {j.languages?.length ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><Icon name="globe" size={12}/>{j.languages.join(', ')}</span> : ''}
                       </div>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
                     <span style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem', borderRadius: '9999px', background: j.status === 'Open' ? '#d1fae5' : '#f3f4f6', color: j.status === 'Open' ? '#065f46' : '#6b7280', fontWeight: 600 }}>
-                      {j.status === 'Open' ? '🟢 Ouverte' : '⚫ Fermée'}
+                      {j.status === 'Open' ? 'Ouverte' : 'Fermée'}
                     </span>
-                    <button onClick={() => openEdit(j)} style={{ fontSize: '0.78rem', color: '#2563eb', background: 'none', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>✏️</button>
+                    <button onClick={() => openEdit(j)} style={{ fontSize: '0.78rem', color: '#2563eb', background: 'none', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Icon name="pencil" size={13}/></button>
                     <button onClick={() => toggleStatus(j.id)} style={{ fontSize: '0.78rem', color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>
                       {j.status === 'Open' ? 'Fermer' : 'Rouvrir'}
                     </button>
-                    <button onClick={() => deleteJob(j.id)} style={{ fontSize: '0.78rem', color: '#dc2626', background: 'none', border: '1px solid #fecaca', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>🗑</button>
+                    <button onClick={() => deleteJob(j.id)} style={{ fontSize: '0.78rem', color: '#dc2626', background: 'none', border: '1px solid #fecaca', borderRadius: '6px', padding: '0.25rem 0.65rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Icon name="trash" size={13}/></button>
                   </div>
                 </div>
                 {j.description && <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.75rem', lineHeight: 1.55 }}>{j.description}</p>}
@@ -373,7 +378,7 @@ export default function CoordinatorJobs() {
                   <button
                     onClick={() => setExpandedJob(expandedJob === j.id ? null : j.id)}
                     style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 700, background: '#EFF6FF', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '0.35rem 0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                    🎯 {expandedJob === j.id ? 'Masquer' : `Candidats classés (${coordCvs.length})`}
+                    <Icon name="target" size={13}/>{expandedJob === j.id ? 'Masquer' : `Candidats classés (${coordCvs.length})`}
                   </button>
                   {expandedJob === j.id && (
                     <div style={{ marginTop: '0.75rem' }}>
@@ -402,8 +407,8 @@ export default function CoordinatorJobs() {
                                     <div style={{ fontSize: '0.72rem', color: '#6b7280' }}>{cv.sector} · {cv.experience}{cv.phone ? ` · ${cv.phone}` : ''}</div>
                                   </div>
                                   {cv.email ? (
-                                    <a href={`mailto:${cv.email}?subject=Offre: ${j.title} chez ${j.company}`} style={{ fontSize: '0.73rem', color: '#2563eb', fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none', padding: '0.25rem 0.6rem', borderRadius: '5px', border: '1px solid #bfdbfe', background: 'white' }}>
-                                      ✉ Contacter
+                                    <a href={`mailto:${cv.email}?subject=Offre: ${j.title} chez ${j.company}`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.73rem', color: '#2563eb', fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none', padding: '0.25rem 0.6rem', borderRadius: '5px', border: '1px solid #bfdbfe', background: 'white' }}>
+                                      <Icon name="mail" size={12}/>Contacter
                                     </a>
                                   ) : null}
                                 </div>
