@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { HOLDER_QUESTIONS } from "@/lib/ideamap/dossier/questions";
+import { buildFicheProjetDoc, buildFicheTechniqueDoc, buildBusinessPlanDoc, type DossierData, type Lang as DocxLang } from "@/lib/ideamap/dossier/generators";
 
 /* ── CSS injection ──────────────────────────────────── */
 function injectCSS() {
@@ -2019,6 +2020,174 @@ async function generateHoldersExcel(
   }
 }
 
+// ── Présentation comité (PPTX) ──
+// The dossier's committee-facing deck (IDEAMAP_DOSSIER_FACTORY_PROMPT.md §1:
+// "Présentation comité (PPTX, Arabic, 10 slides)") — distinct from the
+// holder-facing Pitch Deck and the jury-scoring Dossier Jury generatePptxDeck
+// already builds: this one is the official record shown to the INDH
+// selection committee, structured like a project identification file
+// (porteur → projet → équipements → marché → modèle → impact → budget →
+// durabilité → recommandation) rather than a pitch. Defaults to Arabic per
+// the spec, but — like every other export in this app — stays usable in
+// fr/en too rather than hard-coding away the rest of CLAUDE.md's fr/ar/en
+// requirement.
+async function generateComitePresentation(
+  exportLang: string,
+  data: {proj: any; plan: any; budget: any; comp: any; profile: any; name: string; numero?: string},
+  lang: string,
+  showToast: (msg: string, type?: "error" | "success") => void,
+) {
+  const {proj, plan, budget, comp, profile, name, numero} = data;
+  try {
+    const PptxGenJS = (await import("pptxgenjs")).default;
+    const prs = new (PptxGenJS as any)();
+    prs.layout = "LAYOUT_16x9";
+    const NAVY = "0F2233"; const YELLOW = "FFB703"; const WHITE = "FFFFFF";
+    const isAr = exportLang === "ar"; const isEn = exportLang === "en";
+    const dir2 = isAr ? "right" : "left";
+    const SH = (prs as any).ShapeType?.rect || "rect";
+    const total = budget?.items?.reduce((s: number, x: any) => s + (x.total || 0), 0) || 0;
+    const indh = budget?.indhContribution ?? Math.min(Math.round(total * 0.9), 100_000);
+    const apport = budget?.beneficiaryContribution ?? (total - indh);
+    const clip = (txt: string, n: number) => !txt ? "" : (txt.length <= n ? txt : txt.slice(0, n).replace(/\s\S*$/, "…"));
+
+    const L = {
+      cover: isAr?"العرض التقديمي أمام اللجنة":isEn?"Committee Presentation":"Présentation Comité",
+      identite: isAr?"هوية حامل المشروع":isEn?"Holder Identification":"Identification du Porteur",
+      presentation: isAr?"تقديم المشروع":isEn?"Project Presentation":"Présentation du Projet",
+      equip: isAr?"المنتجات والتجهيزات":isEn?"Products & Equipment":"Produits & Équipements",
+      marche: isAr?"السوق والزبائن":isEn?"Market & Customers":"Marché & Clientèle",
+      modele: isAr?"النموذج الاقتصادي":isEn?"Economic Model":"Modèle Économique",
+      impact: isAr?"الأثر الاجتماعي":isEn?"Social Impact":"Impact Social",
+      budgetS: isAr?"الميزانية التفصيلية":isEn?"Detailed Budget":"Budget Détaillé",
+      durabilite: isAr?"الاستدامة والتطوير":isEn?"Sustainability & Growth":"Durabilité & Développement",
+      recommandation: isAr?"توصية اللجنة":isEn?"Committee Recommendation":"Recommandation du Comité",
+      numeroL: isAr?"رقم الملف":isEn?"File N°":"N° Dossier",
+    };
+    const headerBar = (sl: any, txt: string) => {
+      sl.addShape(SH, {x:0,y:0,w:10,h:0.78,fill:{color:NAVY}});
+      sl.addText(txt, {x:0.3,y:0,w:9.4,h:0.78,fontSize:19,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:dir2 as any});
+    };
+
+    // 1. Cover
+    let s = prs.addSlide(); s.background = {color:NAVY};
+    s.addShape(SH, {x:0,y:0,w:10,h:0.1,fill:{color:YELLOW}});
+    s.addShape(SH, {x:0,y:5.53,w:10,h:0.1,fill:{color:YELLOW}});
+    s.addText(L.cover, {x:0.5,y:0.9,w:9,h:0.5,fontSize:16,color:"AAAAAA",align:"center",fontFace:"Arial"});
+    s.addText(proj?.projectName || "", {x:0.5,y:1.6,w:9,h:1.0,fontSize:30,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
+    s.addText(`${proj?.sector||""} · ${proj?.location||regionDisplay(profile)||""}`, {x:0.5,y:2.7,w:9,h:0.4,fontSize:13,color:WHITE,align:"center",fontFace:"Arial"});
+    if (numero) s.addText(`${L.numeroL}: ${numero}`, {x:0.5,y:3.2,w:9,h:0.35,fontSize:11,color:"888888",align:"center",fontFace:"Arial"});
+    s.addText(`${name||""} ${profile?.lastName||""}`, {x:0.5,y:4.3,w:9,h:0.4,fontSize:14,color:WHITE,align:"center",fontFace:"Arial"});
+    s.addText("INDH Phase 3 · IdeaMap", {x:0.5,y:4.9,w:9,h:0.3,fontSize:10,color:"666666",align:"center"});
+
+    // 2. Identification du porteur
+    s = prs.addSlide(); s.background = {color:"FAF7F0"};
+    headerBar(s, L.identite);
+    const idRows = [
+      [isAr?"الاسم":isEn?"Name":"Nom", `${name||""} ${profile?.lastName||""}`],
+      [isAr?"العمر":isEn?"Age":"Âge", String(profile?.age||"—")],
+      [isAr?"الجنس":isEn?"Gender":"Genre", profile?.gender||"—"],
+      [isAr?"الهاتف":isEn?"Phone":"Téléphone", profile?.phone||"—"],
+      [isAr?"الجهة":isEn?"Region":"Région", regionDisplay(profile)||"—"],
+      [isAr?"نوع الحامل":isEn?"Holder type":"Type de porteur", profile?.projType||"—"],
+    ];
+    idRows.forEach((row, i) => {
+      const y = 1.1 + i*0.65;
+      s.addShape(SH, {x:0.4,y,w:9.2,h:0.55,fill:{color:i%2===0?"FFFFFF":"F0EEE9"},line:{color:"CCCCCC",pt:0.5}});
+      s.addText(row[0], {x:0.55,y,w:4,h:0.55,fontSize:12,color:GR,bold:true,fontFace:"Arial",valign:"middle",align:dir2 as any});
+      s.addText(row[1], {x:4.6,y,w:4.9,h:0.55,fontSize:13,color:ND,fontFace:"Arial",valign:"middle",align:dir2 as any});
+    });
+
+    // 3. Présentation du projet
+    s = prs.addSlide(); s.background = {color:"FAF7F0"};
+    headerBar(s, L.presentation);
+    if (proj?.targetProfile) s.addText(clip(proj.targetProfile, 280), {x:0.4,y:1.05,w:9.2,h:1.3,fontSize:13,color:"222222",wrap:true,fontFace:"Arial",align:dir2 as any});
+    if (proj?.localProblem) {
+      s.addShape(SH, {x:0.4,y:2.5,w:9.2,h:0.08,fill:{color:YELLOW+"88"}});
+      s.addText(clip(proj.localProblem, 200), {x:0.4,y:2.7,w:9.2,h:1.0,fontSize:12,color:"444444",wrap:true,fontFace:"Arial",italic:true,align:dir2 as any});
+    }
+
+    // 4. Produits/Services et équipements
+    s = prs.addSlide(); s.background = {color:"FAF7F0"};
+    headerBar(s, L.equip);
+    const acts = proj?.activities || [];
+    acts.slice(0,4).forEach((a: string, i: number) => {
+      s.addShape(SH, {x:0.4,y:1.05+i*0.5,w:9.2,h:0.44,fill:{color:i%2===0?"FFFFFF":"F0EEE9"},line:{color:"CCCCCC",pt:0.5}});
+      s.addText(`• ${clip(a,100)}`, {x:0.55,y:1.05+i*0.5,w:9.0,h:0.44,fontSize:12,color:ND,fontFace:"Arial",valign:"middle",align:dir2 as any});
+    });
+    if (budget?.items?.length) {
+      const rows = [
+        [{text:isAr?"البند":isEn?"Item":"Désignation",options:{bold:true,color:WHITE}},{text:isAr?"المجموع":isEn?"Total":"Total",options:{bold:true,color:WHITE}}],
+        ...budget.items.slice(0,5).map((x: any) => [clip(x.item||"",45), `${Number(x.total||0).toLocaleString()} MAD`]),
+      ];
+      s.addTable(rows, {x:0.4,y:3.3,w:9.2,colW:[6.6,2.6],fontSize:9.5,color:ND,border:{type:"solid",color:"CCCCCC",pt:0.5},fill:{color:WHITE},fontFace:"Arial"});
+    }
+
+    // 5. Marché et clientèle
+    s = prs.addSlide(); s.background = {color:"FAF7F0"};
+    headerBar(s, L.marche);
+    if (plan?.marketAnalysis) s.addText(clip(plan.marketAnalysis, 420), {x:0.4,y:1.1,w:9.2,h:3.8,fontSize:13,color:"222222",wrap:true,fontFace:"Arial",align:dir2 as any});
+
+    // 6. Modèle économique
+    s = prs.addSlide(); s.background = {color:"FAF7F0"};
+    headerBar(s, L.modele);
+    if (proj?.revenueModel) s.addText(clip(proj.revenueModel, 220), {x:0.4,y:1.1,w:9.2,h:1.3,fontSize:13,color:"222222",wrap:true,fontFace:"Arial",align:dir2 as any});
+    if (plan?.businessModel) s.addText(clip(plan.businessModel, 320), {x:0.4,y:2.6,w:9.2,h:2.3,fontSize:12,color:"444444",wrap:true,fontFace:"Arial",align:dir2 as any});
+
+    // 7. Impact social
+    s = prs.addSlide(); s.background = {color:"FAF7F0"};
+    headerBar(s, L.impact);
+    s.addShape(SH, {x:0.4,y:1.1,w:2.6,h:1.3,fill:{color:"1C7A62"}});
+    s.addText(String(proj?.beneficiaries||"—"), {x:0.4,y:1.15,w:2.6,h:0.75,fontSize:40,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
+    s.addText(isAr?"مستفيد":isEn?"beneficiaries":"bénéficiaires", {x:0.4,y:1.95,w:2.6,h:0.35,fontSize:9,color:"DDFFEE",align:"center",fontFace:"Arial"});
+    if (plan?.socialImpact) s.addText(clip(plan.socialImpact, 260), {x:3.2,y:1.1,w:6.4,h:2.3,fontSize:12,color:"222222",wrap:true,fontFace:"Arial",align:dir2 as any});
+
+    // 8. Budget détaillé
+    s = prs.addSlide(); s.background = {color:NAVY};
+    s.addShape(SH, {x:0,y:0,w:10,h:0.78,fill:{color:"2A5CE0"}});
+    s.addText(L.budgetS, {x:0.3,y:0,w:9.4,h:0.78,fontSize:19,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:dir2 as any});
+    s.addText(`${isAr?"الكلفة الإجمالية":isEn?"Total cost":"Coût total"}: ${total.toLocaleString()} MAD`, {x:0.4,y:1.0,w:9.2,h:0.4,fontSize:14,color:WHITE,bold:true,fontFace:"Arial"});
+    s.addText(`${isAr?"مساهمة المبادرة (90%)":isEn?"INDH (90%)":"INDH (90%)"}: ${indh.toLocaleString()} MAD`, {x:0.4,y:1.45,w:9.2,h:0.35,fontSize:12,color:YELLOW,fontFace:"Arial"});
+    s.addText(`${isAr?"مساهمة الحامل (10%)":isEn?"Holder (10%)":"Apport porteur (10%)"}: ${apport.toLocaleString()} MAD`, {x:0.4,y:1.85,w:9.2,h:0.35,fontSize:12,color:"CCCCCC",fontFace:"Arial"});
+    if (budget?.items?.length) {
+      const rows = [
+        [{text:isAr?"الفئة":isEn?"Category":"Catégorie",options:{bold:true,color:YELLOW}},{text:isAr?"البند":isEn?"Item":"Désignation",options:{bold:true,color:YELLOW}},{text:isAr?"المجموع":isEn?"Total":"Total",options:{bold:true,color:YELLOW}}],
+        ...budget.items.slice(0,7).map((x: any) => [clip(x.category||"",18), clip(x.item||"",38), `${Number(x.total||0).toLocaleString()} MAD`]),
+      ];
+      s.addTable(rows, {x:0.4,y:2.4,w:9.2,colW:[2.0,5.1,2.1],fontSize:8.5,color:WHITE,border:{type:"solid",color:"334466",pt:0.5},fontFace:"Arial"});
+    }
+
+    // 9. Durabilité et plan de développement
+    s = prs.addSlide(); s.background = {color:"FAF7F0"};
+    headerBar(s, L.durabilite);
+    if (plan?.operationalPlan) s.addText(clip(plan.operationalPlan, 320), {x:0.4,y:1.1,w:9.2,h:2.0,fontSize:12,color:"222222",wrap:true,fontFace:"Arial",align:dir2 as any});
+    if (plan?.indh_alignment) {
+      s.addShape(SH, {x:0.4,y:3.3,w:9.2,h:0.8,fill:{color:"0A0F2C"}});
+      s.addText(`🏛️ ${clip(plan.indh_alignment, 180)}`, {x:0.55,y:3.3,w:8.9,h:0.8,fontSize:11,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",wrap:true,align:dir2 as any});
+    }
+
+    // 10. Recommandation du comité
+    s = prs.addSlide(); s.background = {color: comp?.eligible ? NAVY : "2A0A0A"};
+    s.addText(L.recommandation, {x:0.5,y:0.5,w:9,h:0.6,fontSize:20,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
+    if (comp) {
+      s.addText(`${comp.score}/100`, {x:0.5,y:1.2,w:9,h:1.0,fontSize:48,color: comp.eligible?"22C55E":"EF4444",bold:true,align:"center",fontFace:"Arial"});
+      s.addText(comp.eligible
+        ? (isAr?"✅ مؤهل للتمويل":isEn?"✅ Eligible for funding":"✅ Éligible au financement")
+        : (isAr?"⚠️ يتطلب تعديلات":isEn?"⚠️ Requires adjustments":"⚠️ Nécessite des ajustements"),
+        {x:0.5,y:2.2,w:9,h:0.5,fontSize:16,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
+    }
+    (comp?.recommendations||[]).slice(0,3).forEach((r: string, i: number) => {
+      s.addText(`• ${clip(r,110)}`, {x:0.6,y:3.0+i*0.5,w:8.8,h:0.46,fontSize:11,color:"CCCCCC",fontFace:"Arial",wrap:true,align:dir2 as any});
+    });
+    s.addText("IdeaMap · ideamaponline.org", {x:0.5,y:5.15,w:9,h:0.25,fontSize:8,color:"555555",align:"center",fontFace:"Arial"});
+
+    await prs.writeFile({fileName: `PresentationComite_${proj?.projectName || "IdeaMap"}.pptx`});
+  } catch (e) {
+    console.error("Comité PPTX error:", e);
+    showToast(lang==="ar"?"فشل إنشاء ملف PowerPoint":lang==="fr"?"Erreur lors de la création du fichier PowerPoint":"PowerPoint generation failed", "error");
+  }
+}
+
 /* ════════════════════════════════════════════════════════
    HOLDER APP
 ════════════════════════════════════════════════════════ */
@@ -2065,6 +2234,7 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [dlLang, setDlLang]                 = useState(lang);
   const [pitchBusy, setPitchBusy]           = useState(false);
   const [qaBusy, setQABusy]                 = useState(false);
+  const [docxBusy, setDocxBusy]             = useState<"projet" | "technique" | "plan" | null>(null);
   const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
   // Keep download language in sync with the UI language unless the user has explicitly overridden it
   useEffect(() => { setDlLang(lang); }, [lang]);
@@ -2653,6 +2823,33 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
 
   const dlPPTX = (type: "pitch" | "jury", exportLang: string = dlLang) =>
     generatePptxDeck(type, exportLang, {proj, plan, budget, comp, docs, logo, profile: user.profile, name: user.name}, lang, showToast);
+
+  // The other 3 of the dossier's 4 files for a holder's own flow — same
+  // generators CoordDash's downloadHolderDocument uses, so a holder gets
+  // the exact same real PPTX/DOCX a coordinator would pull on their behalf.
+  const dlComitePresentation = (exportLang: string = dlLang) =>
+    generateComitePresentation(exportLang, {proj, plan, budget, comp, profile: user.profile, name: user.name, numero: user.id}, lang, showToast);
+
+  const dlDossierDocx = async (kind: "projet" | "technique" | "plan", exportLang: string = dlLang) => {
+    setDocxBusy(kind);
+    try {
+      const data: DossierData = {proj, plan, budget, comp, profile: user.profile, name: user.name};
+      const docxLib = await import("docx");
+      const docxLang = exportLang as DocxLang;
+      let blob: Blob; let filename: string;
+      if (kind === "projet") { blob = await buildFicheProjetDoc(docxLib, data, docxLang, false); filename = `FicheProjet_${proj?.projectName||"IdeaMap"}.docx`; }
+      else if (kind === "technique") { blob = await buildFicheTechniqueDoc(docxLib, data, docxLang, false); filename = `FicheTechnique_${proj?.projectName||"IdeaMap"}.docx`; }
+      else { blob = await buildBusinessPlanDoc(docxLib, data, docxLang, false); filename = `BusinessPlan_${proj?.projectName||"IdeaMap"}.docx`; }
+      const url = URL.createObjectURL(blob);
+      Object.assign(document.createElement("a"), {href: url, download: filename}).click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      console.error("DOCX export error:", e);
+      showToast(lang==="ar"?"فشل إنشاء الملف":lang==="fr"?"Erreur lors de la création du fichier":"File generation failed", "error");
+    } finally {
+      setDocxBusy(null);
+    }
+  };
 
   // ── Fiche Synthétique — 1-page HTML print-to-PDF ──────────────────────────
   const dlFicheSynthetique = (exportLang: string = dlLang) => {
@@ -5091,6 +5288,14 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   {icon:"🎤", l:eAr?"عرض تقديمي للممولين (5 شرائح)":eEn?"Investor Pitch Deck — 5 slides":"Pitch Deck Investisseur — 5 diapositives", ok:!!plan,
                     onDl:() => dlPPTX("pitch", dlLang), badge:"pptx"},
                   {icon:"🏛️", l:TXT.jury, ok:!!proj, onDl:() => dlPPTX("jury", dlLang), badge:"pptx"},
+                  {icon:"🏛️", l:eAr?"عرض اللجنة (10 شرائح)":eEn?"Committee Presentation — 10 slides":"Présentation Comité — 10 diapositives",
+                    ok:!!proj, onDl:() => dlComitePresentation(dlLang), badge:"pptx"},
+                  {icon:"📋", l:eAr?"بطاقة المشروع":eEn?"Fiche Projet":"Fiche Projet", ok:!!proj,
+                    onDl:() => dlDossierDocx("projet", dlLang), badge:docxBusy==="projet"?"...":"docx"},
+                  {icon:"🔧", l:eAr?"البطاقة التقنية":eEn?"Fiche Technique":"Fiche Technique", ok:!!budget?.items,
+                    onDl:() => dlDossierDocx("technique", dlLang), badge:docxBusy==="technique"?"...":"docx"},
+                  {icon:"📈", l:eAr?"خطة الأعمال (Word)":eEn?"Business Plan (Word)":"Business Plan (Word)", ok:!!plan,
+                    onDl:() => dlDossierDocx("plan", dlLang), badge:docxBusy==="plan"?"...":"docx"},
                 ];
                 return items.map((x, i) => (
                   <div key={i} style={{display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px",
@@ -5193,6 +5398,8 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
   const [pptxBusy, setPptxBusy]       = useState<"pitch" | "jury" | null>(null);
   const [pptxLang, setPptxLang]       = useState(lang);
   const [pptxErr, setPptxErr]         = useState("");
+  const [docxBusy, setDocxBusy]       = useState<"projet" | "technique" | "plan" | "comite" | null>(null);
+  const [docxErr, setDocxErr]         = useState("");
   const [appUploading, setAppUploading] = useState(false);
   const [appErr, setAppErr]             = useState("");
   const [excelBusy, setExcelBusy]       = useState(false);
@@ -5224,6 +5431,46 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
         lang, (msg) => setPptxErr(msg));
     } finally {
       setPptxBusy(null);
+    }
+  };
+
+  // The other 3 of the dossier's 4 files (§1: Présentation comité PPTX +
+  // Fiche projet/technique/Business plan DOCX) — Fiche Projet/Technique/
+  // Business Plan are real .docx via the shared lib/ideamap/dossier/
+  // generators.ts module; "comite" reuses generateComitePresentation above,
+  // same pattern as downloadHolderDeck. A holder completing their own
+  // dialogue is never an "assumption" (assumptions only arise from a bulk
+  // Excel import's sector-benchmark fallback, not yet built), so isAssumed
+  // is always false here.
+  const downloadHolderDocument = async (h: any, kind: "projet" | "technique" | "plan" | "comite") => {
+    setDocxBusy(kind); setDocxErr("");
+    try {
+      const data: DossierData = {proj: h.proj, plan: h.plan, budget: h.budget, comp: h.comp, profile: h.profile, name: h.name};
+      if (kind === "comite") {
+        await generateComitePresentation(pptxLang, {...data, numero: h.id}, lang, (msg) => setDocxErr(msg));
+        return;
+      }
+      const docxLib = await import("docx");
+      const docxLang = pptxLang as DocxLang;
+      let blob: Blob; let filename: string;
+      if (kind === "projet") {
+        blob = await buildFicheProjetDoc(docxLib, data, docxLang, false);
+        filename = `FicheProjet_${h.proj?.projectName || h.id}.docx`;
+      } else if (kind === "technique") {
+        blob = await buildFicheTechniqueDoc(docxLib, data, docxLang, false);
+        filename = `FicheTechnique_${h.proj?.projectName || h.id}.docx`;
+      } else {
+        blob = await buildBusinessPlanDoc(docxLib, data, docxLang, false);
+        filename = `BusinessPlan_${h.proj?.projectName || h.id}.docx`;
+      }
+      const url = URL.createObjectURL(blob);
+      Object.assign(document.createElement("a"), {href: url, download: filename}).click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      console.error("DOCX export error:", e);
+      setDocxErr(lang==="ar"?"فشل إنشاء الملف":lang==="fr"?"Erreur lors de la création du fichier":"File generation failed");
+    } finally {
+      setDocxBusy(null);
     }
   };
   const qText = (q: CoordQuestion) => q[lang as "fr"|"ar"|"en"] || q.fr;
@@ -5464,6 +5711,29 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
                     : `⚖️ ${lang==="ar"?"دوسيي اللجنة (.pptx)":lang==="fr"?"Dossier Jury (.pptx)":"Dossier Jury (.pptx)"}`}
                 </button>
               </div>
+
+              <div style={{fontSize:11, color:GR, fontWeight:700, textTransform:"uppercase", margin:"14px 0 8px"}}>
+                {lang==="ar"?"ملف المشروع الكامل (اللجنة)":lang==="fr"?"Dossier complet du projet (comité)":"Full project dossier (committee)"}
+              </div>
+              <div style={{display:"flex", gap:"10px", flexWrap:"wrap"}}>
+                {([
+                  {kind:"comite" as const, icon:"🏛️", label:{ar:"عرض اللجنة (.pptx)",fr:"Présentation Comité (.pptx)",en:"Committee Presentation (.pptx)"}},
+                  {kind:"projet" as const, icon:"📋", label:{ar:"بطاقة المشروع (.docx)",fr:"Fiche Projet (.docx)",en:"Fiche Projet (.docx)"}},
+                  {kind:"technique" as const, icon:"🔧", label:{ar:"البطاقة التقنية (.docx)",fr:"Fiche Technique (.docx)",en:"Fiche Technique (.docx)"}},
+                  {kind:"plan" as const, icon:"📈", label:{ar:"خطة الأعمال (.docx)",fr:"Business Plan (.docx)",en:"Business Plan (.docx)"}},
+                ]).map(btn => (
+                  <button key={btn.kind} onClick={() => downloadHolderDocument(h, btn.kind)} disabled={docxBusy!==null}
+                    style={{padding:"10px 16px", borderRadius:"10px", border:`1.5px solid ${CD}`,
+                      background: docxBusy===btn.kind ? CD : WH, color: docxBusy===btn.kind ? WH : ND,
+                      fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor: docxBusy!==null ? "default" : "pointer"}}>
+                    {docxBusy===btn.kind
+                      ? (lang==="ar"?"جارٍ الإنشاء...":lang==="fr"?"Génération...":"Generating...")
+                      : `${btn.icon} ${btn.label[lang as "ar"|"fr"|"en"] || btn.label.fr}`}
+                  </button>
+                ))}
+              </div>
+              {docxErr && <div style={{marginTop:10, padding:"8px 12px", background:`${RE}12`,
+                border:`1px solid ${RE}44`, borderRadius:8, fontSize:12, color:RE}}>{docxErr}</div>}
               {pptxErr && <div style={{marginTop:10, padding:"8px 12px", background:`${RE}12`,
                 border:`1px solid ${RE}44`, borderRadius:8, fontSize:12, color:RE}}>{pptxErr}</div>}
               {!h.plan && <div style={{fontSize:12, color:GR, marginTop:6}}>
