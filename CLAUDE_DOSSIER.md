@@ -8,9 +8,9 @@ that must hold regardless of whether a dossier originated from a holder's
 own guided dialogue or a coordinator's bulk committee-Excel import.
 
 Code: `lib/ideamap/dossier/` (`schema.ts`, `questions.ts`, `finance.ts`,
-`version.ts`). Nothing in this document describes behavior that isn't either
-already shipped in `app/ideamap/page.tsx` or scaffolded (inert, not yet
-wired in) under `lib/`.
+`version.ts`, `generators.ts`). Nothing in this document describes behavior
+that isn't either already shipped in `app/ideamap/page.tsx` or scaffolded
+(inert, not yet wired in) under `lib/`.
 
 ---
 
@@ -26,9 +26,11 @@ wired in) under `lib/`.
 Both paths build the exact same `ProjectProfile` / `BusinessPlan` / `Budget`
 / `Compliance` shapes (see `lib/ideamap/dossier/schema.ts`) so every
 downstream consumer — the Plan/Budget/Compliance screens, `generatePptxDeck`,
-a future DOCX/committee-Excel generator — works identically no matter which
-path produced the data. A dossier imported in bulk is not a second-class
-citizen of a dossier a holder typed themselves.
+`generateComitePresentation`, the three DOCX generators in
+`lib/ideamap/dossier/generators.ts` — works identically no matter which path
+produced the data. A dossier imported in bulk is not a second-class citizen
+of a dossier a holder typed themselves; once the bulk importer exists, the
+exact same four generators apply to it unchanged.
 
 The coordinator-upload "Import application answers" feature (shipped,
 `app/api/parse-application/route.ts`) is the single-holder precedent for
@@ -60,8 +62,28 @@ avoid two names for one thing.
 - **compliance** — `Compliance` / jury score (`checkComp()`,
   `buildLocalCompliance`).
 - **documents** — per-document checklist + attachments.
-- **export** — download the Pitch Deck or Dossier Jury PPTX
-  (`generatePptxDeck`), in fr/ar/en.
+- **export** — download the dossier's files, in fr/ar/en: the holder-facing
+  Pitch Deck and jury-scoring Dossier Jury PPTX (`generatePptxDeck`), plus
+  the full 4-file committee dossier (§3a below). A coordinator gets the same
+  4 files for any of their holders from `CoordDash`'s holder-detail view
+  (`downloadHolderDeck` / `downloadHolderDocument`).
+
+### 3a. The dossier's 4 files (§1 of the build plan)
+
+| File | Generator | Format |
+|---|---|---|
+| Présentation comité | `generateComitePresentation` (`app/ideamap/page.tsx`, next to `generatePptxDeck` for shared pptxgenjs styling helpers) | PPTX, 10 slides, Arabic by default (fr/en selectable, matching the rest of the app) |
+| Fiche Projet | `buildFicheProjetDoc` (`lib/ideamap/dossier/generators.ts`) | DOCX |
+| Fiche Technique | `buildFicheTechniqueDoc` (`lib/ideamap/dossier/generators.ts`) | DOCX |
+| Business Plan | `buildBusinessPlanDoc` (`lib/ideamap/dossier/generators.ts`) | DOCX |
+
+All four build entirely from `ProjectProfile`/`BusinessPlan`/`Budget`/
+`Compliance` already on the dossier — no AI call, per §2's "generators must
+never depend on the AI being up." Each DOCX generator takes an `isAssumed`
+flag (always `false` today, since both the holder flow and the coordinator
+upload are always holder-sourced data); once the bulk importer exists and a
+dossier is built from a sector benchmark rather than a holder's own answer,
+that flag drives the §4.3 "hypothèses" note printed into the document.
 
 ## 3. `ProjectProfile` / `BusinessPlan` / `Budget` / `Compliance`
 
@@ -159,6 +181,18 @@ in):**
 **Wired into the live app today:**
 - `HOLDER_QUESTIONS` — `HolderApp`'s `BUILTIN_FIXED_Q` now imports this
   instead of declaring its own copy (pure refactor, no behavior change).
+- The dossier's full 4 files (§3a): `generateComitePresentation` (PPTX,
+  10 slides) plus `buildFicheProjetDoc` / `buildFicheTechniqueDoc` /
+  `buildBusinessPlanDoc` (DOCX), reachable both from a holder's own export
+  step and from `CoordDash`'s holder-detail "Dossier complet" section.
+  Verified end-to-end (Playwright + python-docx/zip inspection): real,
+  valid files with correct per-role data, correct 10-slide structure, and
+  working fr/ar language switching.
+- `generateHoldersExcel` + the HelpAgent `actions` allow-list (PR #100) —
+  a real `.xlsx` holders-list export, triggerable from chat or a quick-action
+  chip. Note: this is a reporting export (one row per holder), distinct from
+  the per-project dossier files above and from the future `buildCommitteeExcel`
+  (§4.5's consolidated *Projets*+*Récapitulatif* import-level export).
 
 **Explicitly NOT touched in this phase**, per the "no change to login and
 information page" instruction: the `Login` component, `onLogin()`, and the
