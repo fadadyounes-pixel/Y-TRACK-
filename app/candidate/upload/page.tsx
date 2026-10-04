@@ -7,9 +7,14 @@ import PageHeader from '../../../components/PageHeader';
 import Icon, { type IconName } from '../../../components/Icon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, inferEducationLevel } from '@/lib/matching';
-import { generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, CV_LAYOUTS, CV_THEMES, type WorkEntry } from '@/lib/cvTemplate';
+import {
+  generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, parseTemplateId, templateId, cvFileName,
+  CV_LAYOUTS, CV_PALETTES, inferDiplomaLevel, DIPLOMA_LEVELS,
+  type WorkEntry, type Education,
+} from '@/lib/cvTemplate';
 import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 import { scoreCV, scoreBandStyle } from '@/lib/cvScore';
+import { cvAgentSystemPrompt } from '@/lib/cvAgent';
 
 const SKILL_SUGGESTIONS: Record<string, string[]> = {
   Technology:         ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'SQL', 'Docker', 'Git', 'REST APIs', 'SAP'],
@@ -28,11 +33,6 @@ const SKILL_SUGGESTIONS: Record<string, string[]> = {
 const LANGUAGES = ['Français', 'Anglais', 'Arabe', 'Espagnol', 'Allemand', 'Néerlandais', 'Italien', 'Portugais'];
 const LANGUAGE_LEVELS = ['Débutant', 'Intermédiaire', 'Avancé', 'Courant', 'Langue maternelle'];
 
-const MOROCCO_CONTEXT = `MARCHÉ DE L'EMPLOI MAROCAIN — CONTEXTE EXPERT:
-Secteurs porteurs: BTP/Immobilier, Industrie automobile (Renault-Nissan Tanger, PSA Kénitra), Textile/Habillement, Tourisme (hôtellerie 5*, guides), Agro-alimentaire (OCP, Centrale Danone, Cosumar), Numérique/TIC (CBI, IBM Maroc, Capgemini), Banque/Finance (Attijariwafa Bank, BMCE Bank, Banque Populaire, CIH, BMCI), Énergie renouvelable (MASEN, IRESEN), Santé.
-Diplômes reconnus: Baccalauréat, DUT/BTS/DEUST (Bac+2), Licence professionnelle (Bac+3), Master/MBA (Bac+5), Doctorat, Diplômes OFPPT (TSGE, TSI, TH, TC, TP...), Grandes écoles (EHTP, EMI, ENSAM, ENSA, ENCG, ISCAE, HEM, ENAM, Polytechnique).
-Langues: Français (langue professionnelle dominante), Arabe classique (obligatoire dans la fonction publique), Anglais (exigé dans le numérique et les multinationales), Espagnol (nord du Maroc, tourisme).
-Format CV marocain idéal: sobre et professionnel, rédigé en français, 1-2 pages max, avec photo recommandée, accroche/objectif professionnel en entête, expériences en ordre chronologique inverse, compétences techniques et linguistiques clairement listées. Ne jamais inclure le numéro de CIN sur le CV — c'est une donnée d'identité sensible qui n'a pas sa place dans un document envoyé à des recruteurs.`;
 
 type Step = 'cv' | 'preview' | 'jobs';
 
@@ -86,14 +86,27 @@ export default function CandidateUpload() {
     });
   };
   const setLangLevel = (l: string, level: string) => setLanguageLevels(prev => ({ ...prev, [l]: level }));
-  const [work, setWork] = useState<WorkEntry[]>([{ company: '', title: '', startDate: '', endDate: '', description: '' }]);
-  const [education, setEducation] = useState({ degree: '', institution: '', year: '' });
+  const [work, setWork] = useState<WorkEntry[]>([{ company: '', title: '', city: '', startDate: '', endDate: '', description: '' }]);
+  const [education, setEducation] = useState<Education[]>([{ degree: '', institution: '', year: '' }]);
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [certifications, setCertifications] = useState<string[]>([]);
-  // CV visual style is always auto-assigned (deterministic from the candidate's
-  // ID) and never exposed or made changeable in the UI — candidates should
-  // just get a finished, professional CV, not a "pick your template" step.
+  const [interests, setInterests] = useState<string[]>([]);
   const [showAllTips, setShowAllTips] = useState(false);
+
+  // Target job title / professional headline, shown under the name on the CV.
+  const [title, setTitle] = useState('');
+
+  // Moroccan-market optional personal fields (spec §3) — each has its own
+  // visibility toggle; hidden by default (empty string = not shown on the CV).
+  const [birthDate, setBirthDate] = useState('');
+  const [maritalStatus, setMaritalStatus] = useState('');
+  const [nationality, setNationality] = useState('');
+  const [drivingLicense, setDrivingLicense] = useState('');
+  const [availability, setAvailability] = useState('');
+  const [mobility, setMobility] = useState('');
+
+  // CV content language — independent of the (French-only) app UI.
+  const [cvLang, setCvLang] = useState<'fr' | 'ar' | 'en'>('fr');
 
   // AI template helpers
   const [enhancing, setEnhancing] = useState(false);
@@ -124,10 +137,12 @@ export default function CandidateUpload() {
   const [photoErr, setPhotoErr] = useState('');
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // CV design — 10 professional layouts to choose from (see CV_LAYOUTS). Null
-  // means "use the auto-assigned design" (deterministic from the candidate's
-  // ID, so it stays stable until they explicitly pick one here).
+  // CV design — 100 templates (10 layouts x 10 palettes, see CV_LAYOUTS /
+  // CV_PALETTES). Null means "use the auto-assigned pick" (deterministic from
+  // the candidate's ID, so it stays stable until they explicitly pick one).
   const [layoutOverride, setLayoutOverride] = useState<string | null>(null);
+  const [paletteOverride, setPaletteOverride] = useState<string | null>(null);
+  const [gallerySector, setGallerySector] = useState('all');
 
   function handlePhotoUpload(file: File) {
     setPhotoErr('');
@@ -175,11 +190,12 @@ export default function CandidateUpload() {
         if (info.languages?.length) setLanguages(info.languages);
         if (info.languageLevels) setLanguageLevels(info.languageLevels);
         if (info.diploma || info.institution || info.graduationYear) {
-          setEducation(p => ({
-            degree: info.diploma || p.degree,
-            institution: info.institution || p.institution,
-            year: info.graduationYear || p.year,
-          }));
+          setEducation(p => [{
+            degree: info.diploma || p[0]?.degree || '',
+            institution: info.institution || p[0]?.institution || '',
+            year: info.graduationYear || p[0]?.year || '',
+            level: info.diploma ? inferDiplomaLevel(info.diploma) : p[0]?.level,
+          }, ...p.slice(1)]);
         }
       }
     } catch {}
@@ -191,11 +207,22 @@ export default function CandidateUpload() {
         if (cv.summary) setSummary(cv.summary);
         if (cv.skills?.length) setSkills(cv.skills);
         if (cv.work?.length) setWork(cv.work);
-        if (cv.education?.degree || cv.education?.institution) setEducation(cv.education);
+        if (Array.isArray(cv.education) && cv.education.length) setEducation(cv.education);
+        else if (cv.education?.degree || cv.education?.institution) setEducation([cv.education]);
+        if (cv.interests?.length) setInterests(cv.interests);
+        if (cv.title) setTitle(cv.title);
+        if (cv.birthDate) setBirthDate(cv.birthDate);
+        if (cv.maritalStatus) setMaritalStatus(cv.maritalStatus);
+        if (cv.nationality) setNationality(cv.nationality);
+        if (cv.drivingLicense) setDrivingLicense(cv.drivingLicense);
+        if (cv.availability) setAvailability(cv.availability);
+        if (cv.mobility) setMobility(cv.mobility);
+        if (cv.cvLang) setCvLang(cv.cvLang);
         if (cv.targetRoles?.length) setTargetRoles(cv.targetRoles);
         if (cv.certifications?.length) setCertifications(cv.certifications);
         if (cv.experience) setExperience(cv.experience);
         if (cv.cvLayout) setLayoutOverride(cv.cvLayout);
+        if (cv.cvPalette) setPaletteOverride(cv.cvPalette);
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,9 +232,15 @@ export default function CandidateUpload() {
   useEffect(() => {
     if (!user) return;
     try {
-      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({ summary, skills, work, education, targetRoles, certifications, experience, cvLayout: layoutOverride }));
+      localStorage.setItem(`tm_cv_${user.idNumber}`, JSON.stringify({
+        summary, skills, work, education, targetRoles, certifications, interests, experience, title,
+        birthDate, maritalStatus, nationality, drivingLicense, availability, mobility, cvLang,
+        cvLayout: layoutOverride, cvPalette: paletteOverride,
+      }));
     } catch {}
-  }, [user, summary, skills, work, education, targetRoles, certifications, experience, layoutOverride]);
+  }, [user, summary, skills, work, education, targetRoles, certifications, interests, experience, title,
+      birthDate, maritalStatus, nationality, drivingLicense, availability, mobility, cvLang,
+      layoutOverride, paletteOverride]);
 
   // Load jobs + this candidate's applications from Redis
   useEffect(() => {
@@ -267,7 +300,11 @@ export default function CandidateUpload() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Poste: ${job.title} (${job.sector}, ${job.experience})\nRequis: ${(job.skills || []).join(', ')}\nProfil: ${ctx}` }],
-          system: `Expert RH Maroc. JSON uniquement: {"summary":"accroche 2-3 phrases avec compétences alignées et verbes d'action","skills":["8 compétences priorisées pour ce poste"]}`,
+          system: cvAgentSystemPrompt({
+            mode: 'tailor',
+            cvLang,
+            outputContract: 'Génère UNIQUEMENT ce JSON valide (sans markdown): {"summary":"accroche 2-3 phrases avec compétences alignées et verbes d\'action","skills":["8 compétences priorisées pour ce poste"]}',
+          }),
           task: 'fast', max_tokens: 350,
         }),
       })
@@ -284,23 +321,30 @@ export default function CandidateUpload() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, coordJobs, name, skillsKey]);
 
-  // CV color theme is always deterministically derived from the candidate's
-  // ID (kept consistent regardless of which of the 10 designs they pick).
-  // The layout (the actual "design") defaults to that same deterministic
-  // pick but can be overridden by the candidate via the design picker below.
-  const autoStyle = useMemo(() => pickStyle(user?.idNumber || email || name), [user, email, name]);
-  const effectiveStyle = useMemo(
-    () => ({ layout: layoutOverride || autoStyle.layout, theme: autoStyle.theme }),
-    [layoutOverride, autoStyle]
+  // Template id (layout + palette) is deterministically derived from the
+  // candidate's ID by default, and can be overridden piece-by-piece (layout
+  // and/or palette independently) via the template gallery below.
+  const autoStyle = useMemo(() => parseTemplateId(pickStyle(user?.idNumber || email || name).templateId), [user, email, name]);
+  const effectiveTemplateId = useMemo(
+    () => templateId(layoutOverride || autoStyle.layout.id, paletteOverride || autoStyle.palette.id),
+    [layoutOverride, paletteOverride, autoStyle]
   );
+  const effectiveStyle = useMemo(() => ({ templateId: effectiveTemplateId }), [effectiveTemplateId]);
 
   const cvHtml = useMemo(() => {
     if (!user) return '';
     return generateCVHtml(
-      { name, email, phone, address, idNumber: user.idNumber ?? '', summary, skills, languages, languageLevels, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio },
+      {
+        name, email, phone, address, idNumber: user.idNumber ?? '', title, summary, skills, languages, languageLevels,
+        experience, sector, work, education, targetRoles, certifications, interests, photo, linkedin, portfolio,
+        birthDate, maritalStatus, nationality, drivingLicense, availability, mobility, cvLang,
+        isJunior: experience === 'Entry-Level',
+      },
       effectiveStyle
     );
-  }, [user, name, email, phone, address, summary, skills, languages, languageLevels, experience, sector, work, education, targetRoles, certifications, photo, linkedin, portfolio, effectiveStyle]);
+  }, [user, name, email, phone, address, title, summary, skills, languages, languageLevels, experience, sector, work,
+      education, targetRoles, certifications, interests, photo, linkedin, portfolio, birthDate, maritalStatus,
+      nationality, drivingLicense, availability, mobility, cvLang, effectiveStyle]);
 
   // Free, deterministic CV health check — no AI call needed, so it's instant
   // and always available even if the AI provider cascade is degraded.
@@ -463,7 +507,11 @@ export default function CandidateUpload() {
     setProcessStep('enhancing');
     let extracted: any = null;
     let enhanced: any = null;
-    const SYS = `Tu es un directeur RH senior avec 15 ans d'expérience sur le marché marocain. Tu maîtrises les attentes des recruteurs des grandes entreprises marocaines (Attijariwafa, OCP, Renault Tanger, Capgemini Maroc, Lydec, Marjane, etc.).\n\n${MOROCCO_CONTEXT}\n\nAnalyse ce CV et retourne UN SEUL objet JSON valide sans markdown, sans backticks, sans texte autour — UNIQUEMENT le JSON:\n{"name":"Prénom NOM exact","email":"email@example.com","phone":"+212XXXXXXXXX ou vide","address":"Ville, Maroc","sector":"secteur porteur marocain précis parmi: BTP, Technology, Finance, Marketing, Design, Operations, Data Science, Agro-alimentaire, Tourisme, Healthcare","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","skills":["15 compétences techniques ET comportementales prioritaires pour ce profil sur le marché marocain — mélange hard skills (outils, logiciels, certifications) et soft skills (leadership, gestion projet, communication clients)"],"summary":"Accroche professionnelle PERCUTANTE de 3-4 phrases en français. Commence par une phrase d'impact (ex: Ingénieur financier avec 7 ans d'expérience...). Utilise des verbes d'action forts: développé, piloté, optimisé, géré, coordonné, animé, réalisé, déployé, supervisé. Inclure secteur, niveau, valeur ajoutée concrète pour l'employeur marocain.","work":[{"company":"nom entreprise","title":"poste exact","startDate":"MM/AAAA","endDate":"MM/AAAA ou Présent","description":"2-3 bullet points séparés par \\n, chaque bullet commence par un verbe d'action fort et inclut des résultats chiffrés si disponibles (ex: Piloté une équipe de 8 personnes pour déployer ERP SAP sur 3 sites, réduisant les délais de traitement de 40%)"}],"education":{"degree":"diplôme exact","institution":"école ou université","year":"AAAA"},"languages":["Français","Arabe","Anglais","etc — seulement les langues présentes dans le CV"],"targetRoles":["3-4 postes cibles réalistes et précis au Maroc correspondant exactement au profil"],"certifications":["3-4 certifications concrètes et obtainables au Maroc pour renforcer l'employabilité — citer des certifications reconnues: PMP, AWS, CCNA, CFA, ACCA, Six Sigma, etc."]}`;
+    const SYS = cvAgentSystemPrompt({
+      mode: 'extract',
+      cvLang,
+      outputContract: `Analyse ce CV et retourne UN SEUL objet JSON valide sans markdown, sans backticks, sans texte autour — UNIQUEMENT le JSON:\n{"name":"Prénom NOM exact","email":"email@example.com","phone":"+212XXXXXXXXX ou vide","address":"Ville, Maroc","sector":"secteur porteur marocain précis parmi: BTP, Technology, Finance, Marketing, Design, Operations, Data Science, Agro-alimentaire, Tourisme, Healthcare","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","skills":["15 compétences techniques ET comportementales prioritaires pour ce profil sur le marché marocain — mélange hard skills (outils, logiciels, certifications) et soft skills (leadership, gestion projet, communication clients)"],"summary":"Accroche professionnelle PERCUTANTE de 3-4 phrases. Commence par une phrase d'impact (ex: Ingénieur financier avec 7 ans d'expérience...). Utilise des verbes d'action forts: développé, piloté, optimisé, géré, coordonné, animé, réalisé, déployé, supervisé. Inclure secteur, niveau, valeur ajoutée concrète pour l'employeur marocain.","work":[{"company":"nom entreprise","title":"poste exact","startDate":"MM/AAAA","endDate":"MM/AAAA ou Présent","description":"2-3 bullet points séparés par \\n, chaque bullet commence par un verbe d'action fort et inclut des résultats chiffrés si disponibles (ex: Piloté une équipe de 8 personnes pour déployer ERP SAP sur 3 sites, réduisant les délais de traitement de 40%)"}],"education":{"degree":"diplôme exact","institution":"école ou université","year":"AAAA"},"languages":["Français","Arabe","Anglais","etc — seulement les langues présentes dans le CV"],"targetRoles":["3-4 postes cibles réalistes et précis au Maroc correspondant exactement au profil"],"certifications":["3-4 certifications concrètes et obtainables au Maroc pour renforcer l'employabilité — citer des certifications reconnues: PMP, AWS, CCNA, CFA, ACCA, Six Sigma, etc."]}`,
+    });
 
     for (let attempt = 0; attempt < 3 && !extracted; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * attempt));
@@ -498,7 +546,7 @@ export default function CandidateUpload() {
     if (extracted.phone)      setPhone(extracted.phone);
     if (extracted.address)    setAddress(extracted.address);
     if (extracted.work?.length)     setWork(extracted.work.filter((w: any) => w.company || w.title));
-    if (extracted.education?.degree) setEducation(extracted.education);
+    if (extracted.education?.degree) setEducation([extracted.education]);
     if (extracted.languages?.length) setLanguages(extracted.languages.filter((l: string) => LANGUAGES.includes(l)));
     setSummary(finalSummary);
     setSkills(finalSkills);
@@ -528,8 +576,8 @@ export default function CandidateUpload() {
           targetRoles: finalRoles,
           certifications: finalCerts.length ? finalCerts : certifications,
           work: extracted.work?.length ? extracted.work.filter((w: any) => w.company || w.title) : work,
-          education: extracted.education?.degree ? extracted.education : education,
-          educationLevel: inferEducationLevel(extracted.education?.degree || education.degree),
+          education: extracted.education?.degree ? [extracted.education] : education,
+          educationLevel: inferEducationLevel(extracted.education?.degree || education[0]?.degree),
           languages: extracted.languages?.length
             ? extracted.languages.filter((l: string) => LANGUAGES.includes(l))
             : languages,
@@ -571,13 +619,17 @@ export default function CandidateUpload() {
         name && `Nom: ${name}`, experience && `Niveau: ${experience}`, sector && `Secteur: ${sector}`,
         skills.length && `Compétences: ${skills.join(', ')}`,
         work.some(w => w.company) && `Expériences: ${work.filter(w => w.company).map(w => `${w.title} chez ${w.company}`).join('; ')}`,
-        education.degree && `Formation: ${education.degree} - ${education.institution}`,
+        education[0]?.degree && `Formation: ${education[0].degree} - ${education[0].institution}`,
         languages.length && `Langues: ${languages.join(', ')}`,
         summary && `Brouillon: "${summary}"`,
       ].filter(Boolean).join('\n');
       const text = await callAI(
         [{ role: 'user', content: `Rédige un profil professionnel pour ce candidat:\n${ctx}` }],
-        `Tu es un expert en recrutement au Maroc. Rédige une accroche professionnelle percutante de 3-4 phrases en français pour un professionnel ${experience} dans le secteur ${sector}. Utilise des verbes d'action forts (développé, piloté, optimisé, géré, coordonné...). Retourne UNIQUEMENT le texte du profil.\n\n${MOROCCO_CONTEXT}`,
+        cvAgentSystemPrompt({
+          mode: 'rewrite-summary',
+          cvLang,
+          outputContract: `Rédige une accroche professionnelle percutante de 3-4 phrases pour un professionnel ${experience} dans le secteur ${sector}. Retourne UNIQUEMENT le texte du profil, sans titre ni guillemets.`,
+        }),
         'fast'
       );
       if (text) setSummary(cleanAIText(text));
@@ -591,7 +643,11 @@ export default function CandidateUpload() {
     try {
       const text = await callAI(
         [{ role: 'user', content: `Suggère 10 compétences clés pour un professionnel ${experience} dans le secteur ${sector} au Maroc. Retourne UNIQUEMENT un tableau JSON comme ["Compétence1","Compétence2",...].` }],
-        `Tu es un expert RH au Maroc. Retourne uniquement un tableau JSON de chaînes.\n\n${MOROCCO_CONTEXT}`,
+        cvAgentSystemPrompt({
+          mode: 'suggest-skills',
+          cvLang,
+          outputContract: 'Retourne UNIQUEMENT un tableau JSON de chaînes, sans markdown ni texte autour.',
+        }),
         'fast'
       );
       const m = text.match(/\[[\s\S]*?\]/);
@@ -612,7 +668,11 @@ export default function CandidateUpload() {
       const raw = w.description?.trim() || `a travaillé comme ${w.title || 'employé'} chez ${w.company || 'une entreprise'}`;
       const text = await callAI(
         [{ role: 'user', content: `Poste: ${w.title || '?'} chez ${w.company || '?'} (secteur: ${sector})\nDescription brute: "${raw}"\nRéécris en 2-3 bullet points professionnels avec verbes d'action forts et résultats mesurables.` }],
-        `Expert RH Maroc. Réécris en 2-3 points courts commençant par un tiret (-) et un verbe d'action fort en français (développé, piloté, optimisé, géré, réalisé, animé, coordonné…). Ajoute des chiffres si possible. Retourne UNIQUEMENT les bullet points, sans titre ni introduction.\n\n${MOROCCO_CONTEXT}`,
+        cvAgentSystemPrompt({
+          mode: 'rewrite-bullets',
+          cvLang,
+          outputContract: 'Réécris en 2-3 points courts commençant par un tiret (-). Ajoute des chiffres uniquement si déjà fournis. Retourne UNIQUEMENT les bullet points, sans titre ni introduction.',
+        }),
         'fast',
         280
       );
@@ -628,7 +688,7 @@ export default function CandidateUpload() {
       fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, languageLevels, cvStyle: effectiveStyle, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
+        body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education[0]?.degree), languages, languageLevels, cvStyle: effectiveStyle, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
       }).catch(() => {});
       setStep('preview');
       return;
@@ -640,7 +700,7 @@ export default function CandidateUpload() {
       `Niveau: ${experience}`, `Secteur: ${sector}`,
       skills.length && `Compétences: ${skills.slice(0, 12).join(', ')}`,
       work.some(w => w.company) && `Expériences: ${work.filter(w => w.company).map(w => `${w.title || 'Poste'} chez ${w.company}`).join('; ')}`,
-      education.degree && `Formation: ${education.degree}${education.institution ? ' – ' + education.institution : ''}`,
+      education[0]?.degree && `Formation: ${education[0].degree}${education[0].institution ? ' – ' + education[0].institution : ''}`,
       languages.length && `Langues: ${languages.join(', ')}`,
       !hasGoodSummary && summary.trim() && `Brouillon résumé: "${summary.slice(0, 180)}"`,
     ].filter(Boolean).join('\n');
@@ -649,7 +709,11 @@ export default function CandidateUpload() {
     try {
       const text = await callAI(
         [{ role: 'user', content: ctx }],
-        `Expert RH senior Maroc. Génère UNIQUEMENT ce JSON valide (sans markdown):\n{"summary":${!hasGoodSummary ? '"accroche 3-4 phrases percutantes verbes action pour recruteur marocain"' : 'null'},"targetRoles":${!hasRoles ? '["poste1","poste2","poste3"]' : 'null'},"certifications":${certifications.length === 0 ? '["certification1","certification2"]' : 'null'}}\n\n${MOROCCO_CONTEXT}`,
+        cvAgentSystemPrompt({
+          mode: 'extract',
+          cvLang,
+          outputContract: `Génère UNIQUEMENT ce JSON valide (sans markdown):\n{"summary":${!hasGoodSummary ? '"accroche 3-4 phrases percutantes avec verbes d\'action pour recruteur marocain"' : 'null'},"targetRoles":${!hasRoles ? '["poste1","poste2","poste3"]' : 'null'},"certifications":${certifications.length === 0 ? '["certification1","certification2"]' : 'null'}}`,
+        }),
         'fast',
         450
       );
@@ -665,7 +729,7 @@ export default function CandidateUpload() {
     fetch('/api/sheets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education.degree), languages, languageLevels, cvStyle: effectiveStyle, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
+      body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education[0]?.degree), languages, languageLevels, cvStyle: effectiveStyle, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
     }).catch(() => {});
     setGeneratingCV(false);
     setStep('preview');
@@ -696,7 +760,11 @@ export default function CandidateUpload() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: `Poste: ${job.title} chez ${job.company} (${job.sector}, ${job.experience})\nRequis: ${(job.skills || []).join(', ')}\nProfil: ${ctx}` }],
-          system: `Expert RH Maroc. JSON uniquement: {"summary":"accroche 2-3 phrases avec compétences alignées et verbes d'action","skills":["8 compétences priorisées pour ce poste"]}`,
+          system: cvAgentSystemPrompt({
+            mode: 'tailor',
+            cvLang,
+            outputContract: 'Génère UNIQUEMENT ce JSON valide (sans markdown): {"summary":"accroche 2-3 phrases avec compétences alignées et verbes d\'action","skills":["8 compétences priorisées pour ce poste"]}',
+          }),
           task: 'fast', max_tokens: 350,
         }),
         signal: controller.signal,
@@ -884,19 +952,61 @@ export default function CandidateUpload() {
             {/* ── Template form ── */}
             {cvSource === 'template' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* CV content language — independent of the app's own (French) UI */}
+                <div style={{ background: 'white', borderRadius: '14px', padding: '1.25rem 1.5rem', border: '1.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}><Icon name="globe" size={16}/>Langue du CV</h2>
+                    <p style={{ fontSize: '0.78rem', color: '#6b7280' }}>Le contenu de votre CV sera rédigé dans cette langue (indépendant de la langue de ce site).</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    {([['fr', 'Français'], ['ar', 'العربية'], ['en', 'English']] as const).map(([code, label]) => (
+                      <button key={code} onClick={() => setCvLang(code)} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: cvLang === code ? '1.5px solid #2563eb' : '1.5px solid #e5e7eb', background: cvLang === code ? '#eff6ff' : 'white', color: cvLang === code ? '#2563eb' : '#374151', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Personal info */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
                   <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="user" size={17}/>Informations personnelles</h2>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '1rem' }}>
                     {[
                       { label: 'Nom complet', val: name, set: setName, ph: 'Votre nom complet' },
+                      { label: 'Titre / Poste visé', val: title, set: setTitle, ph: 'Ex: Ingénieur Data Senior' },
                       { label: 'Email', val: email, set: setEmail, ph: 'email@exemple.com' },
-                      { label: 'Téléphone', val: phone, set: setPhone, ph: '+212 6 XX XX XX XX' },
                       { label: 'Adresse / Ville', val: address, set: setAddress, ph: 'Casablanca, Maroc' },
                     ].map(({ label, val, set, ph }) => (
                       <div key={label}><label style={lbl}>{label}</label><input value={val} onChange={e => set(e.target.value)} placeholder={ph} style={inp} /></div>
                     ))}
+                    <div>
+                      <label style={lbl}>Téléphone</label>
+                      <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+212 6 XX XX XX XX" style={inp} />
+                      {phone.trim() && !/^(\+212|0)[567]\d{8}$/.test(phone.replace(/[\s.-]/g, '')) && (
+                        <p style={{ fontSize: '0.72rem', color: '#d97706', marginTop: '0.3rem' }}>Format attendu : +212 6XX XX XX XX</p>
+                      )}
+                    </div>
                     <div><label style={lbl}>Numéro CIN</label><input value={user.idNumber} readOnly style={{ ...inp, background: '#f3f4f6', color: '#6b7280' }} /></div>
+                  </div>
+                </div>
+
+                {/* Optional Moroccan-market personal details — blank = hidden on the CV */}
+                <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="id-card" size={17}/>Détails complémentaires <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#9ca3af' }}>(optionnel)</span></h2>
+                  <p style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '1rem' }}>
+                    Laissez un champ vide pour qu'il n'apparaisse pas sur le CV. Il est recommandé de masquer la date de naissance et la situation familiale pour les candidatures auprès de multinationales.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '1rem' }}>
+                    <div><label style={lbl}>Date de naissance</label><input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} style={inp} /></div>
+                    <div>
+                      <label style={lbl}>Situation familiale</label>
+                      <select value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} style={inp}>
+                        <option value="">— Non renseigné —</option>
+                        {['Célibataire', 'Marié(e)', 'Divorcé(e)'].map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                    <div><label style={lbl}>Nationalité</label><input value={nationality} onChange={e => setNationality(e.target.value)} placeholder="Marocaine" style={inp} /></div>
+                    <div><label style={lbl}>Permis de conduire</label><input value={drivingLicense} onChange={e => setDrivingLicense(e.target.value)} placeholder="Permis B" style={inp} /></div>
+                    <div><label style={lbl}>Disponibilité</label><input value={availability} onChange={e => setAvailability(e.target.value)} placeholder="Immédiate" style={inp} /></div>
+                    <div><label style={lbl}>Mobilité</label><input value={mobility} onChange={e => setMobility(e.target.value)} placeholder="Maroc entier" style={inp} /></div>
                   </div>
                 </div>
 
@@ -946,7 +1056,7 @@ export default function CandidateUpload() {
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                     <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="building" size={17}/>Expériences professionnelles</h2>
-                    {work.length < 4 && <button onClick={() => setWork(p => [...p, { company: '', title: '', startDate: '', endDate: '', description: '' }])} style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>+ Ajouter</button>}
+                    {work.length < 4 && <button onClick={() => setWork(p => [...p, { company: '', title: '', city: '', startDate: '', endDate: '', description: '' }])} style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>+ Ajouter</button>}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {work.map((w, i) => (
@@ -974,11 +1084,30 @@ export default function CandidateUpload() {
 
                 {/* Education */}
                 <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
-                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="graduation-cap" size={17}/>Formation</h2>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
-                    <div><label style={lbl}>Diplôme</label><input value={education.degree} onChange={e => setEducation(p => ({ ...p, degree: e.target.value }))} placeholder="Licence, Master, OFPPT…" style={inp} /></div>
-                    <div><label style={lbl}>Établissement</label><input value={education.institution} onChange={e => setEducation(p => ({ ...p, institution: e.target.value }))} placeholder="Université, École…" style={inp} /></div>
-                    <div><label style={lbl}>Année</label><input value={education.year} onChange={e => setEducation(p => ({ ...p, year: e.target.value }))} placeholder="2022" style={inp} /></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                    <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="graduation-cap" size={17}/>Formation</h2>
+                    {education.length < 4 && <button onClick={() => setEducation(p => [...p, { degree: '', institution: '', year: '' }])} style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>+ Ajouter</button>}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {education.map((edu, i) => (
+                      <div key={i} style={{ padding: education.length > 1 ? '1rem' : 0, background: education.length > 1 ? '#f9fafb' : 'transparent', borderRadius: '10px', borderLeft: education.length > 1 ? '3px solid #2563eb' : 'none', position: 'relative' }}>
+                        {education.length > 1 && (
+                          <button onClick={() => setEducation(p => p.filter((_, xi) => xi !== i))} title="Supprimer" style={{ position: 'absolute', top: '0.6rem', right: '0.6rem', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '1rem', lineHeight: 1 }}>×</button>
+                        )}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '0.75rem' }}>
+                          <div><label style={lbl}>Diplôme</label><input value={edu.degree} onChange={e => setEducation(p => p.map((x, xi) => xi === i ? { ...x, degree: e.target.value } : x))} placeholder="Licence, Master, OFPPT…" style={inp} /></div>
+                          <div><label style={lbl}>Établissement</label><input value={edu.institution} onChange={e => setEducation(p => p.map((x, xi) => xi === i ? { ...x, institution: e.target.value } : x))} placeholder="Université, École…" style={inp} /></div>
+                          <div><label style={lbl}>Année</label><input value={edu.year} onChange={e => setEducation(p => p.map((x, xi) => xi === i ? { ...x, year: e.target.value } : x))} placeholder="2022" style={inp} /></div>
+                          <div>
+                            <label style={lbl}>Niveau</label>
+                            <select value={edu.level || inferDiplomaLevel(edu.degree) || ''} onChange={e => setEducation(p => p.map((x, xi) => xi === i ? { ...x, level: e.target.value } : x))} style={inp}>
+                              <option value="">Auto</option>
+                              {DIPLOMA_LEVELS.map(lv => <option key={lv} value={lv}>{lv}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -1054,6 +1183,22 @@ export default function CandidateUpload() {
                     {certifications.map(c => (
                       <span key={c} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fefce8', color: '#713f12', borderRadius: '9999px', padding: '0.28rem 0.75rem', fontSize: '0.8rem', fontWeight: 600, border: '1px solid #fde68a' }}>
                         <Icon name="award" size={13}/>{c}<button onClick={() => setCertifications(p => p.filter(x => x !== c))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: '0.9rem' }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Interests */}
+                <div style={{ background: 'white', borderRadius: '14px', padding: '1.5rem', border: '1.5px solid #e5e7eb' }}>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Icon name="heart" size={17}/>Centres d'intérêt <span style={{ fontSize: '0.72rem', fontWeight: 400, color: '#6b7280' }}>(optionnel)</span></h2>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.65rem' }}>
+                    <input id="interestIn" placeholder="Lecture, Football, Bénévolat…" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const v = (e.target as HTMLInputElement).value.trim(); if (v && !interests.includes(v)) { setInterests(p => [...p, v]); (e.target as HTMLInputElement).value = ''; } } }} style={{ ...inp, flex: 1 }} />
+                    <button onClick={() => { const el = document.getElementById('interestIn') as HTMLInputElement; const v = el?.value.trim(); if (v && !interests.includes(v)) { setInterests(p => [...p, v]); el.value = ''; } }} style={{ padding: '0.6rem 1.1rem', borderRadius: '8px', background: '#2563eb', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer' }}>+</button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    {interests.map(it => (
+                      <span key={it} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fdf2f8', color: '#9d174d', borderRadius: '9999px', padding: '0.28rem 0.75rem', fontSize: '0.8rem', fontWeight: 600, border: '1px solid #fbcfe8' }}>
+                        <Icon name="heart" size={12}/>{it}<button onClick={() => setInterests(p => p.filter(x => x !== it))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9d174d', fontSize: '0.9rem' }}>×</button>
                       </span>
                     ))}
                   </div>
@@ -1230,9 +1375,13 @@ export default function CandidateUpload() {
               <Icon name="lightbulb" size={14}/>La fenêtre d'impression s'ouvre directement. Choisissez <strong>"Enregistrer en PDF"</strong> pour télécharger votre CV.
             </p>
 
-            {/* Design picker — 10 professional CV designs, live preview below */}
+            {/* Design picker — 100 templates (10 layouts x 10 palettes), live preview below */}
             {(() => {
-              const theme = CV_THEMES.find(t => t.id === autoStyle.theme) || CV_THEMES[0];
+              const curLayoutId = layoutOverride || autoStyle.layout.id;
+              const curPaletteId = paletteOverride || autoStyle.palette.id;
+              const accentHex = (CV_PALETTES.find(p => p.id === curPaletteId) || autoStyle.palette).hex;
+              const sectors = Array.from(new Set(CV_LAYOUTS.map(l => l.sector)));
+              const visibleLayouts = gallerySector === 'all' ? CV_LAYOUTS : CV_LAYOUTS.filter(l => l.sector === gallerySector);
               return (
                 <div style={{ background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
@@ -1240,29 +1389,51 @@ export default function CandidateUpload() {
                     <span style={{ fontWeight: 800, color: '#111827', fontSize: '0.95rem' }}>Choisissez votre design</span>
                   </div>
                   <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '1rem' }}>
-                    10 designs professionnels — le contenu de votre CV ne change pas, seule la mise en page. Cliquez pour prévisualiser instantanément.
+                    100 designs professionnels (10 mises en page × 10 couleurs) — le contenu de votre CV ne change pas. Cliquez pour prévisualiser instantanément.
                   </p>
+
+                  {/* Sector filter chips */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.9rem' }}>
+                    <button onClick={() => setGallerySector('all')} style={{ padding: '0.35rem 0.85rem', borderRadius: '9999px', border: gallerySector === 'all' ? `1.5px solid ${accentHex}` : '1.5px solid #e5e7eb', background: gallerySector === 'all' ? `${accentHex}15` : 'white', color: gallerySector === 'all' ? accentHex : '#374151', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>Tous les secteurs</button>
+                    {sectors.map(s => (
+                      <button key={s} onClick={() => setGallerySector(s)} style={{ padding: '0.35rem 0.85rem', borderRadius: '9999px', border: gallerySector === s ? `1.5px solid ${accentHex}` : '1.5px solid #e5e7eb', background: gallerySector === s ? `${accentHex}15` : 'white', color: gallerySector === s ? accentHex : '#374151', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>{s}</button>
+                    ))}
+                  </div>
+
+                  {/* Palette dots */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem', marginBottom: '1.1rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#6b7280' }}>Couleur :</span>
+                    {CV_PALETTES.map(p => {
+                      const selected = curPaletteId === p.id;
+                      return (
+                        <button key={p.id} onClick={() => setPaletteOverride(p.id)} title={p.name}
+                          style={{ width: 26, height: 26, borderRadius: '50%', background: p.hex, border: selected ? '3px solid #111827' : '2px solid white', boxShadow: selected ? `0 0 0 1.5px ${p.hex}` : '0 0 0 1px #e5e7eb', cursor: 'pointer', flexShrink: 0 }} />
+                      );
+                    })}
+                  </div>
+
+                  {/* Layout cards */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.7rem' }}>
-                    {CV_LAYOUTS.map(l => {
-                      const selected = (layoutOverride || autoStyle.layout) === l.id;
+                    {visibleLayouts.map(l => {
+                      const selected = curLayoutId === l.id;
                       return (
                         <button
                           key={l.id}
                           onClick={() => setLayoutOverride(l.id)}
-                          title={l.desc}
+                          title={l.structure}
                           style={{
                             textAlign: 'left', padding: '0.7rem 0.8rem', borderRadius: '10px', cursor: 'pointer',
-                            border: selected ? `2px solid ${theme.accent}` : '1.5px solid #e5e7eb',
-                            background: selected ? theme.tint : 'white',
-                            boxShadow: selected ? `0 2px 10px ${theme.accent}22` : 'none',
+                            border: selected ? `2px solid ${accentHex}` : '1.5px solid #e5e7eb',
+                            background: selected ? `${accentHex}12` : 'white',
+                            boxShadow: selected ? `0 2px 10px ${accentHex}22` : 'none',
                             transition: 'all .15s',
                           }}>
-                          <div style={{ width: '100%', height: 6, borderRadius: 3, marginBottom: '0.5rem', background: `linear-gradient(90deg,${theme.dark},${theme.accent})` }} />
+                          <div style={{ width: '100%', height: 6, borderRadius: 3, marginBottom: '0.5rem', background: accentHex }} />
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.15rem' }}>
                             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#111827' }}>{l.name}</span>
-                            {selected && <Icon name="check" size={14} color={theme.accent}/>}
+                            {selected && <Icon name="check" size={14} color={accentHex}/>}
                           </div>
-                          <div style={{ fontSize: '0.72rem', color: '#6b7280', lineHeight: 1.4 }}>{l.desc}</div>
+                          <div style={{ fontSize: '0.72rem', color: '#6b7280', lineHeight: 1.4 }}>{l.sector} · {l.structure}</div>
                         </button>
                       );
                     })}
@@ -1314,7 +1485,7 @@ export default function CandidateUpload() {
                 </div>
               );
               const matches = openJobs
-                .map(j => ({ ...j, score: computeMatchScore({ skills, experience, educationLevel: inferEducationLevel(education.degree), languages }, j) }))
+                .map(j => ({ ...j, score: computeMatchScore({ skills, experience, educationLevel: inferEducationLevel(education[0]?.degree), languages }, j) }))
                 .sort((a, b) => b.score - a.score);
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

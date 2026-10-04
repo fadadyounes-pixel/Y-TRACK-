@@ -31,7 +31,7 @@ export interface CVScoreInput {
   skills: string[];
   languages: string[];
   work: WorkEntry[];
-  education: Education;
+  education: Education[];
   targetRoles?: string[];
   certifications?: string[];
   linkedin?: string;
@@ -115,9 +115,10 @@ export function scoreCV(cv: CVScoreInput): CVScoreResult {
 
   // ── Formation (10) ──
   let eduPts = 0;
-  if (cv.education?.degree?.trim()) eduPts += 5; else tips.push({ id: 'edu-degree', text: 'Renseignez votre diplôme le plus élevé.', impact: 5 });
-  if (cv.education?.institution?.trim()) eduPts += 3;
-  if (cv.education?.year?.trim()) eduPts += 2;
+  const primaryEdu = cv.education?.[0];
+  if (primaryEdu?.degree?.trim()) eduPts += 5; else tips.push({ id: 'edu-degree', text: 'Renseignez votre diplôme le plus élevé.', impact: 5 });
+  if (primaryEdu?.institution?.trim()) eduPts += 3;
+  if (primaryEdu?.year?.trim()) eduPts += 2;
   categories.push({ key: 'education', label: 'Formation', points: eduPts, max: 10 });
 
   // ── Langues (10) ──

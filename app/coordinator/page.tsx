@@ -132,9 +132,13 @@ function ScoreBar({ label, pts, max, color }: { label: string; pts: number; max:
 // builder, so coordinators never get a stripped-down summary sheet missing
 // work experience, education, or certifications.
 function downloadCvPDF(cv: CV) {
-  const education: Education = cv.education?.degree
-    ? cv.education
-    : { degree: cv.diploma || '', institution: cv.institution || '', year: cv.graduationYear || '' };
+  // generateCVHtml expects education as an array (a candidate CV may list
+  // several diplomas); older/shallow Redis records still store a single
+  // object (or the flat diploma/institution/graduationYear fields), so wrap
+  // whichever shape is present into a one-item array.
+  const education: Education[] = cv.education?.degree
+    ? [cv.education]
+    : [{ degree: cv.diploma || '', institution: cv.institution || '', year: cv.graduationYear || '' }];
 
   const html = generateCVHtml({
     name: cv.name || cv.fileName,
