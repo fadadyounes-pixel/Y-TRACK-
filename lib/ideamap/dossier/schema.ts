@@ -24,6 +24,12 @@ export type ProjectProfile = {
   activities: string[];
   strengths: string[];
   estimatedBudget: number;
+  // The porteur's own words for what they want to buy (Q18 "quel équipement
+  // principal...") — the committee Excel's "Équipements" column. Carried
+  // through verbatim (never reworded) so the budget's first line item and the
+  // generated documents both trace back to what the porteur actually asked
+  // for, instead of a sector-generic guess.
+  equipmentRequested: string;
   pillar: string;
 };
 
