@@ -167,7 +167,10 @@ const OCCUPATION: Record<string, string[]> = {
   ar:["طالب/ة","باحث عن عمل","موظف/ة","عامل مستقل","متقاعد/ة","بدون نشاط"],
   en:["Student","Job seeker","Employed","Self-employed","Retired","Inactive"],
 };
-const AGES = ["15–17","18–20","21–24","25–30","31–40","40+"];
+// An individual INDH project holder signs a funding convention themselves,
+// so they must be a legal adult (18+ in Morocco) — no bracket under 18 is
+// offered here, unlike a generic demographic form.
+const AGES = ["18–20","21–24","25–30","31–40","40+"];
 const GENDERS: Record<string, string[]> = {
   fr:["Homme","Femme","Autre"],
   ar:["ذكر","أنثى","آخر"],
