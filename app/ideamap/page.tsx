@@ -2063,6 +2063,7 @@ async function generateComitePresentation(
       durabilite: isAr?"الاستدامة والتطوير":isEn?"Sustainability & Growth":"Durabilité & Développement",
       recommandation: isAr?"توصية اللجنة":isEn?"Committee Recommendation":"Recommandation du Comité",
       numeroL: isAr?"رقم الملف":isEn?"File N°":"N° Dossier",
+      tpeLine: isAr?"مقاولة صغيرة جداً — مدعومة من المبادرة الوطنية للتنمية البشرية (المرحلة الثالثة)":isEn?"Very small business (micro-enterprise) — supported by INDH Phase 3":"Très petite entreprise (TPE) — soutenue par l'Initiative Nationale pour le Développement Humain (INDH), Phase 3",
     };
     const headerBar = (sl: any, txt: string) => {
       sl.addShape(SH, {x:0,y:0,w:10,h:0.78,fill:{color:NAVY}});
@@ -2076,7 +2077,8 @@ async function generateComitePresentation(
     s.addText(L.cover, {x:0.5,y:0.9,w:9,h:0.5,fontSize:16,color:"AAAAAA",align:"center",fontFace:"Arial"});
     s.addText(proj?.projectName || "", {x:0.5,y:1.6,w:9,h:1.0,fontSize:30,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
     s.addText(`${proj?.sector||""} · ${proj?.location||regionDisplay(profile)||""}`, {x:0.5,y:2.7,w:9,h:0.4,fontSize:13,color:WHITE,align:"center",fontFace:"Arial"});
-    if (numero) s.addText(`${L.numeroL}: ${numero}`, {x:0.5,y:3.2,w:9,h:0.35,fontSize:11,color:"888888",align:"center",fontFace:"Arial"});
+    s.addText(L.tpeLine, {x:0.5,y:3.1,w:9,h:0.45,fontSize:10,color:"CCCCCC",italic:true,align:"center",fontFace:"Arial",wrap:true});
+    if (numero) s.addText(`${L.numeroL}: ${numero}`, {x:0.5,y:3.55,w:9,h:0.35,fontSize:11,color:"888888",align:"center",fontFace:"Arial"});
     s.addText(`${name||""} ${profile?.lastName||""}`, {x:0.5,y:4.3,w:9,h:0.4,fontSize:14,color:WHITE,align:"center",fontFace:"Arial"});
     s.addText("INDH Phase 3 · IdeaMap", {x:0.5,y:4.9,w:9,h:0.3,fontSize:10,color:"666666",align:"center"});
 

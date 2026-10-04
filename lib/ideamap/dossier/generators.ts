@@ -46,6 +46,12 @@ const T = {
   nomProjet: { fr: "Nom du projet", ar: "اسم المشروع", en: "Project name" },
   secteur: { fr: "Secteur", ar: "القطاع", en: "Sector" },
   structure: { fr: "Structure juridique", ar: "الهيكل القانوني", en: "Legal structure" },
+  categorieEntreprise: { fr: "Catégorie d'entreprise", ar: "فئة المقاولة", en: "Business category" },
+  tpe: {
+    fr: "Très petite entreprise (TPE) — soutenue par l'Initiative Nationale pour le Développement Humain (INDH), Phase 3",
+    ar: "مقاولة صغيرة جداً — مدعومة من المبادرة الوطنية للتنمية البشرية (المرحلة الثالثة)",
+    en: "Very small business (micro-enterprise) — supported by the National Initiative for Human Development (INDH), Phase 3",
+  },
   localisation: { fr: "Localisation", ar: "الموقع", en: "Location" },
   beneficiaires: { fr: "Bénéficiaires", ar: "المستفيدون", en: "Beneficiaries" },
   axeIndh: { fr: "Axe INDH", ar: "محور المبادرة الوطنية", en: "INDH pillar" },
@@ -114,13 +120,27 @@ function body(docxLib: any, text?: string) {
   return [new docxLib.Paragraph({ children: [new docxLib.TextRun({ text, size: 20 })], spacing: { after: 150 } })];
 }
 
+// Every INDH Phase 3 project is, by construction, a very small business —
+// the program caps total project cost at PLAFOND_PROJET (100,000 MAD, see
+// finance.ts) — but a document should say that plainly rather than leave
+// it implied by a number elsewhere. Shared across all three generators so
+// the framing (and its wording) stays identical everywhere it appears.
+function titleBlock(docxLib: any, titleKey: keyof typeof T, proj: ProjectProfile | null, lang: Lang) {
+  const { Paragraph, TextRun, HeadingLevel, AlignmentType } = docxLib;
+  return [
+    new Paragraph({ text: tr(titleKey, lang), heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER }),
+    new Paragraph({ children: [new TextRun({ text: proj?.projectName || "", bold: true, size: 28, color: "2A5CE0" })],
+      alignment: AlignmentType.CENTER, spacing: { after: 80 } }),
+    new Paragraph({ children: [new TextRun({ text: tr("tpe", lang), italics: true, size: 18, color: "666666" })],
+      alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
+  ];
+}
+
 export async function buildFicheProjetDoc(docxLib: any, data: DossierData, lang: Lang, isAssumed: boolean) {
-  const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Packer } = docxLib;
+  const { Document, Packer } = docxLib;
   const { proj, profile, name } = data;
   const doc = new Document({ sections: [{ children: [
-    new Paragraph({ text: tr("ficheProjet", lang), heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER }),
-    new Paragraph({ children: [new TextRun({ text: proj?.projectName || "", bold: true, size: 28, color: "2A5CE0" })],
-      alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
+    ...titleBlock(docxLib, "ficheProjet", proj, lang),
     heading(docxLib, tr("porteur", lang)),
     infoTable(docxLib, [
       [tr("nom", lang), `${name || ""} ${profile?.lastName || ""}`.trim()],
@@ -133,6 +153,7 @@ export async function buildFicheProjetDoc(docxLib: any, data: DossierData, lang:
     heading(docxLib, tr("projet", lang)),
     infoTable(docxLib, [
       [tr("nomProjet", lang), proj?.projectName || ""],
+      [tr("categorieEntreprise", lang), tr("tpe", lang)],
       [tr("secteur", lang), proj?.sector || ""],
       [tr("structure", lang), proj?.legalStructure || ""],
       [tr("localisation", lang), proj?.location || ""],
@@ -162,9 +183,7 @@ export async function buildFicheTechniqueDoc(docxLib: any, data: DossierData, la
     new TableCell({ children: [new Paragraph({ text: `${Number(it.total || 0).toLocaleString()} MAD` })] }),
   ] }));
   const doc = new Document({ sections: [{ children: [
-    new Paragraph({ text: tr("ficheTechnique", lang), heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER }),
-    new Paragraph({ children: [new TextRun({ text: proj?.projectName || "", bold: true, size: 28, color: "2A5CE0" })],
-      alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
+    ...titleBlock(docxLib, "ficheTechnique", proj, lang),
     heading(docxLib, tr("equipements", lang)),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
@@ -194,9 +213,7 @@ export async function buildBusinessPlanDoc(docxLib: any, data: DossierData, lang
   const border = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
   const projEntries = plan?.projections ? Object.entries(plan.projections) : [];
   const doc = new Document({ sections: [{ children: [
-    new Paragraph({ text: tr("businessPlan", lang), heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER }),
-    new Paragraph({ children: [new TextRun({ text: proj?.projectName || "", bold: true, size: 28, color: "2A5CE0" })],
-      alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
+    ...titleBlock(docxLib, "businessPlan", proj, lang),
     heading(docxLib, tr("resumeExec", lang)), ...body(docxLib, plan?.executiveSummary),
     heading(docxLib, tr("problematique", lang)), ...body(docxLib, plan?.problemStatement),
     heading(docxLib, tr("solution", lang)), ...body(docxLib, plan?.solution),
