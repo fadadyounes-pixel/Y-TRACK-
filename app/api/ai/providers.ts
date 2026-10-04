@@ -544,6 +544,33 @@ async function githubModels(msgs: Msg[], sys: string | undefined, maxTok: number
   throw new Error("GitHub Models exhausted");
 }
 
+// Pollinations — a free, community-run OpenAI-compatible gateway that needs
+// NO API key / signup of any kind, unlike every other provider above. Lower
+// reliability than a paid-tier-backed free API (no SLA, no rate-limit
+// guarantee), so it's placed last in every race/sweep below — it only ever
+// gets to answer if every keyed provider is unavailable or unconfigured,
+// never races ahead of them. Included specifically because it's the one
+// provider that adds real redundancy with zero setup required — useful
+// right now while only 3 of the keyed providers (Groq/Cerebras/Mistral)
+// actually have API keys in this project's production environment.
+async function pollinations(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  for (const model of ["openai", "mistral", "llama"]) {
+    try {
+      const res = await tFetch("https://text.pollinations.ai/openai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all, referrer: "ideamaponline.org" }),
+      }, 10000);
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch { continue; }
+  }
+  throw new Error("Pollinations exhausted");
+}
+
 async function tryOnce(fn: (m: Msg[], s: string | undefined, t: number) => Promise<string>, msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string | null> {
   try {
     const text = await fn(msgs, sys, maxTok);
@@ -648,6 +675,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       nvidia, sambanova, anthropic, mistral, together, githubModels,
       hyperbolic, fireworks, huggingface,
       (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
+      pollinations,
     ]) {
       if (outOfTime()) break;
       const text = await withTimeout(tryOnce(fn, messages, system, fastTok), 6000);
@@ -662,6 +690,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
         (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, true),
         deepseek, nvidia, sambanova, anthropic, mistral, together, githubModels,
         (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
+        pollinations,
       ]) {
         if (outOfTime()) break;
         const text = await withTimeout(tryOnce(fn, messages, system, fastTok), 6000);
@@ -689,6 +718,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     hyperbolic,                                        // DeepSeek-V3 + Qwen2.5-72B — free starter credits
     fireworks,                                         // DeepSeek-V3 + Llama 70B — $1 free credit
     huggingface,                                       // Router to Together/Fireworks/Hyperbolic backends
+    pollinations,                                      // Keyless community gateway — zero-setup redundancy
   ], messages, system, max_tokens, raceWindow);
   if (raceText) return raceText;
 
@@ -711,7 +741,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       anthropic, githubModels, nvidia, deepseek,
       (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
       sambanova, mistral, together, openrouter,
-      hyperbolic, fireworks, huggingface,
+      hyperbolic, fireworks, huggingface, pollinations,
     ]) {
       if (outOfTime()) break;
       const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
@@ -731,7 +761,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
       (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
       anthropic, githubModels, sambanova, together, openrouter,
-      hyperbolic, fireworks, huggingface,
+      hyperbolic, fireworks, huggingface, pollinations,
     ]) {
       if (outOfTime()) break;
       const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
