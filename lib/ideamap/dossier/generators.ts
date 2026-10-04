@@ -65,6 +65,15 @@ const T = {
   qte: { fr: "Qté", ar: "الكمية", en: "Qty" },
   prixUnit: { fr: "Prix unitaire", ar: "السعر الوحدوي", en: "Unit price" },
   total: { fr: "Total", ar: "المجموع", en: "Total" },
+  ficheComite: { fr: "Fiche Comité", ar: "بطاقة اللجنة", en: "Committee Record" },
+  numero: { fr: "N°", ar: "رقم", en: "N°" },
+  intitule: { fr: "Intitulé du projet", ar: "عنوان المشروع", en: "Project title" },
+  presentation: { fr: "Présentation du projet", ar: "تقديم المشروع", en: "Project presentation" },
+  equipementsLine: { fr: "Équipements à financer", ar: "التجهيزات المطلوب تمويلها", en: "Equipment to finance" },
+  cout: { fr: "Coût du projet", ar: "كلفة المشروع", en: "Project cost" },
+  subvention: { fr: "Subvention INDH", ar: "دعم المبادرة الوطنية", en: "INDH grant" },
+  apport: { fr: "Apport du porteur", ar: "مساهمة الحامل", en: "Holder contribution" },
+  detailsComplementaires: { fr: "Détails complémentaires", ar: "تفاصيل إضافية", en: "Additional details" },
   activiteCle: { fr: "Activités clés", ar: "الأنشطة الرئيسية", en: "Key activities" },
   modeleEco: { fr: "Modèle économique", ar: "النموذج الاقتصادي", en: "Revenue model" },
   experience: { fr: "Expérience du porteur", ar: "خبرة الحامل", en: "Holder experience" },
@@ -136,33 +145,72 @@ function titleBlock(docxLib: any, titleKey: keyof typeof T, proj: ProjectProfile
   ];
 }
 
+// One coherent paragraph reading like the "Présentation du projet" cell of
+// a real committee Excel row — the concept, who it's for, and the problem
+// it solves joined into a single dense block, rather than left as three
+// separate headed sections. This is what makes a generated Fiche Projet
+// read like an authentic INDH committee record instead of a generic AI
+// summary with headers for every field.
+function composePresentation(proj: ProjectProfile | null): string {
+  if (!proj) return "";
+  const parts = [
+    proj.targetProfile,
+    proj.localProblem ? `Problème local visé : ${proj.localProblem}.` : "",
+    proj.revenueModel ? `Fonctionnement : ${proj.revenueModel}.` : "",
+  ].filter(Boolean);
+  return parts.join(" ");
+}
+
+// Matches §4.2's own raw format for a committee Excel's "Équipements" cell
+// — a single semicolon-joined line, not a formatted table — e.g.
+// "Four professionnel ; Vitrine réfrigérée ; Mobilier de travail".
+function composeEquipementsLine(budget: Budget | null): string {
+  if (!budget?.items?.length) return "";
+  return budget.items.map(i => i.item).filter(Boolean).join(" ; ");
+}
+
+// The dossier's record laid out in the EXACT column order of the committee
+// Excel §4.2 describes (N°, Porteur, Âge, Intitulé, Secteur, Présentation,
+// Équipements, Coût, Subvention, Apport) — so a Fiche Projet generated from
+// a holder's own dialogue reads as the same record a bulk committee import
+// would produce for the same project, field for field.
+function committeeRecordTable(docxLib: any, data: DossierData, lang: Lang) {
+  const { proj, budget, profile, name } = data;
+  const total = budget?.items?.reduce((s, x) => s + (x.total || 0), 0) || proj?.estimatedBudget || 0;
+  const indh = budget?.indhContribution ?? Math.min(Math.round(total * 0.9), 100_000);
+  const apport = budget?.beneficiaryContribution ?? (total - indh);
+  return infoTable(docxLib, [
+    [tr("numero", lang), profile?.cin || profile?.id || ""],
+    [tr("porteur", lang), `${name || ""} ${profile?.lastName || ""}`.trim()],
+    [tr("age", lang), String(profile?.age || "")],
+    [tr("intitule", lang), proj?.projectName || ""],
+    [tr("secteur", lang), proj?.sector || ""],
+    [tr("presentation", lang), composePresentation(proj)],
+    [tr("equipementsLine", lang), composeEquipementsLine(budget)],
+    [tr("cout", lang), total ? `${total.toLocaleString()} MAD` : ""],
+    [tr("subvention", lang), total ? `${indh.toLocaleString()} MAD` : ""],
+    [tr("apport", lang), total ? `${apport.toLocaleString()} MAD` : ""],
+  ]);
+}
+
 export async function buildFicheProjetDoc(docxLib: any, data: DossierData, lang: Lang, isAssumed: boolean) {
   const { Document, Packer } = docxLib;
-  const { proj, profile, name } = data;
+  const { proj, profile } = data;
   const doc = new Document({ sections: [{ children: [
     ...titleBlock(docxLib, "ficheProjet", proj, lang),
-    heading(docxLib, tr("porteur", lang)),
+    heading(docxLib, tr("ficheComite", lang)),
+    committeeRecordTable(docxLib, data, lang),
+    heading(docxLib, tr("detailsComplementaires", lang)),
     infoTable(docxLib, [
-      [tr("nom", lang), `${name || ""} ${profile?.lastName || ""}`.trim()],
-      [tr("cin", lang), profile?.cin || profile?.id || ""],
-      [tr("age", lang), String(profile?.age || "")],
       [tr("genre", lang), profile?.gender || ""],
       [tr("tel", lang), profile?.phone || ""],
       [tr("region", lang), profile?.region || ""],
-    ]),
-    heading(docxLib, tr("projet", lang)),
-    infoTable(docxLib, [
-      [tr("nomProjet", lang), proj?.projectName || ""],
-      [tr("categorieEntreprise", lang), tr("tpe", lang)],
-      [tr("secteur", lang), proj?.sector || ""],
-      [tr("structure", lang), proj?.legalStructure || ""],
       [tr("localisation", lang), proj?.location || ""],
+      [tr("structure", lang), proj?.legalStructure || ""],
+      [tr("categorieEntreprise", lang), tr("tpe", lang)],
       [tr("beneficiaires", lang), String(proj?.beneficiaries ?? "")],
       [tr("axeIndh", lang), proj?.pillar || ""],
     ]),
-    heading(docxLib, tr("description", lang)),
-    ...body(docxLib, proj?.targetProfile),
-    ...body(docxLib, proj?.localProblem),
     ...assumptionNote(docxLib, lang, isAssumed),
   ] }] });
   return Packer.toBlob(doc);
