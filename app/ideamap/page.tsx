@@ -2143,12 +2143,22 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     // Suggesting fake names would be presumptuous, not helpful. This is a direct,
     // open question: no tap options, straight to the free-text input.
     if (qIndex === 0) return [];
+    // Q2's answer becomes proj.sector directly (buildLocalProfile: sector: answers[1]),
+    // the same canonical French key SECTOR_SERVICES/SECTOR_EQUIPMENT/mapSectorToKey
+    // and the committee Excel's "Secteur" column all expect. A meta-label like "a
+    // different sector" tapped as the answer would store that literal placeholder
+    // text as the project's sector — every downstream lookup, and the Fiche Projet's
+    // own Secteur field, would then show nonsense. These two alternates are always
+    // real sector names for that reason, never a description of a choice.
+    const otherSectors = SECTORS.filter(s => s !== sector);
+    const altSector1 = otherSectors[0] || "Commerce/Épicerie";
+    const altSector2 = otherSectors[1] || "Artisanat traditionnel";
 
     const T: Record<number, Record<"fr"|"ar"|"en", string[]>> = {
       1: {
-        fr: [sector || "Mon secteur déclaré à l'inscription", "Un secteur proche/complémentaire", "Un autre secteur"],
-        ar: [sector || "القطاع الذي صرحت به عند التسجيل", "قطاع قريب أو مكمل", "قطاع آخر"],
-        en: [sector || "The sector I declared at registration", "A related/complementary sector", "A different sector"],
+        fr: [sector || "Mon secteur déclaré à l'inscription", altSector1, altSector2],
+        ar: [sector || "القطاع الذي صرحت به عند التسجيل", altSector1, altSector2],
+        en: [sector || "The sector I declared at registration", altSector1, altSector2],
       },
       2: {
         fr: [`${city}, centre-ville`, `${city}, quartier périphérique`, "Un autre lieu"],
@@ -2404,7 +2414,16 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           // or otherwise — see the matching guard in localOptionsFor. A suggested
           // name is exactly as presumptuous coming from the AI as it would be
           // hardcoded, so this is skipped regardless of what the model returns.
-          if (idx === 0) return;
+          // Question 1 (secteur) is skipped too, but for a different reason: its
+          // answer becomes proj.sector verbatim, the exact canonical string
+          // SECTOR_SERVICES/SECTOR_EQUIPMENT/mapSectorToKey and the committee
+          // Excel's "Secteur" column key off — the AI has no guarantee of
+          // returning one of those 18 exact names (it could just as easily
+          // suggest "Boulangerie artisanale"), which would silently break every
+          // sector-keyed lookup downstream. localOptionsFor's own 3 options for
+          // this question are always real canonical sector names; nothing should
+          // replace them with AI-invented ones.
+          if (idx === 0 || idx === 1) return;
           const arr = bank?.[`q${j + 1}`];
           if (Array.isArray(arr) && arr.length) {
             next[idx] = arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3);
