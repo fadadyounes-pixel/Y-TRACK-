@@ -156,7 +156,7 @@ export default function EmailGenerator() {
     // further down (user/info are both loaded by then).
     const name = `${info?.firstName || ''} ${info?.lastName || ''}`.trim() || user!.name;
     const phone = info?.phone || '';
-    const email = user!.email || '';
+    const email = info?.email || user!.email || '';
 
     const system = `Rédige une lettre de candidature formelle en français. RÈGLES STRICTES:
 - 3 paragraphes. Commencer par "Madame, Monsieur,". Terminer par "Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées."

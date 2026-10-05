@@ -184,6 +184,7 @@ export default function CandidateUpload() {
         if (info.linkedin) setLinkedin(info.linkedin);
         if (info.portfolio) setPortfolio(info.portfolio);
         if (info.phone) setPhone(info.phone);
+        if (info.email) setEmail(info.email);
         if (info.city) setAddress(info.city);
         if (info.firstName || info.lastName) setName(`${info.firstName || ''} ${info.lastName || ''}`.trim() || user.name);
         if (info.sector) setSector(info.sector.split('/')[0].trim());
