@@ -2240,9 +2240,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         en: ["Under 30,000 MAD", "30,000 to 70,000 MAD", "Over 70,000 MAD"],
       },
       19: {
-        fr: ["Moins de 5 000 MAD", "5 000 à 10 000 MAD", "Plus de 10 000 MAD"],
-        ar: ["أقل من 5.000 درهم", "من 5.000 إلى 10.000 درهم", "أكثر من 10.000 درهم"],
-        en: ["Under 5,000 MAD", "5,000 to 10,000 MAD", "Over 10,000 MAD"],
+        fr: ["Oui, un courrier de soutien de la commune ou d'une association locale", "Oui, l'aide de ma famille (local, main-d'œuvre, matériel)", "Pas encore, mais je vais en obtenir avant le dépôt"],
+        ar: ["نعم، رسالة دعم من الجماعة أو جمعية محلية", "نعم، مساعدة من عائلتي (محل، يد عاملة، معدات)", "ليس بعد، لكنني سأحصل عليه قبل إيداع الملف"],
+        en: ["Yes, a support letter from the commune or a local association", "Yes, help from my family (premises, labor, equipment)", "Not yet, but I'll get one before filing"],
       },
       20: {
         fr: ["Moins de 100 000 MAD", "100 000 à 200 000 MAD", "Plus de 200 000 MAD"],
