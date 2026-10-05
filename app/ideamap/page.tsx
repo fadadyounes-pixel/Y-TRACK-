@@ -1925,6 +1925,16 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const FIXED_Q: {fr: string; ar: string; en: string}[] = usingCustomQ ? customQuestions! : BUILTIN_FIXED_Q;
   const MAX_Q = FIXED_Q.length;
   const fixedQText = (i: number) => FIXED_Q[i][lang as "fr"|"ar"|"en"] || FIXED_Q[i].fr;
+  // Every other question is tap-only (3 concrete, always-clickable options —
+  // see localOptionsFor) so answers stay structured and feed the committee
+  // Excel's columns directly. These 4 are the exception: a project name, a
+  // precise location, the exact equipment to buy, and the exact cost in MAD
+  // genuinely can't be reduced to 3 preset choices without throwing away the
+  // real figure the budget math depends on. Only applies to the built-in
+  // fiche — a coordinator's own uploaded questionnaire has no fixed shape to
+  // match indices against, so it keeps free text throughout.
+  const FREE_TEXT_Q = new Set([0, 2, 17, 18]);
+  const qAllowsFreeText = usingCustomQ || FREE_TEXT_Q.has(qN - 1);
 
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
 
@@ -2146,16 +2156,16 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         en: [`${city}, city center`, `${city}, outer neighborhood`, "Somewhere else"],
       },
       3: {
-        fr: [`Un service de ${sectorLabel} moderne et accessible pour le quartier`, "Une activité basée sur mon expérience personnelle", "Je préfère décrire mon concept moi-même"],
-        ar: [`خدمة ${sectorLabel} عصرية وفي متناول سكان الحي`, "نشاط مبني على خبرتي الشخصية", "أفضل وصف فكرتي بنفسي"],
-        en: [`A modern, accessible ${sectorLabel} service for the neighborhood`, "An activity built on my personal experience", "I'll describe my concept myself"],
+        fr: [`Un service de ${sectorLabel} moderne et accessible pour le quartier`, "Une activité basée sur mon expérience personnelle", "Une offre combinant qualité et prix accessible"],
+        ar: [`خدمة ${sectorLabel} عصرية وفي متناول سكان الحي`, "نشاط مبني على خبرتي الشخصية", "عرض يجمع بين الجودة والسعر المناسب"],
+        en: [`A modern, accessible ${sectorLabel} service for the neighborhood`, "An activity built on my personal experience", "An offer combining quality and affordable pricing"],
       },
       // Reached only when the sector isn't in SECTOR_SERVICES (svc undefined) —
       // the sector-matched case already returned above.
       4: {
-        fr: ["Un service ou produit unique et ciblé", "Une gamme de 2 à 3 services complémentaires", "Je préfère décrire mes produits/services moi-même"],
-        ar: ["خدمة أو منتج واحد ومحدد", "مجموعة من 2 إلى 3 خدمات مكملة", "أفضل وصف منتجاتي/خدماتي بنفسي"],
-        en: ["One unique, focused product or service", "A range of 2-3 complementary services", "I'll describe my products/services myself"],
+        fr: ["Un service ou produit unique et ciblé", "Une gamme de 2 à 3 services complémentaires", "Des produits/services réalisés sur mesure à la demande"],
+        ar: ["خدمة أو منتج واحد ومحدد", "مجموعة من 2 إلى 3 خدمات مكملة", "منتجات/خدمات مُعدّة حسب الطلب"],
+        en: ["One unique, focused product or service", "A range of 2-3 complementary services", "Made-to-order products/services on request"],
       },
       5: {
         fr: ["Moins d'1 an d'expérience", "1 à 3 ans d'expérience", "Plus de 3 ans d'expérience"],
@@ -2173,9 +2183,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         en: ["Yes, a loyal client base", "A few contacts, not yet a solid base", "No, starting from scratch"],
       },
       8: {
-        fr: ["Les jeunes et familles de mon quartier", "Le grand public local", "Une clientèle spécifique (préciser)"],
-        ar: ["شباب وعائلات حيي", "عموم سكان المنطقة", "فئة محددة من الزبائن (التفصيل)"],
-        en: ["Youth and families in my neighborhood", "The general local public", "A specific customer segment (specify)"],
+        fr: ["Les jeunes et familles de mon quartier", "Le grand public local", "Les femmes et mères de famille du quartier"],
+        ar: ["شباب وعائلات حيي", "عموم سكان المنطقة", "نساء وأمهات الأسر في الحي"],
+        en: ["Youth and families in my neighborhood", "The general local public", "Women and mothers in the neighborhood"],
       },
       9: {
         fr: ["Moins de 50 personnes par an", "50 à 200 personnes par an", "Plus de 200 personnes par an"],
@@ -2183,9 +2193,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         en: ["Fewer than 50 people per year", "50 to 200 people per year", "More than 200 people per year"],
       },
       10: {
-        fr: [`Manque d'offre de qualité en ${sectorLabel} dans le quartier`, "Difficulté d'accès local à ce service/produit", "Je préfère décrire le problème moi-même"],
-        ar: [`نقص العرض الجيد في ${sectorLabel} بالحي`, "صعوبة الوصول محلياً لهذه الخدمة/المنتج", "أفضل وصف المشكلة بنفسي"],
-        en: [`Lack of quality ${sectorLabel} options in the neighborhood`, "Difficulty accessing this service/product locally", "I'll describe the problem myself"],
+        fr: [`Manque d'offre de qualité en ${sectorLabel} dans le quartier`, "Difficulté d'accès local à ce service/produit", "Prix trop élevés des offres existantes"],
+        ar: [`نقص العرض الجيد في ${sectorLabel} بالحي`, "صعوبة الوصول محلياً لهذه الخدمة/المنتج", "أسعار مرتفعة جداً للعروض الحالية"],
+        en: [`Lack of quality ${sectorLabel} options in the neighborhood`, "Difficulty accessing this service/product locally", "Existing options are priced too high"],
       },
       11: {
         fr: ["Quelques petits commerces similaires", "Peu ou pas de concurrence directe", "Plusieurs concurrents bien établis"],
@@ -2380,6 +2390,7 @@ RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais associa
 ${INDH_CTX}
 Le porteur a partagé son idée: "${ideaText}"
 Pour CHACUNE des ${chunk.length} questions ci-dessous, propose 3 réponses courtes, réalistes et SPÉCIFIQUES à CETTE idée précise (jamais générique, jamais coopérative/GIE). Réponds en ${LL}.${arNote}
+Chaque option doit être une réponse complète et sélectionnable telle quelle — ne propose JAMAIS une option du type « je préfère écrire moi-même » ou « à préciser » : la plupart de ces questions n'ont plus de champ de texte libre, seules ces 3 options sont cliquables.
 
 ${qLines}
 
@@ -3001,24 +3012,29 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               );
             })()}
 
-            {/* Text input for custom answer */}
-            <div style={{display: "flex", gap: "8px"}}>
-              <input value={inp} onChange={e => !busy && setInp(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && sendMsg()} disabled={busy}
-                placeholder={busy
-                  ? (lang==="ar"?"جاري التحميل...":lang==="fr"?"Chargement...":"Loading...")
-                  : (lang==="ar"?"أو اكتب إجابتك هنا...":lang==="fr"?"Ou écrivez votre réponse...":"Or type your own answer...")}
-                className={busy ? "busy-pulse" : ""}
-                style={{...fs, flex: 1, fontSize: "13px", opacity: busy ? 0.6 : 1,
-                  borderColor: busy ? Y : CD, background: busy ? YL : CR}}/>
-              <button onClick={() => sendMsg()} disabled={busy || !inp.trim()}
-                style={{padding: "13px 18px", borderRadius: "12px", border: "none", cursor: "pointer",
-                  background: `linear-gradient(135deg,${Y},${YD})`, color: ND,
-                  fontSize: "13px", fontWeight: "800", fontFamily: ff(lang),
-                  opacity: busy || !inp.trim() ? .5 : 1, flexShrink: 0}}>
-                {dir === "rtl" ? "←" : "→"}
-              </button>
-            </div>
+            {/* Text input — only for the few questions a tap option can't answer
+                for real (name, location, equipment, cost). Every other question
+                is tap-only, so its answer always lands as one of the 3 exact
+                strings the committee Excel column expects. */}
+            {qAllowsFreeText && (
+              <div style={{display: "flex", gap: "8px"}}>
+                <input value={inp} onChange={e => !busy && setInp(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && sendMsg()} disabled={busy}
+                  placeholder={busy
+                    ? (lang==="ar"?"جاري التحميل...":lang==="fr"?"Chargement...":"Loading...")
+                    : (lang==="ar"?"اكتب إجابتك هنا...":lang==="fr"?"Écrivez votre réponse...":"Type your answer...")}
+                  className={busy ? "busy-pulse" : ""}
+                  style={{...fs, flex: 1, fontSize: "13px", opacity: busy ? 0.6 : 1,
+                    borderColor: busy ? Y : CD, background: busy ? YL : CR}}/>
+                <button onClick={() => sendMsg()} disabled={busy || !inp.trim()}
+                  style={{padding: "13px 18px", borderRadius: "12px", border: "none", cursor: "pointer",
+                    background: `linear-gradient(135deg,${Y},${YD})`, color: ND,
+                    fontSize: "13px", fontWeight: "800", fontFamily: ff(lang),
+                    opacity: busy || !inp.trim() ? .5 : 1, flexShrink: 0}}>
+                  {dir === "rtl" ? "←" : "→"}
+                </button>
+              </div>
+            )}
             <div ref={msgEnd}/>
             {!busy && qN <= 1 && backBtn("idea")}
           </Card>
