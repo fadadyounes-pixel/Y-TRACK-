@@ -229,33 +229,51 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
   return d.content?.[0]?.text ?? "";
 }
 
+// Google retired the 2.5 series for new API keys (confirmed live against the real
+// Generative Language API: a freshly-issued key gets 404 "no longer available to
+// new users" on gemini-2.5-*, pointing callers at the 3.5 series instead) — 3.5 is
+// listed first so a newly-issued key actually works. 2.5 stays as a fallback for
+// any older, grandfathered key that predates the cutover and still serves it; if
+// Google renames/retires 3.5 again, or a given key/region hasn't rolled onto it
+// yet, this silently drops to 2.5 instead of losing the provider outright.
+const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"];
+const GEMINI_MODELS_FAST = ["gemini-3.5-flash-lite", "gemini-2.5-flash-lite"];
+
 async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false, jsonMode = false): Promise<string> {
   const key = ev("GEMINI_API_KEY");
   if (!key) throw new Error("no GEMINI_API_KEY");
-  // Google retired the 2.5 series for new API keys (confirmed live: a fresh key
-  // gets 404 "no longer available to new users" on gemini-2.5-*, pointing at the
-  // 3.5 series instead) — keyed here on the 3.5 names so a newly-issued key
-  // actually works instead of failing every call.
-  const model = process.env.GEMINI_MODEL || (fast ? "gemini-3.5-flash-lite" : "gemini-3.5-flash");
+  const envModel = process.env.GEMINI_MODEL;
+  const candidates = envModel ? [envModel] : (fast ? GEMINI_MODELS_FAST : GEMINI_MODELS);
   const contents = msgs.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: textOnly(m.content) }],
   }));
-  const generationConfig: Record<string, unknown> = { maxOutputTokens: maxTok };
-  if (jsonMode) generationConfig.responseMimeType = "application/json";
-  const body: Record<string, unknown> = { contents, generationConfig };
-  if (sys) body.systemInstruction = { parts: [{ text: sys }] };
   const gTimeout = maxTok <= 500 ? 5000 : 18000;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-  let res = await tFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, gTimeout);
-  if (jsonMode && res.status === 400) {
-    // Some Gemini models reject responseMimeType — retry once without it.
-    delete generationConfig.responseMimeType;
-    res = await tFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, gTimeout);
+  let lastErr: Error = new Error("Gemini exhausted");
+  for (const model of candidates) {
+    const generationConfig: Record<string, unknown> = { maxOutputTokens: maxTok };
+    if (jsonMode) generationConfig.responseMimeType = "application/json";
+    const body: Record<string, unknown> = { contents, generationConfig };
+    if (sys) body.systemInstruction = { parts: [{ text: sys }] };
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    try {
+      let res = await tFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, gTimeout);
+      if (jsonMode && res.status === 400) {
+        // Some Gemini models reject responseMimeType — retry once without it
+        // before concluding the model itself is the problem.
+        delete generationConfig.responseMimeType;
+        res = await tFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, gTimeout);
+      }
+      if (!res.ok) { lastErr = new Error(`Gemini ${res.status} (${model})`); continue; }
+      const d = await res.json();
+      const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+      lastErr = new Error(`Gemini empty response (${model})`);
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+    }
   }
-  if (!res.ok) throw new Error(`Gemini ${res.status}`);
-  const d = await res.json();
-  return d.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  throw lastErr;
 }
 
 // Groq: tries every free model in sequence until one succeeds.
