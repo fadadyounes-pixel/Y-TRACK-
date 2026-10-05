@@ -47,20 +47,22 @@ const ev = (k: string, fb = "") => process.env[k] || fb;
 // deepseek-r1-distill) has since been decommissioned by Groq and now returns
 // 404/400 for every single request, which is what silently exhausted this
 // entire provider regardless of how valid the API key was.
+// groq/compound and groq/compound-mini were removed 2026-10: Groq deprecated
+// them Aug 24 2026 and fully decommissioned them Sep 21 2026 — they now 404
+// on every request, same as the earlier llama-3.x/qwen-qwq/deepseek-r1-distill
+// removal above. Do not re-add them without re-checking Groq's live model list.
 const GROQ_MODELS = [
   "openai/gpt-oss-120b",   // Best Groq quality, reasoning model
-  "groq/compound",          // Tool-use/agentic, real content even under tight budgets
   "qwen/qwen3.8-27b",       // Multilingual FR/AR, fast
   "allam-2-7b",             // Arabic-specialized (SDAIA)
   "openai/gpt-oss-20b",     // Smaller/faster reasoning model
-  "groq/compound-mini",
 ];
 
 const GROQ_MODELS_FAST = [
   "qwen/qwen3.8-27b",
-  "groq/compound-mini",
+  "openai/gpt-oss-20b",
   "allam-2-7b",
-  "groq/compound",
+  "openai/gpt-oss-120b",
 ];
 
 // NVIDIA NIM — enterprise inference, 1 000 free API credits/month (no card).
@@ -609,10 +611,14 @@ async function raceFirst(
   });
 }
 
-// Race 5 Groq models in parallel — each has an INDEPENDENT 30 RPM rate limit,
-// so firing them simultaneously quintuples effective throughput vs cycling sequentially.
+// Race 4 Groq models in parallel — each has an INDEPENDENT 30 RPM rate limit,
+// so firing them simultaneously multiplies effective throughput vs cycling sequentially.
 // Always available via hardcoded key. Returns the highest-quality fastest response.
-// Mix of quality (maverick, 70B), reasoning (deepseek-r1, qwen-qwq), and speed (scout).
+// Uses the same confirmed-live model set as GROQ_MODELS above — this list used to
+// carry its own separate (and since-decommissioned) model ids (llama-3.3-70b-versatile,
+// deepseek-r1-distill-llama-70b, qwen-qwq-32b, llama-4-scout/maverick), which meant this
+// race was silently 404-ing on every model and falling through to the slow sequential
+// groq() fallback on every single call. Keep this list in sync with GROQ_MODELS.
 async function raceGroqModels(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("GROQ_API_KEY");
   if (!key) throw new Error("no GROQ_API_KEY");
@@ -620,13 +626,7 @@ async function raceGroqModels(msgs: Msg[], sys: string | undefined, maxTok: numb
     ...(sys ? [{ role: "system", content: sys }] : []),
     ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) })),
   ];
-  const topModels = [
-    "meta-llama/llama-4-maverick-17b-128e-instruct", // Best quality, 128k ctx
-    "llama-3.3-70b-versatile",                        // Reliable 70B
-    "deepseek-r1-distill-llama-70b",                  // Reasoning — superior JSON analysis
-    "qwen-qwq-32b",                                   // Reasoning + strong FR/AR multilingual
-    "meta-llama/llama-4-scout-17b-16e-instruct",      // Speed fallback
-  ];
+  const topModels = GROQ_MODELS;
   const perTok = maxTok <= 500 ? 5000 : 10000;
   const url = "https://api.groq.com/openai/v1/chat/completions";
   const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
