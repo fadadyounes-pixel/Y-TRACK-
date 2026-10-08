@@ -38,11 +38,15 @@ this: one document in, one populated `ProjectProfile` out, landing the
 holder on the Profile step. The bulk importer is the same idea at the scale
 of a whole committee spreadsheet.
 
-## 2. The 9-step holder flow
+## 2. The 8-step holder flow
 
 ```
-idea → dialogue → profile → plan → budget → logo → compliance → documents → export
+idea → dialogue → profile → plan → budget → compliance → documents → export
 ```
+
+(The brand-identity `logo` step was removed — it wasn't part of the dossier
+schema and sat between a porteur stating their funding request and seeing
+it scored, adding a step with no committee-file output.)
 
 (`STEPS` in `HolderApp`, `app/ideamap/page.tsx`.) The Dossier Factory build
 plan refers to the third step as "dossier" — that is the same step as
@@ -58,21 +62,31 @@ avoid two names for one thing.
   (`buildLocalProfile`) shown immediately and silently upgraded.
 - **plan** / **budget** — `BusinessPlan` and `Budget` (`genPlan()`), same
   instant-draft-then-AI-upgrade pattern (`buildLocalPlan`, `buildLocalBudget`).
-- **logo** — AI-generated brand identity (not part of the dossier schema).
+  The budget's total is always the porteur's own stated cost
+  (`ProjectProfile.estimatedBudget`, read from their answer to "coût total
+  estimé") — 100 000 MAD is the INDH contribution's ceiling
+  (`computeSplit`/the inline `Math.min(total*0.9, 100000)` equivalent), never
+  a floor or a default the total gets pushed toward. The first budget line
+  item is the porteur's own stated equipment (`ProjectProfile.equipmentRequested`,
+  read verbatim from their answer to "quel équipement principal...", carried
+  through unparaphrased), topped up with sector-known items only to round out
+  the rest.
 - **compliance** — `Compliance` / jury score (`checkComp()`,
   `buildLocalCompliance`).
 - **documents** — per-document checklist + attachments.
-- **export** — download the dossier's files, in fr/ar/en: the holder-facing
-  Pitch Deck and jury-scoring Dossier Jury PPTX (`generatePptxDeck`), plus
-  the full 4-file committee dossier (§3a below). A coordinator gets the same
-  4 files for any of their holders from `CoordDash`'s holder-detail view
-  (`downloadHolderDeck` / `downloadHolderDocument`).
+- **export** — download the dossier's 4 official committee files (§3a below),
+  in fr/ar/en. A coordinator gets the same 4 files for any of their holders
+  from `CoordDash`'s holder-detail view (`downloadHolderDocument`). The
+  holder-facing Pitch Deck / Dossier Jury PPTX and the other bonus exports
+  (PDF summary, jury prep sheet, submission guide, etc.) that used to sit
+  alongside these 4 were removed — the 4 committee files are the only
+  options now, per explicit request to stop cluttering this step.
 
 ### 3a. The dossier's 4 files (§1 of the build plan)
 
 | File | Generator | Format |
 |---|---|---|
-| Présentation comité | `generateComitePresentation` (`app/ideamap/page.tsx`, next to `generatePptxDeck` for shared pptxgenjs styling helpers) | PPTX, 10 slides, Arabic by default (fr/en selectable, matching the rest of the app) |
+| Présentation comité | `generateComitePresentation` (`app/ideamap/page.tsx`) | PPTX, 10 slides, Arabic by default (fr/en selectable, matching the rest of the app) |
 | Fiche Projet | `buildFicheProjetDoc` (`lib/ideamap/dossier/generators.ts`) | DOCX |
 | Fiche Technique | `buildFicheTechniqueDoc` (`lib/ideamap/dossier/generators.ts`) | DOCX |
 | Business Plan | `buildBusinessPlanDoc` (`lib/ideamap/dossier/generators.ts`) | DOCX |
@@ -193,6 +207,24 @@ in):**
   chip. Note: this is a reporting export (one row per holder), distinct from
   the per-project dossier files above and from the future `buildCommitteeExcel`
   (§4.5's consolidated *Projets*+*Récapitulatif* import-level export).
+- The export step (holder and coordinator) now offers **only** the 4 files
+  above — the Pitch Deck, Dossier Jury, PDF dossier, jury prep sheet, and
+  other bonus exports that used to sit alongside them were removed, along
+  with the now-fully-unreachable `generatePptxDeck`/`dlPDF`/
+  `dlFicheSynthetique`/`genAndDlPitchArabe`/`genAndDlQA` functions that built
+  them.
+- The **Logo step is gone** from the holder flow (8 steps, not 9) — it
+  generated a brand identity that was never part of the dossier schema.
+- The budget/equipment fix: `ProjectProfile` gained an `equipmentRequested`
+  field carrying the porteur's own stated equipment answer verbatim (both
+  the AI profile-compilation prompt and the local heuristic now populate
+  it), and `buildLocalBudget`'s total no longer clamps to an artificial
+  55 000–111 000 MAD range — it uses the porteur's real stated cost
+  directly, with 100 000 MAD applied only as the INDH contribution's
+  ceiling (never a floor). The AI budget-generation prompt was corrected to
+  match (it previously instructed "total doit être entre 55 000 et 111 000
+  MAD", which fabricated numbers for any porteur whose real project costs
+  less).
 
 **Explicitly NOT touched in this phase**, per the "no change to login and
 information page" instruction: the `Login` component, `onLogin()`, and the

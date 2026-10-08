@@ -425,7 +425,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     photo:"Photo (optionnelle)",
     create:"Créer mon compte →",
     welcome:"Bienvenue,",
-    steps:["Idée","Questions","Profil","Plan","Budget","Logo","Conformité","Documents","Dossier"],
+    steps:["Idée","Questions","Profil","Plan","Budget","Conformité","Documents","Dossier"],
     ideaT:"Décrivez votre idée de projet",
     ideaH:"Secteur, zone géographique, bénéficiaires ciblés, besoins principaux.",
     ideaP:"Ex: Je veux lancer une activité de transformation de produits du terroir dans ma région...",
@@ -484,7 +484,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     photo:"الصورة (اختياري)",
     create:"إنشاء الحساب ←",
     welcome:"مرحباً،",
-    steps:["الفكرة","الأسئلة","الملف","الخطة","الميزانية","الشعار","الامتثال","الوثائق","الدوسيي"],
+    steps:["الفكرة","الأسئلة","الملف","الخطة","الميزانية","الامتثال","الوثائق","الدوسيي"],
     ideaT:"صف فكرة مشروعك",
     ideaH:"القطاع، المنطقة الجغرافية، المستفيدون المستهدفون، الاحتياجات الرئيسية.",
     ideaP:"مثال: أريد إطلاق نشاط لتحويل المنتجات المحلية في منطقتي...",
@@ -543,7 +543,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     photo:"Photo (optional)",
     create:"Create account →",
     welcome:"Welcome,",
-    steps:["Idea","Questions","Profile","Plan","Budget","Logo","Compliance","Documents","File"],
+    steps:["Idea","Questions","Profile","Plan","Budget","Compliance","Documents","File"],
     ideaT:"Describe your project idea",
     ideaH:"Sector, geographic zone, target beneficiaries, main needs.",
     ideaP:"E.g. I want to launch a local product processing activity in my region...",
@@ -1588,343 +1588,6 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
   );
 }
 
-// Builds and downloads the Pitch Deck (5 slides) or Dossier Jury (9 slides) .pptx
-// for a given project record. Extracted as a standalone function (rather than
-// living inside HolderApp) so it can be called for ANY holder's saved data, not
-// just the currently-logged-in holder's own live state — specifically, so a
-// coordinator can generate a holder's deck straight from their own dashboard
-// (CoordDash) without asking the holder to send it themselves.
-async function generatePptxDeck(
-  type: "pitch" | "jury",
-  exportLang: string,
-  data: {proj: any; plan: any; budget: any; comp: any; docs: Record<number, boolean>; logo: any; profile: any; name: string},
-  lang: string,
-  showToast: (msg: string, type?: "error" | "success") => void,
-) {
-  const {proj, plan, budget, comp, docs, logo, profile, name} = data;
-  try {
-    const PptxGenJS = (await import("pptxgenjs")).default;
-    const prs = new (PptxGenJS as any)();
-    prs.layout = "LAYOUT_16x9";
-    const NAVY = "0F2233"; const YELLOW = "FFB703"; const WHITE = "FFFFFF";
-    const total = budget?.items?.reduce((s: number, x: any) => s + (x.total || 0), 0) || 0;
-    const indh = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
-    const bene = budget?.beneficiaryContribution || (total - indh);
-
-    const isAr = exportLang === "ar";
-    const isEn = exportLang === "en";
-    const T = {
-      problem: isAr?"الإشكالية والحل":isEn?"Problem & Solution":"Problème & Solution",
-      model: isAr?"النموذج الاقتصادي والأثر":isEn?"Business Model & Impact":"Modèle Économique & Impact",
-      budget: isAr?"ميزانية المبادرة الوطنية":isEn?"INDH Budget":"Budget INDH",
-      steps: isAr?"الخطوات التالية":isEn?"Next Steps":"Étapes Suivantes",
-      summary: isAr?"الملخص التنفيذي":isEn?"Executive Summary":"Résumé Exécutif",
-      plan: isAr?"خطة الأعمال":isEn?"Business Plan":"Plan d'Affaires",
-      impact: isAr?"الأثر الاجتماعي والمحاذاة":isEn?"Social Impact & INDH Alignment":"Impact Social & Alignement INDH",
-      budgetPrev: isAr?"الميزانية التفصيلية":isEn?"Detailed Budget":"Budget Prévisionnel",
-      compliance: isAr?"الامتثال للمبادرة":isEn?"INDH Compliance":"Conformité INDH",
-      docs: isAr?"الوثائق المطلوبة":isEn?"Required Documents":"Documents Requis",
-      submission: isAr?"مراحل تقديم الملف":isEn?"Submission Steps":"Étapes de Soumission",
-      holder: isAr?"الحامل":isEn?"Holder":"Porteur",
-      eligible: isAr?"مؤهل للتمويل ✓":isEn?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
-      notElig: isAr?"يحتاج تعديلات ✗":isEn?"NOT ELIGIBLE ✗":"NON ÉLIGIBLE ✗",
-      totalLabel: isAr?"المجموع":"Total",
-      indhLabel: isAr?"المبادرة (90%)":"INDH (90%)",
-      holdLabel: isAr?"مساهمة الحامل (10%)":isEn?"Holder (10%)":"Apport porteur (10%)",
-      stepsText: isAr
-        ? "1. إعداد الملف الكامل للمبادرة الوطنية\n2. جمع الوثائق المطلوبة\n3. إيداع الملف لدى مديرية العمل الاجتماعي\n4. الاستماع أمام لجنة التحكيم\n5. التوقيع على اتفاقية المبادرة الوطنية"
-        : isEn
-          ? "1. Finalize the INDH application file\n2. Gather all required documents\n3. Submit to the Division of Social Action (DAS)\n4. Present to INDH selection jury\n5. Sign the INDH convention"
-          : "1. Finaliser le dossier INDH\n2. Rassembler tous les documents requis\n3. Déposer auprès du CPDH\n4. Passage devant le jury de sélection\n5. Signature de la convention INDH",
-      submissionText: isAr
-        ? "1. إيداع الملف لدى مديرية العمل الاجتماعي (DAS)\n2. الحصول على وصل الإيداع\n3. دراسة الملف من طرف اللجنة الإقليمية (CPDH)\n4. المثول أمام لجنة تحكيم المبادرة الوطنية\n5. إشعار بالقرار\n6. التوقيع على الاتفاقية وانطلاق المشروع"
-        : isEn
-          ? "1. Submit file to Division of Social Action (DAS)\n2. Receive deposit receipt\n3. Review by local CPDH committee\n4. Present before INDH jury\n5. Decision notification\n6. Sign convention and start project"
-          : "1. Déposer le dossier à la Division de l'Action Sociale (DAS)\n2. Récépissé de dépôt délivré\n3. Instruction par le CPDH local\n4. Passage devant le jury INDH\n5. Notification de décision\n6. Signature de la convention et démarrage",
-      catLabel: isAr?"الفئة":isEn?"Category":"Catégorie",
-      itemLabel: isAr?"البند":isEn?"Item":"Désignation",
-      totalCol: isAr?"المجموع (درهم)":isEn?"Total (MAD)":"Total (MAD)",
-      criteriaLabel: isAr?"المعيار":isEn?"Criteria":"Critère",
-      weightLabel: isAr?"الوزن":isEn?"Weight":"Poids",
-      scoreLabel: isAr?"النقطة":isEn?"Score":"Score",
-      docLabel: isAr?"الوثيقة":isEn?"Document":"Document",
-      statusLabel: isAr?"الحالة":isEn?"Status":"Statut",
-      ready: isAr?"✓ جاهز":isEn?"✓ Ready":"✓ Prêt",
-      pending: isAr?"⏳ قيد الإعداد":isEn?"⏳ Pending":"⏳ En attente",
-      docsCount: isAr
-        ? `${Object.values(docs).filter(Boolean).length}/${DOCS.length} وثيقة جاهزة`
-        : `${Object.values(docs).filter(Boolean).length}/${DOCS.length} ${isEn?"documents ready":"documents préparés"}`,
-    };
-    const align = isAr ? "right" : "center";
-
-    if (type === "pitch") {
-      let s = prs.addSlide(); s.background = {color: NAVY};
-      s.addText(proj?.projectName || "Mon Projet", {x:0.5,y:1.6,w:9,h:1.4,fontSize:34,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
-      s.addText(logo?.concept?.tagline || proj?.sector || "", {x:0.5,y:3.1,w:9,h:0.6,fontSize:15,color:WHITE,align:"center",fontFace:"Arial"});
-      s.addText(`${proj?.location || ""} · INDH Phase 3`, {x:0.5,y:3.9,w:9,h:0.4,fontSize:11,color:"AAAAAA",align:"center"});
-      s.addText("IdeaMap", {x:0.5,y:4.5,w:9,h:0.3,fontSize:9,color:"666666",align:"center"});
-
-      s = prs.addSlide(); s.background = {color:"FAF7F0"};
-      s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-      s.addText(T.problem, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:26,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-      if (plan?.problemStatement) s.addText(plan.problemStatement, {x:0.4,y:1.1,w:4.3,h:3.8,fontSize:11,color:"333333",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-      if (plan?.solution) s.addText(plan.solution, {x:5.1,y:1.1,w:4.3,h:3.8,fontSize:11,color:"333333",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-
-      s = prs.addSlide(); s.background = {color:"FAF7F0"};
-      s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-      s.addText(T.model, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:26,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-      if (plan?.businessModel) s.addText(plan.businessModel, {x:0.4,y:1.1,w:9.1,h:2,fontSize:12,color:"222222",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-      if (plan?.socialImpact) s.addText(plan.socialImpact, {x:0.4,y:3.3,w:9.1,h:1.8,fontSize:12,color:"1C3A5C",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-
-      s = prs.addSlide(); s.background = {color:NAVY};
-      s.addText(T.budget, {x:0.5,y:0.3,w:9,h:0.7,fontSize:26,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
-      s.addText(`${T.totalLabel} : ${total.toLocaleString()} MAD`, {x:0.5,y:1.4,w:9,h:0.7,fontSize:22,color:WHITE,align:"center",bold:true});
-      s.addText(`${T.indhLabel} : ${indh.toLocaleString()} MAD`, {x:0.5,y:2.3,w:9,h:0.6,fontSize:18,color:YELLOW,align:"center"});
-      s.addText(`${T.holdLabel} : ${bene.toLocaleString()} MAD`, {x:0.5,y:3.1,w:9,h:0.6,fontSize:18,color:"CCCCCC",align:"center"});
-
-      s = prs.addSlide(); s.background = {color:"FAF7F0"};
-      s.addShape((prs as any).ShapeType?.rect || "rect", {x:0,y:0,w:0.12,h:5.5,fill:{color:YELLOW}});
-      s.addText(T.steps, {x:0.4,y:0.2,w:9.1,h:0.7,fontSize:26,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-      s.addText(T.stepsText, {x:0.4,y:1.1,w:9.1,h:4,fontSize:15,color:"222222",fontFace:"Arial",align:isAr?"right":"left"});
-      await prs.writeFile({fileName: `PitchDeck_${proj?.projectName || "IdeaMap"}.pptx`});
-    } else {
-      // ── 9-slide INDH jury presentation — presentation-ready with talking points ──
-      const clip = (txt: string, n: number) => {
-        if (!txt) return "";
-        if (txt.length <= n) return txt;
-        return txt.slice(0, n).replace(/\s\S*$/, "…");
-      };
-      const bpts = (txt: string, max: number = 3): string[] => {
-        if (!txt) return [];
-        return txt.split(/\.\s+|;\s+|\n+/).map((x: string) => x.trim()).filter((x: string) => x.length > 10).slice(0, max);
-      };
-
-      const SH = (prs as any).ShapeType?.rect || "rect";
-      const jTalk = (sl: any, txt: string, bg: string = "EFF6FF", txtCol: string = "1C3A5C") => {
-        sl.addShape(SH, {x:0.3,y:4.55,w:9.4,h:0.78,fill:{color:bg},line:{color:"CCCCCC",pt:0.5}});
-        sl.addText(`🎤 ${txt}`, {x:0.45,y:4.6,w:9.1,h:0.7,fontSize:9.5,color:txtCol,italic:true,wrap:true,fontFace:"Arial"});
-      };
-      const headerBar = (sl: any, txt: string, colHex: string, scoreStr: string, subLabel: string) => {
-        sl.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:colHex}});
-        sl.addText(txt, {x:0.25,y:0,w:7.2,h:0.82,fontSize:18,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-        sl.addShape(SH, {x:7.6,y:0.1,w:2.15,h:0.62,fill:{color:"00000033"},line:{color:WHITE,pt:1}});
-        sl.addText(scoreStr, {x:7.6,y:0.1,w:2.15,h:0.62,fontSize:20,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
-        if (subLabel) sl.addText(subLabel, {x:7.6,y:0.74,w:2.15,h:0.22,fontSize:7.5,color:colHex,align:"center",fontFace:"Arial",bold:true});
-      };
-
-      // ── Slide 1: Cover ──
-      let s = prs.addSlide(); s.background = {color:NAVY};
-      s.addShape(SH, {x:0,y:0,w:10,h:0.1,fill:{color:"2A5CE0"}});
-      s.addShape(SH, {x:0,y:5.53,w:10,h:0.1,fill:{color:"2A5CE0"}});
-      s.addText(proj?.projectName || "", {x:0.5,y:0.6,w:9,h:1.0,fontSize:30,color:YELLOW,bold:true,align:"center",fontFace:"Arial"});
-      if (logo?.concept?.tagline) s.addText(`« ${logo.concept.tagline} »`, {x:0.5,y:1.72,w:9,h:0.38,fontSize:14,color:"CCCCCC",align:"center",fontFace:"Arial",italic:true});
-      s.addText(`${proj?.sector||""} · 📍 ${proj?.location||regionDisplay(profile)||""}`, {x:0.5,y:2.18,w:9,h:0.32,fontSize:12,color:"AAAAAA",align:"center",fontFace:"Arial"});
-      s.addShape(SH, {x:0.5,y:2.6,w:9,h:0.04,fill:{color:"2A5CE044"}});
-      const metricTotal = budget?.items?.reduce((s2: number, x: any)=>s2+(x.total||0),0)||0;
-      const chips = [
-        {l:isAr?"النقطة":isEn?"Score":"Score", v:comp?`${comp.score}/100`:"—", col:comp?.eligible?"22C55E":"EF4444"},
-        {l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—", col:YELLOW},
-        {l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:proj?.beneficiaries?String(proj.beneficiaries):"—", col:"60A5FA"},
-        {l:isAr?"مساهمة INDH":isEn?"INDH Grant":"Subvention INDH", v:metricTotal?`${Math.min(Math.round(metricTotal*.90),100000).toLocaleString()} MAD`:"—", col:"A78BFA"},
-      ];
-      chips.forEach((m, i) => {
-        const bx = 0.3 + i * 2.4;
-        s.addShape(SH, {x:bx,y:2.82,w:2.2,h:1.1,fill:{color:"141B45"},line:{color:"2A5CE0",pt:1}});
-        s.addText(m.l, {x:bx+0.1,y:2.87,w:2,h:0.28,fontSize:7.5,color:"888888",fontFace:"Arial",bold:true});
-        s.addText(m.v, {x:bx+0.1,y:3.12,w:2,h:0.55,fontSize:12,color:m.col,bold:true,fontFace:"Arial"});
-      });
-      s.addText(`${T.holder}: ${name} ${profile?.lastName||""} · ${proj?.pillar||"INDH Phase 3"}`, {x:0.5,y:4.15,w:9,h:0.3,fontSize:10,color:"888888",align:"center",fontFace:"Arial"});
-      s.addText("IdeaMap · ideamaponline.org", {x:0.5,y:4.6,w:9,h:0.25,fontSize:8,color:"444444",align:"center",fontFace:"Arial"});
-
-      // ── Slide 2: Mon Projet en 30 secondes ──
-      s = prs.addSlide(); s.background = {color:"F8F9FF"};
-      s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:"0A0F2C"}});
-      s.addText(isAr?"مشروعي في 30 ثانية":isEn?"My Project in 30 Seconds":"Mon Projet en 30 Secondes", {x:0.25,y:0,w:9.5,h:0.82,fontSize:20,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-      if (plan?.executiveSummary) s.addText(clip(plan.executiveSummary, 280), {x:0.35,y:0.98,w:9.2,h:1.0,fontSize:12.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-      const infoChips = [
-        {icon:"🏭", l:isAr?"القطاع":isEn?"Sector":"Secteur", v:proj?.sector||""},
-        {icon:"👥", l:isAr?"المستفيدون":isEn?"Beneficiaries":"Bénéficiaires", v:String(proj?.beneficiaries||"—")},
-        {icon:"💰", l:isAr?"الميزانية":isEn?"Budget":"Budget", v:metricTotal?`${metricTotal.toLocaleString()} MAD`:"—"},
-      ];
-      infoChips.forEach((ic, i) => {
-        const bx = 0.35 + i * 3.1;
-        s.addShape(SH, {x:bx,y:2.1,w:2.85,h:0.85,fill:{color:"EFF6FF"},line:{color:"2A5CE055",pt:1}});
-        s.addText(`${ic.icon} ${ic.l}`, {x:bx+0.1,y:2.15,w:2.65,h:0.25,fontSize:8,color:"5B6178",bold:true,fontFace:"Arial"});
-        s.addText(ic.v, {x:bx+0.1,y:2.4,w:2.65,h:0.45,fontSize:11,color:"0A0F2C",bold:true,fontFace:"Arial",wrap:true});
-      });
-      s.addShape(SH, {x:0.35,y:3.1,w:9.2,h:0.7,fill:{color:"0A0F2C"},line:{color:"2A5CE0",pt:1}});
-      s.addText(`🏛️ ${comp?.pillar||proj?.pillar||"INDH Phase 3"}`, {x:0.55,y:3.1,w:8.8,h:0.7,fontSize:13,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-      jTalk(s, isAr?"أنا [اسمك]، وأريد [الحل] لـ [المستفيدين] في [المنطقة]. مشروعي يطلب [الميزانية] من المبادرة الوطنية.":isEn?"I am [Name]. I want to [solution] for [beneficiaries] in [location]. My project requests [budget] from INDH.":"Je suis [Nom]. Je veux [solution] pour [bénéficiaires] à [lieu]. Mon projet demande [budget] à l'INDH.", "EFF6FF");
-
-      // ── Slide 3: Impact Social [25 pts] ──
-      s = prs.addSlide(); s.background = {color:"FAFFF9"};
-      const impScore = comp?.juryScore?.impact||0;
-      headerBar(s, isAr?"الأثر الاجتماعي والمستفيدون":isEn?"Social Impact & Beneficiaries":"Impact Social & Bénéficiaires", "1C7A62", `${impScore}/25`, isAr?"25 نقطة — الأعلى وزناً":isEn?"25 pts — highest weight":"25 pts — critère n°1");
-      s.addShape(SH, {x:0.35,y:1.0,w:2.6,h:1.4,fill:{color:"1C7A62"},line:{color:"FFFFFF",pt:0}});
-      s.addText(String(proj?.beneficiaries||""), {x:0.35,y:1.05,w:2.6,h:0.8,fontSize:44,color:WHITE,bold:true,align:"center",fontFace:"Arial"});
-      s.addText(isAr?"مستفيد مباشر":isEn?"direct beneficiaries":"bénéficiaires directs", {x:0.35,y:1.86,w:2.6,h:0.4,fontSize:9,color:"DDFFEE",align:"center",fontFace:"Arial"});
-      if (proj?.targetProfile) {
-        s.addShape(SH, {x:3.15,y:1.0,w:6.5,h:0.6,fill:{color:"EAF5F0"},line:{color:"1C7A6244",pt:0.5}});
-        s.addText(`👥 ${clip(proj.targetProfile, 120)}`, {x:3.3,y:1.0,w:6.2,h:0.6,fontSize:11,color:"1C3A5C",bold:true,fontFace:"Arial",valign:"middle",wrap:true});
-      }
-      const impBpts = bpts(plan?.socialImpact, 3);
-      impBpts.forEach((bp, i) => {
-        s.addText(`• ${clip(bp, 130)}`, {x:3.15,y:1.72+i*0.5,w:6.5,h:0.48,fontSize:10.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-      });
-      if (plan?.indh_alignment) {
-        s.addShape(SH, {x:0.35,y:3.25,w:9.2,h:0.04,fill:{color:"1C7A6244"}});
-        s.addText(`🏛️ ${clip(plan.indh_alignment, 200)}`, {x:0.35,y:3.35,w:9.2,h:0.8,fontSize:9.5,color:"1C3A5C",wrap:true,fontFace:"Arial",italic:true,align:isAr?"right":"left"});
-      }
-      jTalk(s, isAr?"مشروعي سيستفيد [العدد] شخصاً من [الفئة] في [المنطقة]. كل مستفيد سيحصل على دخل إضافي يقدر بـ [المبلغ] درهماً شهرياً.":isEn?"My project benefits [N] people from [profile] in [location]. Each will earn an extra [amount] MAD/month.":"Mon projet bénéficiera à [N] personnes de [profil] à [lieu]. Chacun gagnera [montant] MAD/mois supplémentaires.", "E8F5F0", "1C4A3A");
-
-      // ── Slide 4: Pertinence Territoriale [20 pts] ──
-      s = prs.addSlide(); s.background = {color:"F8F9FF"};
-      const relScore = comp?.juryScore?.relevance||0;
-      headerBar(s, isAr?"الملاءمة الترابية والإشكالية":isEn?"Territorial Relevance & Problem":"Pertinence Territoriale & Problématique", "2A5CE0", `${relScore}/20`, isAr?"20 نقطة":isEn?"20 pts":"20 pts");
-      s.addShape(SH, {x:0.35,y:1.0,w:9.2,h:0.55,fill:{color:"EFF6FF"},line:{color:"2A5CE055",pt:0.8}});
-      s.addText(`📍 ${proj?.location||regionDisplay(profile)||""}`, {x:0.55,y:1.0,w:8.8,h:0.55,fontSize:15,color:"0A0F2C",bold:true,fontFace:"Arial",valign:"middle"});
-      if (proj?.localProblem) {
-        s.addShape(SH, {x:0.35,y:1.68,w:9.2,h:0.75,fill:{color:"DDEEFF"},line:{color:"2A5CE033",pt:0.5}});
-        s.addText(`⚠️ ${clip(proj.localProblem, 160)}`, {x:0.5,y:1.7,w:8.9,h:0.7,fontSize:11.5,color:"0A0F2C",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-      }
-      const solBpts = bpts(plan?.solution, 3);
-      if (solBpts.length > 0) {
-        s.addText(isAr?"الحل المقترح:":isEn?"Proposed solution:":"Solution proposée :", {x:0.35,y:2.56,w:9.2,h:0.28,fontSize:9,color:"2A5CE0",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        solBpts.forEach((bp, i) => {
-          s.addText(`→ ${clip(bp, 130)}`, {x:0.5,y:2.87+i*0.44,w:9.0,h:0.42,fontSize:10.5,color:"1C3A5C",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-        });
-      }
-      jTalk(s, isAr?"في [المنطقة]، [المشكلة المحلية]. مشروعي يقدم [الحل] مباشرةً لمن يحتاجونه هناك.":isEn?"In [area], [local problem]. My project brings [solution] directly to those who need it.":"À [lieu], [problème local]. Mon projet apporte [solution] directement à ceux qui en ont besoin.", "EFF6FF");
-
-      // ── Slide 5: Viabilité Économique [20 pts] ──
-      s = prs.addSlide(); s.background = {color:"FBF8FF"};
-      const viaScore = comp?.juryScore?.viability||0;
-      headerBar(s, isAr?"الجدوى الاقتصادية والتوقعات المالية":isEn?"Economic Viability & Projections":"Viabilité Économique & Projections", "7C3AED", `${viaScore}/20`, isAr?"20 نقطة":isEn?"20 pts":"20 pts");
-      if (proj?.revenueModel) {
-        s.addShape(SH, {x:0.35,y:1.0,w:9.2,h:0.72,fill:{color:"EDE9FE"},line:{color:"7C3AED44",pt:0.5}});
-        s.addText(`💡 ${clip(proj.revenueModel, 200)}`, {x:0.5,y:1.02,w:9.0,h:0.68,fontSize:11,color:"3B007A",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-      }
-      const bisBpts = bpts(plan?.businessModel, 2);
-      bisBpts.forEach((bp, i) => {
-        s.addText(`• ${clip(bp, 120)}`, {x:0.5,y:1.86+i*0.44,w:9.0,h:0.42,fontSize:10.5,color:"111111",wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-      });
-      if (plan?.projections) {
-        s.addText(isAr?"التوقعات المالية (درهم)":isEn?"Financial Projections (MAD)":"Projections Financières (MAD)", {x:0.35,y:2.85,w:9.2,h:0.28,fontSize:9,color:"7C3AED",bold:true,fontFace:"Arial"});
-        const projEntries = Object.entries(plan.projections);
-        projEntries.forEach(([yr, val], i) => {
-          const bx = 0.35 + i * 3.1;
-          const prev = i > 0 ? Number(projEntries[i-1][1]) : 0;
-          const growth = prev > 0 ? Math.round(((Number(val)-prev)/prev)*100) : null;
-          s.addShape(SH, {x:bx,y:3.18,w:2.85,h:1.02,fill:{color:"EDE9FE"},line:{color:"7C3AED55",pt:1}});
-          s.addText(`${isAr?"السنة":isEn?"Year":"An"} ${yr.replace("year","")}`, {x:bx+0.1,y:3.23,w:2.65,h:0.25,fontSize:8,color:"7C3AED",bold:true,fontFace:"Arial"});
-          s.addText(`${Number(val).toLocaleString()} MAD`, {x:bx+0.1,y:3.5,w:2.65,h:0.45,fontSize:13,color:NAVY,bold:true,fontFace:"Arial"});
-          if (growth !== null) s.addText(`▲ ${growth}%`, {x:bx+0.1,y:3.97,w:2.65,h:0.22,fontSize:9,color:"1C7A62",bold:true,fontFace:"Arial"});
-        });
-      }
-      jTalk(s, isAr?"أتوقع رقم معاملات شهري يبلغ [المبلغ] درهماً منذ الشهر [X]. الربحية تُحقَّق خلال [N] أشهر. بعد المبادرة، [الاستدامة].":isEn?"I expect [amount] MAD/month revenue from month [X]. Break-even in [N] months. After INDH: [sustainability].":"Je prévois [montant] MAD/mois dès le mois [X]. Rentabilité en [N] mois. Après l'INDH : [pérennité].", "EDE9FE", "3B007A");
-
-      // ── Slide 6: Budget INDH 90%/10% ──
-      s = prs.addSlide(); s.background = {color:NAVY};
-      s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:"2A5CE0"}});
-      s.addText(T.budgetPrev, {x:0.25,y:0,w:9.5,h:0.82,fontSize:20,color:WHITE,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-      const indhPct = Math.round((indh/(total||1))*100);
-      const barW = 9.2;
-      s.addShape(SH, {x:0.4,y:0.95,w:barW*(indhPct/100),h:0.3,fill:{color:"2A5CE0"}});
-      s.addShape(SH, {x:0.4+barW*(indhPct/100),y:0.95,w:barW*(1-indhPct/100),h:0.3,fill:{color:"4B5563"}});
-      s.addText(`🏛️ INDH ${indhPct}% = ${indh.toLocaleString()} MAD`, {x:0.4,y:1.3,w:6,h:0.35,fontSize:11,color:"60A5FA",fontFace:"Arial",bold:true});
-      s.addText(`👤 ${100-indhPct}% = ${bene.toLocaleString()} MAD`, {x:6.5,y:1.3,w:3.1,h:0.35,fontSize:11,color:"AAAAAA",fontFace:"Arial"});
-      if (budget?.items?.length) {
-        const rows = [
-          [{text:T.catLabel,options:{bold:true,color:YELLOW}},{text:T.itemLabel,options:{bold:true,color:YELLOW}},{text:T.totalCol,options:{bold:true,color:YELLOW}}],
-          ...budget.items.slice(0,8).map((x: any) => [clip(x.category||"",18), clip(x.item||"",40), `${Number(x.total||0).toLocaleString()} MAD`]),
-          [{text:"",options:{}},{text:T.totalLabel,options:{bold:true,color:YELLOW}},{text:`${total.toLocaleString()} MAD`,options:{bold:true,color:YELLOW}}],
-        ];
-        s.addTable(rows, {x:0.3,y:1.72,w:9.4,colW:[2.0,5.2,2.2],fontSize:8.5,color:WHITE,border:{type:"solid",color:"334466",pt:0.5},fontFace:"Arial"});
-      }
-
-      // ── Slide 7: Gestion, Durabilité & Innovation [35 pts] ──
-      s = prs.addSlide(); s.background = {color:"FFFBF0"};
-      const mgmtScore = comp?.juryScore?.management||0;
-      const sustScore = comp?.juryScore?.sustainability||0;
-      const innScore  = comp?.juryScore?.innovation||0;
-      headerBar(s, isAr?"التسيير والاستدامة والابتكار":isEn?"Management, Sustainability & Innovation":"Gestion, Durabilité & Innovation", "D97706", `${mgmtScore+sustScore+innScore}/35`, isAr?"15+10+10 نقطة":isEn?"15+10+10 pts":"15+10+10 pts");
-      [{l:isAr?"تسيير":isEn?"Mgmt":"Gestion",sc:mgmtScore,mx:15},{l:isAr?"استدامة":isEn?"Sust.":"Durabilité",sc:sustScore,mx:10},{l:isAr?"ابتكار":isEn?"Innov.":"Innovation",sc:innScore,mx:10}].forEach((c, i) => {
-        const bx = 0.35 + i * 3.1;
-        const colChip = (c.sc/c.mx)>=0.7 ? "1C7A62" : (c.sc/c.mx)>=0.5 ? "D97706" : "C0632F";
-        s.addShape(SH, {x:bx,y:0.9,w:2.85,h:0.68,fill:{color:"FEF3C7"},line:{color:"D97706",pt:1}});
-        s.addText(`${c.l}: ${c.sc}/${c.mx}`, {x:bx+0.1,y:0.94,w:2.65,h:0.58,fontSize:13,color:colChip,bold:true,fontFace:"Arial",align:"center"});
-      });
-      if (proj?.holderExperience) {
-        s.addText(isAr?"خبرة الحامل:":isEn?"Holder experience:":"Expérience du porteur :", {x:0.35,y:1.72,w:9.2,h:0.28,fontSize:9,color:"D97706",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        s.addShape(SH, {x:0.35,y:2.0,w:9.2,h:0.65,fill:{color:"FEF3C7"},line:{color:"D9770644",pt:0.5}});
-        s.addText(`⭐ ${clip(proj.holderExperience, 180)}`, {x:0.5,y:2.02,w:9.0,h:0.6,fontSize:11,color:"7A3C00",bold:true,wrap:true,fontFace:"Arial",align:isAr?"right":"left"});
-      }
-      const actList = proj?.activities || [];
-      if (actList.length > 0) {
-        s.addText(isAr?"الأنشطة الرئيسية:":isEn?"Core activities:":"Activités clés :", {x:0.35,y:2.76,w:9.2,h:0.28,fontSize:9,color:"D97706",bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        actList.slice(0,3).forEach((act: string, i: number) => {
-          s.addShape(SH, {x:0.35,y:3.08+i*0.38,w:9.2,h:0.34,fill:{color:i%2===0?"FFFBF0":"FEF3C7"},line:{color:"D9770633",pt:0.3}});
-          s.addText(`✓ ${clip(act, 100)}`, {x:0.5,y:3.1+i*0.38,w:9.0,h:0.3,fontSize:10,color:"3A2000",fontFace:"Arial",align:isAr?"right":"left"});
-        });
-      }
-      jTalk(s, isAr?"لدي [الخبرة]. سأُدير المشروع بنفسي بمساعدة [المساعدين]. خطة التشغيل لدي واضحة: [الخطة].":isEn?"I have [experience]. I will manage with [team]. My operational plan: [plan].":"J'ai [expérience]. Je gèrerai avec [équipe]. Mon plan opérationnel : [plan].", "FFF8E8", "7A3C00");
-
-      // ── Slide 8: Grille Jury INDH — KEY SLIDE ──
-      s = prs.addSlide(); s.background = {color:"F8F9FF"};
-      const eligBg = comp?.eligible ? "0A0F2C" : "FFF0F0";
-      s.addShape(SH, {x:0,y:0,w:10,h:0.85,fill:{color:eligBg}});
-      s.addText(`${isAr?"تقييم لجنة التحكيم INDH":isEn?"INDH Jury Evaluation Grid":"Grille d'Évaluation du Jury INDH"}`, {x:0.3,y:0,w:7,h:0.85,fontSize:20,color:YELLOW,bold:true,fontFace:"Arial",valign:"middle",align:isAr?"right":"left"});
-      if (comp) {
-        const sc = comp.score;
-        s.addText(`${sc}/100`, {x:7.5,y:0,w:2.1,h:0.85,fontSize:30,color:sc>=60?"22C55E":"EF4444",bold:true,align:"right",fontFace:"Arial",valign:"middle"});
-        s.addText(comp.eligible?`✅ ${T.eligible}`:`⚠️ ${T.notElig}`, {x:7.5,y:0.0,w:2.2,h:0.85,fontSize:9,color:comp.eligible?"22C55E":"EF4444",bold:true,align:"right",fontFace:"Arial",valign:"bottom"});
-      }
-      const juryDef = [
-        {key:"impact",lbl:isAr?"الأثر الاجتماعي":isEn?"Social Impact":"Impact social",w:25,col:"1C7A62"},
-        {key:"viability",lbl:isAr?"الجدوى الاقتصادية":isEn?"Economic Viability":"Viabilité économique",w:20,col:"7C3AED"},
-        {key:"relevance",lbl:isAr?"الملاءمة الترابية":isEn?"Territorial Relevance":"Pertinence territoriale",w:20,col:"2A5CE0"},
-        {key:"management",lbl:isAr?"قدرة التسيير":isEn?"Management Capacity":"Capacité de gestion",w:15,col:"D97706"},
-        {key:"sustainability",lbl:isAr?"الاستدامة":isEn?"Sustainability":"Durabilité",w:10,col:"0891B2"},
-        {key:"innovation",lbl:isAr?"الابتكار":isEn?"Innovation":"Innovation",w:10,col:"DB2777"},
-      ];
-      juryDef.forEach((j, i) => {
-        const yPos = 1.0 + i * 0.73;
-        const sc = comp?.juryScore?.[j.key]||0;
-        const pct = Math.min(sc/j.w, 1);
-        s.addText(`${j.lbl} (/${j.w})`, {x:0.3,y:yPos,w:4.5,h:0.3,fontSize:10.5,color:NAVY,bold:true,fontFace:"Arial",align:isAr?"right":"left"});
-        s.addText(`${sc}/${j.w}`, {x:9.2,y:yPos,w:0.6,h:0.3,fontSize:11,color:j.col,bold:true,fontFace:"Arial",align:"right"});
-        s.addShape(SH, {x:4.9,y:yPos+0.05,w:4.2,h:0.22,fill:{color:"E4E7ED"}});
-        if (pct>0) s.addShape(SH, {x:4.9,y:yPos+0.05,w:4.2*pct,h:0.22,fill:{color:j.col}});
-        s.addText(`${Math.round(pct*100)}%`, {x:4.9+4.2*pct+0.05,y:yPos+0.05,w:0.5,h:0.22,fontSize:7,color:"666666",fontFace:"Arial"});
-      });
-
-      // ── Slide 9: Documents + Soumission ──
-      s = prs.addSlide(); s.background = {color:NAVY};
-      s.addShape(SH, {x:0,y:0,w:10,h:0.82,fill:{color:YELLOW}});
-      s.addText(`${T.docs} · ${T.submission}`, {x:0.25,y:0,w:9.5,h:0.82,fontSize:18,color:NAVY,bold:true,fontFace:"Arial",valign:"middle"});
-      s.addText(T.docsCount, {x:0.35,y:0.9,w:9.2,h:0.28,fontSize:11,color:"CCCCCC",fontFace:"Arial"});
-      const dRows2 = [
-        [{text:T.docLabel,options:{bold:true,color:NAVY}},{text:T.statusLabel,options:{bold:true,color:NAVY}}],
-        ...DOCS.slice(0,8).map(d => [{text:d.name,options:{color:"111111"}},{text:(docs[d.id]?T.ready:T.pending),options:{color:docs[d.id]?"1C7A62":"C0632F"}}])
-      ];
-      s.addTable(dRows2, {x:0.3,y:1.22,w:5.5,fontSize:8,color:"222222",border:{type:"solid",color:"334466",pt:0.5},fill:{color:WHITE},fontFace:"Arial"});
-      const subSteps = isAr
-        ? ["إيداع الملف (DAS)","وصل الإيداع","CPDH — 4 إلى 8 أسابيع","لجنة التحكيم INDH","القرار → الاتفاقية → الانطلاق"]
-        : isEn
-        ? ["Submit to DAS","Deposit receipt","CPDH review — 4-8 wks","INDH jury panel","Decision → Convention → Launch"]
-        : ["Dépôt DAS","Récépissé délivré","CPDH — 4 à 8 semaines","Jury INDH","Décision → Convention → Démarrage"];
-      subSteps.forEach((step, i) => {
-        s.addShape(SH, {x:6.0,y:1.22+i*0.78,w:0.36,h:0.36,fill:{color:YELLOW}});
-        s.addText(String(i+1), {x:6.0,y:1.22+i*0.78,w:0.36,h:0.36,fontSize:11,color:NAVY,bold:true,align:"center",fontFace:"Arial",valign:"middle"});
-        s.addText(step, {x:6.45,y:1.22+i*0.78,w:3.25,h:0.62,fontSize:9.5,color:"DDDDDD",fontFace:"Arial",wrap:true,valign:"middle"});
-      });
-      s.addText("IdeaMap · ideamaponline.org", {x:0.35,y:5.2,w:9.2,h:0.25,fontSize:8,color:"555555",align:"center",fontFace:"Arial"});
-
-      await prs.writeFile({fileName: `DossierJury_${proj?.projectName || "IdeaMap"}.pptx`});
-    }
-  } catch (e) { console.error("PPTX error:", e); showToast(lang==="ar"?"فشل إنشاء ملف PowerPoint":lang==="fr"?"Erreur lors de la création du fichier PowerPoint":"PowerPoint generation failed", "error"); }
-}
-
 // ── Real .xlsx export (admin + coordinator dashboards) ──
 // Replaces the old plain-CSV export: a styled, two-sheet workbook (the
 // porteur list, plus a Résumé sheet with aggregate counts) rather than a
@@ -2219,7 +1882,6 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [logo, setLogo]    = useState<any>(initialState?.logo || null);
   const [logoStyle, setLogoStyle] = useState(initialState?.logoStyle ?? 0); // 0=gradient burst, 1=moroccan star, 2=diagonal split
   const [docFiles, setDocFiles] = useState<Record<number, string>>(initialState?.docFiles || {});
-  const [logoGenerating, setLogoGenerating] = useState(false);
   const [pendingAttach, setPendingAttach]   = useState<number | null>(null);
   const [suggestions, setSuggestions]       = useState<string[]>(initialState?.suggestions || []);
   const [qBank, setQBank]                   = useState<(string[] | undefined)[]>(initialState?.qBank || []);
@@ -2237,8 +1899,6 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   // rule-based estimate built from proj/budget.
   const [compTailored, setCompTailored]     = useState(true);
   const [dlLang, setDlLang]                 = useState(lang);
-  const [pitchBusy, setPitchBusy]           = useState(false);
-  const [qaBusy, setQABusy]                 = useState(false);
   const [docxBusy, setDocxBusy]             = useState<"projet" | "technique" | "plan" | null>(null);
   const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
   // Keep download language in sync with the UI language unless the user has explicitly overridden it
@@ -2265,6 +1925,16 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const FIXED_Q: {fr: string; ar: string; en: string}[] = usingCustomQ ? customQuestions! : BUILTIN_FIXED_Q;
   const MAX_Q = FIXED_Q.length;
   const fixedQText = (i: number) => FIXED_Q[i][lang as "fr"|"ar"|"en"] || FIXED_Q[i].fr;
+  // Every other question is tap-only (3 concrete, always-clickable options —
+  // see localOptionsFor) so answers stay structured and feed the committee
+  // Excel's columns directly. These 4 are the exception: a project name, a
+  // precise location, the exact equipment to buy, and the exact cost in MAD
+  // genuinely can't be reduced to 3 preset choices without throwing away the
+  // real figure the budget math depends on. Only applies to the built-in
+  // fiche — a coordinator's own uploaded questionnaire has no fixed shape to
+  // match indices against, so it keeps free text throughout.
+  const FREE_TEXT_Q = new Set([0, 2, 17, 18]);
+  const qAllowsFreeText = usingCustomQ || FREE_TEXT_Q.has(qN - 1);
 
   useEffect(() => { msgEnd.current?.scrollIntoView({behavior: "smooth"}); }, [msgs]);
 
@@ -2473,12 +2143,22 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     // Suggesting fake names would be presumptuous, not helpful. This is a direct,
     // open question: no tap options, straight to the free-text input.
     if (qIndex === 0) return [];
+    // Q2's answer becomes proj.sector directly (buildLocalProfile: sector: answers[1]),
+    // the same canonical French key SECTOR_SERVICES/SECTOR_EQUIPMENT/mapSectorToKey
+    // and the committee Excel's "Secteur" column all expect. A meta-label like "a
+    // different sector" tapped as the answer would store that literal placeholder
+    // text as the project's sector — every downstream lookup, and the Fiche Projet's
+    // own Secteur field, would then show nonsense. These two alternates are always
+    // real sector names for that reason, never a description of a choice.
+    const otherSectors = SECTORS.filter(s => s !== sector);
+    const altSector1 = otherSectors[0] || "Commerce/Épicerie";
+    const altSector2 = otherSectors[1] || "Artisanat traditionnel";
 
     const T: Record<number, Record<"fr"|"ar"|"en", string[]>> = {
       1: {
-        fr: [sector || "Mon secteur déclaré à l'inscription", "Un secteur proche/complémentaire", "Un autre secteur"],
-        ar: [sector || "القطاع الذي صرحت به عند التسجيل", "قطاع قريب أو مكمل", "قطاع آخر"],
-        en: [sector || "The sector I declared at registration", "A related/complementary sector", "A different sector"],
+        fr: [sector || "Mon secteur déclaré à l'inscription", altSector1, altSector2],
+        ar: [sector || "القطاع الذي صرحت به عند التسجيل", altSector1, altSector2],
+        en: [sector || "The sector I declared at registration", altSector1, altSector2],
       },
       2: {
         fr: [`${city}, centre-ville`, `${city}, quartier périphérique`, "Un autre lieu"],
@@ -2486,16 +2166,16 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         en: [`${city}, city center`, `${city}, outer neighborhood`, "Somewhere else"],
       },
       3: {
-        fr: [`Un service de ${sectorLabel} moderne et accessible pour le quartier`, "Une activité basée sur mon expérience personnelle", "Je préfère décrire mon concept moi-même"],
-        ar: [`خدمة ${sectorLabel} عصرية وفي متناول سكان الحي`, "نشاط مبني على خبرتي الشخصية", "أفضل وصف فكرتي بنفسي"],
-        en: [`A modern, accessible ${sectorLabel} service for the neighborhood`, "An activity built on my personal experience", "I'll describe my concept myself"],
+        fr: [`Un service de ${sectorLabel} moderne et accessible pour le quartier`, "Une activité basée sur mon expérience personnelle", "Une offre combinant qualité et prix accessible"],
+        ar: [`خدمة ${sectorLabel} عصرية وفي متناول سكان الحي`, "نشاط مبني على خبرتي الشخصية", "عرض يجمع بين الجودة والسعر المناسب"],
+        en: [`A modern, accessible ${sectorLabel} service for the neighborhood`, "An activity built on my personal experience", "An offer combining quality and affordable pricing"],
       },
       // Reached only when the sector isn't in SECTOR_SERVICES (svc undefined) —
       // the sector-matched case already returned above.
       4: {
-        fr: ["Un service ou produit unique et ciblé", "Une gamme de 2 à 3 services complémentaires", "Je préfère décrire mes produits/services moi-même"],
-        ar: ["خدمة أو منتج واحد ومحدد", "مجموعة من 2 إلى 3 خدمات مكملة", "أفضل وصف منتجاتي/خدماتي بنفسي"],
-        en: ["One unique, focused product or service", "A range of 2-3 complementary services", "I'll describe my products/services myself"],
+        fr: ["Un service ou produit unique et ciblé", "Une gamme de 2 à 3 services complémentaires", "Des produits/services réalisés sur mesure à la demande"],
+        ar: ["خدمة أو منتج واحد ومحدد", "مجموعة من 2 إلى 3 خدمات مكملة", "منتجات/خدمات مُعدّة حسب الطلب"],
+        en: ["One unique, focused product or service", "A range of 2-3 complementary services", "Made-to-order products/services on request"],
       },
       5: {
         fr: ["Moins d'1 an d'expérience", "1 à 3 ans d'expérience", "Plus de 3 ans d'expérience"],
@@ -2513,9 +2193,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         en: ["Yes, a loyal client base", "A few contacts, not yet a solid base", "No, starting from scratch"],
       },
       8: {
-        fr: ["Les jeunes et familles de mon quartier", "Le grand public local", "Une clientèle spécifique (préciser)"],
-        ar: ["شباب وعائلات حيي", "عموم سكان المنطقة", "فئة محددة من الزبائن (التفصيل)"],
-        en: ["Youth and families in my neighborhood", "The general local public", "A specific customer segment (specify)"],
+        fr: ["Les jeunes et familles de mon quartier", "Le grand public local", "Les femmes et mères de famille du quartier"],
+        ar: ["شباب وعائلات حيي", "عموم سكان المنطقة", "نساء وأمهات الأسر في الحي"],
+        en: ["Youth and families in my neighborhood", "The general local public", "Women and mothers in the neighborhood"],
       },
       9: {
         fr: ["Moins de 50 personnes par an", "50 à 200 personnes par an", "Plus de 200 personnes par an"],
@@ -2523,9 +2203,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         en: ["Fewer than 50 people per year", "50 to 200 people per year", "More than 200 people per year"],
       },
       10: {
-        fr: [`Manque d'offre de qualité en ${sectorLabel} dans le quartier`, "Difficulté d'accès local à ce service/produit", "Je préfère décrire le problème moi-même"],
-        ar: [`نقص العرض الجيد في ${sectorLabel} بالحي`, "صعوبة الوصول محلياً لهذه الخدمة/المنتج", "أفضل وصف المشكلة بنفسي"],
-        en: [`Lack of quality ${sectorLabel} options in the neighborhood`, "Difficulty accessing this service/product locally", "I'll describe the problem myself"],
+        fr: [`Manque d'offre de qualité en ${sectorLabel} dans le quartier`, "Difficulté d'accès local à ce service/produit", "Prix trop élevés des offres existantes"],
+        ar: [`نقص العرض الجيد في ${sectorLabel} بالحي`, "صعوبة الوصول محلياً لهذه الخدمة/المنتج", "أسعار مرتفعة جداً للعروض الحالية"],
+        en: [`Lack of quality ${sectorLabel} options in the neighborhood`, "Difficulty accessing this service/product locally", "Existing options are priced too high"],
       },
       11: {
         fr: ["Quelques petits commerces similaires", "Peu ou pas de concurrence directe", "Plusieurs concurrents bien établis"],
@@ -2570,9 +2250,9 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
         en: ["Under 30,000 MAD", "30,000 to 70,000 MAD", "Over 70,000 MAD"],
       },
       19: {
-        fr: ["Moins de 5 000 MAD", "5 000 à 10 000 MAD", "Plus de 10 000 MAD"],
-        ar: ["أقل من 5.000 درهم", "من 5.000 إلى 10.000 درهم", "أكثر من 10.000 درهم"],
-        en: ["Under 5,000 MAD", "5,000 to 10,000 MAD", "Over 10,000 MAD"],
+        fr: ["Oui, un courrier de soutien de la commune ou d'une association locale", "Oui, l'aide de ma famille (local, main-d'œuvre, matériel)", "Pas encore, mais je vais en obtenir avant le dépôt"],
+        ar: ["نعم، رسالة دعم من الجماعة أو جمعية محلية", "نعم، مساعدة من عائلتي (محل، يد عاملة، معدات)", "ليس بعد، لكنني سأحصل عليه قبل إيداع الملف"],
+        en: ["Yes, a support letter from the commune or a local association", "Yes, help from my family (premises, labor, equipment)", "Not yet, but I'll get one before filing"],
       },
       20: {
         fr: ["Moins de 100 000 MAD", "100 000 à 200 000 MAD", "Plus de 200 000 MAD"],
@@ -2628,207 +2308,6 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
     return T[qIndex]?.[lang as "fr"|"ar"|"en"] || genericOptions();
   };
 
-  const dlText = (content: string, name: string) => {
-    const url = URL.createObjectURL(new Blob([content], {type: "text/plain;charset=utf-8"}));
-    const a = Object.assign(document.createElement("a"), {href: url, download: name});
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  };
-
-  // Opens a print-ready HTML window — browser converts to PDF via Ctrl+P / Save as PDF.
-  // Uses the browser's native PDF engine (free, offline, professional output).
-  const dlPDF = (exportLang: string = dlLang) => {
-    const eAr = exportLang === "ar"; const eEn = exportLang === "en";
-    const dir2 = eAr ? "rtl" : "ltr";
-    const font = eAr ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
-    const total = (budget?.items||[]).reduce((s: number, x: any) => s + (x.total||0), 0);
-    const indhAmt = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
-    const holdAmt = budget?.beneficiaryContribution || (total - indhAmt);
-    const T = {
-      title:   eAr?"خطة الأعمال":eEn?"Business Plan":"Plan d'Affaires",
-      holder:  eAr?"الحامل":eEn?"Holder":"Porteur",
-      exec:    eAr?"الملخص التنفيذي":eEn?"Executive Summary":"Résumé Exécutif",
-      problem: eAr?"إشكالية المشروع":eEn?"Problem Statement":"Problématique",
-      sol:     eAr?"الحل المقترح":eEn?"Proposed Solution":"Solution",
-      market:  eAr?"تحليل السوق":eEn?"Market Analysis":"Analyse de Marché",
-      biz:     eAr?"نموذج الأعمال":eEn?"Business Model":"Modèle Économique",
-      impact:  eAr?"الأثر الاجتماعي":eEn?"Social Impact":"Impact Social",
-      ops:     eAr?"الخطة التشغيلية":eEn?"Operational Plan":"Plan Opérationnel",
-      indh:    eAr?"التوافق مع المبادرة":eEn?"INDH Alignment":"Alignement INDH",
-      risks:   eAr?"المخاطر":eEn?"Risks":"Risques",
-      proj:    eAr?"التوقعات المالية (درهم)":eEn?"Financial Projections (MAD)":"Projections Financières (MAD)",
-      budT:    eAr?"الميزانية التفصيلية":eEn?"Detailed Budget":"Budget Prévisionnel",
-      cat:     eAr?"الفئة":eEn?"Category":"Catégorie",
-      item:    eAr?"البند":eEn?"Item":"Désignation",
-      qty:     eAr?"الكمية":eEn?"Qty":"Qté",
-      pu:      eAr?"السعر الوحدوي":eEn?"Unit Price":"Prix unit.",
-      tot:     eAr?"المجموع":eEn?"Total":"Total",
-      indhC:   eAr?"مساهمة المبادرة الوطنية (90%)":eEn?"INDH Contribution (90%)":"Contribution INDH (90%)",
-      holdC:   eAr?"مساهمة الحامل (10%)":eEn?"Holder Contribution (10%)":"Apport porteur (10%)",
-      compT:   eAr?"تقرير الامتثال":eEn?"Compliance Report":"Rapport de Conformité",
-      score:   eAr?"النقطة الإجمالية":eEn?"Overall Score":"Score global",
-      elig:    eAr?`مؤهل للتمويل ✓`:eEn?"ELIGIBLE ✓":"ÉLIGIBLE ✓",
-      notEl:   eAr?"يحتاج تعديلات ✗":eEn?"NOT ELIGIBLE ✗":"NON ÉLIGIBLE ✗",
-      str:     eAr?"نقاط القوة":eEn?"Strengths":"Points forts",
-      recs:    eAr?"التوصيات":eEn?"Recommendations":"Recommandations",
-      jury:    eAr?"تقييم اللجنة":eEn?"Jury Evaluation":"Grille Jury",
-      ax:      eAr?"محور المبادرة":eEn?"INDH Pillar":"Axe INDH",
-      yr:      eAr?"السنة":eEn?"Year":"An",
-    };
-    const esc = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    const sec = (heading: string, body: string, accent = "#2A5CE0") => body ? `
-      <div class="section">
-        <h3 style="color:${accent};border-bottom:2px solid ${accent};padding-bottom:6px;margin:24px 0 10px">${heading}</h3>
-        <p>${esc(body).replace(/\n/g,"<br>")}</p>
-      </div>` : "";
-    const html = `<!DOCTYPE html><html lang="${exportLang}" dir="${dir2}">
-<head>
-<meta charset="utf-8"/>
-<title>${esc(proj?.projectName||"IdeaMap")} — ${T.title}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:${font};font-size:13px;color:#10132A;background:#fff;padding:0}
-  @page{size:A4;margin:18mm 16mm 18mm 16mm}
-  @media print{body{padding:0}.no-print{display:none!important}}
-  .header{background:#0A0F2C;color:#fff;padding:28px 32px;margin-bottom:0}
-  .header h1{font-size:22px;font-weight:800;color:#2A5CE0;margin-bottom:4px}
-  .header p{font-size:12px;color:rgba(255,255,255,.6)}
-  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:18px 32px;background:#F7F8FA;border-bottom:1px solid #E4E7ED}
-  .meta-item{display:flex;flex-direction:column}
-  .meta-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#5B6178;margin-bottom:2px}
-  .meta-value{font-size:13px;font-weight:600;color:#0A0F2C}
-  .body{padding:20px 32px 32px}
-  .section{margin-bottom:18px;page-break-inside:avoid}
-  h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
-  p{font-size:12.5px;line-height:1.75;color:#1C3A5C}
-  table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:10px}
-  th{background:#0A0F2C;color:#fff;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;text-align:${eAr?"right":"left"}}
-  td{padding:8px 10px;border-bottom:1px solid #E4E7ED;color:#10132A}
-  tr:nth-child(even) td{background:#F7F8FA}
-  .tfoot td{background:#0A0F2C!important;color:#fff;font-weight:700}
-  .tfoot td:last-child{color:#2A5CE0}
-  .score-box{display:inline-block;padding:14px 28px;border-radius:12px;text-align:center;margin-bottom:14px}
-  .score-num{font-size:38px;font-weight:800}
-  .jury-bar{height:6px;border-radius:3px;background:#E4E7ED;overflow:hidden;margin-top:4px}
-  .jury-fill{height:100%;border-radius:3px}
-  ul{padding-${eAr?"right":"left"}:16px;margin-top:6px}
-  li{font-size:12px;margin-bottom:4px;color:#1C3A5C;line-height:1.6}
-  .proj-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
-  .proj-card{background:#EFF6FF;border-radius:8px;padding:14px;text-align:center;border:1px solid #2A5CE055}
-  .proj-year{font-size:9px;font-weight:700;color:#5B6178;text-transform:uppercase;margin-bottom:4px}
-  .proj-val{font-size:18px;font-weight:800;color:#0A0F2C}
-  .btn-print{display:block;margin:20px auto 0;padding:12px 32px;background:#0A0F2C;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:${font}}
-  .footer{margin-top:32px;padding-top:12px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;align-items:center}
-  .footer p{font-size:10px;color:#5B6178}
-  .indh-badge{background:#0A0F2C;color:#2A5CE0;font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px}
-  .jury-strip{padding:12px 32px 14px;background:#F0F4FF;border-bottom:2px solid #2A5CE0}
-  .jury-strip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 18px;margin-top:10px}
-  .jury-strip-item{display:flex;flex-direction:column;gap:3px}
-  .jury-strip-lbl{font-size:8px;font-weight:700;color:#5B6178;text-transform:uppercase;letter-spacing:.4px}
-  .jury-strip-bar{height:5px;background:#E4E7ED;border-radius:3px;overflow:hidden;margin-bottom:2px}
-  .jury-strip-fill{height:100%;border-radius:3px}
-  .jury-strip-score{font-size:9px;font-weight:700;color:#0A0F2C}
-</style>
-</head>
-<body>
-<div class="header">
-  <h1>${esc(proj?.projectName||"")}</h1>
-  <p>${T.holder}: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · ${esc(proj?.location||regionDisplay(user.profile)||"")} · INDH Phase 3</p>
-</div>
-<div class="meta-grid">
-  <div class="meta-item"><span class="meta-label">Secteur / القطاع</span><span class="meta-value">${esc(proj?.sector||"")}</span></div>
-  <div class="meta-item"><span class="meta-label">${T.ax}</span><span class="meta-value">${esc(proj?.pillar||"")}</span></div>
-  <div class="meta-item"><span class="meta-label">Budget total</span><span class="meta-value">${total.toLocaleString()} MAD</span></div>
-  <div class="meta-item"><span class="meta-label">${T.indhC}</span><span class="meta-value">${indhAmt.toLocaleString()} MAD</span></div>
-</div>
-${comp ? `<div class="jury-strip">
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <div>
-      <div style="font-size:9px;font-weight:700;color:#5B6178;text-transform:uppercase;letter-spacing:.5px">${T.compT} — INDH Phase 3</div>
-      <div style="font-size:26px;font-weight:800;color:${comp.eligible?"#2A5CE0":"#C0632F"};line-height:1.2;margin-top:2px">${comp.score}<span style="font-size:13px;font-weight:400;color:#5B6178"> /100</span></div>
-      <div style="font-size:11px;font-weight:700;color:${comp.eligible?"#1C7A62":"#C0632F"};margin-top:3px">${comp.eligible?T.elig:T.notEl}</div>
-    </div>
-    <div style="font-size:38px;line-height:1">${comp.eligible?"✅":"⚠️"}</div>
-  </div>
-  ${comp.juryScore ? `<div class="jury-strip-grid">
-    ${[{k:"impact",l:eAr?"أثر اجتماعي":eEn?"Social Impact":"Impact social",w:25},{k:"viability",l:eAr?"جدوى اقتصادية":eEn?"Viability":"Viabilité",w:20},{k:"relevance",l:eAr?"ملاءمة ترابية":eEn?"Relevance":"Pertinence",w:20},{k:"management",l:eAr?"قدرة تسيير":eEn?"Management":"Gestion",w:15},{k:"sustainability",l:eAr?"استدامة":eEn?"Sustainability":"Durabilité",w:10},{k:"innovation",l:eAr?"ابتكار":eEn?"Innovation":"Innovation",w:10}].map(j=>{const sc=comp.juryScore[j.k]||0;const pct=Math.round((sc/j.w)*100);const col=pct>=70?"#2A5CE0":pct>=50?"#D97706":"#C0632F";return`<div class="jury-strip-item"><div class="jury-strip-lbl">${j.l} (/${j.w})</div><div class="jury-strip-bar"><div class="jury-strip-fill" style="width:${pct}%;background:${col}"></div></div><div class="jury-strip-score">${sc}/${j.w}</div></div>`;}).join("")}
-  </div>` : ""}
-</div>` : ""}
-<div class="body">
-${plan ? `
-${sec(T.exec, plan.executiveSummary)}
-${sec(T.problem, plan.problemStatement)}
-${sec(T.sol, plan.solution)}
-${sec(T.market, plan.marketAnalysis)}
-${sec(T.biz, plan.businessModel)}
-${sec(T.impact, plan.socialImpact)}
-${sec(T.ops, plan.operationalPlan)}
-${sec(T.indh, plan.indh_alignment)}
-${plan.risks?.length ? `<div class="section"><h3 style="color:#C0632F;border-bottom:2px solid #C0632F;padding-bottom:6px;margin:24px 0 10px">⚠️ ${T.risks}</h3><ul>${plan.risks.map((r: string)=>`<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
-${plan.projections ? `<div class="section"><h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">📈 ${T.proj}</h3><div class="proj-grid">${Object.entries(plan.projections).map(([y,v])=>`<div class="proj-card"><div class="proj-year">${T.yr} ${y.replace("year","")}</div><div class="proj-val">${Number(v).toLocaleString()}</div><div style="font-size:9px;color:#5B6178;margin-top:2px">MAD</div></div>`).join("")}</div></div>` : ""}
-` : ""}
-${budget?.items?.length ? `
-<div class="section" style="page-break-before:always">
-<h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">💰 ${T.budT}</h3>
-<table><thead><tr>
-  <th>${T.cat}</th><th>${T.item}</th><th style="text-align:center">${T.qty}</th>
-  <th style="text-align:center">${T.pu}</th><th style="text-align:center">${T.tot}</th>
-</tr></thead><tbody>
-${budget.items.map((x: any,i: number)=>`<tr><td>${esc(x.category||"")}</td><td>${esc(x.item||"")}</td><td style="text-align:center">${x.quantity}</td><td style="text-align:center">${Number(x.unitPrice||0).toLocaleString()}</td><td style="text-align:center;font-weight:700">${Number(x.total||0).toLocaleString()}</td></tr>`).join("")}
-<tr class="tfoot"><td colspan="4">${T.tot}</td><td style="text-align:center">${total.toLocaleString()} MAD</td></tr>
-</tbody></table>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
-  <div style="background:#0A0F2C;border-radius:10px;padding:14px;text-align:center">
-    <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:4px">🏛️ ${T.indhC}</div>
-    <div style="font-size:20px;font-weight:800;color:#2A5CE0">${indhAmt.toLocaleString()} MAD</div>
-  </div>
-  <div style="background:#EFF6FF;border-radius:10px;padding:14px;text-align:center;border:2px solid #2A5CE0">
-    <div style="font-size:9px;font-weight:700;color:#5B6178;text-transform:uppercase;margin-bottom:4px">👥 ${T.holdC}</div>
-    <div style="font-size:20px;font-weight:800;color:#0A0F2C">${holdAmt.toLocaleString()} MAD</div>
-  </div>
-</div>
-</div>` : ""}
-${comp ? `
-<div class="section" style="page-break-before:always">
-<h3 style="color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:6px;margin:24px 0 10px">✅ ${T.compT}</h3>
-<div class="score-box" style="background:${comp.eligible?"#0A0F2C":"#FFF0F0"};border:2px solid ${comp.eligible?"#2A5CE0":"#C0632F"}">
-  <div class="score-num" style="color:${comp.eligible?"#2A5CE0":"#C0632F"}">${comp.score}</div>
-  <div style="font-size:11px;color:${comp.eligible?"rgba(255,255,255,.6)":"#C0632F"};margin-top:2px">/100</div>
-  <div style="font-size:12px;font-weight:700;color:${comp.eligible?"#2A5CE0":"#C0632F"};margin-top:4px">${comp.eligible?T.elig:T.notEl}</div>
-</div>
-${comp.pillar ? `<p style="margin-bottom:10px">📌 ${T.ax}: <strong>${esc(comp.pillar)}</strong></p>` : ""}
-${comp.juryScore ? `<table><thead><tr><th>${eAr?"المعيار":eEn?"Criterion":"Critère"}</th><th style="text-align:center">${eAr?"الوزن":eEn?"Weight":"Poids"}</th><th style="text-align:center">${eAr?"النقطة":eEn?"Score":"Score"}</th></tr></thead><tbody>${[{k:"impact",l:"Impact social",w:25},{k:"viability",l:"Viabilité",w:20},{k:"relevance",l:"Pertinence territoriale",w:20},{k:"management",l:"Capacité de gestion",w:15},{k:"sustainability",l:"Durabilité",w:10},{k:"innovation",l:"Innovation",w:10}].map(j=>{const sc=comp.juryScore[j.k]||0;const p=Math.round((sc/j.w)*100);return`<tr><td>${j.l}</td><td style="text-align:center">/${j.w}</td><td style="text-align:center"><strong style="color:${p>=70?"#2A5CE0":p>=50?"#F59E0B":"#C0632F"}">${sc}</strong></td></tr>`;}).join("")}</tbody></table>` : ""}
-${comp.strengths?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#1C7A62;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💪 ${T.str}</h4><ul>${comp.strengths.map((s: string)=>`<li>${esc(s)}</li>`).join("")}</ul></div>` : ""}
-${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-size:11px;font-weight:700;color:#2A5CE0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">💡 ${T.recs}</h4><ul>${comp.recommendations.map((r: string)=>`<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
-</div>` : ""}
-<div class="footer">
-  <p>© IdeaMap 2026 · ideamaponline.org · ${new Date().toLocaleDateString(exportLang==="ar"?"ar-MA":exportLang==="fr"?"fr-FR":"en-GB")}</p>
-  <span class="indh-badge">INDH Phase 3</span>
-</div>
-</div>
-<button class="btn-print no-print" onclick="window.print()">
-  🖨️ ${eAr?"طباعة / حفظ كـ PDF":eEn?"Print / Save as PDF":"Imprimer / Enregistrer en PDF"}
-</button>
-</body></html>`;
-    const w = window.open("", "_blank", "width=900,height=700");
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-      // Wait for fonts & images to load before opening print dialog — more reliable than a fixed delay.
-      // Fallback fires after 2.5s in case the load event never triggers (popup blocker quirks).
-      const printWhenReady = () => { try { w.print(); } catch {} };
-      let fallback: ReturnType<typeof setTimeout>;
-      w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 200); }, {once: true});
-      fallback = setTimeout(printWhenReady, 2500);
-    }
-    else { showToast(lang==="ar"?"يُرجى السماح بالنوافذ المنبثقة في المتصفح للتحميل":lang==="fr"?"Autorisez les popups dans votre navigateur pour générer le PDF":"Allow popups in your browser to download the PDF", "error"); }
-  };
-
-  const dlPPTX = (type: "pitch" | "jury", exportLang: string = dlLang) =>
-    generatePptxDeck(type, exportLang, {proj, plan, budget, comp, docs, logo, profile: user.profile, name: user.name}, lang, showToast);
-
   // The other 3 of the dossier's 4 files for a holder's own flow — same
   // generators CoordDash's downloadHolderDocument uses, so a holder gets
   // the exact same real PPTX/DOCX a coordinator would pull on their behalf.
@@ -2854,706 +2333,6 @@ ${comp.recommendations?.length ? `<div style="margin-top:14px"><h4 style="font-s
     } finally {
       setDocxBusy(null);
     }
-  };
-
-  // ── Fiche Synthétique — 1-page HTML print-to-PDF ──────────────────────────
-  const dlFicheSynthetique = (exportLang: string = dlLang) => {
-    const eAr = exportLang === "ar"; const eEn = exportLang === "en";
-    const dir2 = eAr ? "rtl" : "ltr";
-    const font = eAr ? "'Tajawal',sans-serif" : "'Poppins',sans-serif";
-    const total = (budget?.items||[]).reduce((s: number, x: any) => s + (x.total||0), 0);
-    const indhAmt = budget?.indhContribution || Math.min(Math.round(total * 0.90), 100000);
-    const holdAmt = budget?.beneficiaryContribution || (total - indhAmt);
-    const esc = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    const T = {
-      title:   eAr?"فيش تركيبية":eEn?"Synthetic Project Sheet":"Fiche Synthétique",
-      ident:   eAr?"التعريف بالمشروع":eEn?"Project Identification":"Identification du Projet",
-      desc:    eAr?"وصف المشروع":eEn?"Project Description":"Description du Projet",
-      holder:  eAr?"ملف الحامل":eEn?"Holder Profile":"Profil du Porteur",
-      market:  eAr?"دراسة السوق":eEn?"Market Analysis":"Analyse du Marché",
-      finance: eAr?"خطة التمويل":eEn?"Financing Plan":"Plan de Financement",
-      proj:    eAr?"التوقعات المالية (3 سنوات)":eEn?"3-Year Financial Projections":"Projections Financières (3 ans)",
-      jury:    eAr?"تقييم لجنة التحكيم":eEn?"Jury Scoring":"Grille d'Évaluation du Jury",
-      impacts: eAr?"الأثر الاجتماعي والاقتصادي":eEn?"Social & Economic Impact":"Impacts Social & Économique",
-      indh:    eAr?"مساهمة المبادرة الوطنية (90%)":eEn?"INDH Contribution (90%)":"Contribution INDH (90%)",
-      port:    eAr?"مساهمة الحامل (10%)":eEn?"Holder Contribution (10%)":"Apport Porteur (10%)",
-      tot:     eAr?"التكلفة الإجمالية":eEn?"Total Cost":"Coût Total",
-      yr:      eAr?"السنة":eEn?"Year":"An",
-      ca:      eAr?"رقم المعاملات":eEn?"Revenue":"Chiffre d'Affaires",
-      charges: eAr?"التكاليف الثابتة (تقدير)":eEn?"Fixed Costs (est.)":"Charges Fixes (est.)",
-      net:     eAr?"صافي النتيجة":eEn?"Net Result":"Résultat Net",
-      emplois: eAr?"مناصب الشغل المحدثة":eEn?"Jobs Created":"Emplois Créés",
-      benef:   eAr?"المستفيدون المباشرون":eEn?"Direct Beneficiaries":"Bénéficiaires Directs",
-      sector:  eAr?"القطاع":eEn?"Sector":"Secteur",
-      pillar:  eAr?"محور المبادرة":eEn?"INDH Pillar":"Axe INDH",
-      loc:     eAr?"الموقع":eEn?"Location":"Localisation",
-      struct:  eAr?"الهيكل القانوني":eEn?"Legal Structure":"Structure Juridique",
-      exp:     eAr?"خبرة الحامل":eEn?"Holder Experience":"Expérience du Porteur",
-      edu:     eAr?"المستوى الدراسي":eEn?"Education":"Formation",
-    };
-    const y1 = plan?.projections?.year1 || 0;
-    const y2 = plan?.projections?.year2 || 0;
-    const y3 = plan?.projections?.year3 || 0;
-    const c1 = Math.round(Number(y1) * 0.40);
-    const c2 = Math.round(Number(y2) * 0.36);
-    const c3 = Math.round(Number(y3) * 0.33);
-    const html = `<!DOCTYPE html><html lang="${exportLang}" dir="${dir2}">
-<head>
-<meta charset="utf-8"/>
-<title>${esc(proj?.projectName||"IdeaMap")} — ${T.title}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"/>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:${font};font-size:11px;color:#10132A;background:#fff}
-@page{size:A4;margin:14mm 12mm}
-@media print{body{padding:0}.no-print{display:none!important}}
-.page{max-width:780px;margin:0 auto;padding:16px}
-.hdr{background:#0A0F2C;color:#fff;padding:18px 22px;border-radius:10px 10px 0 0;margin-bottom:0}
-.hdr h1{font-size:18px;font-weight:800;color:#2A5CE0;margin-bottom:3px}
-.hdr p{font-size:10.5px;color:rgba(255,255,255,.6);margin-bottom:2px}
-.score-strip{display:flex;align-items:center;justify-content:space-between;background:#141B45;padding:10px 22px;border-radius:0 0 10px 10px;margin-bottom:14px}
-.score-num{font-size:24px;font-weight:800;line-height:1}
-.section{margin-bottom:13px;page-break-inside:avoid}
-.section h3{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#2A5CE0;border-bottom:2px solid #2A5CE0;padding-bottom:4px;margin-bottom:8px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.field{background:#F7F8FA;border-radius:7px;padding:8px 11px}
-.field .lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5B6178;margin-bottom:3px}
-.field .val{font-size:12px;font-weight:600;color:#0A0F2C}
-.fin-table{width:100%;border-collapse:collapse;font-size:10.5px}
-.fin-table th{background:#0A0F2C;color:#fff;padding:7px 10px;text-align:${eAr?"right":"left"};font-size:9px;font-weight:700;letter-spacing:.3px}
-.fin-table td{padding:7px 10px;border-bottom:1px solid #E4E7ED}
-.fin-table tr:nth-child(even) td{background:#F7F8FA}
-.fin-table .total-row td{background:#EFF6FF;font-weight:700;color:#0A0F2C}
-.fin-total{background:#0A0F2C;border-radius:8px;margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;padding:10px 0}
-.fin-total .item .lbl2{font-size:8px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px}
-.fin-total .item .val2{font-size:14px;font-weight:800}
-.jury-row{display:grid;grid-template-columns:160px 1fr 40px;gap:6px;align-items:center;margin-bottom:7px}
-.bar-bg{height:6px;background:#E4E7ED;border-radius:3px;overflow:hidden}
-.bar-fill{height:100%;border-radius:3px}
-.impact-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
-.impact-card{background:#EFF6FF;border-radius:8px;padding:10px;border:1px solid #2A5CE055}
-.impact-card .ico{font-size:18px;margin-bottom:4px}
-.impact-card .val{font-size:16px;font-weight:800;color:#0A0F2C}
-.impact-card .lbl{font-size:8px;color:#5B6178;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
-.exec{background:#F0F4FF;border-radius:8px;padding:11px 14px;font-size:11px;color:#1C3A5C;line-height:1.7;border-left:4px solid #2A5CE0;${eAr?"border-left:none;border-right:4px solid #2A5CE0;":""}}
-.btn-print{display:block;margin:16px auto 0;padding:10px 28px;background:#0A0F2C;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:${font}}
-.footer{margin-top:14px;padding-top:8px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;font-size:9px;color:#5B6178}
-.indh-pill{background:#0A0F2C;color:#2A5CE0;padding:3px 9px;border-radius:5px;font-weight:700;font-size:9px}
-</style>
-</head>
-<body>
-<div class="page">
-<div class="hdr">
-  <h1>${esc(proj?.projectName||"")}</h1>
-  <p>${T.holder}: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · ${esc(proj?.location||regionDisplay(user.profile)||"")}</p>
-  <p>${esc(proj?.sector||"")} · INDH Phase 3 · ${esc(proj?.pillar||comp?.pillar||"")}</p>
-</div>
-${comp ? `<div class="score-strip">
-  <div>
-    <div style="font-size:8.5px;color:rgba(255,255,255,.5);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">JURY SCORE</div>
-    <div class="score-num" style="color:${comp.eligible?"#2A5CE0":"#C0632F"}">${comp.score}<span style="font-size:13px;font-weight:400;color:rgba(255,255,255,.4)"> /100</span></div>
-  </div>
-  <div style="font-size:11px;font-weight:700;color:${comp.eligible?"#22C55E":"#C0632F"}">${comp.eligible?(eAr?"مؤهل ✅":eEn?"ELIGIBLE ✅":"ÉLIGIBLE ✅"):(eAr?"يحتاج تعديلات ⚠️":eEn?"NEEDS REVISION ⚠️":"MODIFICATIONS REQUISES ⚠️")}</div>
-</div>` : ""}
-
-<!-- IDENTIFICATION -->
-<div class="section">
-  <h3>${T.ident}</h3>
-  <div class="grid2">
-    <div class="field"><div class="lbl">${T.sector}</div><div class="val">${esc(proj?.sector||"")}</div></div>
-    <div class="field"><div class="lbl">${T.pillar}</div><div class="val">${esc(proj?.pillar||comp?.pillar||"")}</div></div>
-    <div class="field"><div class="lbl">${T.loc}</div><div class="val">${esc(proj?.location||regionDisplay(user.profile)||"")}</div></div>
-    <div class="field"><div class="lbl">${T.struct}</div><div class="val">${esc(proj?.legalStructure||"")}</div></div>
-  </div>
-</div>
-
-<!-- DESCRIPTION -->
-${plan?.executiveSummary ? `<div class="section">
-  <h3>${T.desc}</h3>
-  <div class="exec">${esc(plan.executiveSummary)}</div>
-</div>` : ""}
-
-<!-- HOLDER PROFILE -->
-<div class="section">
-  <h3>${T.holder}</h3>
-  <div class="grid2">
-    <div class="field"><div class="lbl">${eAr?"الاسم الكامل":eEn?"Full Name":"Nom Complet"}</div><div class="val">${esc(user.name||"")} ${esc(user.profile?.lastName||"")}</div></div>
-    <div class="field"><div class="lbl">${T.edu}</div><div class="val">${esc(user.profile?.edu||"")}</div></div>
-    ${proj?.holderExperience ? `<div class="field" style="grid-column:span 2"><div class="lbl">${T.exp}</div><div class="val" style="font-size:11px;font-weight:500;line-height:1.5">${esc((proj.holderExperience||"").slice(0,200))}</div></div>` : ""}
-  </div>
-</div>
-
-<!-- MARKET -->
-${plan?.marketAnalysis ? `<div class="section">
-  <h3>${T.market}</h3>
-  <div class="exec" style="border-color:#1C7A62;">${esc(plan.marketAnalysis.slice(0,350))}</div>
-</div>` : ""}
-
-<!-- FINANCING PLAN -->
-${total > 0 ? `<div class="section">
-  <h3>${T.finance}</h3>
-  <div class="fin-total">
-    <div class="item"><div class="lbl2">🏛️ ${T.indh}</div><div class="val2" style="color:#2A5CE0">${indhAmt.toLocaleString()} MAD</div></div>
-    <div class="item" style="border-left:1px solid rgba(255,255,255,.1);border-right:1px solid rgba(255,255,255,.1)"><div class="lbl2">👤 ${T.port}</div><div class="val2" style="color:#AAAAAA">${holdAmt.toLocaleString()} MAD</div></div>
-    <div class="item"><div class="lbl2">📊 ${T.tot}</div><div class="val2" style="color:#FFB703">${total.toLocaleString()} MAD</div></div>
-  </div>
-</div>` : ""}
-
-<!-- 3-YEAR PROJECTIONS -->
-${y1 || y2 || y3 ? `<div class="section">
-  <h3>${T.proj}</h3>
-  <table class="fin-table">
-    <thead><tr>
-      <th></th>
-      <th style="text-align:center">${T.yr} 1</th>
-      <th style="text-align:center">${T.yr} 2</th>
-      <th style="text-align:center">${T.yr} 3</th>
-    </tr></thead>
-    <tbody>
-      <tr><td>${T.ca}</td><td style="text-align:center;font-weight:700">${Number(y1).toLocaleString()}</td><td style="text-align:center;font-weight:700">${Number(y2).toLocaleString()}</td><td style="text-align:center;font-weight:700">${Number(y3).toLocaleString()}</td></tr>
-      <tr><td>${T.charges}</td><td style="text-align:center">${c1.toLocaleString()}</td><td style="text-align:center">${c2.toLocaleString()}</td><td style="text-align:center">${c3.toLocaleString()}</td></tr>
-      <tr class="total-row"><td>${T.net}</td><td style="text-align:center;color:#1C7A62">${(Number(y1)-c1).toLocaleString()}</td><td style="text-align:center;color:#1C7A62">${(Number(y2)-c2).toLocaleString()}</td><td style="text-align:center;color:#1C7A62">${(Number(y3)-c3).toLocaleString()}</td></tr>
-    </tbody>
-  </table>
-</div>` : ""}
-
-<!-- JURY GRID -->
-${comp?.juryScore ? `<div class="section">
-  <h3>${T.jury}</h3>
-  ${[{k:"impact",l:"Impact social",w:25,c:"#2A5CE0"},{k:"viability",l:"Viabilité économique",w:20,c:"#7C3AED"},{k:"relevance",l:"Pertinence territoriale",w:20,c:"#0891B2"},{k:"management",l:"Capacité de gestion",w:15,c:"#D97706"},{k:"sustainability",l:"Durabilité",w:10,c:"#1C7A62"},{k:"innovation",l:"Innovation",w:10,c:"#DB2777"}].map(j => {
-    const sc = comp.juryScore[j.k]||0; const pct = Math.min((sc/j.w)*100,100);
-    return `<div class="jury-row"><span style="font-size:10px;color:#10132A">${j.l} <span style="color:#5B6178;font-size:9px">(/${j.w})</span></span><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${j.c}"></div></div><span style="font-size:10px;font-weight:700;color:${j.c}">${sc}</span></div>`;
-  }).join("")}
-</div>` : ""}
-
-<!-- IMPACTS -->
-<div class="section">
-  <h3>${T.impacts}</h3>
-  <div class="impact-grid">
-    <div class="impact-card"><div class="ico">👥</div><div class="val">${proj?.beneficiaries||"—"}</div><div class="lbl">${T.benef}</div></div>
-    <div class="impact-card"><div class="ico">💼</div><div class="val">2</div><div class="lbl">${T.emplois}</div></div>
-    <div class="impact-card"><div class="ico">💰</div><div class="val">${total>0?indhAmt.toLocaleString():"—"}</div><div class="lbl">MAD INDH</div></div>
-    <div class="impact-card"><div class="ico">📈</div><div class="val">${y1>0?Number(y1).toLocaleString():"—"}</div><div class="lbl">${eAr?"CA سنة 1":eEn?"CA Year 1":"CA An 1"} MAD</div></div>
-  </div>
-</div>
-
-<div class="footer">
-  <span>© IdeaMap 2026 · ideamaponline.org</span>
-  <span class="indh-pill">INDH Phase 3</span>
-  <span>${new Date().toLocaleDateString(exportLang==="ar"?"ar-MA":exportLang==="fr"?"fr-FR":"en-GB")}</span>
-</div>
-</div>
-<button class="btn-print no-print" onclick="window.print()">🖨️ ${eAr?"طباعة / PDF":eEn?"Print / PDF":"Imprimer / PDF"}</button>
-</body></html>`;
-    const w = window.open("", "_blank", "width=860,height=700");
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-      const printWhenReady = () => { try { w.print(); } catch {} };
-      let fallback: ReturnType<typeof setTimeout>;
-      w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 200); }, {once:true});
-      fallback = setTimeout(printWhenReady, 2500);
-    } else {
-      showToast(lang==="ar"?"اسمح بالنوافذ المنبثقة لتنزيل الفيش":lang==="fr"?"Autorisez les popups pour générer la fiche":"Allow popups to generate the sheet", "error");
-    }
-  };
-
-  // ── Arabic Jury Pitch — AI generates 5-part speech ─────────────────────────
-  const genAndDlPitchArabe = async () => {
-    if (pitchBusy) return;
-    setPitchBusy(true);
-    showToast(lang==="ar"?"جاري إنشاء الخطاب...":lang==="fr"?"Génération du discours...":"Generating Arabic pitch...", "success");
-    const ctx = JSON.stringify({
-      projectName: proj?.projectName, sector: proj?.sector, location: proj?.location,
-      beneficiaries: proj?.beneficiaries, targetProfile: proj?.targetProfile,
-      localProblem: proj?.localProblem, revenueModel: proj?.revenueModel,
-      holderExperience: proj?.holderExperience, activities: proj?.activities,
-      estimatedBudget: proj?.estimatedBudget,
-      indhContribution: budget?.indhContribution || Math.min(Math.round(((budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0)) * 0.90), 100000),
-      beneficiaryContribution: budget?.beneficiaryContribution,
-      score: comp?.score, eligible: comp?.eligible,
-      projections: plan?.projections,
-      holderName: `${user.name||""} ${user.profile?.lastName||""}`,
-      holderEdu: user.profile?.edu, holderAge: user.profile?.age,
-    });
-    const r = await ai(
-      [{role:"user", content:`بيانات المشروع: ${ctx}`}],
-      `أنت خبير تدريب على المشاريع INDH المرحلة 3 بالمغرب. اكتب خطاباً تقديمياً احترافياً باللغة العربية الفصحى البسيطة مدته 5 إلى 7 دقائق، موجهاً للجنة التحكيم.
-
-الخطاب يجب أن يتكون من 5 أجزاء واضحة:
-الجزء 1 — التقديم الشخصي (30 ثانية): الاسم، المؤهل، الخبرة.
-الجزء 2 — إشكالية المشروع (60 ثانية): المشكل المحلي الحقيقي الذي يعانيه المجتمع بالأرقام.
-الجزء 3 — الحل والمشروع (90 ثانية): وصف المشروع، التجهيزات، الأنشطة الرئيسية، كيفية البيع.
-الجزء 4 — التمويل والتوقعات (60 ثانية): الميزانية الإجمالية، مساهمة INDH 90%، مساهمة الحامل 10%، التوقعات المالية 3 سنوات.
-الجزء 5 — الأثر والختام (30 ثانية): عدد المستفيدين، مناصب الشغل، طلب الدعم.
-
-قواعد مهمة:
-- استخدم أرقاماً حقيقية من بيانات المشروع المذكور.
-- جمل قصيرة وواضحة، مباشرة وقابلة للحفظ.
-- أضف علامات مثل [توقف قصير] و[انظر إلى اللجنة] لمساعدة الحامل.
-- اكتب فقط نص الخطاب، بدون شرح أو تعليقات إضافية.`,
-      "dialogue",
-      2500
-    );
-    setPitchBusy(false);
-    if (r) {
-      const pName = (proj?.projectName||"مشروع").replace(/\s+/g, "_");
-      // Parse the 5 sections from الجزء markers
-      const sectionColors = ["#1C7A62","#2A5CE0","#7C3AED","#D97706","#C0632F"];
-      const sectionLabels = ["التقديم الشخصي","إشكالية المشروع","الحل والمشروع","التمويل والتوقعات","الأثر والختام"];
-      const sectionDurations = ["30 ثانية","60 ثانية","90 ثانية","60 ثانية","30 ثانية"];
-      const splitBySection = r.split(/الجزء\s*\d+\s*[—–-]/);
-      const sections = splitBySection.slice(1).map((s: string) => s.trim());
-      // If AI didn't use section markers, split by double-newline as fallback
-      const finalSections = sections.length >= 3 ? sections : r.split(/\n{2,}/).filter((s: string) => s.trim().length > 30);
-      const escH = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      const totalBudget = (budget?.items||[]).reduce((s: number, x: any)=>s+(x.total||0),0);
-      const indhAmt = budget?.indhContribution||Math.min(Math.round(totalBudget*.90),100000);
-      const holdAmt = budget?.beneficiaryContribution||(totalBudget-indhAmt);
-      const html = `<!DOCTYPE html><html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8"/>
-<title>خطاب تقديمي — ${escH(proj?.projectName||"مشروع")}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet"/>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Tajawal',sans-serif;font-size:14px;color:#10132A;background:#fff;direction:rtl}
-@page{size:A4;margin:16mm 14mm}
-@media print{body{padding:0}.no-print{display:none!important}}
-.page{max-width:800px;margin:0 auto;padding:20px}
-.hdr{background:#0A0F2C;color:#fff;padding:24px 28px;border-radius:12px 12px 0 0}
-.hdr h1{font-size:22px;font-weight:800;color:#2A5CE0;margin-bottom:5px}
-.hdr p{font-size:12px;color:rgba(255,255,255,.6);margin-bottom:3px}
-.meta-strip{background:#141B45;padding:12px 28px;border-radius:0 0 12px 12px;margin-bottom:20px;display:flex;gap:24px;flex-wrap:wrap}
-.meta-item{display:flex;flex-direction:column}
-.meta-label{font-size:8px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.4);letter-spacing:.5px;margin-bottom:3px}
-.meta-value{font-size:13px;font-weight:700;color:#2A5CE0}
-.section{margin-bottom:20px;page-break-inside:avoid;border-radius:10px;overflow:hidden}
-.section-hdr{display:flex;align-items:center;gap:10px;padding:11px 18px}
-.section-num{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0}
-.section-title{font-size:14px;font-weight:800;color:#fff;flex:1}
-.section-dur{font-size:10px;font-weight:600;color:rgba(255,255,255,.65);white-space:nowrap}
-.section-body{padding:16px 18px;background:#F7F8FA;border:1px solid #E4E7ED;border-top:none;border-radius:0 0 10px 10px;font-size:14px;line-height:2;color:#10132A;white-space:pre-wrap}
-.tip{display:inline-block;background:#FEF3C7;border:1px solid #F59E0B;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;color:#92400E;margin:2px}
-.score-bar{background:#EFF6FF;border:1px solid #2A5CE0;border-radius:10px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
-.score-val{font-size:28px;font-weight:800;color:${comp?.eligible?"#1C7A62":"#C0632F"}}
-.budget-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
-.budget-card{background:#0A0F2C;border-radius:10px;padding:14px;text-align:center}
-.budget-lbl{font-size:8px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.4);letter-spacing:.5px;margin-bottom:5px}
-.budget-val{font-size:16px;font-weight:800;color:#2A5CE0}
-.footer{margin-top:24px;padding-top:12px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;font-size:10px;color:#5B6178}
-.indh-pill{background:#0A0F2C;color:#2A5CE0;padding:3px 10px;border-radius:5px;font-weight:700}
-.btn-print{display:block;margin:16px auto 0;padding:11px 32px;background:#0A0F2C;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif}
-</style>
-</head>
-<body>
-<div class="page">
-<div class="hdr">
-  <h1>${escH(proj?.projectName||"")}</h1>
-  <p>الحامل: ${escH(user.name||"")} ${escH(user.profile?.lastName||"")} · ${escH(proj?.location||regionDisplay(user.profile)||"")}</p>
-  <p>${escH(proj?.sector||"")} · المبادرة الوطنية للتنمية البشرية — المرحلة 3</p>
-</div>
-<div class="meta-strip">
-  <div class="meta-item"><div class="meta-label">النقطة</div><div class="meta-value" style="color:${comp?.eligible?"#22C55E":"#EF4444"}">${comp?.score||"—"}/100 ${comp?.eligible?"✅":"⚠️"}</div></div>
-  <div class="meta-item"><div class="meta-label">الميزانية</div><div class="meta-value">${totalBudget?totalBudget.toLocaleString():"—"} درهم</div></div>
-  <div class="meta-item"><div class="meta-label">مساهمة INDH</div><div class="meta-value">${indhAmt?indhAmt.toLocaleString():"—"} درهم</div></div>
-  <div class="meta-item"><div class="meta-label">مساهمة الحامل</div><div class="meta-value">${holdAmt?holdAmt.toLocaleString():"—"} درهم</div></div>
-  <div class="meta-item"><div class="meta-label">المستفيدون</div><div class="meta-value">${proj?.beneficiaries||"—"}</div></div>
-  <div class="meta-item"><div class="meta-label">المدة</div><div class="meta-value">5–7 دقائق</div></div>
-</div>
-${finalSections.slice(0,5).map((sec: string, idx: number) => {
-  const col = sectionColors[idx] || "#2A5CE0";
-  const label = sectionLabels[idx] || `الجزء ${idx+1}`;
-  const dur = sectionDurations[idx] || "";
-  const bodyHtml = escH(sec.replace(/\n/g," \n")).replace(/\[([^\]]+)\]/g, (_m: string, p: string) => `<span class="tip">[${p}]</span>`);
-  return `<div class="section">
-  <div class="section-hdr" style="background:${col}">
-    <div class="section-num">${idx+1}</div>
-    <div class="section-title">${label}</div>
-    <div class="section-dur">${dur}</div>
-  </div>
-  <div class="section-body">${bodyHtml}</div>
-</div>`;
-}).join("")}
-${finalSections.length < 3 ? `<div class="section"><div class="section-hdr" style="background:#2A5CE0"><div class="section-num">📝</div><div class="section-title">نص الخطاب الكامل</div></div><div class="section-body">${escH(r).replace(/\[([^\]]+)\]/g, (_m: string, p: string) => `<span class="tip">[${p}]</span>`)}</div></div>` : ""}
-<div class="footer">
-  <span>© IdeaMap 2026 · ideamaponline.org</span>
-  <span class="indh-pill">INDH Phase 3</span>
-  <span>${new Date().toLocaleDateString("ar-MA")}</span>
-</div>
-</div>
-<button class="btn-print no-print" onclick="window.print()">🖨️ طباعة / حفظ كـ PDF</button>
-</body></html>`;
-      const w = window.open("", "_blank", "width=860,height=750");
-      if (w) {
-        w.document.write(html);
-        w.document.close();
-        const printWhenReady = () => { try { w.print(); } catch {} };
-        let fallback: ReturnType<typeof setTimeout>;
-        w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 300); }, {once:true});
-        fallback = setTimeout(printWhenReady, 3000);
-      } else {
-        showToast(lang==="ar"?"اسمح بالنوافذ المنبثقة في المتصفح":lang==="fr"?"Autorisez les popups dans votre navigateur":"Allow popups to open the pitch", "error");
-      }
-    } else {
-      showToast(lang==="ar"?"فشل إنشاء الخطاب — حاول مجدداً":lang==="fr"?"Génération échouée — réessayez":"Pitch generation failed — retry", "error");
-    }
-  };
-
-  // ── 30 Q&A Bank — AI generates jury preparation in Arabic ──────────────────
-  const genAndDlQA = async () => {
-    if (qaBusy) return;
-    setQABusy(true);
-    showToast(lang==="ar"?"جاري إنشاء بنك الأسئلة...":lang==="fr"?"Génération des Q&R...":"Generating Q&A bank...", "success");
-    const ctx = JSON.stringify({
-      projectName: proj?.projectName, sector: proj?.sector, location: proj?.location,
-      beneficiaries: proj?.beneficiaries, targetProfile: proj?.targetProfile,
-      localProblem: proj?.localProblem, revenueModel: proj?.revenueModel,
-      holderExperience: proj?.holderExperience,
-      holderName: `${user.name||""} ${user.profile?.lastName||""}`,
-      holderEdu: user.profile?.edu, holderAge: user.profile?.age, holderOccup: user.profile?.occupation,
-      indhAmount: budget?.indhContribution || Math.min(Math.round(((budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0)) * 0.90), 100000),
-      totalBudget: (budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0),
-      score: comp?.score, eligible: comp?.eligible, juryScore: comp?.juryScore,
-      strengths: comp?.strengths, weaknesses: comp?.weaknesses,
-      projections: plan?.projections,
-    });
-    const r = await ai(
-      [{role:"user", content:`بيانات المشروع: ${ctx}`}],
-      `أنت خبير في تحضير حاملي مشاريع INDH للمثول أمام لجنة التحكيم. اكتب بنك أسئلة وأجوبة شامل يتضمن 30 سؤالاً وجواباً باللغة العربية الفصحى البسيطة مُخصصة لهذا المشروع تحديداً.
-
-قسّم الأسئلة على 5 محاور بالضبط:
-
-المحور 1 — الخبرة والكفاءة (6 أسئلة) — يتعلق بالحامل ومؤهلاته وتجاربه السابقة
-المحور 2 — المشروع والسوق (6 أسئلة) — يتعلق بالفكرة والمنافسة والزبائن المستهدفين
-المحور 3 — المالي (6 أسئلة) — يتعلق بالميزانية والأرقام والمردودية والتوقعات
-المحور 4 — التشغيلي (6 أسئلة) — يتعلق بالتنفيذ اليومي والإدارة والتجهيزات
-المحور 5 — الاستدامة بعد INDH (6 أسئلة) — يتعلق بمستقبل المشروع وضمان استمراريته
-
-لكل سؤال اتبع هذا التنسيق بالضبط:
-[س]نص السؤال الكامل[/س]
-[ج]نص الجواب الكامل من 2 إلى 4 جمل مع أرقام حقيقية من بيانات المشروع[/ج]
-
-قواعد مهمة:
-- استخدم أرقاماً حقيقية من بيانات المشروع المذكور (الميزانية، المستفيدون، التوقعات).
-- الأجوبة يجب أن تكون محددة، مقنعة، وقابلة للحفظ والتقديم أمام اللجنة.
-- لا تكتب أي شيء خارج تنسيق [س]...[/س] و[ج]...[/ج].
-- ابدأ مباشرة بـ "المحور 1" بدون مقدمات.`,
-      "dialogue",
-      4000
-    );
-    setQABusy(false);
-    if (!r) {
-      showToast(lang==="ar"?"فشل إنشاء بنك الأسئلة — حاول مجدداً":lang==="fr"?"Génération échouée — réessayez":"Q&A generation failed — retry", "error");
-      return;
-    }
-
-    // Parse the AI response into axis sections → Q&A pairs
-    const esc = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    const totalBudget2 = (budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
-    const indhAmt2 = budget?.indhContribution || Math.min(Math.round(totalBudget2 * 0.90), 100000);
-
-    // Split response by axis headings — support Arabic numerals and patterns
-    const axisPattern = /المحور\s*[\d١٢٣٤٥]+\s*[—–-]/g;
-    const axisMatches: {title: string; start: number}[] = [];
-    let m;
-    while ((m = axisPattern.exec(r)) !== null) {
-      const lineEnd = r.indexOf("\n", m.index);
-      axisMatches.push({ title: r.slice(m.index, lineEnd > m.index ? lineEnd : m.index + 80).trim(), start: m.index });
-    }
-
-    const axisColors = ["#1C7A62","#2A5CE0","#7C3AED","#D97706","#C0632F"];
-
-    const renderAxis = (axisText: string, axisIdx: number): string => {
-      const col = axisColors[axisIdx % 5];
-      // Extract all Q&A pairs
-      const qPairs: {q: string; a: string}[] = [];
-      const pairRe = /\[س\]([\s\S]*?)\[\/س\]\s*\[ج\]([\s\S]*?)\[\/ج\]/g;
-      let pm;
-      while ((pm = pairRe.exec(axisText)) !== null) {
-        qPairs.push({ q: pm[1].trim(), a: pm[2].trim() });
-      }
-      if (qPairs.length === 0) return "";
-      const pairs = qPairs.map((p, i) => `
-        <div style="margin-bottom:14px;page-break-inside:avoid">
-          <div style="background:${col};color:#fff;padding:11px 16px;border-radius:10px 10px 0 0;font-size:13px;font-weight:700;line-height:1.55">
-            <span style="opacity:.65;font-size:11px;margin-left:8px">${i+1}.</span> ${esc(p.q)}
-          </div>
-          <div style="background:#F0F4FF;border:2px solid ${col}33;border-top:none;padding:12px 16px;border-radius:0 0 10px 10px;font-size:12.5px;line-height:1.75;color:#0A0F2C">
-            ${esc(p.a).replace(/\n/g,"<br>")}
-          </div>
-        </div>`).join("");
-      return `<div style="margin-bottom:28px;page-break-inside:avoid">
-        <div style="background:${col};color:#fff;padding:14px 20px;border-radius:12px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
-          <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0">${axisIdx+1}</div>
-          <div>
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.7;margin-bottom:2px">المحور ${axisIdx+1}</div>
-            <div style="font-size:14px;font-weight:800">${esc(axisMatches[axisIdx]?.title?.replace(/المحور\s*[\d١٢٣٤٥]+\s*[—–-]\s*/,"") || "")}</div>
-          </div>
-          <div style="margin-right:auto;background:rgba(255,255,255,.2);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700">${qPairs.length} أسئلة</div>
-        </div>
-        ${pairs}
-      </div>`;
-    };
-
-    // Build per-axis HTML blocks
-    let axisHTML = "";
-    if (axisMatches.length >= 2) {
-      for (let ai2 = 0; ai2 < axisMatches.length; ai2++) {
-        const start = axisMatches[ai2].start;
-        const end   = ai2 + 1 < axisMatches.length ? axisMatches[ai2+1].start : r.length;
-        axisHTML += renderAxis(r.slice(start, end), ai2);
-      }
-    } else {
-      // Fallback: render full text as single block
-      axisHTML = `<div style="white-space:pre-wrap;font-size:13px;line-height:1.8;color:#0A0F2C">${esc(r)}</div>`;
-    }
-
-    const html = `<!DOCTYPE html><html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8"/>
-<title>بنك الأسئلة — ${esc(proj?.projectName||"المشروع")}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet"/>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Tajawal',sans-serif;font-size:13px;color:#0A0F2C;background:#fff}
-@page{size:A4;margin:15mm 13mm}
-@media print{body{padding:0}.no-print{display:none!important}.page-break{page-break-before:always}}
-.page{max-width:800px;margin:0 auto;padding:20px}
-.header{background:#0A0F2C;color:#fff;padding:22px 28px;border-radius:12px;margin-bottom:16px}
-.header-title{font-size:20px;font-weight:800;color:#2A5CE0;margin-bottom:6px}
-.header-sub{font-size:11.5px;color:rgba(255,255,255,.55);line-height:1.55}
-.meta-strip{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
-.meta-chip{background:#F7F8FA;border:1px solid #E4E7ED;border-radius:9px;padding:8px 13px;flex:1;min-width:130px}
-.meta-chip .lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5B6178;margin-bottom:3px}
-.meta-chip .val{font-size:13px;font-weight:700;color:#0A0F2C}
-.intro-box{background:#EFF6FF;border:2px solid #2A5CE055;border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:12.5px;color:#1C3A5C;line-height:1.7}
-.btn-print{display:block;margin:20px auto 0;padding:12px 32px;background:#0A0F2C;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif}
-.footer{margin-top:28px;padding-top:10px;border-top:1px solid #E4E7ED;display:flex;justify-content:space-between;font-size:9.5px;color:#5B6178}
-.indh-pill{background:#0A0F2C;color:#2A5CE0;padding:3px 10px;border-radius:5px;font-weight:700;font-size:9px}
-</style>
-</head>
-<body>
-<div class="page">
-<div class="header">
-  <div class="header-title">بنك الأسئلة والأجوبة للجنة التحكيم</div>
-  <div class="header-sub">
-    مشروع: ${esc(proj?.projectName||"")} · ${esc(proj?.sector||"")} · ${esc(proj?.location||regionDisplay(user.profile)||"")}
-    <br/>الحامل: ${esc(user.name||"")} ${esc(user.profile?.lastName||"")} · المبادرة الوطنية للتنمية البشرية — المرحلة 3
-  </div>
-</div>
-<div class="meta-strip">
-  <div class="meta-chip"><div class="lbl">عدد الأسئلة</div><div class="val">30 سؤالاً</div></div>
-  <div class="meta-chip"><div class="lbl">النقطة الإجمالية</div><div class="val" style="color:${comp?.eligible?"#1C7A62":"#C0632F"}">${comp?.score||"—"}/100${comp?.eligible?" ✓":""}</div></div>
-  <div class="meta-chip"><div class="lbl">الميزانية الإجمالية</div><div class="val">${totalBudget2.toLocaleString()} درهم</div></div>
-  <div class="meta-chip"><div class="lbl">مساهمة المبادرة (90%)</div><div class="val" style="color:#2A5CE0">${indhAmt2.toLocaleString()} درهم</div></div>
-</div>
-<div class="intro-box">
-  💡 <strong>كيف تستخدم هذا البنك:</strong> اقرأ كل سؤال بصوت عالٍ وأجب عنه بكلامك الخاص مع الحفاظ على الأرقام الدقيقة. تدرّب أمام المرآة أو مع شخص من عائلتك على الأقل 3 مرات قبل يوم اللجنة. الجواب المقنع = رقم دقيق + حقيقة محلية + ثقة في التقديم.
-</div>
-${axisHTML}
-<div class="footer">
-  <span>© IdeaMap 2026 · ideamaponline.org · المبادرة الوطنية للتنمية البشرية</span>
-  <span class="indh-pill">INDH Phase 3</span>
-  <span>${new Date().toLocaleDateString("ar-MA")}</span>
-</div>
-</div>
-<button class="btn-print no-print" onclick="window.print()">🖨️ طباعة / حفظ كـ PDF</button>
-</body></html>`;
-
-    const w = window.open("", "_blank", "width=880,height=750");
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-      const printWhenReady = () => { try { w.print(); } catch {} };
-      let fallback: ReturnType<typeof setTimeout>;
-      w.addEventListener("load", () => { clearTimeout(fallback); setTimeout(printWhenReady, 300); }, {once:true});
-      fallback = setTimeout(printWhenReady, 3000);
-    } else {
-      showToast(lang==="ar"?"اسمح بالنوافذ المنبثقة لعرض بنك الأسئلة":lang==="fr"?"Autorisez les popups pour générer le Q&R":"Allow popups to generate the Q&A bank", "error");
-    }
-  };
-
-  // Sector → brand color/icon, used only when AI logo generation fails outright —
-  // matching the color intuitions already in the AI prompt below (terracotta for
-  // artisanat, indigo for couture, etc.) so the fallback still looks intentional
-  // rather than generic. Purely cosmetic, so a heuristic guess here carries none of
-  // the accuracy stakes a fabricated compliance score or budget would.
-  const SECTOR_BRAND: Record<string, {c1: string; c2: string; icon: string}> = {
-    "Agriculture/Élevage": {c1: "#6B7A3E", c2: "#8FA05C", icon: "🌾"},
-    "Artisanat traditionnel": {c1: "#C8602A", c2: "#E08A4F", icon: "🏺"},
-    "Commerce/Épicerie": {c1: "#2563EB", c2: "#1E40AF", icon: "🛒"},
-    "Agro-alimentaire": {c1: "#B8860B", c2: "#D4A017", icon: "🍯"},
-    "Restauration/Café": {c1: "#E87420", c2: "#F2994A", icon: "☕"},
-    "Coiffure/Beauté": {c1: "#7B3B8E", c2: "#9B59B6", icon: "💇"},
-    "Couture/Vêtement traditionnel": {c1: "#3B3B8E", c2: "#5C5CB0", icon: "🧵"},
-    "Impression/Reprographie": {c1: "#374151", c2: "#4B5563", icon: "🖨️"},
-    "Design graphique/Communication": {c1: "#DB2777", c2: "#EC4899", icon: "🎨"},
-    "Numérique/TIC": {c1: "#1E6FE8", c2: "#3B82F6", icon: "💻"},
-    "Tourisme rural/Guide": {c1: "#059669", c2: "#10B981", icon: "🗺️"},
-    "BTP/Maçonnerie": {c1: "#78350F", c2: "#92400E", icon: "🧱"},
-    "Éducation/Formation": {c1: "#1D4ED8", c2: "#2563EB", icon: "📚"},
-    "Pêche/Aquaculture": {c1: "#1A4A7A", c2: "#2E6396", icon: "🐟"},
-    "Transport/Logistique": {c1: "#374151", c2: "#F59E0B", icon: "🚚"},
-    "Santé/Pharmacie": {c1: "#059669", c2: "#22C55E", icon: "⚕️"},
-    "Réparation/Maintenance": {c1: "#4B5563", c2: "#6B7280", icon: "🔧"},
-    "Événementiel/Traiteur": {c1: "#BE185D", c2: "#DB2777", icon: "🎉"},
-  };
-  const buildLocalLogo = (p: any) => {
-    const brand = SECTOR_BRAND[p?.sector || ""] || {c1: Y, c2: YD, icon: "💡"};
-    const initials = (p?.projectName || "").replace(/[^A-Za-z؀-ۿ]/g, "").slice(0, 2).toUpperCase() || "IM";
-    const tagline = lang === "ar" ? "خدمة محلية بجودة عالية" : lang === "fr" ? "Qualité et proximité" : "Local, quality-driven service";
-    const styleDesc = lang === "ar" ? "هوية بسيطة وواضحة" : lang === "fr" ? "Identité simple et claire" : "Simple, clear identity";
-    return {
-      initials, color1: brand.c1, color2: brand.c2, colorText: "#FFFFFF",
-      icon: brand.icon, tagline, styleDesc, accentColor: brand.c2,
-    };
-  };
-
-  const genLogo = async () => {
-    setLogoGenerating(true);
-    try {
-    const projInfo = {
-      name: proj?.projectName,
-      sector: proj?.sector,
-      location: proj?.location,
-      beneficiaries: proj?.targetProfile || proj?.beneficiaries,
-      pillar: proj?.pillar,
-      localProblem: proj?.localProblem,
-      revenueModel: proj?.revenueModel,
-      holderExperience: proj?.holderExperience,
-      activities: proj?.activities,
-      strengths: proj?.strengths,
-      estimatedBudget: proj?.estimatedBudget,
-      idea: idea?.slice(0, 200),
-    };
-    const concept = await ensureJson(
-      [{role:"user", content:`Projet INDH Maroc: ${JSON.stringify(projInfo)}`}],
-      `Tu es un directeur artistique expert en branding pour micro-entrepreneurs marocains. Tu crées des identités visuelles simples, fortes et culturellement ancrées au Maroc.
-
-CONTEXTE COMPLET DU PROJET (utilise TOUT ce contexte pour créer une identité unique):
-- Idée originale du porteur: "${projInfo.idea||""}"
-- Problème local résolu: "${projInfo.localProblem||""}"
-- Modèle économique: "${projInfo.revenueModel||""}"
-- Expérience du porteur: "${projInfo.holderExperience||""}"
-- Activités principales: ${JSON.stringify(projInfo.activities||[])}
-- Points forts identifiés: ${JSON.stringify(projInfo.strengths||[])}
-
-Règles pour créer une identité VRAIMENT unique à CE projet spécifique:
-1. INITIALES: 2-3 lettres tirées du nom du projet (initiales du nom commercial).
-2. COULEURS: couleur principale qui évoque PRÉCISÉMENT ce secteur ET ce territoire marocain (ex: artisanat Marrakech→ocre terre cuite #C8602A, couture urbaine→indigo #3B3B8E, agriculture Souss→vert olive #6B7A3E, coiffure moderne→violet #7B3B8E, numérique jeune→bleu électrique #1E6FE8, restauration→orange chaleureux #E87420, pêche→bleu marine profond #1A4A7A). Couleur secondaire harmonieuse et contrastée.
-3. COULEUR TEXTE: contraste parfait (blanc #FFFFFF si couleur foncée, marine #0F2233 si couleur claire).
-4. ICÔNE: emoji qui représente EXACTEMENT l'activité principale vue dans les activités du porteur (pas juste le secteur générique — si couture→🧵 ou ✂️, si argan→🌿, si coiffure→💇, si café→☕).
-5. SLOGAN: 3-5 mots ORIGINAUX en ${LL} qui reflètent la proposition de valeur UNIQUE de CE projet — inspiré du modèle économique et du problème résolu (ex: si service de proximité manquant→"À portée de main", si valorisation locale→"L'authenticité, notre force").
-6. STYLE DESCRIPTION: 4-6 mots décrivant le positionnement unique (ex: "Artisanat féminin haute qualité", "Service rapide quartier populaire", "Agriculture bio circuit court").
-
-JSON UNIQUEMENT sans markdown:
-{"initials":"2-3 lettres","color1":"#hexcode couleur principale sector-specific","color2":"#hexcode couleur secondaire harmonieuse","colorText":"#FFFFFF ou #0F2233","icon":"emoji activité précise","tagline":"slogan 3-5 mots en ${LL} unique à CE projet","styleDesc":"positionnement 4-6 mots en ${LL}","accentColor":"#hexcode couleur d'accent pour détails"}`);
-    if (concept) {
-      // Ensure required color fields have safe fallbacks in case AI skips them
-      concept.color1     = concept.color1     || Y;
-      concept.color2     = concept.color2     || YD;
-      concept.colorText  = concept.colorText  || WH;
-      concept.icon       = concept.icon       || "💡";
-      concept.initials   = concept.initials   || (proj?.projectName||"").slice(0,2).toUpperCase() || "IM";
-      setLogo({type:"generated", concept}); setLogoStyle(0);
-    } else {
-      // AI is unavailable — a sector-colored fallback beats a dead end. It's purely
-      // cosmetic, so an applicant getting a simpler-than-ideal logo under heavy load
-      // is a much better outcome than getting stuck on this step entirely.
-      setLogo({type:"generated", concept: buildLocalLogo(proj)}); setLogoStyle(0);
-      showToast(
-        lang === "ar" ? "تم استخدام تصميم مبسط — يمكنك إعادة المحاولة لاحقاً" :
-        lang === "fr" ? "Design simplifié utilisé — vous pouvez réessayer plus tard" :
-        "Used a simplified design — you can try regenerating later",
-        "success"
-      );
-    }
-    } finally {
-      setLogoGenerating(false);
-    }
-  };
-
-  const dlLogo = () => {
-    if (!logo?.concept) return;
-    const c = logo.concept;
-    const ct = c.colorText || "#FFFFFF";
-    const escXml = (s: string) => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    const tag = escXml((c.tagline || "").slice(0, 24).toUpperCase());
-    const ini = escXml((c.initials || "?").slice(0, 3));
-    const ico = c.icon || "💡";
-    // Helper: 8-pointed star points string (300×300 canvas)
-    const star = (ox: number, oy: number, R: number, r: number): string => {
-      const pts: string[] = [];
-      for (let i = 0; i < 16; i++) {
-        const a = (i * Math.PI / 8) - Math.PI / 2;
-        const rad = i % 2 === 0 ? R : r;
-        pts.push(`${(ox + rad * Math.cos(a)).toFixed(1)},${(oy + rad * Math.sin(a)).toFixed(1)}`);
-      }
-      return pts.join(" ");
-    };
-    const svgs = [
-      // Style 0 — Gradient Burst
-      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
-  <defs>
-    <linearGradient id="g0" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${c.color1}"/>
-      <stop offset="100%" stop-color="${c.color2||c.color1}bb"/>
-    </linearGradient>
-    <clipPath id="cp0"><rect width="300" height="300" rx="54" ry="54"/></clipPath>
-  </defs>
-  <rect width="300" height="300" rx="54" fill="url(#g0)"/>
-  ${[20,40,60,80,100,120,140].map((ang,i) => { const rad = ang*Math.PI/180; return `<line x1="300" y1="0" x2="${(300+420*Math.cos(rad)).toFixed(0)}" y2="${(420*Math.sin(rad)).toFixed(0)}" stroke="${ct}" stroke-width="7" opacity="0.07" clip-path="url(#cp0)"/>`; }).join("")}
-  <ellipse cx="60" cy="262" rx="195" ry="114" fill="${ct}" opacity="0.08" clip-path="url(#cp0)"/>
-  <text x="150" y="124" text-anchor="middle" font-size="78">${ico}</text>
-  <rect x="60" y="141" width="180" height="5" rx="3" fill="${ct}" opacity="0.35"/>
-  <text x="150" y="205" text-anchor="middle" font-size="86" font-weight="900" fill="${ct}" font-family="Arial Black,sans-serif">${ini}</text>
-  <rect x="24" y="252" width="252" height="39" rx="19" fill="${ct}" opacity="0.15"/>
-  <text x="150" y="278" text-anchor="middle" font-size="19" fill="${ct}" opacity="0.9" font-family="Arial,sans-serif" font-weight="700" letter-spacing="2">${tag}</text>
-</svg>`,
-      // Style 1 — Moroccan Geometric Star
-      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
-  <rect width="300" height="300" fill="${c.color2||"#F0F0F0"}" opacity="0.12"/>
-  <polygon points="${star(150, 150, 138, 66)}" fill="${c.color1}"/>
-  <polygon points="${star(150, 150, 132, 62)}" fill="none" stroke="${ct}" stroke-width="2" opacity="0.2"/>
-  <circle cx="150" cy="150" r="69" fill="${c.color2||c.color1}"/>
-  <circle cx="150" cy="150" r="66" fill="none" stroke="${ct}" stroke-width="1" opacity="0.25"/>
-  <text x="150" y="133" text-anchor="middle" font-size="42">${ico}</text>
-  <text x="150" y="187" text-anchor="middle" font-size="52" font-weight="900" fill="${ct}" font-family="Arial Black,sans-serif">${ini}</text>
-  <circle cx="36" cy="36" r="10" fill="${c.color1}" opacity="0.55"/>
-  <circle cx="264" cy="36" r="10" fill="${c.color1}" opacity="0.55"/>
-  <circle cx="264" cy="264" r="10" fill="${c.color1}" opacity="0.55"/>
-  <circle cx="36" cy="264" r="10" fill="${c.color1}" opacity="0.55"/>
-  <text x="150" y="291" text-anchor="middle" font-size="17" fill="${c.color1}" opacity="0.85" font-family="Arial,sans-serif" font-weight="700" letter-spacing="1">${tag}</text>
-</svg>`,
-      // Style 2 — Dynamic Diagonal Split
-      `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
-  <defs>
-    <clipPath id="cpr"><rect width="300" height="300" rx="42" ry="42"/></clipPath>
-    <clipPath id="cpa"><polygon points="0,0 300,0 0,300"/></clipPath>
-    <clipPath id="cpb"><polygon points="315,-15 315,315 -15,315"/></clipPath>
-  </defs>
-  <rect width="300" height="300" rx="42" fill="${c.color1}"/>
-  <polygon points="315,-15 315,315 -15,315" fill="${c.color2||c.color1}99" clip-path="url(#cpr)"/>
-  <line x1="-15" y1="315" x2="315" y2="-15" stroke="#FFFFFF" stroke-width="7" opacity="0.18" clip-path="url(#cpr)"/>
-  <text x="100" y="163" text-anchor="middle" font-size="114" font-weight="900" fill="${ct}" font-family="Arial Black,sans-serif" clip-path="url(#cpa)" opacity="0.95">${ini[0]||"?"}</text>
-  <text x="207" y="225" text-anchor="middle" font-size="84" clip-path="url(#cpb)">${ico}</text>
-  <circle cx="150" cy="150" r="16" fill="#FFFFFF" opacity="0.9"/>
-  <text x="150" y="282" text-anchor="middle" font-size="17" fill="${ct}" opacity="0.85" font-family="Arial,sans-serif" font-weight="700" letter-spacing="3" clip-path="url(#cpr)">${tag}</text>
-</svg>`,
-    ];
-    const svg = svgs[logoStyle];
-    const url = URL.createObjectURL(new Blob([svg], {type:"image/svg+xml"}));
-    const a = Object.assign(document.createElement("a"), {
-      href: url,
-      download: `Logo_${(proj?.projectName||"IdeaMap").replace(/\s+/g,"_")}.svg`,
-    });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const INDH_CTX = `CONTEXTE INDH PHASE 3 MAROC — DONNÉES TERRAIN RÉELLES:
@@ -3621,6 +2400,7 @@ RÈGLE ABSOLUE: porteur individuel ou groupe informel uniquement. Jamais associa
 ${INDH_CTX}
 Le porteur a partagé son idée: "${ideaText}"
 Pour CHACUNE des ${chunk.length} questions ci-dessous, propose 3 réponses courtes, réalistes et SPÉCIFIQUES à CETTE idée précise (jamais générique, jamais coopérative/GIE). Réponds en ${LL}.${arNote}
+Chaque option doit être une réponse complète et sélectionnable telle quelle — ne propose JAMAIS une option du type « je préfère écrire moi-même » ou « à préciser » : la plupart de ces questions n'ont plus de champ de texte libre, seules ces 3 options sont cliquables.
 
 ${qLines}
 
@@ -3634,7 +2414,16 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
           // or otherwise — see the matching guard in localOptionsFor. A suggested
           // name is exactly as presumptuous coming from the AI as it would be
           // hardcoded, so this is skipped regardless of what the model returns.
-          if (idx === 0) return;
+          // Question 1 (secteur) is skipped too, but for a different reason: its
+          // answer becomes proj.sector verbatim, the exact canonical string
+          // SECTOR_SERVICES/SECTOR_EQUIPMENT/mapSectorToKey and the committee
+          // Excel's "Secteur" column key off — the AI has no guarantee of
+          // returning one of those 18 exact names (it could just as easily
+          // suggest "Boulangerie artisanale"), which would silently break every
+          // sector-keyed lookup downstream. localOptionsFor's own 3 options for
+          // this question are always real canonical sector names; nothing should
+          // replace them with AI-invented ones.
+          if (idx === 0 || idx === 1) return;
           const arr = bank?.[`q${j + 1}`];
           if (Array.isArray(arr) && arr.length) {
             next[idx] = arr.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 3);
@@ -3651,7 +2440,14 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
   const buildLocalProfile = (all: {role: string; content: string}[]) => {
     const answers = all.filter((m, i) => i > 0 && m.role === "user").map(m => (m.content || "").trim());
     const numFrom = (s: string | undefined, fallback: number): number => {
-      const digits = (s || "").replace(/[^\d]/g, " ").match(/\d{2,}/);
+      const text = s || "";
+      // Grouped thousands ("28 000", "100 000", "100,000") — this app's own MAD
+      // amounts are written exactly this way (see "100 000 MAD" throughout), so
+      // reading only the first digit run would misread "28 000" as 28, not
+      // 28000. Collapse the separators before parsing.
+      const grouped = text.match(/\d{1,3}(?:[\s.,]\d{3})+/);
+      if (grouped) return parseInt(grouped[0].replace(/[\s.,]/g, ""), 10);
+      const digits = text.match(/\d{2,}/);
       return digits ? parseInt(digits[0], 10) : fallback;
     };
     return {
@@ -3670,6 +2466,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         lang === "ar" ? "مشروع واضح يستجيب لحاجة محلية محددة" : lang === "fr" ? "Projet clair répondant à un besoin local identifié" : "Clear project addressing an identified local need",
       ],
       estimatedBudget: numFrom(answers[18], 70000),
+      equipmentRequested: answers[17] || "",
       pillar: lang === "ar" ? "تحسين الدخل والإدماج الاقتصادي للشباب" : lang === "fr" ? "Amélioration du revenu et inclusion économique des jeunes" : "Income improvement and economic inclusion of youth",
     };
   };
@@ -3737,22 +2534,29 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     };
   };
 
-  // Heuristic budget built from the sector's known equipment list (SECTOR_EQUIPMENT
-  // — the same real, sector-specific items already used as instant questionnaire
-  // choices), scaled to the porteur's own estimated budget and split 90/10 per
-  // INDH rules. Never blocks the applicant on AI availability for their actual
-  // funding request.
+  // Heuristic budget seeded from what the porteur actually said: their own
+  // equipmentRequested answer becomes the first line item (verbatim, not
+  // reworded), topped up with sector-known items (SECTOR_EQUIPMENT) only to
+  // round out a reasonable budget. The total is the porteur's own stated
+  // cost — 100 000 MAD is the INDH contribution's ceiling, not a target the
+  // total gets pushed toward: a porteur who estimates 30 000 MAD stays at
+  // 30 000 MAD, not inflated to a 55 000 MAD floor.
   const buildLocalBudget = (p: any) => {
     const sector = p?.sector || "";
     const equipFr = SECTOR_EQUIPMENT[sector]?.fr;
     const catLabel = lang === "ar" ? "معدات إنتاجية" : lang === "fr" ? "Équipements productifs" : "Productive equipment";
-    const names = (equipFr && SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"]) || (
+    const sectorNames = (equipFr && SECTOR_EQUIPMENT[sector]?.[lang as "fr"|"ar"|"en"]) || (
       lang === "ar" ? ["معدات مهنية أساسية", "أثاث وتجهيز المحل", "أدوات ومستلزمات التشغيل"]
       : lang === "en" ? ["Basic professional equipment", "Fit-out and furniture", "Operating tools and supplies"]
       : ["Équipement professionnel de base", "Aménagement et mobilier du local", "Outillage et fournitures d'exploitation"]
     );
-    const rawTotal = Math.min(Math.max(p?.estimatedBudget || 70000, 55000), 111000);
-    const splits = [0.5, 0.35, 0.15];
+    const stated = (p?.equipmentRequested || "").trim();
+    const names = stated ? [stated, ...sectorNames.filter((n: string) => n !== stated)] : sectorNames;
+    // Sanity ceiling only against a garbled extraction (e.g. a date or phone
+    // number picked up as "the cost") — never a floor that overrides a real,
+    // smaller, legitimate answer.
+    const rawTotal = Math.min(p?.estimatedBudget || 70000, 300000);
+    const splits = names.length >= 3 ? [0.5, 0.35, 0.15] : names.length === 2 ? [0.65, 0.35] : [1];
     const items = names.slice(0, 3).map((item: string, i: number) => {
       const total = Math.round((rawTotal * splits[i]) / 100) * 100;
       return { category: catLabel, item, quantity: 1, unitPrice: total, total };
@@ -3856,14 +2660,16 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       let p = await ensureJson(convo,
         `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
 Analyse TOUTE la conversation et construis le profil projet le plus PRÉCIS possible.
+IMPORTANT sur estimatedBudget: reprends le MONTANT RÉEL que le porteur a donné dans ses réponses (question sur le coût total) — ne l'arrondis pas vers 100 000 MAD, ne l'invente pas. S'il n'a donné aucun chiffre, fais une estimation sectorielle réaliste plutôt qu'un montant proche du plafond.
 Retourne UNIQUEMENT ce JSON valide sans markdown ni texte autour:
-{"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`);
+{"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"equipmentRequested":"reprends TEXTUELLEMENT ce que le porteur a dit vouloir acheter avec l'appui INDH — ne reformule pas","pillar":"axe INDH Phase 3 le plus pertinent"}`);
       if (!p) {
         const strictR = await ai(convo,
           `Tu es le Conseiller INDH Phase 3 Maroc. Idée originale: "${idea}".
 Construis le profil projet le plus précis possible à partir de la conversation ci-dessus, en utilisant ta meilleure estimation pour toute information manquante ou imprécise.
+Pour estimatedBudget: reprends le montant réel donné par le porteur, sans l'arrondir vers 100 000 MAD.
 NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON valide, rien d'autre:
-{"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"pillar":"axe INDH Phase 3 le plus pertinent"}`,
+{"projectName":"nom commercial accrocheur en ${LL}","sector":"secteur INDH exact (ex: Artisanat traditionnel)","legalStructure":"porteur individuel","location":"ville/commune/douar mentionné — si non précisé: région du profil","beneficiaries":N,"targetProfile":"description précise des bénéficiaires (femmes, jeunes, agriculteurs...)","localProblem":"problème local concret résolu par le projet","revenueModel":"comment le porteur va gagner de l'argent concrètement","holderExperience":"compétence/expérience du porteur","activities":["activité clé 1","activité clé 2","activité clé 3"],"strengths":["force SPÉCIFIQUE 1 alignée jury INDH","force SPÉCIFIQUE 2"],"estimatedBudget":N,"equipmentRequested":"reprends TEXTUELLEMENT ce que le porteur a dit vouloir acheter","pillar":"axe INDH Phase 3 le plus pertinent"}`,
           "json");
         p = parseJ(strictR);
       }
@@ -3908,14 +2714,15 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
       ensureJson([{role: "user", content: `Projet INDH: ${projCtx}`}],
         `Tu es un expert financier INDH Phase 3 Maroc qui connaît les prix du marché marocain en 2025.
 ${INDH_CTX}
-Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ. Le coût total des équipements peut atteindre ~111 000 MAD (dont 100 000 MAD maximum pris en charge par l'INDH + 10% apport porteur).${arQuality}
+Génère un budget prévisionnel PRÉCIS et JUSTIFIÉ, construit autour de ce que le porteur a lui-même demandé (champ "equipmentRequested" du projet ci-dessus) — le premier poste du budget doit être cet équipement précis, pas une invention générique.${arQuality}
 
 RÈGLES IMPÉRATIVES:
-1. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix d'équipements productifs (ex: machine à coudre industrielle Singer 5 500 MAD, four professionnel 18 000 MAD, tablette Samsung 1 200 MAD, réfrigérateur vitrine 200L 3 500 MAD, mobilier de travail professionnel 4 000 MAD, générateur portable 2kW 5 000 MAD, broyeur professionnel 3 500 MAD).
-2. DÉSIGNATIONS PRÉCISES: jamais "équipement divers" — toujours la désignation exacte (ex: "Machine à coudre industrielle Brother DB2-B737" ou "Réfrigérateur vitrine 200L Beko").
-3. CATÉGORIES ÉLIGIBLES INDH UNIQUEMENT — l'INDH finance UNIQUEMENT les biens d'équipement productifs. Inclure SEULEMENT: Équipements productifs (machines professionnelles, outillage technique, matériel de production, mobilier de travail, équipements de stockage/présentation). FORMELLEMENT INTERDIT dans un budget INDH — ne jamais inclure ces postes: Aménagement/Travaux (rénovation local, électricité, peinture, plomberie, cloisons — JAMAIS même 1 MAD), Frais d'établissement (immatriculation, notaire), Matières premières, Fonds de roulement, Communication/Marketing, salaires, loyers.
-4. QUANTITÉS RÉALISTES: basées sur un démarrage réel — pas en sous-estimant ni en gonflant.
-5. Assure-toi que 90% = contribution INDH (plafonnée à 100 000 MAD max) et 10% = apport porteur. Total coût projet doit être entre 55 000 et 111 000 MAD. indhContribution = Math.min(Math.round(total * 0.90), 100000). beneficiaryContribution = total - indhContribution.
+1. MONTANT RÉEL: le total du budget part du "estimatedBudget" fourni par le porteur — ne le gonfle pas vers 100 000/111 000 MAD et ne le ramène pas à un plancher arbitraire. Un porteur qui a chiffré son projet à 30 000 MAD obtient un budget de ~30 000 MAD, pas 55 000.
+2. PRIX RÉELS DU MARCHÉ MAROCAIN 2025: utilise les vrais prix d'équipements productifs (ex: machine à coudre industrielle Singer 5 500 MAD, four professionnel 18 000 MAD, tablette Samsung 1 200 MAD, réfrigérateur vitrine 200L 3 500 MAD, mobilier de travail professionnel 4 000 MAD, générateur portable 2kW 5 000 MAD, broyeur professionnel 3 500 MAD) SEULEMENT pour compléter le montant restant une fois le premier poste (l'équipement demandé par le porteur) posé.
+3. DÉSIGNATIONS PRÉCISES: jamais "équipement divers" — toujours la désignation exacte.
+4. CATÉGORIES ÉLIGIBLES INDH UNIQUEMENT — l'INDH finance UNIQUEMENT les biens d'équipement productifs. Inclure SEULEMENT: Équipements productifs (machines professionnelles, outillage technique, matériel de production, mobilier de travail, équipements de stockage/présentation). FORMELLEMENT INTERDIT dans un budget INDH — ne jamais inclure ces postes: Aménagement/Travaux (rénovation local, électricité, peinture, plomberie, cloisons — JAMAIS même 1 MAD), Frais d'établissement (immatriculation, notaire), Matières premières, Fonds de roulement, Communication/Marketing, salaires, loyers.
+5. QUANTITÉS RÉALISTES: basées sur un démarrage réel — pas en sous-estimant ni en gonflant.
+6. La seule règle de plafond: indhContribution = Math.min(Math.round(total * 0.90), 100000) ; beneficiaryContribution = total - indhContribution. 100 000 MAD est un PLAFOND, jamais une cible par défaut.
 
 Retourne UNIQUEMENT ce JSON valide sans markdown:
 {"items":[{"category":"catégorie","item":"désignation exacte avec marque/modèle si pertinent en ${LL}","quantity":N,"unitPrice":N,"total":N}],"indhContribution":N,"beneficiaryContribution":N}`),
@@ -3972,7 +2779,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     })().catch(() => {});
   };
 
-  const STEPS = ["idea", "dialogue", "profile", "plan", "budget", "logo", "compliance", "documents", "export"];
+  const STEPS = ["idea", "dialogue", "profile", "plan", "budget", "compliance", "documents", "export"];
   const si = STEPS.indexOf(step);
 
   const fs: React.CSSProperties = {
@@ -4224,24 +3031,29 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               );
             })()}
 
-            {/* Text input for custom answer */}
-            <div style={{display: "flex", gap: "8px"}}>
-              <input value={inp} onChange={e => !busy && setInp(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && sendMsg()} disabled={busy}
-                placeholder={busy
-                  ? (lang==="ar"?"جاري التحميل...":lang==="fr"?"Chargement...":"Loading...")
-                  : (lang==="ar"?"أو اكتب إجابتك هنا...":lang==="fr"?"Ou écrivez votre réponse...":"Or type your own answer...")}
-                className={busy ? "busy-pulse" : ""}
-                style={{...fs, flex: 1, fontSize: "13px", opacity: busy ? 0.6 : 1,
-                  borderColor: busy ? Y : CD, background: busy ? YL : CR}}/>
-              <button onClick={() => sendMsg()} disabled={busy || !inp.trim()}
-                style={{padding: "13px 18px", borderRadius: "12px", border: "none", cursor: "pointer",
-                  background: `linear-gradient(135deg,${Y},${YD})`, color: ND,
-                  fontSize: "13px", fontWeight: "800", fontFamily: ff(lang),
-                  opacity: busy || !inp.trim() ? .5 : 1, flexShrink: 0}}>
-                {dir === "rtl" ? "←" : "→"}
-              </button>
-            </div>
+            {/* Text input — only for the few questions a tap option can't answer
+                for real (name, location, equipment, cost). Every other question
+                is tap-only, so its answer always lands as one of the 3 exact
+                strings the committee Excel column expects. */}
+            {qAllowsFreeText && (
+              <div style={{display: "flex", gap: "8px"}}>
+                <input value={inp} onChange={e => !busy && setInp(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && sendMsg()} disabled={busy}
+                  placeholder={busy
+                    ? (lang==="ar"?"جاري التحميل...":lang==="fr"?"Chargement...":"Loading...")
+                    : (lang==="ar"?"اكتب إجابتك هنا...":lang==="fr"?"Écrivez votre réponse...":"Type your answer...")}
+                  className={busy ? "busy-pulse" : ""}
+                  style={{...fs, flex: 1, fontSize: "13px", opacity: busy ? 0.6 : 1,
+                    borderColor: busy ? Y : CD, background: busy ? YL : CR}}/>
+                <button onClick={() => sendMsg()} disabled={busy || !inp.trim()}
+                  style={{padding: "13px 18px", borderRadius: "12px", border: "none", cursor: "pointer",
+                    background: `linear-gradient(135deg,${Y},${YD})`, color: ND,
+                    fontSize: "13px", fontWeight: "800", fontFamily: ff(lang),
+                    opacity: busy || !inp.trim() ? .5 : 1, flexShrink: 0}}>
+                  {dir === "rtl" ? "←" : "→"}
+                </button>
+              </div>
+            )}
             <div ref={msgEnd}/>
             {!busy && qN <= 1 && backBtn("idea")}
           </Card>
@@ -4523,340 +3335,11 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                   <div style={{fontSize: "10px", color: GR, marginTop: "2px"}}>MAD · {Math.round((bene / (total || 1)) * 100)}%</div>
                 </div>
               </div>
-              {indhBtn(`🎨 ${lang === "ar" ? "التالي: الشعار ←" : lang === "fr" ? "Suivant : Logo →" : "Next: Logo →"}`, () => setStep("logo"))}
+              {indhBtn(lang === "ar" ? "← التالي: الامتثال" : lang === "fr" ? "Continuer → Conformité" : "Continue → Compliance", checkComp)}
               {backBtn()}
             </Card>
           );
         })()}
-
-        {/* ── LOGO ── */}
-        {step === "logo" && (
-          <Card>
-            <div style={{display:"flex", alignItems:"center", gap:"12px", marginBottom:"20px"}}>
-              <div style={{width:"46px", height:"46px", borderRadius:"13px", background:YL,
-                display:"flex", alignItems:"center", justifyContent:"center", fontSize:"24px",
-                border:`2px solid ${Y}`, flexShrink:0}}>🎨</div>
-              <div>
-                <h2 style={{fontSize:"19px", fontWeight:"700", color:ND}}>
-                  {lang==="ar"?"شعار مشروعك":lang==="fr"?"Logo de votre projet":"Your project logo"}
-                </h2>
-                <p style={{fontSize:"12px", color:GR, marginTop:"2px"}}>
-                  {lang==="ar"?"أضف شعاراً أو أنشئه بالذكاء الاصطناعي":lang==="fr"?"Importez votre logo ou générez-en un gratuitement":"Upload your logo or generate one for free"}
-                </p>
-              </div>
-            </div>
-
-            {/* ── Logo options: upload or AI generate ── */}
-            {!logo && !logoGenerating && (
-              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginBottom:"16px"}}>
-                <label style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                  padding:"24px 14px", borderRadius:"14px", border:`2px dashed ${CD}`,
-                  cursor:"pointer", background:CR, gap:"8px", transition:"border-color .2s"}}>
-                  <span style={{fontSize:"26px"}}>📁</span>
-                  <span style={{fontSize:"12px", fontWeight:"600", color:N}}>
-                    {lang==="ar"?"رفع شعار موجود":lang==="fr"?"Importer mon logo":"Upload existing logo"}
-                  </span>
-                  <span style={{fontSize:"10px", color:GR}}>PNG, JPG, SVG</span>
-                  <input type="file" accept="image/*" style={{display:"none"}}
-                    onChange={e => {
-                      const f = e.target.files?.[0]; if (!f) return;
-                      const reader = new FileReader();
-                      reader.onload = ev => setLogo({type:"upload", dataUrl: ev.target?.result as string});
-                      reader.readAsDataURL(f);
-                    }}/>
-                </label>
-                <button onClick={genLogo} disabled={logoGenerating}
-                  style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                    padding:"24px 14px", borderRadius:"14px", border:`2px dashed ${Y}`,
-                    cursor:logoGenerating?"wait":"pointer", background:YL, gap:"8px",
-                    opacity:logoGenerating?0.7:1, transition:"all .2s"}}>
-                  <span style={{fontSize:"26px"}}>{logoGenerating?"⏳":"✨"}</span>
-                  <span style={{fontSize:"12px", fontWeight:"700", color:ND}}>
-                    {logoGenerating
-                      ? (lang==="ar"?"جاري الإنشاء...":lang==="fr"?"Création en cours...":"Creating...")
-                      : (lang==="ar"?"توليد هوية بالذكاء":lang==="fr"?"Créer avec l'IA":"Generate with AI")}
-                  </span>
-                  <span style={{fontSize:"10px", color:N}}>
-                    {lang==="ar"?"3 تصاميم للاختيار":lang==="fr"?"3 styles au choix":"3 styles to pick"}
-                  </span>
-                </button>
-              </div>
-            )}
-
-            {/* ── Loading state ── */}
-            {logoGenerating && (
-              <div style={{textAlign:"center", padding:"20px 0 10px"}}>
-                <div style={{display:"flex", justifyContent:"center", marginBottom:"8px"}}><Dots/></div>
-                <p style={{fontSize:"12px", color:GR}}>
-                  {lang==="ar"?"الذكاء الاصطناعي يبتكر هويتك البصرية...":lang==="fr"?"L'IA crée votre identité visuelle...":"AI is designing your brand identity..."}
-                </p>
-              </div>
-            )}
-
-            {/* ── Generated logo: 3 innovative style variants ── */}
-            {logo && logo.type === "generated" && logo.concept && !logoGenerating && (() => {
-              const c = logo.concept;
-              const ct = c.colorText || "#FFFFFF";
-              const styleNames = lang==="ar"
-                ? ["تدرج لوني","نجمة مغربية","انقسام ديناميكي"]
-                : lang==="fr"
-                ? ["Dégradé","Étoile Marocaine","Split Dynamique"]
-                : ["Gradient Burst","Moroccan Star","Dynamic Split"];
-
-              // Compute 8-pointed star polygon points (zellige-inspired)
-              const starPoints = (ox: number, oy: number, R: number, r: number): string => {
-                const pts: string[] = [];
-                for (let i = 0; i < 16; i++) {
-                  const angle = (i * Math.PI / 8) - Math.PI / 2;
-                  const rad = i % 2 === 0 ? R : r;
-                  pts.push(`${(ox + rad * Math.cos(angle)).toFixed(1)},${(oy + rad * Math.sin(angle)).toFixed(1)}`);
-                }
-                return pts.join(" ");
-              };
-
-              const renderVariant = (idx: number, size: number) => {
-                const s = size; const cx = s/2; const cy = s/2;
-                const uid = `lv${idx}${s}`; // unique id per variant+size to avoid SVG id conflicts
-
-                // ── Style 0: Gradient Burst ──
-                // Diagonal gradient background, bold icon large top, initials bottom,
-                // decorative radial lines emanating from top-right like a sunburst
-                if (idx === 0) return (
-                  <svg key={uid} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-                    <defs>
-                      <linearGradient id={`g${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor={c.color1}/>
-                        <stop offset="100%" stopColor={c.color2||c.color1+"bb"}/>
-                      </linearGradient>
-                      <clipPath id={`cp${uid}`}>
-                        <rect width={s} height={s} rx={s*0.18} ry={s*0.18}/>
-                      </clipPath>
-                    </defs>
-                    {/* Background */}
-                    <rect width={s} height={s} rx={s*0.18} ry={s*0.18} fill={`url(#g${uid})`}/>
-                    {/* Sunburst rays from top-right corner */}
-                    {[20,40,60,80,100,120,140].map((angle, i) => {
-                      const rad = angle * Math.PI / 180;
-                      const x2 = cx*2 + s*1.4 * Math.cos(rad);
-                      const y2 = -s*0.2 + s*1.4 * Math.sin(rad);
-                      return <line key={i} x1={s} y1={0} x2={x2} y2={y2}
-                        stroke={ct} strokeWidth={s*0.025} opacity="0.07" clipPath={`url(#cp${uid})`}/>;
-                    })}
-                    {/* Inner wave blob */}
-                    <ellipse cx={cx*0.4} cy={cy*1.75} rx={s*0.65} ry={s*0.38}
-                      fill={ct} opacity="0.08" clipPath={`url(#cp${uid})`}/>
-                    {/* Large icon */}
-                    <text x={cx} y={cy*0.82} textAnchor="middle" fontSize={s*0.26}>{c.icon||"💡"}</text>
-                    {/* Divider line */}
-                    <rect x={s*0.2} y={cy*0.94} width={s*0.6} height={s*0.018} rx={s*0.01}
-                      fill={ct} opacity="0.35"/>
-                    {/* Initials */}
-                    <text x={cx} y={cy*1.3} textAnchor="middle" fontSize={s*0.29} fontWeight="900"
-                      fill={ct} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
-                    {/* Tagline pill */}
-                    <rect x={s*0.08} y={s*0.84} width={s*0.84} height={s*0.13} rx={s*0.065}
-                      fill={ct} opacity="0.15"/>
-                    <text x={cx} y={s*0.937} textAnchor="middle" fontSize={s*0.065} fill={ct}
-                      opacity="0.9" fontFamily="Arial,sans-serif" fontWeight="700" letterSpacing="0.8">
-                      {(c.tagline||"").slice(0,20).toUpperCase()}
-                    </text>
-                  </svg>
-                );
-
-                // ── Style 1: Moroccan Geometric Star (zellige) ──
-                // 8-pointed star as outer shape, inner circle with initials,
-                // decorative corner dots echoing zellige tilework
-                if (idx === 1) return (
-                  <svg key={uid} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-                    <defs>
-                      <clipPath id={`cp1${uid}`}><rect width={s} height={s}/></clipPath>
-                    </defs>
-                    {/* Subtle tiled background */}
-                    <rect width={s} height={s} fill={c.color2||"#F0F0F0"} opacity="0.12"/>
-                    {/* Outer 8-pointed star */}
-                    <polygon points={starPoints(cx, cy, s*0.46, s*0.22)}
-                      fill={c.color1} clipPath={`url(#cp1${uid})`}/>
-                    {/* Second inner star ring (decoration) */}
-                    <polygon points={starPoints(cx, cy, s*0.44, s*0.2)}
-                      fill="none" stroke={ct} strokeWidth="0.8" opacity="0.2"
-                      clipPath={`url(#cp1${uid})`}/>
-                    {/* Inner circle */}
-                    <circle cx={cx} cy={cy} r={s*0.23} fill={c.color2||c.color1}/>
-                    <circle cx={cx} cy={cy} r={s*0.22} fill="none" stroke={ct} strokeWidth="1" opacity="0.25"/>
-                    {/* Icon above initials */}
-                    <text x={cx} y={cy*0.82} textAnchor="middle" fontSize={s*0.18}>{c.icon||"💡"}</text>
-                    {/* Initials */}
-                    <text x={cx} y={cy*1.24} textAnchor="middle" fontSize={s*0.22} fontWeight="900"
-                      fill={ct} fontFamily="Arial Black,sans-serif">{(c.initials||"?").slice(0,3)}</text>
-                    {/* Decorative corner dots (zellige accent) */}
-                    {[[s*0.12,s*0.12],[s*0.88,s*0.12],[s*0.88,s*0.88],[s*0.12,s*0.88]].map(([dx,dy],i) => (
-                      <circle key={i} cx={dx} cy={dy} r={s*0.035} fill={c.color1} opacity="0.55"
-                        clipPath={`url(#cp1${uid})`}/>
-                    ))}
-                    {/* Tagline below star */}
-                    <text x={cx} y={s*0.97} textAnchor="middle" fontSize={s*0.06} fill={c.color1}
-                      opacity="0.85" fontFamily="Arial,sans-serif" fontWeight="700" letterSpacing="0.5">
-                      {(c.tagline||"").slice(0,24).toUpperCase()}
-                    </text>
-                  </svg>
-                );
-
-                // ── Style 2: Dynamic Diagonal Split ──
-                // Bold diagonal split: top-left color1 / bottom-right color2
-                // Initial on top half, icon on bottom half, dynamic tension
-                return (
-                  <svg key={uid} width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-                    <defs>
-                      <clipPath id={`cp2a${uid}`}>
-                        <polygon points={`0,0 ${s},0 0,${s}`}/>
-                      </clipPath>
-                      <clipPath id={`cp2b${uid}`}>
-                        <polygon points={`${s},0 ${s},${s} 0,${s}`}/>
-                      </clipPath>
-                      <clipPath id={`cp2r${uid}`}>
-                        <rect width={s} height={s} rx={s*0.14} ry={s*0.14}/>
-                      </clipPath>
-                    </defs>
-                    {/* Base rounded rect */}
-                    <rect width={s} height={s} rx={s*0.14} fill={c.color1}/>
-                    {/* Bottom-right triangle in color2 */}
-                    <polygon points={`${s*1.05},${-s*0.05} ${s*1.05},${s*1.05} ${-s*0.05},${s*1.05}`}
-                      fill={c.color2||c.color1+"99"} clipPath={`url(#cp2r${uid})`}/>
-                    {/* Diagonal divider glow */}
-                    <line x1={-s*0.1} y1={s*1.1} x2={s*1.1} y2={-s*0.1}
-                      stroke="#FFFFFF" strokeWidth={s*0.022} opacity="0.18" clipPath={`url(#cp2r${uid})`}/>
-                    {/* Large initial top-left half */}
-                    <text x={cx*0.68} y={cy*1.05} textAnchor="middle" fontSize={s*0.38} fontWeight="900"
-                      fill={ct} fontFamily="Arial Black,sans-serif" clipPath={`url(#cp2a${uid})`}
-                      opacity="0.95">{(c.initials||"?")[0]}</text>
-                    {/* Icon bottom-right half */}
-                    <text x={cx*1.38} y={cy*1.48} textAnchor="middle" fontSize={s*0.28}
-                      clipPath={`url(#cp2b${uid})`}>{c.icon||"💡"}</text>
-                    {/* Accent dot */}
-                    <circle cx={cx} cy={cy} r={s*0.055} fill="#FFFFFF" opacity="0.9"/>
-                    {/* Tagline at bottom */}
-                    <text x={cx} y={s*0.94} textAnchor="middle" fontSize={s*0.058} fill={ct}
-                      opacity="0.85" fontFamily="Arial,sans-serif" fontWeight="700" letterSpacing="1"
-                      clipPath={`url(#cp2r${uid})`}>
-                      {(c.tagline||"").slice(0,22).toUpperCase()}
-                    </text>
-                  </svg>
-                );
-              };
-
-              return (
-                <div style={{marginBottom:"18px"}}>
-                  {/* Style picker */}
-                  <p style={{fontSize:"10px", fontWeight:"700", color:GR, textTransform:"uppercase",
-                    letterSpacing:".6px", marginBottom:"10px", textAlign:"center"}}>
-                    {lang==="ar"?"اختر التصميم المفضل:":lang==="fr"?"Choisissez votre style :":"Choose your style:"}
-                  </p>
-                  <div style={{display:"flex", gap:"10px", marginBottom:"14px",
-                    overflowX:"auto", paddingBottom:"4px"}}>
-                    {[0,1,2].map(idx => (
-                      <div key={idx} onClick={() => setLogoStyle(idx)}
-                        style={{cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center",
-                          gap:"6px", padding:"10px", borderRadius:"14px", flexShrink:0,
-                          border:`2px solid ${logoStyle===idx ? Y : CD}`,
-                          background:logoStyle===idx ? YL : WH,
-                          transition:"all .2s"}}>
-                        {renderVariant(idx, 80)}
-                        <span style={{fontSize:"9px", fontWeight:"700", color:logoStyle===idx ? ND : GR,
-                          textTransform:"uppercase", letterSpacing:".5px"}}>{styleNames[idx]}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Selected style large preview */}
-                  <div style={{display:"flex", justifyContent:"center", marginBottom:"12px"}}>
-                    {renderVariant(logoStyle, 140)}
-                  </div>
-
-                  {/* Brand info */}
-                  <div style={{padding:"12px 14px", background:CR, borderRadius:"12px",
-                    border:`1px solid ${CD}`, marginBottom:"12px"}}>
-                    <div style={{fontSize:"10px", fontWeight:"700", color:GR, textTransform:"uppercase",
-                      letterSpacing:".5px", marginBottom:"8px"}}>
-                      {lang==="ar"?"هوية العلامة التجارية":lang==="fr"?"Identité de marque":"Brand identity"}
-                    </div>
-                    <div style={{display:"flex", alignItems:"center", gap:"8px", marginBottom:"6px"}}>
-                      <div style={{width:18, height:18, borderRadius:"50%", background:c.color1, border:`1px solid ${CD}`, flexShrink:0}}/>
-                      <div style={{width:18, height:18, borderRadius:"50%", background:c.color2, border:`1px solid ${CD}`, flexShrink:0}}/>
-                      {c.accentColor && <div style={{width:18, height:18, borderRadius:"50%", background:c.accentColor, border:`1px solid ${CD}`, flexShrink:0}}/>}
-                      <span style={{fontSize:"11px", color:N, fontWeight:"500"}}>{c.color1} · {c.color2}</span>
-                    </div>
-                    <div style={{fontSize:"13px", fontWeight:"700", color:ND, marginBottom:"2px"}}>"{c.tagline}"</div>
-                    {c.styleDesc && <div style={{fontSize:"11px", color:GR}}>{c.styleDesc}</div>}
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{display:"flex", gap:"8px"}}>
-                    <button onClick={dlLogo}
-                      style={{flex:1, padding:"11px 14px", borderRadius:"11px",
-                        border:`2px solid ${Y}`, background:YL, color:ND,
-                        fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor:"pointer"}}>
-                      ⬇ {lang==="ar"?"تحميل SVG":lang==="fr"?"Télécharger SVG":"Download SVG"}
-                    </button>
-                    <button onClick={genLogo} disabled={logoGenerating}
-                      style={{padding:"11px 14px", borderRadius:"11px",
-                        border:`1.5px solid ${CD}`, background:WH, color:GR,
-                        fontSize:"12px", fontWeight:"600", fontFamily:ff(lang),
-                        cursor:"pointer", whiteSpace:"nowrap"}}>
-                      🔄 {lang==="ar"?"إعادة":lang==="fr"?"Relancer":"Retry"}
-                    </button>
-                    <button onClick={() => setLogo(null)}
-                      style={{padding:"11px 12px", borderRadius:"11px",
-                        border:`1px solid ${CD}`, background:"transparent", color:GR,
-                        fontSize:"11px", fontFamily:ff(lang), cursor:"pointer"}}>
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* ── Uploaded logo preview ── */}
-            {logo && logo.type === "upload" && (
-              <div style={{textAlign:"center", marginBottom:"18px"}}>
-                <img src={logo.dataUrl} alt="logo"
-                  style={{width:"120px", height:"120px", objectFit:"contain", borderRadius:"16px",
-                    border:`3px solid ${Y}`, boxShadow:`0 4px 20px rgba(37,99,235,.2)`, marginBottom:"10px"}}/>
-                <br/>
-                <button onClick={() => setLogo(null)}
-                  style={{padding:"6px 16px", borderRadius:"9px", border:`1px solid ${CD}`,
-                    background:"transparent", fontSize:"11px", color:GR, fontFamily:ff(lang), cursor:"pointer"}}>
-                  {lang==="ar"?"تغيير الشعار":lang==="fr"?"Changer le logo":"Change logo"}
-                </button>
-              </div>
-            )}
-
-            {(plan && budget) && (
-              <div style={{padding:"14px 16px", background:ND, borderRadius:"13px", marginBottom:"14px",
-                display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px"}}>
-                <div>
-                  <div style={{fontSize:"12px", fontWeight:"700", color:Y, marginBottom:"2px"}}>
-                    🎯 {lang==="ar"?"عرض تقديمي (5 شرائح)":lang==="fr"?"Pitch Deck — 5 diapositives":"Pitch Deck — 5 slides"}
-                  </div>
-                  <div style={{fontSize:"11px", color:"rgba(255,255,255,.45)"}}>
-                    {lang==="ar"?"اختياري — للتقديم قبل الملف الرسمي":lang==="fr"?"Optionnel · À partager avant le dossier":"Optional · Share before the formal file"}
-                  </div>
-                </div>
-                <button onClick={() => dlPPTX("pitch", dlLang)}
-                  style={{padding:"9px 16px", borderRadius:"10px", border:`1.5px solid ${Y}`,
-                    background:"transparent", color:Y, fontSize:"12px", fontWeight:"700",
-                    fontFamily:ff(lang), cursor:"pointer", whiteSpace:"nowrap", flexShrink:0}}>
-                  ⬇ .pptx
-                </button>
-              </div>
-            )}
-
-            {indhBtn(
-              lang==="ar"?"← التالي: الامتثال":lang==="fr"?"Continuer → Conformité":"Continue → Compliance",
-              checkComp
-            )}
-            {backBtn()}
-          </Card>
-        )}
 
         {/* ── COMPLIANCE ── */}
         {step === "compliance" && (<Card>
@@ -5112,187 +3595,10 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
               {(() => {
                 const eAr = dlLang === "ar"; const eEn = dlLang === "en";
-                const TXT = {
-                  bp: eAr?"خطة الأعمال":eEn?"Business Plan":"Business Plan",
-                  bud: eAr?"الميزانية التفصيلية":eEn?"Detailed Budget":"Budget Prévisionnel",
-                  comp: eAr?"تقرير الامتثال":eEn?"Compliance Report":"Rapport de Conformité",
-                  chk: eAr?"قائمة الوثائق":eEn?"Docs Checklist":"Checklist Documents",
-                  guide: eAr?"دليل التقديم":eEn?"Submission Guide":"Guide de Soumission",
-                  jury: eAr?"عرض أمام اللجنة (9 شرائح)":eEn?"Jury Presentation — 9 slides":"Présentation Jury — 9 diapositives",
-                  execSum: eAr?"الملخص التنفيذي":eEn?"EXECUTIVE SUMMARY":"RÉSUMÉ EXÉCUTIF",
-                  problem: eAr?"إشكالية المشروع":eEn?"PROBLEM STATEMENT":"PROBLÉMATIQUE",
-                  solution: eAr?"الحل المقترح":eEn?"SOLUTION":"SOLUTION",
-                  market: eAr?"تحليل السوق":eEn?"MARKET ANALYSIS":"ANALYSE DE MARCHÉ",
-                  bizModel: eAr?"نموذج الأعمال":eEn?"BUSINESS MODEL":"MODÈLE ÉCONOMIQUE",
-                  impact: eAr?"الأثر الاجتماعي":eEn?"SOCIAL IMPACT":"IMPACT SOCIAL",
-                  opPlan: eAr?"الخطة التشغيلية":eEn?"OPERATIONAL PLAN":"PLAN OPÉRATIONNEL",
-                  indhAlign: eAr?"التوافق مع المبادرة":eEn?"INDH ALIGNMENT":"ALIGNEMENT INDH",
-                  risks: eAr?"المخاطر":eEn?"RISKS":"RISQUES",
-                  proj: eAr?"التوقعات":eEn?"PROJECTIONS":"PROJECTIONS",
-                  yr: eAr?"السنة":eEn?"Year":"An",
-                  total: eAr?"المجموع الكلي":eEn?"TOTAL":"TOTAL",
-                  indhShare: eAr?"مساهمة المبادرة":eEn?"INDH Contribution":"Contribution INDH",
-                  holdShare: eAr?"مساهمة الحامل":eEn?"Holder Contribution":"Apport porteur",
-                  strengths: eAr?"نقاط القوة":eEn?"STRENGTHS":"POINTS FORTS",
-                  recs: eAr?"التوصيات":eEn?"RECOMMENDATIONS":"RECOMMANDATIONS",
-                  jury2: eAr?"تقييم اللجنة":eEn?"JURY GRID":"GRILLE JURY",
-                  reqDocs: eAr?"الوثائق الإلزامية":eEn?"REQUIRED DOCUMENTS":"DOCUMENTS OBLIGATOIRES",
-                  optDocs: eAr?"الوثائق الاختيارية":eEn?"OPTIONAL DOCUMENTS":"DOCUMENTS OPTIONNELS",
-                  guideTitle: eAr?"دليل تقديم الملف للمبادرة الوطنية":eEn?"INDH APPLICATION SUBMISSION GUIDE":"GUIDE DE SOUMISSION INDH",
-                  step1: eAr?"الخطوة 1: إعداد جميع الوثائق":eEn?"Step 1: Prepare all required documents":"Étape 1: Finaliser et réunir tous les documents requis",
-                  step2: eAr?"الخطوة 2: إيداع الملف لدى مديرية العمل الاجتماعي":eEn?"Step 2: Submit file to Division of Social Action (DAS)":"Étape 2: Déposer le dossier à la DAS de votre province",
-                  step3: eAr?"الخطوة 3: الحصول على وصل الإيداع":eEn?"Step 3: Obtain the deposit receipt":"Étape 3: Obtenir le récépissé de dépôt",
-                  step4: eAr?"الخطوة 4: دراسة الملف (4 إلى 8 أسابيع)":eEn?"Step 4: File review by CPDH (4-8 weeks)":"Étape 4: Instruction par le CPDH local (4-8 semaines)",
-                  step5: eAr?"الخطوة 5: المثول أمام لجنة التحكيم":eEn?"Step 5: Appear before INDH selection jury":"Étape 5: Présentation devant le jury de sélection INDH",
-                  step6: eAr?"الخطوة 6: الإشعار بالقرار":eEn?"Step 6: Decision notification":"Étape 6: Notification de la décision",
-                  step7: eAr?"الخطوة 7: التوقيع على الاتفاقية وانطلاق المشروع":eEn?"Step 7: Sign convention and launch project":"Étape 7: Signature de la convention INDH et démarrage",
-                  useful: eAr?"جهات الاتصال المفيدة":eEn?"USEFUL CONTACTS":"CONTACTS UTILES",
-                  fiche: eAr?"الملخص التنفيذي (صفحة واحدة)":eEn?"Executive Summary (1 page)":"Fiche Synthétique (1 page)",
-                  pitch: eAr?"خطاب التقديم بالعربية (5-7 دقائق)":eEn?"Arabic Jury Pitch (5-7 min)":"Discours Jury en Arabe (5-7 min)",
-                  qa: eAr?"بنك الأسئلة (30 سؤال وجواب)":eEn?"30 Q&A Bank":"30 Questions-Réponses Jury",
-                };
-                const total=(budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
-                const indhAmt = budget?.indhContribution||Math.min(Math.round(total*.90),100000);
-                const holdAmt = budget?.beneficiaryContribution||(total-indhAmt);
+                // Only the Dossier Factory's 4 official committee pieces (§3a) are
+                // offered here — the pitch deck, jury Q&A, submission guide, etc. that
+                // used to clutter this list are gone per explicit request.
                 const items: {icon:string;l:string;ok:boolean;onDl:()=>void;badge?:string}[] = [
-                  {icon:"📄", l:eAr?"تحميل ملف PDF الكامل":eEn?"Download Full PDF Dossier":"Télécharger le Dossier PDF", ok:!!plan,
-                    onDl:() => dlPDF(dlLang), badge:"pdf"},
-                  {icon:"📋", l:TXT.fiche, ok:!!proj, onDl:() => dlFicheSynthetique(dlLang), badge:"pdf"},
-                  {icon:"🎤", l:TXT.pitch, ok:!!proj&&!!plan, onDl:genAndDlPitchArabe, badge:pitchBusy?"...":"pdf"},
-                  {icon:"❓", l:TXT.qa, ok:!!proj, onDl:genAndDlQA, badge:qaBusy?"...":"pdf"},
-                  {icon:"📊", l:TXT.bp, ok:!!plan,
-                    onDl:() => dlText([
-                      `${proj?.projectName||"Projet"} — ${TXT.bp}`,``,
-                      TXT.execSum, plan?.executiveSummary||"",``,
-                      TXT.problem, plan?.problemStatement||"",``,
-                      TXT.solution, plan?.solution||"",``,
-                      TXT.market, plan?.marketAnalysis||"",``,
-                      TXT.bizModel, plan?.businessModel||"",``,
-                      TXT.impact, plan?.socialImpact||"",``,
-                      TXT.opPlan, plan?.operationalPlan||"",``,
-                      TXT.indhAlign, plan?.indh_alignment||"",``,
-                      TXT.risks, ...(plan?.risks||[]).map((r: string)=>`• ${r}`),``,
-                      TXT.proj,
-                      `${TXT.yr} 1: ${plan?.projections?.year1||0} MAD`,
-                      `${TXT.yr} 2: ${plan?.projections?.year2||0} MAD`,
-                      `${TXT.yr} 3: ${plan?.projections?.year3||0} MAD`,
-                    ].join("\n"), `BusinessPlan_${proj?.projectName||"IdeaMap"}.txt`)},
-                  {icon:"💰", l:TXT.bud, ok:!!budget?.items,
-                    onDl:() => dlText([
-                      `${proj?.projectName||"Projet"} — ${TXT.bud}`,``,
-                      `${TXT.reqDocs.split(" ")[0]}\t${TXT.bizModel.slice(0,6)}\t${TXT.proj.slice(0,3)}\t${TXT.indhShare.slice(0,3)}`,
-                      ...(budget?.items||[]).map((x: any)=>`${x.category}\t${x.item}\t${x.quantity}\t${x.unitPrice}\t${x.total}`),``,
-                      `${TXT.total}: ${total.toLocaleString()} MAD`,
-                      `${TXT.indhShare} (${Math.round((indhAmt/total)*100)}%): ${indhAmt.toLocaleString()} MAD`,
-                      `${TXT.holdShare} (${Math.round((holdAmt/total)*100)}%): ${holdAmt.toLocaleString()} MAD`,
-                    ].join("\n"), `Budget_${proj?.projectName||"IdeaMap"}.txt`)},
-                  {icon:"✅", l:TXT.comp, ok:!!comp,
-                    onDl:() => dlText([
-                      `${proj?.projectName||"Projet"} — ${TXT.comp}`,``,
-                      `Score: ${comp?.score}/100`,
-                      eAr?`مؤهل: ${comp?.eligible?"نعم":"لا"}`:eEn?`Eligible: ${comp?.eligible?"YES":"NO"}`:`Éligible: ${comp?.eligible?"OUI":"NON"}`,
-                      `${eAr?"المحور":eEn?"Pillar":"Pilier"}: ${comp?.pillar||""}`,``,
-                      TXT.strengths, ...(comp?.strengths||[]).map((s: string)=>`✓ ${s}`),``,
-                      TXT.recs, ...(comp?.recommendations||[]).map((r: string)=>`→ ${r}`),``,
-                      TXT.jury2, ...JURY.map(j=>`${j.label}: ${comp?.juryScore?.[j.key]||0}/${j.w}`),
-                    ].join("\n"), `Conformite_${proj?.projectName||"IdeaMap"}.txt`)},
-                  {icon:"📋", l:TXT.chk, ok:true,
-                    onDl:() => dlText([
-                      `${proj?.projectName||"Projet"} — ${TXT.chk}`,``,
-                      TXT.reqDocs,
-                      ...DOCS.filter(d=>d.req).map(d=>`[${docs[d.id]?"✓":" "}] ${d.name} — ${d.desc}`),``,
-                      TXT.optDocs,
-                      ...DOCS.filter(d=>!d.req).map(d=>`[${docs[d.id]?"✓":" "}] ${d.name} — ${d.desc}`),
-                    ].join("\n"), `Checklist_${proj?.projectName||"IdeaMap"}.txt`)},
-                  {icon:"📖", l:TXT.guide, ok:true,
-                    onDl:() => dlText([
-                      `${TXT.guideTitle} — ${proj?.projectName||""}`,``,
-                      TXT.step1, TXT.step2, TXT.step3, TXT.step4, TXT.step5, TXT.step6, TXT.step7,``,
-                      TXT.useful,
-                      eAr?"• مديرية العمل الاجتماعي (DAS) لإقليمك":"• Division de l'Action Sociale (DAS) de votre province",
-                      eAr?"• اللجنة الإقليمية للتنمية البشرية (CPDH)":"• Comité Provincial de Développement Humain (CPDH)",
-                      `• www.indh.ma`,
-                      `• www.rokhsa.ma`,
-                    ].join("\n"), `GuideSubmission_${proj?.projectName||"IdeaMap"}.txt`)},
-                  {icon:"📝", l:eAr?"ورقة تحضير لجنة التحكيم":eEn?"Jury Prep Sheet":"Fiche Préparation Jury", ok:!!comp||!!plan,
-                    onDl:() => {
-                      const q5 = eAr ? [
-                        ["Q1 — اللجنة: مَن سيستفيد من مشروعك تحديداً وكم عددهم؟",
-                          `A: ${proj?.targetProfile||proj?.beneficiaries||"..."} — عدد المستفيدين المباشرين: ${proj?.beneficiaries||"..."} شخصاً.\n   الدخل الإضافي المتوقع: نحو ${plan?.businessModel?.match(/\d[\d\s]*MAD/)?.[0]||"..."} شهرياً لكل مستفيد.`],
-                        ["Q2 — اللجنة: ما المشكل الحقيقي الذي يحله مشروعك في منطقتك؟",
-                          `A: ${plan?.problemStatement?.slice(0,220)||"..."}.\n   المشروع يقع في ${proj?.location||"..."} ويخدم حاجة حقيقية غير مُغطّاة.`],
-                        ["Q3 — اللجنة: كيف ستربح من هذا المشروع بعد انتهاء دعم المبادرة؟",
-                          `A: ${plan?.businessModel?.slice(0,220)||"..."}.\n   قناة البيع الرئيسية: ${plan?.businessModel?.match(/(souk|WhatsApp|clients|عملاء|سوق)[^.]{0,60}/i)?.[0]||"..."}.`],
-                        ["Q4 — اللجنة: ما خبرتك أو كفاءتك في هذا المجال؟",
-                          `A: ${proj?.holderExperience||"تجربة ميدانية في القطاع"}.\n   ${plan?.operationalPlan?.slice(0,160)||"خطة تشغيلية مفصّلة موجودة في الملف."}`],
-                        ["Q5 — اللجنة: كيف سيستمر مشروعك ويتطور بعد سنة أولى؟",
-                          `A: ${plan?.indh_alignment?.slice(0,180)||"..."}.\n   التوقعات: سنة 1 → ${plan?.projections?.year1||"??"} درهم · سنة 2 → ${plan?.projections?.year2||"??"} درهم · سنة 3 → ${plan?.projections?.year3||"??"} درهم.`],
-                      ] : eEn ? [
-                        ["Q1 — JURY: Who exactly will benefit from your project and how many?",
-                          `A: ${proj?.targetProfile||proj?.beneficiaries||"..."} — ${proj?.beneficiaries||"..."} direct beneficiaries.\n   Expected extra income: ~${plan?.businessModel?.match(/\d[\d\s]*MAD/)?.[0]||"..."} / month per beneficiary.`],
-                        ["Q2 — JURY: What real local problem does your project solve?",
-                          `A: ${plan?.problemStatement?.slice(0,220)||"..."}.\n   Located in ${proj?.location||"..."} — filling a genuine unmet need.`],
-                        ["Q3 — JURY: How will you make money after INDH support ends?",
-                          `A: ${plan?.businessModel?.slice(0,220)||"..."}.\n   Main sales channel: ${plan?.businessModel?.match(/(souk|WhatsApp|clients)[^.]{0,60}/i)?.[0]||"..."}.`],
-                        ["Q4 — JURY: What experience or skills do you have in this field?",
-                          `A: ${proj?.holderExperience||"Hands-on sector experience"}.\n   ${plan?.operationalPlan?.slice(0,160)||"Detailed operational plan included in the file."}`],
-                        ["Q5 — JURY: How will your project survive and grow after year one?",
-                          `A: ${plan?.indh_alignment?.slice(0,180)||"..."}.\n   Projections: Year 1 → ${plan?.projections?.year1||"??"} MAD · Year 2 → ${plan?.projections?.year2||"??"} MAD · Year 3 → ${plan?.projections?.year3||"??"} MAD.`],
-                      ] : [
-                        ["Q1 — JURY: Qui va bénéficier de votre projet et combien sont-ils?",
-                          `R: ${proj?.targetProfile||proj?.beneficiaries||"..."} — ${proj?.beneficiaries||"..."} bénéficiaires directs.\n   Revenu supplémentaire attendu: ~${plan?.businessModel?.match(/\d[\d\s]*MAD/)?.[0]||"..."} / mois par bénéficiaire.`],
-                        ["Q2 — JURY: Quel problème local concret résout votre projet?",
-                          `R: ${plan?.problemStatement?.slice(0,220)||"..."}.\n   Localisation: ${proj?.location||"..."} — besoin réel non couvert.`],
-                        ["Q3 — JURY: Comment allez-vous gagner de l'argent après l'INDH?",
-                          `R: ${plan?.businessModel?.slice(0,220)||"..."}.\n   Canal principal: ${plan?.businessModel?.match(/(souk|WhatsApp|clients)[^.]{0,60}/i)?.[0]||"..."}.`],
-                        ["Q4 — JURY: Quelle est votre expérience ou compétence dans ce domaine?",
-                          `R: ${proj?.holderExperience||"Expérience terrain dans le secteur"}.\n   ${plan?.operationalPlan?.slice(0,160)||"Plan opérationnel détaillé inclus dans le dossier."}`],
-                        ["Q5 — JURY: Comment votre projet va-t-il survivre et croître après la 1ère année?",
-                          `R: ${plan?.indh_alignment?.slice(0,180)||"..."}.\n   Projections: An 1 → ${plan?.projections?.year1||"??"} MAD · An 2 → ${plan?.projections?.year2||"??"} MAD · An 3 → ${plan?.projections?.year3||"??"} MAD.`],
-                      ];
-                      const budgetTotal = (budget?.items||[]).reduce((s: number,x: any)=>s+(x.total||0),0);
-                      const lines = [
-                        `${"═".repeat(60)}`,
-                        `${proj?.projectName||"Projet"} — ${eAr?"ورقة تحضير لجنة التحكيم":eEn?"JURY PREPARATION SHEET":"FICHE PRÉPARATION JURY"}`,
-                        `${"═".repeat(60)}`,``,
-                        eAr?"★ الأرقام الأساسية يجب حفظها":eEn?"★ KEY NUMBERS TO MEMORIZE":"★ CHIFFRES CLÉS À MÉMORISER",
-                        `${"─".repeat(40)}`,
-                        eAr?`• الميزانية الإجمالية: ${budgetTotal.toLocaleString()} درهم`:eEn?`• Total budget: ${budgetTotal.toLocaleString()} MAD`:`• Budget total: ${budgetTotal.toLocaleString()} MAD`,
-                        eAr?`• مساهمة المبادرة (90%): ${(budget?.indhContribution||Math.min(Math.round(budgetTotal*.90),100000)).toLocaleString()} درهم`:eEn?`• INDH grant (90%, max 100,000): ${(budget?.indhContribution||Math.min(Math.round(budgetTotal*.90),100000)).toLocaleString()} MAD`:`• Subvention INDH (90%, max 100 000): ${(budget?.indhContribution||Math.min(Math.round(budgetTotal*.90),100000)).toLocaleString()} MAD`,
-                        eAr?`• مساهمتي (10%): ${(budget?.beneficiaryContribution||(budgetTotal-Math.min(Math.round(budgetTotal*.90),100000))).toLocaleString()} درهم`:eEn?`• My contribution (10%): ${(budget?.beneficiaryContribution||(budgetTotal-Math.min(Math.round(budgetTotal*.90),100000))).toLocaleString()} MAD`:`• Mon apport (10%): ${(budget?.beneficiaryContribution||(budgetTotal-Math.min(Math.round(budgetTotal*.90),100000))).toLocaleString()} MAD`,
-                        eAr?`• نقطتي لدى اللجنة: ${comp?.score||"?"}/100 (${comp?.eligible?"مؤهل ✓":"يحتاج تحسين"})`:eEn?`• Jury score: ${comp?.score||"?"}/100 (${comp?.eligible?"Eligible ✓":"Needs improvement"})`:`• Score jury: ${comp?.score||"?"}/100 (${comp?.eligible?"ÉLIGIBLE ✓":"À améliorer"})`,
-                        eAr?`• عدد المستفيدين: ${proj?.beneficiaries||"..."}`:eEn?`• Beneficiaries: ${proj?.beneficiaries||"..."}`:`• Bénéficiaires: ${proj?.beneficiaries||"..."}`,
-                        eAr?`• قطاع النشاط: ${proj?.sector||"..."}`:eEn?`• Sector: ${proj?.sector||"..."}`:`• Secteur: ${proj?.sector||"..."}`,
-                        eAr?`• محور المبادرة: ${comp?.pillar||proj?.pillar||"..."}`:eEn?`• INDH Pillar: ${comp?.pillar||proj?.pillar||"..."}`:`• Axe INDH: ${comp?.pillar||proj?.pillar||"..."}`,
-                        ``,
-                        eAr?"★ نقاط قوتي الرئيسية (أبرزها أمام اللجنة)":eEn?"★ MY STRENGTHS (highlight to the jury)":"★ MES POINTS FORTS (à mettre en avant)",
-                        `${"─".repeat(40)}`,
-                        ...(comp?.strengths||[]).map((s: string, i: number) => `${i+1}. ${s}`),
-                        ``,
-                        eAr?"★ نقاط الضعف والإجراءات قبل يوم اللجنة":eEn?"★ WEAKNESSES — ACTIONS BEFORE JURY DAY":"★ POINTS FAIBLES — ACTIONS AVANT LE JURY",
-                        `${"─".repeat(40)}`,
-                        ...(comp?.recommendations||[]).map((r: string, i: number) => `${i+1}. ⚡ ${r}`),
-                        ``,
-                        eAr?"★ تقييم اللجنة بالتفصيل":eEn?"★ JURY SCORING BREAKDOWN":"★ DÉCOMPOSITION DU SCORE JURY",
-                        `${"─".repeat(40)}`,
-                        ...[{key:"impact",label:"Impact social",w:25},{key:"viability",label:"Viabilité économique",w:20},{key:"relevance",label:"Pertinence territoriale",w:20},{key:"management",label:"Capacité de gestion",w:15},{key:"sustainability",label:"Durabilité",w:10},{key:"innovation",label:"Innovation",w:10}].map(j => {
-                          const sc = comp?.juryScore?.[j.key]||0;
-                          const bar = "█".repeat(Math.round(sc/j.w*10)) + "░".repeat(10-Math.round(sc/j.w*10));
-                          return `${j.label.padEnd(28)} ${bar} ${sc}/${j.w}`;
-                        }),
-                        ``,
-                        eAr?"★ أسئلة اللجنة المتوقعة + إجاباتك المقترحة":eEn?"★ EXPECTED JURY QUESTIONS + SUGGESTED ANSWERS":"★ QUESTIONS JURY PROBABLES + RÉPONSES SUGGÉRÉES",
-                        `${"─".repeat(40)}`,
-                        ...q5.flatMap((pair) => { const [q,a] = pair as [string,string]; return [``,q,``,a,``]; }),
-                        `${"═".repeat(60)}`,
-                        eAr?"💡 نصيحة أخيرة: تحدث بثقة، استشهد بالأرقام الدقيقة، وأظهر شغفك بمشروعك.":eEn?"💡 Final tip: Speak confidently, cite exact numbers, and show your passion for the project.":"💡 Conseil final: Parlez avec confiance, citez vos chiffres précis, et montrez votre passion.",
-                        eAr?"منصة IdeaMap — مبادرة وطنية للتنمية البشرية المرحلة 3":eEn?"IdeaMap Platform — INDH Phase 3 Morocco":"Plateforme IdeaMap — INDH Phase 3 Maroc",
-                      ];
-                      dlText(lines.join("\n"), `FicheJury_${proj?.projectName||"IdeaMap"}.txt`);
-                    }},
-                  {icon:"🎤", l:eAr?"عرض تقديمي للممولين (5 شرائح)":eEn?"Investor Pitch Deck — 5 slides":"Pitch Deck Investisseur — 5 diapositives", ok:!!plan,
-                    onDl:() => dlPPTX("pitch", dlLang), badge:"pptx"},
-                  {icon:"🏛️", l:TXT.jury, ok:!!proj, onDl:() => dlPPTX("jury", dlLang), badge:"pptx"},
                   {icon:"🏛️", l:eAr?"عرض اللجنة (10 شرائح)":eEn?"Committee Presentation — 10 slides":"Présentation Comité — 10 diapositives",
                     ok:!!proj, onDl:() => dlComitePresentation(dlLang), badge:"pptx"},
                   {icon:"📋", l:eAr?"بطاقة المشروع":eEn?"Fiche Projet":"Fiche Projet", ok:!!proj,
@@ -5400,9 +3706,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
   const [qUploading, setQUploading]   = useState(false);
   const [qDraft, setQDraft]           = useState<CoordQuestion[] | null>(null);
   const [qErr, setQErr]               = useState("");
-  const [pptxBusy, setPptxBusy]       = useState<"pitch" | "jury" | null>(null);
   const [pptxLang, setPptxLang]       = useState(lang);
-  const [pptxErr, setPptxErr]         = useState("");
   const [docxBusy, setDocxBusy]       = useState<"projet" | "technique" | "plan" | "comite" | null>(null);
   const [docxErr, setDocxErr]         = useState("");
   const [appUploading, setAppUploading] = useState(false);
@@ -5424,27 +3728,12 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
     }
   };
 
-  // Lets the coordinator generate a holder's Pitch Deck / Dossier Jury straight
-  // from this dashboard, using the exact same generator holders use themselves —
-  // no need to ask the holder to send it. Uses the holder's own logo language
-  // if picked, since these decks are meant to go to the same jury either way.
-  const downloadHolderDeck = async (h: any, type: "pitch" | "jury") => {
-    setPptxBusy(type); setPptxErr("");
-    try {
-      await generatePptxDeck(type, pptxLang,
-        {proj: h.proj, plan: h.plan, budget: h.budget, comp: h.comp, docs: h.docs || {}, logo: h.logo, profile: h.profile, name: h.name},
-        lang, (msg) => setPptxErr(msg));
-    } finally {
-      setPptxBusy(null);
-    }
-  };
-
-  // The other 3 of the dossier's 4 files (§1: Présentation comité PPTX +
-  // Fiche projet/technique/Business plan DOCX) — Fiche Projet/Technique/
-  // Business Plan are real .docx via the shared lib/ideamap/dossier/
-  // generators.ts module; "comite" reuses generateComitePresentation above,
-  // same pattern as downloadHolderDeck. A holder completing their own
-  // dialogue is never an "assumption" (assumptions only arise from a bulk
+  // The dossier's 4 files (§1: Présentation comité PPTX + Fiche projet/
+  // technique/Business plan DOCX) — Fiche Projet/Technique/Business Plan are
+  // real .docx via the shared lib/ideamap/dossier/generators.ts module;
+  // "comite" reuses generateComitePresentation above. A holder completing
+  // their own dialogue is never an "assumption" (assumptions only arise from
+  // a bulk
   // Excel import's sector-benchmark fallback, not yet built), so isAssumed
   // is always false here.
   const downloadHolderDocument = async (h: any, kind: "projet" | "technique" | "plan" | "comite") => {
@@ -5505,7 +3794,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
     "budget": "#EC4899", "compliance": "#14B8A6", "documents": GN, "export": GN
   };
 
-  const STEPS_LIST = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
+  const STEPS_LIST = ["idea","dialogue","profile","plan","budget","compliance","documents","export"];
 
   const getStatus = (h: any) => {
     const pct = STEPS_LIST.indexOf(h.step || "idea") / (STEPS_LIST.length - 1) * 100;
@@ -5698,26 +3987,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
                   </button>
                 ))}
               </div>
-              <div style={{display:"flex", gap:"10px", flexWrap:"wrap"}}>
-                <button onClick={() => downloadHolderDeck(h, "pitch")} disabled={pptxBusy!==null}
-                  style={{padding:"10px 16px", borderRadius:"10px", border:"none",
-                    background: pptxBusy==="pitch" ? CD : ND, color:WH, fontSize:"12px", fontWeight:"700",
-                    fontFamily:ff(lang), cursor: pptxBusy!==null ? "default" : "pointer"}}>
-                  {pptxBusy==="pitch"
-                    ? (lang==="ar"?"جارٍ الإنشاء...":lang==="fr"?"Génération...":"Generating...")
-                    : `🎯 ${lang==="ar"?"عرض تقديمي (.pptx)":lang==="fr"?"Pitch Deck (.pptx)":"Pitch Deck (.pptx)"}`}
-                </button>
-                <button onClick={() => downloadHolderDeck(h, "jury")} disabled={pptxBusy!==null}
-                  style={{padding:"10px 16px", borderRadius:"10px", border:`1.5px solid ${Y}`,
-                    background: pptxBusy==="jury" ? CD : "transparent", color: pptxBusy==="jury" ? WH : Y,
-                    fontSize:"12px", fontWeight:"700", fontFamily:ff(lang), cursor: pptxBusy!==null ? "default" : "pointer"}}>
-                  {pptxBusy==="jury"
-                    ? (lang==="ar"?"جارٍ الإنشاء...":lang==="fr"?"Génération...":"Generating...")
-                    : `⚖️ ${lang==="ar"?"دوسيي اللجنة (.pptx)":lang==="fr"?"Dossier Jury (.pptx)":"Dossier Jury (.pptx)"}`}
-                </button>
-              </div>
-
-              <div style={{fontSize:11, color:GR, fontWeight:700, textTransform:"uppercase", margin:"14px 0 8px"}}>
+              <div style={{fontSize:11, color:GR, fontWeight:700, textTransform:"uppercase", margin:"0 0 8px"}}>
                 {lang==="ar"?"ملف المشروع الكامل (اللجنة)":lang==="fr"?"Dossier complet du projet (comité)":"Full project dossier (committee)"}
               </div>
               <div style={{display:"flex", gap:"10px", flexWrap:"wrap"}}>
@@ -5739,8 +4009,6 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
               </div>
               {docxErr && <div style={{marginTop:10, padding:"8px 12px", background:`${RE}12`,
                 border:`1px solid ${RE}44`, borderRadius:8, fontSize:12, color:RE}}>{docxErr}</div>}
-              {pptxErr && <div style={{marginTop:10, padding:"8px 12px", background:`${RE}12`,
-                border:`1px solid ${RE}44`, borderRadius:8, fontSize:12, color:RE}}>{pptxErr}</div>}
               {!h.plan && <div style={{fontSize:12, color:GR, marginTop:6}}>
                 {lang==="ar"?"لم يصل الحامل بعد إلى خطوة خطة الأعمال.":lang==="fr"?"Ce porteur n'a pas encore atteint l'étape Plan d'Affaires.":"This holder hasn't reached the Business Plan step yet."}
               </div>}
@@ -5856,7 +4124,7 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
                   {lang==="ar"?"توزيع المراحل":lang==="fr"?"Distribution des étapes":"Step distribution"}
                 </span>
               </div>
-              {["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"].map(s => {
+              {["idea","dialogue","profile","plan","budget","compliance","documents","export"].map(s => {
                 const count = holders.filter(h=>(h.step||"idea")===s).length;
                 return (
                   <div key={s} style={{marginBottom:9}}>
@@ -6248,7 +4516,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
     {id:"settings",     label: lang==="ar"?"الإعدادات":lang==="fr"?"Paramètres":"Settings"},
   ];
 
-  const STEPS_LIST = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
+  const STEPS_LIST = ["idea","dialogue","profile","plan","budget","compliance","documents","export"];
 
   // Admin creates a coordinator by name only — the actual login code is derived
   // automatically as "@{NAME}COD" (matching RE_COORD), never typed by hand. Strips
@@ -6606,7 +4874,7 @@ function AdminDash({lang, setLang, user, onLogout, t, holders, coords, onAddCoor
               </Card>
             </div>
             {holders.length > 0 && (() => {
-              const STEP_ORDER = ["idea","dialogue","profile","plan","budget","logo","compliance","documents","export"];
+              const STEP_ORDER = ["idea","dialogue","profile","plan","budget","compliance","documents","export"];
               const stepIdx = (h: any) => STEP_ORDER.indexOf(h.step || "idea");
               const funnel = [
                 {label: lang==="ar"?"مسجلون":lang==="fr"?"Inscrits":"Registered", n: holders.length},

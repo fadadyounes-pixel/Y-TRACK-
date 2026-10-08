@@ -33,7 +33,16 @@ export const HOLDER_QUESTIONS: TriText[] = [
   {fr: "Quel volume de clients ou de ventes visez-vous par semaine ?", ar: "ما هو حجم الزبائن أو المبيعات المستهدف أسبوعياً؟", en: "What sales/customer volume are you targeting per week?"},
   {fr: "Quel équipement principal souhaitez-vous acquérir avec l'appui INDH ?", ar: "ما هو التجهيز الرئيسي الذي تريد اقتناءه بدعم المبادرة الوطنية؟", en: "What main equipment do you want to acquire with INDH support?"},
   {fr: "Quel est le coût total estimé de votre projet ?", ar: "ما هي الكلفة الإجمالية المقدرة لمشروعك؟", en: "What is the total estimated cost of your project?"},
-  {fr: "Quelle part pouvez-vous apporter vous-même (10%) ?", ar: "كم يمكنك أن تساهم بنفسك (10%)؟", en: "How much can you contribute yourself (10%)?"},
+  // Was "Quelle part pouvez-vous apporter vous-même (10%)?" — dropped because
+  // the 10% apport is always computed from the real cost above (computeSplit
+  // in finance.ts), never taken from this answer; asking it anyway risked a
+  // holder picking a fixed MAD-range option that contradicts the cost they
+  // just typed, feeding the AI a self-contradicting transcript. Replaced with
+  // a question that adds real signal: local support strengthens both
+  // "pertinence territoriale" and "durabilité" in the jury grid, and the
+  // existing jury-tips card already tells holders a commune support letter
+  // helps — this is the question that actually surfaces it.
+  {fr: "Avez-vous un appui local pour démarrer votre projet (commune, famille, partenaire) ?", ar: "هل تتوفر على دعم محلي لانطلاق مشروعك (الجماعة، العائلة، شريك)؟", en: "Do you have local support to launch your project (commune, family, partner)?"},
   {fr: "Quel chiffre d'affaires visez-vous la première année ?", ar: "ما هو رقم المعاملات الذي تستهدفه في السنة الأولى؟", en: "What revenue are you targeting for year one?"},
   {fr: "Combien d'emplois directs votre projet va-t-il créer ?", ar: "كم من فرصة شغل مباشرة سيخلقها مشروعك؟", en: "How many direct jobs will your project create?"},
   {fr: "Quel est l'impact social attendu au-delà des emplois ?", ar: "ما هو الأثر الاجتماعي المتوقع بخلاف فرص الشغل؟", en: "What social impact do you expect beyond jobs?"},

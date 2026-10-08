@@ -205,7 +205,11 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
 async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
   const key = ev("GEMINI_API_KEY");
   if (!key) throw new Error("no GEMINI_API_KEY");
-  const model = process.env.GEMINI_MODEL || (fast ? "gemini-2.5-flash-lite" : "gemini-2.5-flash");
+  // Google retired the 2.5 series for new API keys (confirmed live: a fresh key
+  // gets 404 "no longer available to new users" on gemini-2.5-*, pointing at the
+  // 3.5 series instead) — keyed here on the 3.5 names so a newly-issued key
+  // actually works instead of failing every call.
+  const model = process.env.GEMINI_MODEL || (fast ? "gemini-3.5-flash-lite" : "gemini-3.5-flash");
   const contents = msgs.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: textOnly(m.content) }],
