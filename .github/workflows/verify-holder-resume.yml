@@ -7,6 +7,9 @@ name: Verify holder persistence round-trip
 # format a holder would type) and deletes it again at the end either way.
 on:
   workflow_dispatch:
+  push:
+    branches: [claude/resume-discussion-a2ykh2]
+    paths: [.github/workflows/verify-holder-resume.yml]
 
 jobs:
   verify:
