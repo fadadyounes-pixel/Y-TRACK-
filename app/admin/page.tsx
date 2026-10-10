@@ -52,7 +52,75 @@ function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-type Tab = 'overview' | 'coordinators' | 'jobs' | 'candidates' | 'reports';
+/* ── AI generator — read any file, any format ────────────────────────────
+ * Images go to the AI as vision input; everything else (PDF, Word, text, or
+ * any other format) goes through the shared /api/extract-text route, which
+ * does real extraction for PDF/DOCX and a plain UTF-8 decode otherwise —
+ * same approach already proven on the candidate and coordinator upload
+ * pages, reused here instead of re-deriving it.
+ */
+type AIMsgContent = string | Array<{ type: string; [key: string]: unknown }>;
+
+async function fileToBase64(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+async function extractFileText(file: File): Promise<string> {
+  try {
+    const fileBase64 = await fileToBase64(file);
+    const r = await fetch('/api/extract-text', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileBase64 }),
+    });
+    const d = await r.json();
+    return (d.text || '') as string;
+  } catch { return ''; }
+}
+
+async function buildGenAiContent(file: File): Promise<AIMsgContent> {
+  if (file.type.startsWith('image/')) {
+    const dataUrl: string = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = e => res(e.target?.result as string);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+    const base64 = dataUrl.split(',')[1];
+    const mediaType = (file.type || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/webp';
+    return [
+      { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+      { type: 'text', text: 'Analyse ce CV (image).' },
+    ];
+  }
+  const text = await extractFileText(file);
+  if (text.trim().length > 60) return `Analyse ce CV (contenu extrait):\n\nFichier: ${file.name}\n\n${text.slice(0, 6000)}`;
+  return `[CV: "${file.name}" — contenu non lisible automatiquement]`;
+}
+
+function parseGenJ(txt: string): any {
+  try { const m = txt.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; } catch { return null; }
+}
+
+// Both prompts share one non-negotiable rule: never fabricate a contact
+// field. A CV genuinely omitting a phone number stays blank — it must
+// never be "filled in" with a plausible-looking but fake one, since that
+// field could end up driving real outreach to a real person.
+const GEN_CV_SYSTEM = `Tu es un expert RH marocain. Analyse ce CV et extrait UNIQUEMENT les informations réellement présentes dans le document.
+Retourne UNIQUEMENT ce JSON valide sans markdown:
+{"name":"nom complet","age":"âge en nombre si déductible (ex: via une date de naissance), vide sinon","phone":"téléphone tel qu'écrit ou vide","email":"email tel qu'écrit ou vide","address":"ville/adresse telle qu'écrite ou vide","sector":"secteur d'activité principal","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","skills":["3 à 6 compétences clés"]}
+Règle absolue : n'invente jamais une information absente du document — laisse le champ vide ("") plutôt que de deviner un téléphone, un email ou une adresse.`;
+
+const GEN_LIST_SYSTEM = `Tu es un assistant RH marocain. L'administrateur fournit une liste brute et potentiellement mal structurée d'informations sur plusieurs personnes (CVs collés les uns après les autres, notes de recrutement, tableau informel copié-collé...).
+Ta tâche : repérer chaque personne distincte dans le texte et STRUCTURER les informations réellement présentes pour chacune — jamais en inventer de nouvelles.
+Règle absolue : si une information (téléphone, email, adresse, âge...) n'apparaît pas explicitement ou de façon clairement déductible dans le texte pour une personne donnée, laisse le champ correspondant vide ("") — ne génère JAMAIS un téléphone, un email ou une adresse fictif, même plausible. Une donnée de contact inventée pourrait tromper un recruteur qui s'en servirait pour contacter quelqu'un.
+Retourne UNIQUEMENT ce tableau JSON valide sans markdown, sans texte autour :
+[{"name":"nom complet","age":"","phone":"","email":"","address":"","sector":"","experience":"","skills":[]}]`;
+
+type Tab = 'overview' | 'coordinators' | 'jobs' | 'candidates' | 'generator' | 'reports';
 
 interface Coordinator {
   id: string;
@@ -102,6 +170,22 @@ interface CV {
   educationLevel?: string;
   languages?: string[];
   uploadedAt?: string;
+}
+
+// A profile produced by the admin's AI generator (from an uploaded CV or
+// from a pasted free-text list) — a smaller, flatter shape than CV above
+// since it's meant to be reviewed and exported quickly, not edited in depth.
+interface GeneratedProfile {
+  id: string;
+  name: string;
+  age?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  sector?: string;
+  experience?: string;
+  skills?: string[];
+  source: 'cv' | 'list';
 }
 
 /* ── Sub-components ── */
@@ -177,6 +261,16 @@ export default function AdminDashboard() {
   const [cvSectorFilter, setCvSector]     = useState('');
   const [expandedCv, setExpandedCv]       = useState<string | null>(null);
 
+  /* AI generator (new 'Générateur IA' tab) */
+  const [genMode, setGenMode]       = useState<'cv' | 'list'>('cv');
+  const [genQueue, setGenQueue]     = useState<{ id: string; fileName: string; status: 'processing' | 'done' | 'error' }[]>([]);
+  const [genListText, setGenListText] = useState('');
+  const [genResults, setGenResults] = useState<GeneratedProfile[]>([]);
+  const [genBusy, setGenBusy]       = useState(false);
+  const [genError, setGenError]     = useState('');
+  const [savingToDb, setSavingToDb] = useState(false);
+  const [savedToDb, setSavedToDb]   = useState(false);
+
   useEffect(() => {
     if (initialized && (!user || user.role !== 'admin')) router.push('/login');
   }, [user, initialized, router]);
@@ -235,6 +329,123 @@ export default function AdminDashboard() {
     });
   }
 
+  /* ── AI generator actions ── */
+  async function processGenFile(file: File) {
+    const id = uid();
+    setGenQueue(p => [...p, { id, fileName: file.name, status: 'processing' }]);
+    try {
+      const content = await buildGenAiContent(file);
+      const r = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content }], system: GEN_CV_SYSTEM, task: 'json', max_tokens: 500 }),
+      });
+      const data = await r.json();
+      const parsed = parseGenJ(data.content?.[0]?.text || '');
+      const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[-_.]/g, ' ').trim();
+      const profile: GeneratedProfile = {
+        id: `adm_${id}`,
+        name: parsed?.name || baseName,
+        age: parsed?.age || '',
+        phone: parsed?.phone || '',
+        email: parsed?.email || '',
+        address: parsed?.address || '',
+        sector: parsed?.sector || '',
+        experience: parsed?.experience || '',
+        skills: Array.isArray(parsed?.skills) ? parsed.skills.slice(0, 6) : [],
+        source: 'cv',
+      };
+      setGenResults(p => [...p, profile]);
+      setGenQueue(p => p.map(f => f.id === id ? { ...f, status: 'done' } : f));
+    } catch {
+      setGenQueue(p => p.map(f => f.id === id ? { ...f, status: 'error' } : f));
+    }
+  }
+
+  async function handleGenFiles(fileList: FileList) {
+    setGenError('');
+    setGenBusy(true);
+    const arr = Array.from(fileList).slice(0, 30); // secondary tool — the coordinator's bulk importer is the place for 100+ CVs
+    const CONCURRENCY = 4;
+    let idx = 0;
+    const worker = async () => { while (idx < arr.length) await processGenFile(arr[idx++]); };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, arr.length) }, worker));
+    setGenBusy(false);
+  }
+
+  async function generateFromList() {
+    if (!genListText.trim() || genBusy) return;
+    setGenBusy(true); setGenError('');
+    try {
+      const r = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Liste brute fournie par l'administrateur :\n\n${genListText.slice(0, 8000)}` }],
+          system: GEN_LIST_SYSTEM, task: 'json', max_tokens: 2000,
+        }),
+      });
+      const data = await r.json();
+      const text = data.content?.[0]?.text || '';
+      const m = text.match(/\[[\s\S]*\]/);
+      const parsed = m ? JSON.parse(m[0]) : null;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const profiles: GeneratedProfile[] = parsed.map((p: any, i: number) => ({
+          id: `adm_list_${Date.now()}_${i}`,
+          name: p.name || `Personne ${i + 1}`,
+          age: p.age || '', phone: p.phone || '', email: p.email || '', address: p.address || '',
+          sector: p.sector || '', experience: p.experience || '',
+          skills: Array.isArray(p.skills) ? p.skills.slice(0, 6) : [],
+          source: 'list',
+        }));
+        setGenResults(prev => [...prev, ...profiles]);
+        setGenListText('');
+      } else {
+        setGenError("Aucun profil n'a pu être structuré à partir de ce texte.");
+      }
+    } catch {
+      setGenError('Erreur lors de la génération — réessayez.');
+    }
+    setGenBusy(false);
+  }
+
+  function clearGenResults() {
+    setGenResults([]); setGenQueue([]); setGenError('');
+  }
+
+  async function saveGeneratedToDb() {
+    if (genResults.length === 0 || savingToDb) return;
+    setSavingToDb(true);
+    try {
+      const toSave = genResults.map(p => ({
+        id: p.id, name: p.name, email: p.email, phone: p.phone, city: p.address,
+        sector: p.sector, experience: p.experience, skills: p.skills,
+        status: 'done', uploadedAt: new Date().toISOString(),
+      }));
+      await fetch('/api/sheets', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'save_cvs', cvs: toSave }),
+      });
+      // Merge into the already-loaded candidate list directly, rather than
+      // calling fetchData() — that flips the page-wide `loading` flag, which
+      // would hide this entire tab (results table included) behind the
+      // "Chargement…" screen right after the admin just finished the save.
+      setCvs(p => [...p, ...toSave]);
+      setSavedToDb(true);
+      setTimeout(() => setSavedToDb(false), 3000);
+    } catch {}
+    setSavingToDb(false);
+  }
+
+  function exportGenCSV() {
+    const header = 'Nom,Âge,Téléphone,Email,Adresse,Secteur,Expérience,Compétences,Source';
+    const rows = genResults.map(p => [p.name, p.age || '', p.phone || '', p.email || '', p.address || '', p.sector || '', p.experience || '', (p.skills || []).join('; '), p.source === 'cv' ? 'CV' : 'Liste'].map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(','));
+    const csv = [header, ...rows].join('\n');
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })),
+      download: `TalentMap_Profils_Generes_${new Date().toISOString().slice(0, 10)}.csv`,
+    });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
   /* ── Derived stats ── */
   const avgMatch = cvs.length
     ? Math.round(cvs.reduce((s, c: any) => s + (c.matchScore || 0), 0) / cvs.length)
@@ -242,6 +453,23 @@ export default function AdminDashboard() {
 
   const jobSectors = [...new Set(jobs.map(j => j.sector).filter(Boolean))];
   const cvSectors  = [...new Set(cvs.map(c => c.sector).filter(Boolean))];
+
+  // Generator stats — city taken as the first comma-segment of the address
+  // the AI structured (e.g. "Casablanca, Maarif" → "Casablanca"), since
+  // there's no separate city field in a freeform-generated profile.
+  const genWithCity = genResults.map(p => ({ ...p, city: (p.address || '').split(',')[0].trim() || 'Non renseigné' }));
+  const genAgeBuckets: [string, number][] = (() => {
+    const buckets: Record<string, number> = { '< 25': 0, '25–34': 0, '35–44': 0, '45+': 0, 'Non renseigné': 0 };
+    genResults.forEach(p => {
+      const n = parseInt(p.age || '', 10);
+      if (!p.age || Number.isNaN(n)) buckets['Non renseigné']++;
+      else if (n < 25) buckets['< 25']++;
+      else if (n < 35) buckets['25–34']++;
+      else if (n < 45) buckets['35–44']++;
+      else buckets['45+']++;
+    });
+    return Object.entries(buckets).filter(([, n]) => n > 0);
+  })();
 
   const filteredJobs = jobs.filter(j => {
     const q = jobSearch.toLowerCase();
@@ -343,6 +571,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
     { id: 'coordinators', icon: 'users',     label: 'Coordinateurs' },
     { id: 'jobs',         icon: 'briefcase', label: 'Offres d\'emploi' },
     { id: 'candidates',   icon: 'target',    label: 'Candidats' },
+    { id: 'generator',    icon: 'sparkles',  label: 'Générateur IA' },
     { id: 'reports',      icon: 'file-text', label: 'Rapports' },
   ];
 
@@ -896,6 +1125,158 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ════════ AI GENERATOR ════════ */}
+            {tab === 'generator' && (
+              <div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Générateur IA</h2>
+                <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
+                  Transformez des CVs ou une liste brute en informations structurées — nom, âge, téléphone, email, adresse — puis consultez les statistiques du lot.
+                </p>
+
+                {/* Mode toggle */}
+                <div style={{ display: 'flex', gap: 0, marginBottom: '1.25rem', border: `1.5px solid ${BORDER}`, borderRadius: 10, overflow: 'hidden', width: 'fit-content' }}>
+                  {[['cv', 'Depuis des CVs', 'folder' as IconName], ['list', 'Depuis une liste', 'file-text' as IconName]].map(([id, label, icon]) => (
+                    <button key={id as string} onClick={() => setGenMode(id as 'cv' | 'list')} style={{
+                      display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.65rem 1.4rem',
+                      fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', border: 'none', fontFamily: 'inherit',
+                      background: genMode === id ? INK : WHITE, color: genMode === id ? '#ffffff' : MUTED,
+                    }}><Icon name={icon as IconName} size={14}/>{label as string}</button>
+                  ))}
+                </div>
+
+                {genMode === 'cv' ? (
+                  <div
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length) handleGenFiles(e.dataTransfer.files); }}
+                    style={{ border: `2px dashed ${BORDER2}`, background: WHITE, borderRadius: 12, padding: '2rem', textAlign: 'center', marginBottom: '1.25rem' }}>
+                    <input id="gen-file-input" type="file" multiple style={{ display: 'none' }} onChange={e => e.target.files && handleGenFiles(e.target.files)} />
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.6rem' }}><Icon name="folder" size={34} color={MUTED}/></div>
+                    <p style={{ fontSize: '0.85rem', color: MUTED, marginBottom: '1rem' }}>Glissez des fichiers ici — tous formats acceptés, jusqu'à 30 par lot</p>
+                    <label htmlFor="gen-file-input" style={{ display: 'inline-block', padding: '0.6rem 1.4rem', borderRadius: 8, background: INK, color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>Choisir des fichiers</label>
+                  </div>
+                ) : (
+                  <div style={{ background: WHITE, borderRadius: 12, border: `1px solid ${BORDER}`, padding: '1.25rem', marginBottom: '1.25rem' }}>
+                    <textarea
+                      value={genListText} onChange={e => setGenListText(e.target.value)} rows={7}
+                      placeholder={"Collez ici une liste brute (plusieurs CVs collés, notes, tableau copié...). L'IA structure uniquement les informations réellement présentes — elle n'invente jamais un téléphone, un email ou une adresse manquant."}
+                      style={{ width: '100%', padding: '0.75rem 0.9rem', borderRadius: 8, border: `1.5px solid ${BORDER}`, fontSize: '0.85rem', fontFamily: 'inherit', color: TEXT, resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+                    <button
+                      onClick={generateFromList} disabled={genBusy || !genListText.trim()}
+                      style={{ marginTop: '0.75rem', padding: '0.65rem 1.4rem', borderRadius: 8, border: 'none', cursor: genBusy || !genListText.trim() ? 'not-allowed' : 'pointer', background: genBusy || !genListText.trim() ? FAINT : INK, color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                      {genBusy ? <><Icon name="refresh" size={13}/>Analyse en cours…</> : <><Icon name="sparkles" size={13}/>Structurer la liste</>}
+                    </button>
+                  </div>
+                )}
+
+                {genError && (
+                  <div style={{ padding: '0.75rem 1rem', background: LRED, color: RTEXT, borderRadius: 8, marginBottom: '1.25rem', fontSize: '0.82rem', fontWeight: 600 }}>{genError}</div>
+                )}
+
+                {genMode === 'cv' && genQueue.length > 0 && (
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+                    {genQueue.map(f => (
+                      <span key={f.id} style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.25rem 0.65rem', borderRadius: 999, background: f.status === 'done' ? LGREEN : f.status === 'error' ? LRED : LBLUE, color: f.status === 'done' ? GREEN : f.status === 'error' ? RTEXT : BLUE }}>
+                        {f.status === 'processing' ? '⏳ ' : f.status === 'done' ? '✓ ' : '✕ '}{f.fileName}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {genResults.length > 0 && (
+                  <>
+                    {/* Results table */}
+                    <div style={{ background: WHITE, borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden', marginBottom: '1.25rem' }}>
+                      <div style={{ padding: '1rem 1.3rem', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem' }}>
+                        <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, textTransform: 'uppercase', letterSpacing: '.04em' }}>Profils générés ({genResults.length})</h2>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button onClick={exportGenCSV} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${GREEN}`, background: WHITE, color: GREEN, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}><Icon name="download" size={13}/>CSV</button>
+                          <button onClick={saveGeneratedToDb} disabled={savingToDb} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.85rem', borderRadius: 7, border: 'none', background: savedToDb ? GREEN : COBALT, color: '#ffffff', fontSize: '0.78rem', fontWeight: 700, cursor: savingToDb ? 'wait' : 'pointer' }}>
+                            {savingToDb ? <><Icon name="refresh" size={13}/>Enregistrement…</> : savedToDb ? <><Icon name="check" size={13}/>Enregistré</> : <><Icon name="save" size={13}/>Enregistrer dans la base candidats</>}
+                          </button>
+                          <button onClick={clearGenResults} style={{ padding: '0.4rem 0.85rem', borderRadius: 7, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>Vider</button>
+                        </div>
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc' }}>
+                              {['Nom', 'Âge', 'Téléphone', 'Email', 'Adresse', 'Secteur', 'Compétences', 'Source'].map(h => (
+                                <th key={h} style={{ padding: '0.6rem 0.9rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: MUTED, whiteSpace: 'nowrap' }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {genResults.map((p, i) => (
+                              <tr key={p.id} style={{ borderTop: `1px solid ${BORDER}`, background: i % 2 === 0 ? WHITE : '#f9fafb' }}>
+                                <td style={{ padding: '0.7rem 0.9rem', fontWeight: 700, color: NAVY, whiteSpace: 'nowrap' }}>{p.name}</td>
+                                <td style={{ padding: '0.7rem 0.9rem', color: p.age ? TEXT : FAINT }}>{p.age || '—'}</td>
+                                <td style={{ padding: '0.7rem 0.9rem', color: p.phone ? TEXT : FAINT }}>{p.phone || '—'}</td>
+                                <td style={{ padding: '0.7rem 0.9rem', color: p.email ? TEXT : FAINT }}>{p.email || '—'}</td>
+                                <td style={{ padding: '0.7rem 0.9rem', color: p.address ? TEXT : FAINT }}>{p.address || '—'}</td>
+                                <td style={{ padding: '0.7rem 0.9rem' }}>{p.sector ? <Badge label={p.sector} color={NAVY} bg={LBLUE} /> : <span style={{ color: FAINT }}>—</span>}</td>
+                                <td style={{ padding: '0.7rem 0.9rem' }}>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, maxWidth: 220 }}>
+                                    {(p.skills || []).slice(0, 3).map(s => <span key={s} style={{ background: '#f3f4f6', color: MUTED, borderRadius: 4, padding: '1px 6px', fontSize: '0.68rem', fontWeight: 600 }}>{s}</span>)}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '0.7rem 0.9rem' }}><Badge label={p.source === 'cv' ? 'CV' : 'Liste'} color={p.source === 'cv' ? BLUE : PURPLE} bg={p.source === 'cv' ? LBLUE : LPURP} /></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
+                      <StatCard label="Profils générés" value={genResults.length} accent={COBALT} icon="sparkles" />
+                      <StatCard label="Avec téléphone" value={genResults.filter(p => p.phone).length} accent={GREEN} icon="phone" />
+                      <StatCard label="Avec email" value={genResults.filter(p => p.email).length} accent={AMBER} icon="mail" />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                      <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                        <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Par secteur</h2>
+                        <SectorBars items={genWithCity} key_="sector" />
+                      </div>
+                      <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                        <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Par ville</h2>
+                        <SectorBars items={genWithCity} key_="city" />
+                      </div>
+                      <div style={{ background: WHITE, borderRadius: 10, padding: '1.25rem', border: `1px solid ${BORDER}`, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+                        <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>Par âge</h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {genAgeBuckets.map(([label, count], i) => {
+                            const max = Math.max(...genAgeBuckets.map(([, n]) => n), 1);
+                            const colors = [COBALT, BLUE, PURPLE, GREEN, FAINT];
+                            return (
+                              <div key={label}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                                  <span style={{ fontSize: '0.78rem', color: TEXT, fontWeight: 500 }}>{label}</span>
+                                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: NAVY }}>{count}</span>
+                                </div>
+                                <div style={{ height: 6, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', borderRadius: 4, background: colors[i % colors.length], width: `${(count / max) * 100}%`, transition: 'width .5s' }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {genResults.length === 0 && genQueue.length === 0 && !genBusy && (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: MUTED, background: WHITE, borderRadius: 12, border: `1px solid ${BORDER}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name="sparkles" size={36} color={MUTED}/></div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: NAVY, marginBottom: 6 }}>Aucun profil généré pour l'instant</div>
+                    <div style={{ fontSize: '0.82rem' }}>Importez des CVs ou collez une liste brute ci-dessus pour commencer.</div>
                   </div>
                 )}
               </div>
