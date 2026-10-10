@@ -1,0 +1,53 @@
+name: Verify holder persistence round-trip
+
+# Manual-only diagnostic: proves /api/sheets' Redis-backed save/read path
+# actually round-trips a holder record in production, which is what lets a
+# returning holder resume their dossier instead of being asked to re-fill
+# it. Writes one throwaway test holder (ZZ9999xxx — never a real CIN
+# format a holder would type) and deletes it again at the end either way.
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Save a throwaway test holder
+        run: |
+          HID="ZZ9999$(date +%H%M%S)"
+          echo "HID=$HID" >> "$GITHUB_ENV"
+          curl -sS -X POST https://www.ideamaponline.org/api/sheets \
+            -H "Content-Type: application/json" \
+            -d "{\"type\":\"save_holder\",\"holder\":{\"id\":\"$HID\",\"name\":\"CI Verify\",\"profile\":{\"firstName\":\"CI\"},\"step\":\"idea\",\"idea\":\"verification probe\",\"createdAt\":$(date +%s000)}}" \
+            -w "\nhttp_code=%{http_code}\n"
+
+      - name: Read it back and confirm it round-tripped
+        run: |
+          sleep 2
+          RESP=$(curl -sS https://www.ideamaponline.org/api/sheets --max-time 20)
+          echo "$RESP" | grep -q "\"$HID\"" && echo "ROUND_TRIP=ok" >> "$GITHUB_ENV" || echo "ROUND_TRIP=fail" >> "$GITHUB_ENV"
+          echo "$RESP" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print('error field:', d.get('error'))
+          print('holders count:', len(d.get('holders', [])))
+          match = [h for h in d.get('holders', []) if h.get('id') == '$HID']
+          print('test holder found:', bool(match))
+          if match: print('test holder record:', match[0])
+          "
+
+      - name: Clean up the test holder
+        if: always()
+        run: |
+          curl -sS -X POST https://www.ideamaponline.org/api/sheets \
+            -H "Content-Type: application/json" \
+            -d "{\"type\":\"delete_holder\",\"id\":\"$HID\"}" \
+            -w "\nhttp_code=%{http_code}\n"
+
+      - name: Fail the job if the round-trip didn't work
+        run: |
+          if [ "$ROUND_TRIP" != "ok" ]; then
+            echo "::error::Holder save/read round-trip FAILED — a returning holder's data would not be found."
+            exit 1
+          fi
+          echo "Holder save/read round-trip confirmed working in production."
