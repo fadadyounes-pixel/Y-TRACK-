@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
+import { put, head } from "@vercel/blob";
 
 export const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL || "",
@@ -42,15 +43,61 @@ export const LEGACY = {
 } as const;
 export type CollectionKind = keyof typeof HASH;
 
+/**
+ * Vercel Blob fallback store — engaged ONLY when a Redis call throws (bad/
+ * expired Upstash credentials, a paused database, a network blip). Without
+ * this, a Redis outage means every holder's progress only survives in their
+ * own browser's localStorage: a returning holder on a different device, or
+ * anyone who clears storage, would be forced to re-fill the whole
+ * application with no way to resume, exactly the bug this file's callers
+ * exist to prevent. Blob was already provisioned and working for this
+ * project (see lib/storage.ts) before Redis was, so it's a real fallback,
+ * not a second point of failure.
+ *
+ * One JSON blob per collection, whole-array read-modify-write — the same
+ * "legacy" shape this file replaced Redis-side, and the same race-condition
+ * caveat applies (two near-simultaneous writes during an outage could lose
+ * one). Acceptable for a fallback path that only runs while Redis itself is
+ * down; never used while Redis is healthy.
+ */
+const BLOB_PREFIX = "fallback-collections/";
+
+async function blobReadAll<T>(kind: CollectionKind): Promise<T[]> {
+  try {
+    const info = await head(`${BLOB_PREFIX}${kind}.json`);
+    const r = await fetch(info.url, { cache: "no-store" });
+    if (!r.ok) return [];
+    const data = await r.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+async function blobWriteAll<T>(kind: CollectionKind, items: T[]): Promise<void> {
+  await put(`${BLOB_PREFIX}${kind}.json`, JSON.stringify(items), {
+    access: "public",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/json",
+  });
+}
+
 export async function readCollection<T extends { id?: string }>(kind: CollectionKind): Promise<T[]> {
-  const [hash, legacy] = await Promise.all([
-    redis.hgetall<Record<string, T>>(HASH[kind]),
-    redis.get<T[]>(LEGACY[kind]),
-  ]);
   const merged = new Map<string, T>();
-  for (const item of legacy || []) if (item?.id) merged.set(item.id, item);
-  // Hash entries are the newer, authoritative source — they win on id conflicts.
-  for (const item of Object.values(hash || {})) if (item?.id) merged.set(item.id, item);
+  // Lowest priority first — Redis Hash entries (read below, if Redis is up)
+  // always win on id conflicts since they're the newer, authoritative source.
+  for (const item of await blobReadAll<T>(kind)) if (item?.id) merged.set(item.id, item);
+  try {
+    const [hash, legacy] = await Promise.all([
+      redis.hgetall<Record<string, T>>(HASH[kind]),
+      redis.get<T[]>(LEGACY[kind]),
+    ]);
+    for (const item of legacy || []) if (item?.id) merged.set(item.id, item);
+    for (const item of Object.values(hash || {})) if (item?.id) merged.set(item.id, item);
+  } catch (err) {
+    console.error(`readCollection(${kind}): Redis unavailable, serving Blob fallback only`, err);
+  }
   return [...merged.values()];
 }
 
@@ -58,10 +105,25 @@ export async function readCollection<T extends { id?: string }>(kind: Collection
 // matching the merge semantics the old array-splice code had (different
 // call sites send different field subsets for the same record).
 export async function upsertOne<T extends { id: string }>(kind: CollectionKind, item: T): Promise<void> {
-  const existing = await redis.hget<T>(HASH[kind], item.id);
-  await redis.hset(HASH[kind], { [item.id]: { ...(existing || {}), ...item } });
+  try {
+    const existing = await redis.hget<T>(HASH[kind], item.id);
+    await redis.hset(HASH[kind], { [item.id]: { ...(existing || {}), ...item } });
+  } catch (err) {
+    console.error(`upsertOne(${kind}): Redis unavailable, falling back to Blob`, err);
+    const all = await blobReadAll<T>(kind);
+    const idx = all.findIndex((x) => x.id === item.id);
+    const merged = { ...(idx >= 0 ? all[idx] : {}), ...item } as T;
+    if (idx >= 0) all[idx] = merged; else all.push(merged);
+    await blobWriteAll(kind, all);
+  }
 }
 
 export async function deleteOne(kind: CollectionKind, id: string): Promise<void> {
-  await redis.hdel(HASH[kind], id);
+  try {
+    await redis.hdel(HASH[kind], id);
+  } catch (err) {
+    console.error(`deleteOne(${kind}): Redis unavailable, falling back to Blob`, err);
+    const all = await blobReadAll<{ id: string }>(kind);
+    await blobWriteAll(kind, all.filter((x) => x.id !== id));
+  }
 }
