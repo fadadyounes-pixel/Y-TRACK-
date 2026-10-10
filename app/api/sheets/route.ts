@@ -1,36 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
 import { redis, HASH, readCollection, upsertOne, deleteOne } from "@/lib/redisCollections";
+import { put, head } from "@vercel/blob";
 
 const RE_HOLDER = /^[A-Z]{2}\d{3,}$/;
 const RE_COORD  = /^@[A-Za-z]{2,}COD$/i;
 
+// idm_coords is a plain Redis key (not a HASH/LEGACY collection — see the
+// save_coords handler below), so it needs its own small Blob fallback for
+// the same reason lib/redisCollections.ts has one: a coordinator shouldn't
+// be unable to log in just because Redis is having a bad day.
+async function readCoordsBlob(): Promise<any[]> {
+  try {
+    const info = await head("fallback-collections/idm_coords.json");
+    const r = await fetch(info.url, { cache: "no-store" });
+    if (!r.ok) return [];
+    const data = await r.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+async function writeCoordsBlob(coords: any[]): Promise<void> {
+  await put("fallback-collections/idm_coords.json", JSON.stringify(coords), {
+    access: "public", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+  });
+}
+
 /* ── GET — read all collections ─────────────────────── */
 export async function GET() {
-  try {
-    const [holders, coords, jobs, cvs, coordinators, applications] = await Promise.all([
-      readCollection("holders"),
-      redis.get<any[]>("idm_coords"),
-      readCollection("jobs"),
-      readCollection("cvs"),
-      readCollection("coordinators"),
-      readCollection("applications"),
-    ]);
-    return NextResponse.json({
-      holders,
-      coords: coords || [],
-      jobs,
-      cvs,
-      coordinators,
-      applications,
-    });
-  } catch (err) {
-    console.error("sheets GET: failed to read collections", err);
-    // `error: true` lets the client tell a genuinely empty database apart from
-    // a broken connection — without it, a Redis outage looks identical to
-    // "no holders yet" and every returning holder gets silently treated as
-    // new, since their saved record never has a chance to be found.
-    return NextResponse.json({ error: true, holders: [], coords: [], jobs: [], cvs: [], coordinators: [], applications: [] });
-  }
+  // Each collection is read independently — readCollection() already falls
+  // back to Blob internally when Redis throws, but idm_coords' own Redis
+  // call doesn't go through that helper, so it's wrapped here the same way.
+  // A single Promise.all would otherwise let one failing call blank out
+  // every other collection's perfectly good (or fallback) result.
+  let redisDown = false;
+  const [holders, coords, jobs, cvs, coordinators, applications] = await Promise.all([
+    readCollection("holders"),
+    redis.get<any[]>("idm_coords").catch(async (err) => {
+      console.error("sheets GET: idm_coords Redis read failed, falling back to Blob", err);
+      redisDown = true;
+      return readCoordsBlob();
+    }),
+    readCollection("jobs"),
+    readCollection("cvs"),
+    readCollection("coordinators"),
+    readCollection("applications"),
+  ]);
+  return NextResponse.json({
+    // `error: true` lets the client tell a genuinely empty database apart
+    // from a broken connection — without it, a Redis outage looks identical
+    // to "no holders yet" and every returning holder gets silently treated
+    // as new, since their saved record never has a chance to be found. Set
+    // only when something actually failed, not just because Blob served a
+    // fallback successfully (that's the system working as intended).
+    ...(redisDown ? { error: true } : {}),
+    holders,
+    coords: coords || [],
+    jobs,
+    cvs,
+    coordinators,
+    applications,
+  });
 }
 
 /* ── POST — write / update ─────────────────────────── */
@@ -66,7 +96,12 @@ export async function POST(req: NextRequest) {
       if (!Array.isArray(coords) || coords.some((c: unknown) => !validEntry(c))) {
         return NextResponse.json({ ok: false, error: "Invalid coords" }, { status: 400 });
       }
-      await redis.set("idm_coords", coords);
+      try {
+        await redis.set("idm_coords", coords);
+      } catch (err) {
+        console.error("sheets POST save_coords: Redis unavailable, falling back to Blob", err);
+        await writeCoordsBlob(coords);
+      }
       return NextResponse.json({ ok: true });
     }
 
