@@ -1,5 +1,5 @@
 name: Verify holder persistence round-trip
-# re-run: full login+resume simulation, not just a raw data round-trip (PR follow-up)
+# re-run: confirming error:true no longer fires on a healthy Blob fallback (PR #113)
 
 # Manual-only diagnostic for "a returning holder shouldn't have to re-fill
 # their application". Doesn't just write/read a throwaway record — it saves
