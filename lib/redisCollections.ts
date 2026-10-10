@@ -63,15 +63,20 @@ export type CollectionKind = keyof typeof HASH;
 const BLOB_PREFIX = "fallback-collections/";
 
 async function blobReadAll<T>(kind: CollectionKind): Promise<T[]> {
+  let info;
   try {
-    const info = await head(`${BLOB_PREFIX}${kind}.json`);
-    const r = await fetch(info.url, { cache: "no-store" });
-    if (!r.ok) return [];
-    const data = await r.json();
-    return Array.isArray(data) ? data : [];
+    info = await head(`${BLOB_PREFIX}${kind}.json`);
   } catch {
+    // Nothing written to the fallback yet — legitimately empty, not a failure.
     return [];
   }
+  // The blob is known to exist from here on; a failure reading it is real
+  // and propagates, so readCollection() can tell "truly unavailable" apart
+  // from "fallback has nothing for this collection".
+  const r = await fetch(info.url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`Blob fetch failed with status ${r.status}`);
+  const data = await r.json();
+  return Array.isArray(data) ? data : [];
 }
 
 async function blobWriteAll<T>(kind: CollectionKind, items: T[]): Promise<void> {
@@ -85,18 +90,34 @@ async function blobWriteAll<T>(kind: CollectionKind, items: T[]): Promise<void> 
 
 export async function readCollection<T extends { id?: string }>(kind: CollectionKind): Promise<T[]> {
   const merged = new Map<string, T>();
-  // Lowest priority first — Redis Hash entries (read below, if Redis is up)
-  // always win on id conflicts since they're the newer, authoritative source.
-  for (const item of await blobReadAll<T>(kind)) if (item?.id) merged.set(item.id, item);
+  let redisOk = true;
+  let blobOk = true;
+
   try {
     const [hash, legacy] = await Promise.all([
       redis.hgetall<Record<string, T>>(HASH[kind]),
       redis.get<T[]>(LEGACY[kind]),
     ]);
     for (const item of legacy || []) if (item?.id) merged.set(item.id, item);
+    // Hash entries are the newer, authoritative source — they win on id conflicts.
     for (const item of Object.values(hash || {})) if (item?.id) merged.set(item.id, item);
   } catch (err) {
-    console.error(`readCollection(${kind}): Redis unavailable, serving Blob fallback only`, err);
+    console.error(`readCollection(${kind}): Redis unavailable, falling back to Blob`, err);
+    redisOk = false;
+  }
+
+  // Always merge in the Blob fallback too — not just when Redis fails — so
+  // anything saved there during a past outage is never lost once Redis
+  // recovers; Hash entries above already took priority on any id conflict.
+  try {
+    for (const item of await blobReadAll<T>(kind)) if (item?.id && !merged.has(item.id)) merged.set(item.id, item);
+  } catch (err) {
+    console.error(`readCollection(${kind}): Blob fallback also unavailable`, err);
+    blobOk = false;
+  }
+
+  if (!redisOk && !blobOk) {
+    throw new Error(`readCollection(${kind}): both Redis and its Blob fallback are unavailable`);
   }
   return [...merged.values()];
 }

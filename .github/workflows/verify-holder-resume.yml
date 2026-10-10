@@ -59,8 +59,19 @@ jobs:
 
       - name: Replay Login.handleCheck() + HolderApp's initialState resume
         run: |
-          sleep 2
-          curl -sS https://www.ideamaponline.org/api/sheets --max-time 20 -o /tmp/resp.json
+          # Retry a few times — rule out read-after-write propagation delay
+          # (Blob CDN, or a flaky Redis read) before calling this a real failure.
+          for attempt in 1 2 3 4 5; do
+            sleep 3
+            curl -sS https://www.ideamaponline.org/api/sheets --max-time 20 -o /tmp/resp.json
+            FOUND=$(python3 -c "
+          import json
+          with open('/tmp/resp.json') as f: d = json.load(f)
+          print('yes' if any(h.get('id') == '$HID' for h in d.get('holders', [])) else 'no')
+          " 2>/dev/null || echo "no")
+            echo "attempt $attempt: found=$FOUND, error=$(python3 -c "import json; print(json.load(open('/tmp/resp.json')).get('error'))" 2>/dev/null)"
+            [ "$FOUND" = "yes" ] && break
+          done
           python3 -c "
           import json
           with open('/tmp/resp.json') as f:

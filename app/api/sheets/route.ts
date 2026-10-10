@@ -10,15 +10,21 @@ const RE_COORD  = /^@[A-Za-z]{2,}COD$/i;
 // the same reason lib/redisCollections.ts has one: a coordinator shouldn't
 // be unable to log in just because Redis is having a bad day.
 async function readCoordsBlob(): Promise<any[]> {
+  let info;
   try {
-    const info = await head("fallback-collections/idm_coords.json");
-    const r = await fetch(info.url, { cache: "no-store" });
-    if (!r.ok) return [];
-    const data = await r.json();
-    return Array.isArray(data) ? data : [];
+    info = await head("fallback-collections/idm_coords.json");
   } catch {
+    // Nothing has ever been written to the fallback yet — a legitimate
+    // empty state (e.g. right after this feature shipped), not a failure.
     return [];
   }
+  // From here on, a failure is real: the blob is known to exist but
+  // couldn't be read — let it propagate so the caller knows both the
+  // primary store AND the fallback are unavailable right now.
+  const r = await fetch(info.url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`Blob fetch failed with status ${r.status}`);
+  const data = await r.json();
+  return Array.isArray(data) ? data : [];
 }
 async function writeCoordsBlob(coords: any[]): Promise<void> {
   await put("fallback-collections/idm_coords.json", JSON.stringify(coords), {
@@ -33,27 +39,47 @@ export async function GET() {
   // call doesn't go through that helper, so it's wrapped here the same way.
   // A single Promise.all would otherwise let one failing call blank out
   // every other collection's perfectly good (or fallback) result.
-  let redisDown = false;
+  // true only when a collection ends up with NO usable data — Redis failing
+  // over to a Blob fallback that itself succeeds is the system working as
+  // designed, not an error. (An earlier version of this flagged `error` on
+  // Redis throwing alone, which meant a healthy Blob-served response still
+  // told the client "something's broken" — exactly the kind of false alarm
+  // this flag exists to avoid.)
+  let dataUnavailable = false;
+  // readCollection() only throws when BOTH Redis and its Blob fallback are
+  // unavailable for that collection — catch that per collection so one
+  // genuinely-down collection can't blank out every other (independently
+  // fine) one via a shared Promise.all rejection.
+  const unavailable = (name: string) => (err: unknown) => {
+    console.error(`sheets GET: ${name} truly unavailable`, err);
+    dataUnavailable = true;
+    return [];
+  };
   const [holders, coords, jobs, cvs, coordinators, applications] = await Promise.all([
-    readCollection("holders"),
+    readCollection("holders").catch(unavailable("holders")),
     redis.get<any[]>("idm_coords").catch(async (err) => {
       console.error("sheets GET: idm_coords Redis read failed, falling back to Blob", err);
-      redisDown = true;
-      return readCoordsBlob();
+      try {
+        return await readCoordsBlob();
+      } catch (blobErr) {
+        console.error("sheets GET: idm_coords Blob fallback also failed", blobErr);
+        dataUnavailable = true;
+        return [];
+      }
     }),
-    readCollection("jobs"),
-    readCollection("cvs"),
-    readCollection("coordinators"),
-    readCollection("applications"),
+    readCollection("jobs").catch(unavailable("jobs")),
+    readCollection("cvs").catch(unavailable("cvs")),
+    readCollection("coordinators").catch(unavailable("coordinators")),
+    readCollection("applications").catch(unavailable("applications")),
   ]);
   return NextResponse.json({
-    // `error: true` lets the client tell a genuinely empty database apart
-    // from a broken connection — without it, a Redis outage looks identical
-    // to "no holders yet" and every returning holder gets silently treated
-    // as new, since their saved record never has a chance to be found. Set
-    // only when something actually failed, not just because Blob served a
-    // fallback successfully (that's the system working as intended).
-    ...(redisDown ? { error: true } : {}),
+    // `error: true` lets the client tell "truly nothing available" apart
+    // from a normal empty collection — without it, a total outage looks
+    // identical to "no holders yet" and every returning holder gets
+    // silently treated as new, since their saved record never has a chance
+    // to be found. Set only when BOTH Redis and its Blob fallback failed,
+    // never just because the fallback had to do its job.
+    ...(dataUnavailable ? { error: true } : {}),
     holders,
     coords: coords || [],
     jobs,
