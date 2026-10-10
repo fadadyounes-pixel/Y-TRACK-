@@ -1,11 +1,20 @@
 name: Verify holder persistence round-trip
-# re-run: confirming the Blob fallback (PR #111)
+# re-run: full login+resume simulation, not just a raw data round-trip (PR follow-up)
 
-# Manual-only diagnostic: proves /api/sheets' Redis-backed save/read path
-# actually round-trips a holder record in production, which is what lets a
-# returning holder resume their dossier instead of being asked to re-fill
-# it. Writes one throwaway test holder (ZZ9999xxx — never a real CIN
-# format a holder would type) and deletes it again at the end either way.
+# Manual-only diagnostic for "a returning holder shouldn't have to re-fill
+# their application". Doesn't just write/read a throwaway record — it saves
+# a holder in the EXACT shape onSaveProject() sends mid-dialogue (step,
+# qN, msgs, idea — see HolderApp in app/ideamap/page.tsx), then replays the
+# exact client-side logic that decides a returning holder's fate:
+#   1. Login.handleCheck(): `holders.find(h => h.id === normalised)`, which
+#      requires `existing.profile.firstName` to log the holder back in.
+#   2. HolderApp's initial state: `useState(initialState?.step || "idea")`
+#      etc. — this only resumes correctly if step/qN/msgs survive intact.
+# Also confirms the server's `error:true` flag (set whenever any part of
+# the response fell back, e.g. Redis down) does NOT stop a real holder
+# record from being present in the same payload — a bug caught and fixed
+# in app/ideamap/page.tsx's fetch handler after the first version of this
+# probe passed on raw data but the client discarded it anyway.
 on:
   workflow_dispatch:
   push:
@@ -16,29 +25,102 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Save a throwaway test holder
+      - name: Save a realistic mid-dialogue holder (as onSaveProject() would)
         run: |
           HID="ZZ9999$(date +%H%M%S)"
           echo "HID=$HID" >> "$GITHUB_ENV"
+          cat > /tmp/holder.json <<JSON
+          {
+            "type": "save_holder",
+            "holder": {
+              "id": "$HID",
+              "name": "Fatima",
+              "profile": {"firstName": "Fatima", "lastName": "CI", "region": "Casablanca-Settat"},
+              "idea": "Atelier de couture pour femmes au foyer",
+              "step": "dialogue",
+              "qN": 3,
+              "msgs": [
+                {"role": "assistant", "content": "Quel est le nom de votre projet ?"},
+                {"role": "user", "content": "Atelier Amal"},
+                {"role": "assistant", "content": "Dans quel secteur ?"},
+                {"role": "user", "content": "Artisanat/Couture"},
+                {"role": "assistant", "content": "Dans quelle ville ?"},
+                {"role": "user", "content": "Casablanca, quartier Hay Mohammadi"}
+              ],
+              "proj": null,
+              "docs": {},
+              "createdAt": $(date +%s000)
+            }
+          }
+          JSON
           curl -sS -X POST https://www.ideamaponline.org/api/sheets \
-            -H "Content-Type: application/json" \
-            -d "{\"type\":\"save_holder\",\"holder\":{\"id\":\"$HID\",\"name\":\"CI Verify\",\"profile\":{\"firstName\":\"CI\"},\"step\":\"idea\",\"idea\":\"verification probe\",\"createdAt\":$(date +%s000)}}" \
+            -H "Content-Type: application/json" --data @/tmp/holder.json \
             -w "\nhttp_code=%{http_code}\n"
 
-      - name: Read it back and confirm it round-tripped
+      - name: Replay Login.handleCheck() + HolderApp's initialState resume
         run: |
           sleep 2
-          RESP=$(curl -sS https://www.ideamaponline.org/api/sheets --max-time 20)
-          echo "$RESP" | grep -q "\"$HID\"" && echo "ROUND_TRIP=ok" >> "$GITHUB_ENV" || echo "ROUND_TRIP=fail" >> "$GITHUB_ENV"
-          echo "$RESP" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
+          curl -sS https://www.ideamaponline.org/api/sheets --max-time 20 -o /tmp/resp.json
+          python3 -c "
+          import json
+          with open('/tmp/resp.json') as f:
+              d = json.load(f)
+          hid = '$HID'
+
+          print('--- server response ---')
           print('error field:', d.get('error'))
           print('holders count:', len(d.get('holders', [])))
-          match = [h for h in d.get('holders', []) if h.get('id') == '$HID']
-          print('test holder found:', bool(match))
-          if match: print('test holder record:', match[0])
+
+          # 1) Login.handleCheck(): holders.find(h => h.id === normalised)
+          existing = next((h for h in d.get('holders', []) if h.get('id') == hid), None)
+          ok = True
+
+          if existing is None:
+              print('FAIL: holder not found by id — Login would route to account creation (re-fill from scratch)')
+              ok = False
+          else:
+              print('OK: Login.handleCheck finds the holder by id')
+              # Login requires profile.firstName to build the logged-in user object
+              first_name = (existing.get('profile') or {}).get('firstName')
+              if not first_name:
+                  print('FAIL: profile.firstName missing — onLogin() would crash/misbehave')
+                  ok = False
+              else:
+                  print(f'OK: profile.firstName present ({first_name!r}) — onLogin() succeeds')
+
+              # 2) HolderApp(initialState=existing) resume — the exact fields
+              #    its useState() calls read.
+              checks = [
+                  ('step', 'dialogue'),
+                  ('qN', 3),
+                  ('idea', 'Atelier de couture pour femmes au foyer'),
+              ]
+              for field, expected in checks:
+                  got = existing.get(field)
+                  if got != expected:
+                      print(f'FAIL: {field} = {got!r}, expected {expected!r} — resume would start from the wrong place')
+                      ok = False
+                  else:
+                      print(f'OK: {field} = {got!r} survives round-trip')
+              msgs = existing.get('msgs') or []
+              if len(msgs) != 6:
+                  print(f'FAIL: msgs has {len(msgs)} entries, expected 6 — dialogue transcript would be lost')
+                  ok = False
+              else:
+                  print(f'OK: all {len(msgs)} msgs entries survive round-trip')
+
+          # 3) The error:true bug: a real holder record must still be usable
+          #    even when the server flags a partial fallback.
+          if d.get('error') and existing is not None:
+              print('OK: error:true is set AND the holder was still found — client must not discard this payload')
+          elif d.get('error') and existing is None:
+              print('FAIL: error:true AND holder missing — this is the exact bug where a fallback response gets discarded client-side')
+              ok = False
+
+          with open('/tmp/result', 'w') as f:
+              f.write('ok' if ok else 'fail')
           "
+          echo "RESUME_CHECK=$(cat /tmp/result)" >> "$GITHUB_ENV"
 
       - name: Clean up the test holder
         if: always()
@@ -48,10 +130,10 @@ jobs:
             -d "{\"type\":\"delete_holder\",\"id\":\"$HID\"}" \
             -w "\nhttp_code=%{http_code}\n"
 
-      - name: Fail the job if the round-trip didn't work
+      - name: Fail the job if a returning holder would not resume correctly
         run: |
-          if [ "$ROUND_TRIP" != "ok" ]; then
-            echo "::error::Holder save/read round-trip FAILED — a returning holder's data would not be found."
+          if [ "$RESUME_CHECK" != "ok" ]; then
+            echo "::error::A returning holder would NOT resume correctly — see the checks above."
             exit 1
           fi
-          echo "Holder save/read round-trip confirmed working in production."
+          echo "A returning holder's dialogue progress (step, answers, questions) resumes correctly in production."
