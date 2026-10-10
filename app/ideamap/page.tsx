@@ -5696,7 +5696,13 @@ export default function IdeaMapPage() {
     fetch("/api/sheets")
       .then(r => r.json())
       .then(data => {
-        if (data.error) { setSyncError(true); return; }
+        // `error: true` means some piece of this response fell back (e.g.
+        // Redis down, served from the Blob fallback instead) — worth a
+        // sync-status warning, but NOT a reason to discard the payload: the
+        // fallback may well have recovered real holders/coords, and a
+        // returning holder must still be found in them. Only bail out
+        // (keep whatever's cached) when there's truly nothing usable here.
+        if (data.error) setSyncError(true);
         if (data.holders?.length > 0 || data.coords?.length > 0) {
           setHolders(data.holders || []);
           setCoords((data.coords || []).map(normalizeCoord));
