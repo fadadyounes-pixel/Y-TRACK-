@@ -25,7 +25,11 @@ export async function GET() {
     });
   } catch (err) {
     console.error("sheets GET: failed to read collections", err);
-    return NextResponse.json({ holders: [], coords: [], jobs: [], cvs: [], coordinators: [], applications: [] });
+    // `error: true` lets the client tell a genuinely empty database apart from
+    // a broken connection — without it, a Redis outage looks identical to
+    // "no holders yet" and every returning holder gets silently treated as
+    // new, since their saved record never has a chance to be found.
+    return NextResponse.json({ error: true, holders: [], coords: [], jobs: [], cvs: [], coordinators: [], applications: [] });
   }
 }
 
