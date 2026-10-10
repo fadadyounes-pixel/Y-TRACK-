@@ -6,7 +6,6 @@ import Link from 'next/link';
 import PageHeader from '../../components/PageHeader';
 import Icon, { type IconName } from '../../components/Icon';
 import { useAuth } from '../../contexts/AuthContext';
-import { isProfileComplete } from '@/lib/profile';
 import { regionDisplay } from '@/lib/morocco';
 import { scoreCV } from '@/lib/cvScore';
 
@@ -37,31 +36,35 @@ export default function CandidateDashboard() {
     let loadedInfo: Record<string, any> | null = null;
     try { const s = localStorage.getItem(`tm_info_${user.idNumber}`); if (s) loadedInfo = JSON.parse(s); } catch {}
     try { const c = localStorage.getItem(`tm_cv_${user.idNumber}`);   if (c) setCvData(JSON.parse(c)); } catch {}
-    // Mandatory onboarding gate: candidates must complete their profile
-    // before reaching the dashboard, matching the CareerMap flow.
-    if (!isProfileComplete(loadedInfo)) { router.push('/candidate/info'); return; }
-    setInfo(loadedInfo);
+    // No mandatory profile step — the dashboard renders with whatever
+    // info exists locally (possibly none yet, if the candidate hasn't
+    // visited /candidate/info or built a CV).
+    setInfo(loadedInfo || {});
   }, [user, initialized, router]);
 
   if (!initialized || !user || user.role !== 'candidate' || !info) return null;
 
-  const firstName      = info?.firstName || user.name.split(' ')[0] || 'Candidat';
+  const fullName       = info?.fullName || user.name;
+  const displayEmail   = info?.email || user.email;
+  const firstName      = info?.firstName || fullName.split(' ')[0] || 'Candidat';
   const locationLabel  = regionDisplay(info?.region, info?.prefecture, info?.arrondissement);
   const skills: string[] = cvData?.skills || info?.skills || [];
-  const hasProfile     = !!info?.phone || !!info?.city;
+  const hasProfile     = !!info?.phone;
   const hasCV          = !!(cvData?.skills?.length || cvData?.summary);
   const completionSteps   = [hasProfile, hasCV, false];
   const completedCount    = completionSteps.filter(Boolean).length;
 
   // Same free, deterministic CV health check used on the CV builder — shown
   // here as a quick badge so candidates see it's worth revisiting even
-  // before opening the builder.
+  // before opening the builder. City/diploma/languages/linkedin/portfolio now
+  // live only on the CV itself (the info page was simplified to basic contact
+  // fields), so these fall back to the CV record alone rather than info.
   const cvScore = hasCV ? scoreCV({
-    name: user.name, email: user.email, phone: info?.phone || '', address: info?.city || '',
-    summary: cvData?.summary || '', skills: cvData?.skills || [], languages: info?.languages || [],
-    work: cvData?.work || [], education: cvData?.education || { degree: info?.diploma || '', institution: info?.institution || '', year: info?.graduationYear || '' },
+    name: fullName, email: displayEmail, phone: info?.phone || '', address: cvData?.address || '',
+    summary: cvData?.summary || '', skills: cvData?.skills || [], languages: cvData?.languages || [],
+    work: cvData?.work || [], education: cvData?.education || { degree: '', institution: '', year: '' },
     targetRoles: cvData?.targetRoles || [], certifications: cvData?.certifications || [],
-    linkedin: info?.linkedin || '', portfolio: info?.portfolio || '',
+    linkedin: cvData?.linkedin || '', portfolio: cvData?.portfolio || '',
   }) : null;
 
   const TOOLS = [
@@ -284,8 +287,8 @@ export default function CandidateDashboard() {
               {firstName[0]?.toUpperCase()}
             </div>
             <div>
-              <p style={{ fontWeight: 700, color: TEXT, fontSize: '0.95rem', lineHeight: 1.3 }}>{user.name}</p>
-              <p style={{ fontSize: '0.78rem', color: MUTED }}>{user.email}</p>
+              <p style={{ fontWeight: 700, color: TEXT, fontSize: '0.95rem', lineHeight: 1.3 }}>{fullName}</p>
+              <p style={{ fontSize: '0.78rem', color: MUTED }}>{displayEmail}</p>
               <p style={{ fontSize: '0.72rem', color: FAINT, marginTop: '0.1rem' }}>CIN: {user.idNumber}</p>
               {locationLabel && <p style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.72rem', color: FAINT, marginTop: '0.1rem' }}><Icon name="map-pin" size={11}/>{locationLabel}</p>}
             </div>

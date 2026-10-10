@@ -47,20 +47,22 @@ const ev = (k: string, fb = "") => process.env[k] || fb;
 // deepseek-r1-distill) has since been decommissioned by Groq and now returns
 // 404/400 for every single request, which is what silently exhausted this
 // entire provider regardless of how valid the API key was.
+// groq/compound and groq/compound-mini were removed 2026-10: Groq deprecated
+// them Aug 24 2026 and fully decommissioned them Sep 21 2026 — they now 404
+// on every request, same as the earlier llama-3.x/qwen-qwq/deepseek-r1-distill
+// removal above. Do not re-add them without re-checking Groq's live model list.
 const GROQ_MODELS = [
   "openai/gpt-oss-120b",   // Best Groq quality, reasoning model
-  "groq/compound",          // Tool-use/agentic, real content even under tight budgets
   "qwen/qwen3.8-27b",       // Multilingual FR/AR, fast
   "allam-2-7b",             // Arabic-specialized (SDAIA)
   "openai/gpt-oss-20b",     // Smaller/faster reasoning model
-  "groq/compound-mini",
 ];
 
 const GROQ_MODELS_FAST = [
   "qwen/qwen3.8-27b",
-  "groq/compound-mini",
+  "openai/gpt-oss-20b",
   "allam-2-7b",
-  "groq/compound",
+  "openai/gpt-oss-120b",
 ];
 
 // NVIDIA NIM — enterprise inference, 1 000 free API credits/month (no card).
@@ -169,6 +171,31 @@ const GITHUB_MODELS = [
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+// ─── JSON-mode helper ───────────────────────────────────────────────────────
+// For task:"json" calls, ask each OpenAI-compatible provider to constrain its
+// output to a valid JSON object natively, instead of relying only on prompt
+// instructions — this is what keeps the result consistent regardless of
+// which of the ~13 free-tier providers in the race below happens to answer
+// first. Some free-tier passthroughs reject the `response_format` field with
+// a 400, so callers retry once without it rather than losing that provider
+// entirely over an unsupported param.
+function oaBody(model: string, maxTok: number, messages: unknown[], jsonMode: boolean): Record<string, unknown> {
+  return jsonMode
+    ? { model, max_tokens: maxTok, messages, response_format: { type: "json_object" } }
+    : { model, max_tokens: maxTok, messages };
+}
+
+async function fetchChat(
+  url: string, headers: Record<string, string>, model: string, maxTok: number,
+  messages: unknown[], jsonMode: boolean, timeoutMs?: number
+): Promise<Response> {
+  const res = await tFetch(url, { method: "POST", headers, body: JSON.stringify(oaBody(model, maxTok, messages, jsonMode)) }, timeoutMs);
+  if (jsonMode && res.status === 400) {
+    return tFetch(url, { method: "POST", headers, body: JSON.stringify(oaBody(model, maxTok, messages, false)) }, timeoutMs);
+  }
+  return res;
+}
+
 // Anthropic Claude — reads ANTHROPIC_API_KEY env var.
 async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
   const apiKey = ev("ANTHROPIC_API_KEY");
@@ -202,44 +229,64 @@ async function anthropic(msgs: Msg[], sys: string | undefined, maxTok: number): 
   return d.content?.[0]?.text ?? "";
 }
 
-async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
+// Google retired the 2.5 series for new API keys (confirmed live against the real
+// Generative Language API: a freshly-issued key gets 404 "no longer available to
+// new users" on gemini-2.5-*, pointing callers at the 3.5 series instead) — 3.5 is
+// listed first so a newly-issued key actually works. 2.5 stays as a fallback for
+// any older, grandfathered key that predates the cutover and still serves it; if
+// Google renames/retires 3.5 again, or a given key/region hasn't rolled onto it
+// yet, this silently drops to 2.5 instead of losing the provider outright.
+const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"];
+const GEMINI_MODELS_FAST = ["gemini-3.5-flash-lite", "gemini-2.5-flash-lite"];
+
+async function gemini(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false, jsonMode = false): Promise<string> {
   const key = ev("GEMINI_API_KEY");
   if (!key) throw new Error("no GEMINI_API_KEY");
-  // Google retired the 2.5 series for new API keys (confirmed live: a fresh key
-  // gets 404 "no longer available to new users" on gemini-2.5-*, pointing at the
-  // 3.5 series instead) — keyed here on the 3.5 names so a newly-issued key
-  // actually works instead of failing every call.
-  const model = process.env.GEMINI_MODEL || (fast ? "gemini-3.5-flash-lite" : "gemini-3.5-flash");
+  const envModel = process.env.GEMINI_MODEL;
+  const candidates = envModel ? [envModel] : (fast ? GEMINI_MODELS_FAST : GEMINI_MODELS);
   const contents = msgs.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: textOnly(m.content) }],
   }));
-  const body: Record<string, unknown> = { contents, generationConfig: { maxOutputTokens: maxTok } };
-  if (sys) body.systemInstruction = { parts: [{ text: sys }] };
   const gTimeout = maxTok <= 500 ? 5000 : 18000;
-  const res = await tFetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
-    gTimeout
-  );
-  if (!res.ok) throw new Error(`Gemini ${res.status}`);
-  const d = await res.json();
-  return d.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  let lastErr: Error = new Error("Gemini exhausted");
+  for (const model of candidates) {
+    const generationConfig: Record<string, unknown> = { maxOutputTokens: maxTok };
+    if (jsonMode) generationConfig.responseMimeType = "application/json";
+    const body: Record<string, unknown> = { contents, generationConfig };
+    if (sys) body.systemInstruction = { parts: [{ text: sys }] };
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    try {
+      let res = await tFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, gTimeout);
+      if (jsonMode && res.status === 400) {
+        // Some Gemini models reject responseMimeType — retry once without it
+        // before concluding the model itself is the problem.
+        delete generationConfig.responseMimeType;
+        res = await tFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, gTimeout);
+      }
+      if (!res.ok) { lastErr = new Error(`Gemini ${res.status} (${model})`); continue; }
+      const d = await res.json();
+      const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+      lastErr = new Error(`Gemini empty response (${model})`);
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+    }
+  }
+  throw lastErr;
 }
 
 // Groq: tries every free model in sequence until one succeeds.
-async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
+async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false, jsonMode = false): Promise<string> {
   const key = ev("GROQ_API_KEY");
   if (!key) throw new Error("no GROQ_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   const groqTimeout = maxTok <= 500 ? 5000 : 18000;
+  const url = "https://api.groq.com/openai/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of fast ? GROQ_MODELS_FAST : GROQ_MODELS) {
     try {
-      const res = await tFetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      }, groqTimeout);
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode, groqTimeout);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Groq 401");
       if (!res.ok) continue;
@@ -256,18 +303,16 @@ async function groq(msgs: Msg[], sys: string | undefined, maxTok: number, fast =
 
 // Cerebras: 1000–2000 tok/s on LPU hardware — fastest free inference available.
 // 1M tokens/day free, no credit card. Best for real-time dialogue & suggestions.
-async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false): Promise<string> {
+async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fast = false, jsonMode = false): Promise<string> {
   const key = ev("CEREBRAS_API_KEY");
   if (!key) throw new Error("no CEREBRAS_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
   const cbTimeout = maxTok <= 500 ? 5000 : 18000;
+  const url = "https://api.cerebras.ai/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of fast ? CEREBRAS_MODELS_FAST : CEREBRAS_MODELS) {
     try {
-      const res = await tFetch("https://api.cerebras.ai/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      }, cbTimeout);
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode, cbTimeout);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Cerebras 401");
       if (!res.ok) continue;
@@ -284,17 +329,15 @@ async function cerebras(msgs: Msg[], sys: string | undefined, maxTok: number, fa
 
 // SambaNova: RDU hardware ~700 tok/s, Llama 4 Maverick at 128k context.
 // Excellent for INDH dossier analysis and long business plan generation.
-async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("SAMBANOVA_API_KEY");
   if (!key) throw new Error("no SAMBANOVA_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://api.sambanova.ai/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of SAMBANOVA_MODELS) {
     try {
-      const res = await tFetch("https://api.sambanova.ai/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("SambaNova 401");
       if (!res.ok) continue;
@@ -312,17 +355,15 @@ async function sambanova(msgs: Msg[], sys: string | undefined, maxTok: number): 
 // Mistral La Plateforme: ~1B tokens/month free.
 // Best French + Arabic bilingual models — essential for INDH Morocco (French & Arabic official languages).
 // mistral-small-latest scores highest on French/Arabic benchmarks among free-tier models.
-async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("MISTRAL_API_KEY");
   if (!key) throw new Error("no MISTRAL_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://api.mistral.ai/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of MISTRAL_MODELS) {
     try {
-      const res = await tFetch("https://api.mistral.ai/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Mistral 401");
       if (!res.ok) continue;
@@ -339,17 +380,15 @@ async function mistral(msgs: Msg[], sys: string | undefined, maxTok: number): Pr
 
 // NVIDIA NIM — enterprise-grade inference, 1 000 free API credits/month.
 // DeepSeek-R1 full (685B distill) and Qwen3-235B for best reasoning + multilingual quality.
-async function nvidia(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function nvidia(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("NVIDIA_API_KEY");
   if (!key) throw new Error("no NVIDIA_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://integrate.api.nvidia.com/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of NVIDIA_MODELS) {
     try {
-      const res = await tFetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("NVIDIA 401");
       if (!res.ok) continue;
@@ -366,17 +405,15 @@ async function nvidia(msgs: Msg[], sys: string | undefined, maxTok: number): Pro
 
 // DeepSeek direct API — near-free at $0.07–0.27/M tokens.
 // V3 leads on structured JSON output; R1 rivals o1-mini on reasoning.
-async function deepseek(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function deepseek(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("DEEPSEEK_API_KEY");
   if (!key) throw new Error("no DEEPSEEK_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://api.deepseek.com/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of DEEPSEEK_MODELS) {
     try {
-      const res = await tFetch("https://api.deepseek.com/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("DeepSeek 401");
       if (!res.ok) continue;
@@ -391,7 +428,7 @@ async function deepseek(msgs: Msg[], sys: string | undefined, maxTok: number): P
   throw new Error("DeepSeek all models exhausted");
 }
 
-async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("OPENROUTER_API_KEY");
   if (!key) throw new Error("no OPENROUTER_API_KEY");
   // Best free models first — quality order: reasoning > multilingual > fast
@@ -407,13 +444,11 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
     "meta-llama/llama-3.3-70b-instruct:free",
   ];
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://openrouter.ai/api/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of models) {
     try {
-      const res = await tFetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (!res.ok) continue;
       const d = await res.json();
@@ -424,17 +459,15 @@ async function openrouter(msgs: Msg[], sys: string | undefined, maxTok: number):
   throw new Error("OpenRouter exhausted");
 }
 
-async function together(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function together(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("TOGETHER_API_KEY");
   if (!key) throw new Error("no TOGETHER_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://api.together.xyz/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of TOGETHER_MODELS) {
     try {
-      const res = await tFetch("https://api.together.xyz/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (!res.ok) continue;
       const d = await res.json();
@@ -446,17 +479,15 @@ async function together(msgs: Msg[], sys: string | undefined, maxTok: number): P
 }
 
 // Hyperbolic — OpenAI-compatible drop-in, free starter credits.
-async function hyperbolic(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function hyperbolic(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("HYPERBOLIC_API_KEY");
   if (!key) throw new Error("no HYPERBOLIC_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://api.hyperbolic.xyz/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of HYPERBOLIC_MODELS) {
     try {
-      const res = await tFetch("https://api.hyperbolic.xyz/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Hyperbolic 401");
       if (!res.ok) continue;
@@ -472,17 +503,15 @@ async function hyperbolic(msgs: Msg[], sys: string | undefined, maxTok: number):
 }
 
 // Fireworks AI — OpenAI-compatible, $1 free starter credit.
-async function fireworks(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function fireworks(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("FIREWORKS_API_KEY");
   if (!key) throw new Error("no FIREWORKS_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://api.fireworks.ai/inference/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of FIREWORKS_MODELS) {
     try {
-      const res = await tFetch("https://api.fireworks.ai/inference/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Fireworks 401");
       if (!res.ok) continue;
@@ -498,17 +527,15 @@ async function fireworks(msgs: Msg[], sys: string | undefined, maxTok: number): 
 }
 
 // Hugging Face Inference Providers router — OpenAI-compatible, small free monthly quota.
-async function huggingface(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function huggingface(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("HUGGINGFACE_API_KEY");
   if (!key) throw new Error("no HUGGINGFACE_API_KEY");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://router.huggingface.co/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   for (const model of HUGGINGFACE_MODELS) {
     try {
-      const res = await tFetch("https://router.huggingface.co/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("Hugging Face 401");
       if (!res.ok) continue;
@@ -523,17 +550,15 @@ async function huggingface(msgs: Msg[], sys: string | undefined, maxTok: number)
   throw new Error("Hugging Face all models exhausted");
 }
 
-async function githubModels(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+async function githubModels(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("GITHUB_MODELS_TOKEN");
   if (!key) throw new Error("no GITHUB_MODELS_TOKEN");
   const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = "https://models.github.ai/inference/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28" };
   for (const model of GITHUB_MODELS) {
     try {
-      const res = await tFetch("https://models.github.ai/inference/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      });
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
       if (res.status === 429) continue;
       if (res.status === 401) throw new Error("GitHub Models 401");
       if (!res.ok) continue;
@@ -604,32 +629,28 @@ async function raceFirst(
   });
 }
 
-// Race 5 Groq models in parallel — each has an INDEPENDENT 30 RPM rate limit,
-// so firing them simultaneously quintuples effective throughput vs cycling sequentially.
+// Race 4 Groq models in parallel — each has an INDEPENDENT 30 RPM rate limit,
+// so firing them simultaneously multiplies effective throughput vs cycling sequentially.
 // Always available via hardcoded key. Returns the highest-quality fastest response.
-// Mix of quality (maverick, 70B), reasoning (deepseek-r1, qwen-qwq), and speed (scout).
-async function raceGroqModels(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+// Uses the same confirmed-live model set as GROQ_MODELS above — this list used to
+// carry its own separate (and since-decommissioned) model ids (llama-3.3-70b-versatile,
+// deepseek-r1-distill-llama-70b, qwen-qwq-32b, llama-4-scout/maverick), which meant this
+// race was silently 404-ing on every model and falling through to the slow sequential
+// groq() fallback on every single call. Keep this list in sync with GROQ_MODELS.
+async function raceGroqModels(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("GROQ_API_KEY");
   if (!key) throw new Error("no GROQ_API_KEY");
   const all = [
     ...(sys ? [{ role: "system", content: sys }] : []),
     ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) })),
   ];
-  const topModels = [
-    "meta-llama/llama-4-maverick-17b-128e-instruct", // Best quality, 128k ctx
-    "llama-3.3-70b-versatile",                        // Reliable 70B
-    "deepseek-r1-distill-llama-70b",                  // Reasoning — superior JSON analysis
-    "qwen-qwq-32b",                                   // Reasoning + strong FR/AR multilingual
-    "meta-llama/llama-4-scout-17b-16e-instruct",      // Speed fallback
-  ];
+  const topModels = GROQ_MODELS;
   const perTok = maxTok <= 500 ? 5000 : 10000;
+  const url = "https://api.groq.com/openai/v1/chat/completions";
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
   const result = await raceFirst(
     topModels.map(model => async (_m: Msg[], _s: string | undefined, _t: number): Promise<string> => {
-      const res = await tFetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
-      }, perTok);
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode, perTok);
       if (res.status === 429) throw new Error("429");
       if (res.status === 401) throw new Error("Groq 401");
       if (!res.ok) throw new Error(`Groq ${res.status}`);
@@ -642,7 +663,7 @@ async function raceGroqModels(msgs: Msg[], sys: string | undefined, maxTok: numb
   );
   if (result) return result;
   // Cycle through remaining Groq models sequentially as last resort
-  return groq(msgs, sys, maxTok, false);
+  return groq(msgs, sys, maxTok, false, jsonMode);
 }
 
 // Provider functions cycle through several models internally (e.g. nvidia() tries 5
@@ -707,27 +728,37 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
   // JSON / dialogue: race ALL top-tier providers simultaneously — 13 providers in parallel.
   // First valid response wins; orphaned requests complete but are discarded.
   // JSON needs best quality → 9s window. Dialogue needs speed → 6s window.
+  // For task:"json", every OpenAI-compatible provider (and Gemini) is asked to
+  // constrain its output to a JSON object natively (see fetchChat/oaBody above) —
+  // this is what keeps the result consistently parseable regardless of which of
+  // the providers below happens to answer first, instead of relying only on
+  // prompt wording that a given free-tier model might ignore.
+  const jsonMode = task === "json";
   const raceWindow = task === "json" ? 9000 : 6000;
   const raceText = await raceFirst([
-    anthropic,                                         // Claude Haiku — best when key set
-    githubModels,                                      // GPT-4o / Llama-4 / DeepSeek-R1 — free via GitHub PAT
-    (m, s, t) => gemini(m, s, t, false),               // Gemini 2.5 Flash — 1M ctx, excellent
-    raceGroqModels,                                    // 5 Groq models in parallel — fast when key is set
-    nvidia,                                            // DeepSeek-R1 685B + Qwen3-235B (NIM free)
-    deepseek,                                          // DeepSeek V3 + R1 direct — near-free
-    (m, s, t) => cerebras(m, s, t, false),             // LPU 2 000 tok/s + qwen3-32b FR/AR
-    sambanova,                                         // Llama-4-Maverick 128k — long docs
-    mistral,                                           // Best French + Arabic bilingual
-    openrouter,                                        // Nemotron-253B + R1-0528 + Qwen3-235B free
-    hyperbolic,                                        // DeepSeek-V3 + Qwen2.5-72B — free starter credits
-    fireworks,                                         // DeepSeek-V3 + Llama 70B — $1 free credit
-    huggingface,                                       // Router to Together/Fireworks/Hyperbolic backends
-    pollinations,                                      // Keyless community gateway — zero-setup redundancy
+    anthropic,                                                                  // Claude Haiku — best when key set
+    (m, s, t) => githubModels(m, s, t, jsonMode),                               // GPT-4o / Llama-4 / DeepSeek-R1 — free via GitHub PAT
+    (m, s, t) => gemini(m, s, t, false, jsonMode),                              // Gemini 2.5 Flash — 1M ctx, excellent
+    (m, s, t) => raceGroqModels(m, s, t, jsonMode),                             // 5 Groq models in parallel — fast when key is set
+    (m, s, t) => nvidia(m, s, t, jsonMode),                                     // DeepSeek-R1 685B + Qwen3-235B (NIM free)
+    (m, s, t) => deepseek(m, s, t, jsonMode),                                   // DeepSeek V3 + R1 direct — near-free
+    (m, s, t) => cerebras(m, s, t, false, jsonMode),                            // LPU 2 000 tok/s + qwen3-32b FR/AR
+    (m, s, t) => sambanova(m, s, t, jsonMode),                                  // Llama-4-Maverick 128k — long docs
+    (m, s, t) => mistral(m, s, t, jsonMode),                                    // Best French + Arabic bilingual
+    (m, s, t) => openrouter(m, s, t, jsonMode),                                 // Nemotron-253B + R1-0528 + Qwen3-235B free
+    (m, s, t) => hyperbolic(m, s, t, jsonMode),                                 // DeepSeek-V3 + Qwen2.5-72B — free starter credits
+    (m, s, t) => fireworks(m, s, t, jsonMode),                                  // DeepSeek-V3 + Llama 70B — $1 free credit
+    (m, s, t) => huggingface(m, s, t, jsonMode),                                // Router to Together/Fireworks/Hyperbolic backends
+    pollinations,                                                               // Keyless community gateway — zero-setup redundancy, no jsonMode param
   ], messages, system, max_tokens, raceWindow);
   if (raceText) return raceText;
 
   // Sequential fallback — providers not yet tried in the race
-  for (const fn of [together, nvidia, deepseek]) {
+  for (const fn of [
+    (m: Msg[], s: string | undefined, t: number) => together(m, s, t, jsonMode),
+    (m: Msg[], s: string | undefined, t: number) => nvidia(m, s, t, jsonMode),
+    (m: Msg[], s: string | undefined, t: number) => deepseek(m, s, t, jsonMode),
+  ]) {
     if (outOfTime()) break;
     const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
     if (text) return text;
@@ -740,12 +771,21 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
   if (!outOfTime()) {
     await sleep(1200);
     for (const fn of [
-      raceGroqModels,
-      (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
-      anthropic, githubModels, nvidia, deepseek,
-      (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
-      sambanova, mistral, together, openrouter,
-      hyperbolic, fireworks, huggingface, pollinations,
+      (m: Msg[], s: string | undefined, t: number) => raceGroqModels(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false, jsonMode),
+      anthropic,
+      (m: Msg[], s: string | undefined, t: number) => githubModels(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => nvidia(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => deepseek(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => sambanova(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => mistral(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => together(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => openrouter(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => hyperbolic(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => fireworks(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => huggingface(m, s, t, jsonMode),
+      pollinations,
     ]) {
       if (outOfTime()) break;
       const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
@@ -761,11 +801,21 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
   if (!outOfTime()) {
     await sleep(4000);
     for (const fn of [
-      raceGroqModels, nvidia, deepseek, mistral,
-      (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
-      (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
-      anthropic, githubModels, sambanova, together, openrouter,
-      hyperbolic, fireworks, huggingface, pollinations,
+      (m: Msg[], s: string | undefined, t: number) => raceGroqModels(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => nvidia(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => deepseek(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => mistral(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false, jsonMode),
+      anthropic,
+      (m: Msg[], s: string | undefined, t: number) => githubModels(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => sambanova(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => together(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => openrouter(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => hyperbolic(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => fireworks(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => huggingface(m, s, t, jsonMode),
+      pollinations,
     ]) {
       if (outOfTime()) break;
       const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);

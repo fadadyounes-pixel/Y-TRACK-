@@ -6,9 +6,10 @@ import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import PageHeader from '../../../components/PageHeader';
 import Icon, { type IconName } from '../../../components/Icon';
+import { inferEducationLevel } from '@/lib/matching';
 
-const MAX_CVS = 20;
-const CONCURRENCY = 4;
+const MAX_CVS = 150;
+const CONCURRENCY = 6;
 
 const MOROCCO_HR = `Tu es un expert RH spécialisé dans le marché marocain de l'emploi.
 Secteurs au Maroc: Technology/Numérique (IBM, Capgemini, CBI), Data Science, Finance/Banque (Attijariwafa, BMCE, CIH, Banque Populaire), BTP/Immobilier, Automobile (Renault-Nissan Tanger, PSA Kénitra), Textile, Tourisme/Hôtellerie, Agro-alimentaire (OCP, Centrale Danone, Cosumar), Énergie renouvelable (MASEN, NAREVA), Santé, Marketing, Design, Operations.
@@ -29,6 +30,9 @@ interface CvEntry {
   experience: string;
   skills: string[];
   summary: string;
+  education?: string;
+  educationLevel?: string;
+  languages?: string[];
   enhancedHtml?: string;
   error?: string;
 }
@@ -46,17 +50,67 @@ function fileIcon(name: string) {
   if (/\.(doc|docx)$/i.test(name)) return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="4" fill="#DBEAFE"/><text x="2" y="17" fontSize="9" fontWeight="700" fill="#1E40AF">DOC</text></svg>
   );
-  return (
+  if (/\.(jpe?g|png|webp|gif|bmp)$/i.test(name)) return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="4" fill="#FEF3C7"/><text x="3" y="17" fontSize="9" fontWeight="700" fill="#92400E">IMG</text></svg>
+  );
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="4" fill="#F3F4F6"/><text x="3" y="17" fontSize="9" fontWeight="700" fill="#374151">DOC</text></svg>
   );
 }
 
-async function readFileContent(file: File): Promise<string> {
-  if (file.type === 'text/plain' || /\.txt$/i.test(file.name)) {
-    try { return (await file.text()).slice(0, 3000); } catch {}
+// ── Real content extraction for bulk import — any format ───────────────
+// Images go to the AI as vision input; everything else (PDF, Word, text, or
+// any other format) goes through the shared /api/extract-text route, which
+// does real extraction for PDF/DOCX (pdf-parse/mammoth) and a plain UTF-8
+// decode otherwise. Only when that yields nothing readable do we fall back
+// to a filename-only placeholder, same spirit as the single-CV candidate
+// upload flow — a bulk import of 100+ files can't afford a bespoke parser
+// per format, but it should never just guess from the filename when real
+// text is available.
+async function fileToBase64(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+async function extractFileText(file: File): Promise<string> {
+  try {
+    const fileBase64 = await fileToBase64(file);
+    const r = await fetch('/api/extract-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileBase64 }),
+    });
+    const d = await r.json();
+    return (d.text || '') as string;
+  } catch {
+    return '';
   }
+}
+
+type AIMsgContent = string | Array<{ type: string; [key: string]: unknown }>;
+
+async function buildAiContent(file: File): Promise<AIMsgContent> {
+  if (file.type.startsWith('image/')) {
+    const dataUrl: string = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = e => res(e.target?.result as string);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+    const base64 = dataUrl.split(',')[1];
+    const mediaType = (file.type || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/webp';
+    return [
+      { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+      { type: 'text', text: 'Analyse ce CV (image).' },
+    ];
+  }
+  const text = await extractFileText(file);
+  if (text.trim().length > 60) return `Analyse ce CV (contenu extrait):\n\nFichier: ${file.name}\n\n${text.slice(0, 6000)}`;
   const ext = file.name.split('.').pop()?.toUpperCase() || 'FICHIER';
-  return `[CV ${ext}: "${file.name}" — ${fmtBytes(file.size)}]`;
+  return `[CV ${ext}: "${file.name}" — ${fmtBytes(file.size)} — contenu non lisible automatiquement]`;
 }
 
 function parseJ(txt: string) {
@@ -232,6 +286,7 @@ export default function CoordinatorUpload() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'done' | 'processing' | 'queued' | 'error'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [zipping, setZipping] = useState(false);
 
   const queueRef = useRef<string[]>([]);
   const fileMapRef = useRef<Map<string, File>>(new Map());
@@ -266,16 +321,16 @@ export default function CoordinatorUpload() {
 
     setCvList(p => p.map(c => c.id === id ? { ...c, status: 'processing' } : c));
     try {
-      const content = await readFileContent(file);
+      const content = await buildAiContent(file);
       const r = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content }],
           system: `${MOROCCO_HR}
-Analyse ce CV. Si c'est un fichier binaire (PDF/DOCX/image), déduis les informations probables du nom du fichier.
+Analyse ce CV. Si le contenu n'est pas lisible, déduis les informations probables du nom du fichier.
 Retourne UNIQUEMENT ce JSON valide sans markdown:
-{"name":"nom complet","email":"email ou vide","phone":"téléphone ou vide","sector":"Technology|Data Science|Finance|BTP|Tourisme|Agro-alimentaire|Healthcare|Marketing|Design|Operations|Other","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","skills":["3 à 5 compétences clés"],"summary":"Accroche professionnelle percutante en 1 phrase"}`,
+{"name":"nom complet","email":"email ou vide","phone":"téléphone ou vide","sector":"Technology|Data Science|Finance|BTP|Tourisme|Agro-alimentaire|Healthcare|Marketing|Design|Operations|Other","experience":"Entry-Level|Junior|Mid-Level|Senior|Lead","skills":["3 à 5 compétences clés"],"summary":"Accroche professionnelle percutante en 1 phrase","education":"diplôme principal (ex: Master en Informatique) ou vide","languages":["langues parlées — Français, Anglais, Arabe, etc."]}`,
           task: 'json',
           max_tokens: 500,
         }),
@@ -292,6 +347,9 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         experience: parsed?.experience || 'Mid-Level',
         skills: Array.isArray(parsed?.skills) ? parsed.skills.slice(0, 6) : [],
         summary: parsed?.summary || '',
+        education: parsed?.education || '',
+        educationLevel: inferEducationLevel(parsed?.education || ''),
+        languages: Array.isArray(parsed?.languages) ? parsed.languages.slice(0, 5) : [],
       } : c));
     } catch {
       setCvList(p => p.map(c => c.id === id ? { ...c, status: 'error', error: 'Erreur de traitement' } : c));
@@ -386,14 +444,54 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 
   function exportCSV() {
     const done = cvList.filter(c => c.status === 'done');
-    const header = 'Nom,Email,Téléphone,Secteur,Expérience,Compétences,Résumé,Fichier,CV Amélioré';
-    const rows = done.map(c => [c.name, c.email, c.phone, c.sector, c.experience, c.skills.join('; '), c.summary, c.fileName, c.enhanceStatus === 'enhanced' ? 'Oui' : 'Non'].map(v => `"${(v || '').replace(/"/g, '""')}"`).join(','));
+    const header = 'Nom,Email,Téléphone,Secteur,Expérience,Formation,Langues,Compétences,Résumé,Fichier,CV Amélioré';
+    const rows = done.map(c => [c.name, c.email, c.phone, c.sector, c.experience, c.education || '', (c.languages || []).join('; '), c.skills.join('; '), c.summary, c.fileName, c.enhanceStatus === 'enhanced' ? 'Oui' : 'Non'].map(v => `"${(v || '').replace(/"/g, '""')}"`).join(','));
     const csv = [header, ...rows].join('\n');
     const a = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })),
       download: `Candidats_TalentMap_${new Date().toISOString().slice(0, 10)}.csv`,
     });
     a.click();
+  }
+
+  // ── Bulk "download all" — every original uploaded file, zipped client-side
+  // in one shot (no server round trip), so a coordinator who just imported
+  // 100+ CVs can hand the whole batch to a hiring manager in seconds instead
+  // of downloading them one by one. Includes every imported file regardless
+  // of AI-analysis outcome — the point is giving back exactly what was
+  // uploaded, not only the ones the AI could read.
+  async function downloadAllZip() {
+    if (total === 0 || zipping) return;
+    setZipping(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const usedNames = new Set<string>();
+      for (const cv of cvList) {
+        const file = fileMapRef.current.get(cv.id);
+        if (!file) continue;
+        const dot = file.name.lastIndexOf('.');
+        const base = (dot > 0 ? file.name.slice(0, dot) : file.name).replace(/[\\/:*?"<>|]/g, '_');
+        const ext = dot > 0 ? file.name.slice(dot) : '';
+        const label = cv.name && cv.status === 'done' ? cv.name.replace(/[\\/:*?"<>|]/g, '_') : base;
+        let zipName = `${label}${ext}`;
+        let n = 2;
+        while (usedNames.has(zipName.toLowerCase())) { zipName = `${label} (${n})${ext}`; n++; }
+        usedNames.add(zipName.toLowerCase());
+        zip.file(zipName, file);
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(blob),
+        download: `CVs_TalentMap_${new Date().toISOString().slice(0, 10)}.zip`,
+      });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    } catch (e) {
+      console.error('Bulk ZIP export failed', e);
+    } finally {
+      setZipping(false);
+    }
   }
 
   const total = cvList.length;
@@ -451,6 +549,11 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                 Améliorer tout ({done})
               </button>
             )}
+            {total > 0 && (
+              <button onClick={downloadAllZip} disabled={zipping} className="action-btn" style={{ padding: '8px 16px', background: zipping ? '#9ca3af' : '#0a1f5c', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: zipping ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {zipping ? (<><svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 1s linear infinite' }}><circle cx="12" cy="12" r="10" stroke="#fff" strokeWidth="2" strokeDasharray="40" strokeDashoffset="10"/></svg>Compression…</>) : <>↓ Télécharger tout (.zip)</>}
+              </button>
+            )}
             {done > 0 && (
               <button onClick={exportCSV} className="action-btn" style={{ padding: '8px 16px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                 ↓ Exporter CSV
@@ -488,7 +591,7 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               borderRadius: 14, padding: '32px 24px', textAlign: 'center',
               cursor: 'pointer', transition: 'all 0.18s', marginBottom: 20,
             }}>
-            <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} onChange={e => e.target.files && handleFiles(e.target.files)} />
+            <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => e.target.files && handleFiles(e.target.files)} />
             <div style={{ width: 52, height: 52, borderRadius: 12, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
@@ -496,10 +599,10 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               {dragging ? 'Déposez ici' : 'Glissez vos CVs ici'}
             </h3>
             <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
-              Jusqu'à <strong>{MAX_CVS - total}</strong> CV{MAX_CVS - total > 1 ? 's' : ''} restant{MAX_CVS - total > 1 ? 's' : ''} · PDF, DOCX, DOC, JPG, PNG
+              Jusqu'à <strong>{MAX_CVS - total}</strong> CV{MAX_CVS - total > 1 ? 's' : ''} restant{MAX_CVS - total > 1 ? 's' : ''} · tous formats acceptés
             </p>
             <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 18 }}>
-              {[['PDF', '#FEE2E2', '#991B1B'], ['DOCX', '#DBEAFE', '#1E40AF'], ['DOC', '#DBEAFE', '#1E40AF'], ['JPG/PNG', '#FEF3C7', '#92400E']].map(([ext, bg, color]) => (
+              {[['PDF', '#FEE2E2', '#991B1B'], ['DOCX', '#DBEAFE', '#1E40AF'], ['DOC', '#DBEAFE', '#1E40AF'], ['JPG/PNG', '#FEF3C7', '#92400E'], ['TXT/autre', '#F3F4F6', '#374151']].map(([ext, bg, color]) => (
                 <span key={ext} style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: bg, color }}>{ext}</span>
               ))}
             </div>

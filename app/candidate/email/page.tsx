@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import PageHeader from '../../../components/PageHeader';
 import Icon, { type IconName } from '../../../components/Icon';
-import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
+import { loadStoredProfile } from '@/lib/profile';
 
 type FlowStep = 'intro' | 'qa' | 'generating' | 'result';
 
@@ -130,10 +130,9 @@ export default function EmailGenerator() {
     if (initialized && (!user || user.role !== 'candidate')) { router.push('/login'); return; }
     if (!user) return;
     const loaded = loadStoredProfile(user.idNumber);
-    // Mandatory onboarding gate: candidates must complete their profile
-    // before reaching the letter generator, matching the CareerMap flow.
-    if (!isProfileComplete(loaded)) { router.push('/candidate/info'); return; }
-    setInfo(loaded);
+    // No mandatory profile step — the letter generator works with whatever
+    // info exists locally, falling back to the account's own name/email.
+    setInfo(loaded || {});
   }, [user, initialized, router]);
 
   // Declared before the "not ready yet" early return below — every hook in this
@@ -156,7 +155,7 @@ export default function EmailGenerator() {
     // further down (user/info are both loaded by then).
     const name = `${info?.firstName || ''} ${info?.lastName || ''}`.trim() || user!.name;
     const phone = info?.phone || '';
-    const email = user!.email || '';
+    const email = info?.email || user!.email || '';
 
     const system = `Rédige une lettre de candidature formelle en français. RÈGLES STRICTES:
 - 3 paragraphes. Commencer par "Madame, Monsieur,". Terminer par "Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées."
