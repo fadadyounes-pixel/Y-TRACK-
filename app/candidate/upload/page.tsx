@@ -9,10 +9,9 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, inferEducationLevel } from '@/lib/matching';
 import {
   generateCVHtml, LANG_FLAGS, cleanAIText, pickStyle, parseTemplateId, templateId, cvFileName,
-  CV_LAYOUTS, CV_PALETTES, inferDiplomaLevel, DIPLOMA_LEVELS,
+  CV_LAYOUTS, CV_PALETTES, inferDiplomaLevel, DIPLOMA_LEVELS, suggestTopTemplates,
   type WorkEntry, type Education,
 } from '@/lib/cvTemplate';
-import { isProfileComplete, loadStoredProfile } from '@/lib/profile';
 import { scoreCV, scoreBandStyle } from '@/lib/cvScore';
 import { cvAgentSystemPrompt } from '@/lib/cvAgent';
 
@@ -34,7 +33,7 @@ const LANGUAGES = ['Français', 'Anglais', 'Arabe', 'Espagnol', 'Allemand', 'Né
 const LANGUAGE_LEVELS = ['Débutant', 'Intermédiaire', 'Avancé', 'Courant', 'Langue maternelle'];
 
 
-type Step = 'cv' | 'preview' | 'jobs';
+type Step = 'cv' | 'design' | 'preview' | 'jobs';
 
 function computeMatchScore(cv: { skills: string[]; experience: string; educationLevel?: string; languages?: string[] }, job: any): number {
   return computeMatch(cv, job).total;
@@ -125,8 +124,9 @@ export default function CandidateUpload() {
   const [applications, setApplications] = useState<Record<string, { status: string; appliedAt: string }>>({});
   const [applyingJob, setApplyingJob] = useState<string | null>(null);
 
-  // Set once the mandatory-profile gate below has confirmed access — keeps
-  // the CV builder from flashing before the redirect to /candidate/info fires.
+  // Set once the auth check below has confirmed this is a logged-in
+  // candidate — keeps the CV builder from flashing before a redirect to
+  // /login fires for anyone else.
   const [profileChecked, setProfileChecked] = useState(false);
 
   // Photo + links from info profile — photo is optional there, so it can
@@ -169,9 +169,10 @@ export default function CandidateUpload() {
   useEffect(() => {
     if (!initialized) return;
     if (!user || user.role !== 'candidate') { router.push('/login'); return; }
-    // Mandatory onboarding gate: candidates must complete their profile
-    // before reaching the CV builder, matching the CareerMap flow.
-    if (!isProfileComplete(loadStoredProfile(user.idNumber))) { router.push('/candidate/info'); return; }
+    // No mandatory profile step before this page — candidates land here
+    // directly from login. Whatever info/CV data exists locally (from a
+    // previous visit, or from the optional /candidate/info page) is loaded
+    // below on a best-effort basis; missing fields just start blank.
     setProfileChecked(true);
     setName(user.name);
     setEmail(user.email);
@@ -354,6 +355,14 @@ export default function CandidateUpload() {
     [name, email, phone, address, summary, skills, languages, work, education, targetRoles, certifications, linkedin, portfolio]
   );
 
+  // The 5 best-matching designs for this candidate's sector — computed once
+  // real CV content exists, so the mini-previews on the design-picker step
+  // show their actual CV, not a placeholder.
+  const designSuggestions = useMemo(
+    () => suggestTopTemplates(sector, user?.idNumber || email || name || 'talentmap'),
+    [sector, user, email, name]
+  );
+
   if (!user || user.role !== 'candidate' || !profileChecked) return null;
 
   // ── PDF download — opens browser print dialog directly (no popup) ──────────
@@ -385,75 +394,25 @@ export default function CandidateUpload() {
     }, 1500);
   }
 
-  // ── Extract readable text from a PDF binary (no external library) ──
-  // Handles both uncompressed streams and FlateDecode (zlib/deflate) compressed streams,
-  // which are the standard format produced by Word, LibreOffice, and Acrobat.
-  async function extractPdfText(file: File): Promise<string> {
+  // ── Extract readable text from any non-image file via the server ──────────
+  // /api/extract-text uses pdf-parse for PDFs and mammoth for DOCX (real,
+  // structured extraction), falling back to a plain UTF-8 decode for every
+  // other format (.doc, .rtf, .txt, .odt, ...) — this is what lets the
+  // upload accept "any format" honestly rather than only pretending to.
+  async function extractFileText(file: File): Promise<string> {
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const rawBytes = new Uint8Array(arrayBuffer);
-      // Build Latin-1 binary string for regex-based stream discovery
+      const bytes = new Uint8Array(arrayBuffer);
       let binary = '';
-      for (let i = 0; i < rawBytes.byteLength; i++) binary += String.fromCharCode(rawBytes[i]);
-
-      const texts: string[] = [];
-
-      // Extract text tokens from BT...ET operator blocks in a decoded PDF content stream
-      function extractBtEt(content: string) {
-        const blocks = content.match(/BT[\s\S]*?ET/g) || [];
-        for (const block of blocks) {
-          const parens = block.match(/\(([^)\\]*(?:\\.[^)\\]*)*)\)/g) || [];
-          for (const p of parens) {
-            const inner = p.slice(1, -1)
-              .replace(/\\n/g, '\n').replace(/\\r/g, '\r')
-              .replace(/\\\\/g, '\\').replace(/\\\(/g, '(').replace(/\\\)/g, ')');
-            const clean = inner.replace(/[^\x20-\x7E\n\rÀ-ɏ]/g, ' ').trim();
-            if (clean.length > 1) texts.push(clean);
-          }
-        }
-      }
-
-      // Pass 1: uncompressed streams (simple/legacy PDFs)
-      extractBtEt(binary);
-
-      // Pass 2: FlateDecode compressed streams — standard in modern PDFs (Word, LibreOffice, Acrobat)
-      // PDF spec: "stream" keyword → \r\n or \n → compressed bytes → \r?\n → "endstream"
-      const streamRe = /stream\r?\n([\s\S]*?)(?:\r?\n)?endstream/g;
-      let match;
-      while ((match = streamRe.exec(binary)) !== null) {
-        const data = match[1];
-        if (!data || data.length < 20) continue;
-
-        // Convert binary string slice back to Uint8Array (preserve raw byte values)
-        const streamBytes = new Uint8Array(data.length);
-        for (let i = 0; i < data.length; i++) streamBytes[i] = data.charCodeAt(i) & 0xff;
-
-        // Try deflate-raw (PDF default, RFC 1951) then deflate (zlib wrapper, RFC 1950)
-        for (const fmt of ['deflate-raw', 'deflate'] as const) {
-          try {
-            const ds = new DecompressionStream(fmt);
-            const writer = ds.writable.getWriter();
-            const reader = ds.readable.getReader();
-            writer.write(streamBytes);
-            writer.close();
-
-            const chunks: Uint8Array[] = [];
-            for (;;) {
-              const { value, done } = await reader.read();
-              if (done) break;
-              if (value) chunks.push(value);
-            }
-            const total = chunks.reduce((a, c) => a + c.length, 0);
-            const combined = new Uint8Array(total);
-            let off = 0;
-            for (const c of chunks) { combined.set(c, off); off += c.length; }
-            extractBtEt(new TextDecoder('latin1').decode(combined));
-            break; // success — skip the other format
-          } catch { /* wrong format or non-deflate stream — try next */ }
-        }
-      }
-
-      return texts.join(' ').replace(/\s{2,}/g, ' ').trim();
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      const fileBase64 = btoa(binary);
+      const r = await fetch('/api/extract-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileBase64 }),
+      });
+      const d = await r.json();
+      return (d.text || '') as string;
     } catch {
       return '';
     }
@@ -466,7 +425,6 @@ export default function CandidateUpload() {
 
     // Build AI message based on file type
     const isImage = file.type.startsWith('image/');
-    const isPdf   = file.type === 'application/pdf';
     let msgContent: AIMsgContent;
 
     try {
@@ -483,22 +441,20 @@ export default function CandidateUpload() {
           { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
           { type: 'text', text: `Analyse ce CV (image). Extrait toutes les informations visibles: nom, email, téléphone, adresse, expériences professionnelles (entreprise, poste, dates, description), formation, compétences, langues. Retourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"secteur principal","experience":"entry-level|junior|mid-level|senior|lead","skills":["competence1","competence2","competence3","competence4","competence5"],"summary":"résumé professionnel 2 phrases","work":[{"company":"","title":"","startDate":"","endDate":"","description":""}],"education":{"degree":"","institution":"","year":""},"languages":[]}` },
         ];
-      } else if (isPdf) {
-        // Try client-side text extraction first — works with all AI providers
-        const pdfText = await extractPdfText(file);
-        if (pdfText.length > 100) {
+      } else {
+        // Any non-image format (PDF, Word, text, or anything else) — the
+        // server does real extraction where it can (PDF/DOCX) and a plain
+        // text decode otherwise.
+        const fileText = await extractFileText(file);
+        if (fileText.trim().length > 100) {
           // Use plain text — compatible with every provider in the cascade
-          msgContent = `Analyse ce CV (PDF, contenu extrait):\n\nFichier: ${file.name}\n\n${pdfText.slice(0, 6000)}`;
+          msgContent = `Analyse ce CV (contenu extrait):\n\nFichier: ${file.name}\n\n${fileText.slice(0, 6000)}`;
         } else {
           // Safe fallback — plain text readable by ALL providers in the cascade.
           // Never send Anthropic binary format here: non-Anthropic providers strip it
           // and the AI receives no content, causing JSON parse failure → error screen.
-          msgContent = `Fichier CV reçu: "${file.name}" (PDF — contenu chiffré ou non lisible automatiquement).\n\nGénère un profil vide structuré pour que l'utilisateur puisse le compléter manuellement.\nRetourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"","experience":"Mid-Level","skills":[],"summary":"Profil à compléter","work":[],"education":{"degree":"","institution":"","year":""},"languages":[],"targetRoles":[],"certifications":[]}`;
+          msgContent = `Fichier CV reçu: "${file.name}" (contenu chiffré ou non lisible automatiquement).\n\nGénère un profil vide structuré pour que l'utilisateur puisse le compléter manuellement.\nRetourne UNIQUEMENT ce JSON valide (sans markdown):\n{"name":"","email":"","phone":"","address":"","sector":"","experience":"Mid-Level","skills":[],"summary":"Profil à compléter","work":[],"education":{"degree":"","institution":"","year":""},"languages":[],"targetRoles":[],"certifications":[]}`;
         }
-      } else {
-        let rawText = '';
-        try { rawText = await file.text(); } catch { rawText = file.name; }
-        msgContent = `Analyse ce CV:\nFichier: ${file.name}\n${rawText.slice(0, 3000)}`;
       }
     } catch {
       msgContent = `Fichier: ${file.name}`;
@@ -589,8 +545,9 @@ export default function CandidateUpload() {
         },
       }),
     }).catch(() => {});
-    // Auto-advance to preview
-    setTimeout(() => setStep('preview'), 800);
+    // Auto-advance to the 5-design picker, not straight to preview — the
+    // candidate chooses their look before seeing the full CV.
+    setTimeout(() => setStep('design'), 800);
   }
 
   function capitalize(s: string) {
@@ -691,7 +648,7 @@ export default function CandidateUpload() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary, targetRoles, certifications, work, education, educationLevel: inferEducationLevel(education[0]?.degree), languages, languageLevels, cvStyle: effectiveStyle, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
       }).catch(() => {});
-      setStep('preview');
+      setStep('design');
       return;
     }
 
@@ -733,7 +690,7 @@ export default function CandidateUpload() {
       body: JSON.stringify({ type: 'save_cv', cv: { id: user!.idNumber, status: 'done', name, email, phone, sector, experience, skills, summary: resolvedSummary, targetRoles: resolvedRoles, certifications, work, education, educationLevel: inferEducationLevel(education[0]?.degree), languages, languageLevels, cvStyle: effectiveStyle, uploadedAt: new Date().toISOString(), fileName: 'Template CV', fileSize: 'N/A' } }),
     }).catch(() => {});
     setGeneratingCV(false);
-    setStep('preview');
+    setStep('design');
   }
 
   function instantAdapt(job: any): { summary: string; skills: string[] } {
@@ -799,8 +756,9 @@ export default function CandidateUpload() {
   // ─── Step indicator ───────────────────────────────────────────────────────
   const STEPS = [
     { key: 'cv' as Step,      n: 1, label: 'Mon CV' },
-    { key: 'preview' as Step, n: 2, label: 'Téléchargement' },
-    { key: 'jobs' as Step,    n: 3, label: 'Offres d\'emploi' },
+    { key: 'design' as Step, n: 2, label: 'Choisir le design' },
+    { key: 'preview' as Step, n: 3, label: 'Téléchargement' },
+    { key: 'jobs' as Step,    n: 4, label: 'Offres d\'emploi' },
   ];
 
   return (
@@ -872,13 +830,13 @@ export default function CandidateUpload() {
                     onClick={() => fileInputRef.current?.click()}
                     style={{ border: '2px dashed #d1d5db', background: 'white', borderRadius: '16px', padding: '3.5rem 2rem', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
                   >
-                    <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" style={{ display: 'none' }}
+                    <input ref={fileInputRef} type="file" style={{ display: 'none' }}
                       onChange={e => { const f = e.target.files?.[0]; if (f) analyzeUpload(f); }} />
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
                       <Icon name="folder" size={48} color="#9ca3af"/>
                     </div>
                     <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#111827', marginBottom: '0.5rem' }}>Déposez votre CV ici</h3>
-                    <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1.25rem' }}>PDF, Word, Image (JPG/PNG)</p>
+                    <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1.25rem' }}>Tous formats acceptés — PDF, Word, image (JPG/PNG), texte…</p>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', background: '#fefce8', borderRadius: '9999px', fontSize: '0.82rem', color: '#92400e', fontWeight: 600, marginBottom: '1rem', border: '1px solid #fde68a' }}>
                       <Icon name="shield-check" size={14}/> L'Expert RH analyse et optimise automatiquement votre CV pour le marché marocain
                     </div>
@@ -1227,6 +1185,62 @@ export default function CandidateUpload() {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════
+            STEP 1.5: Choose from the 5 best design suggestions
+        ════════════════════════════════════════════════════ */}
+        {step === 'design' && (
+          <div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#111827', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name="palette" size={22}/>Choisissez votre design</h1>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.2rem' }}>5 designs sélectionnés pour votre profil, avec votre CV déjà appliqué — ou explorez les 100 designs disponibles à l'étape suivante.</p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+              {designSuggestions.map((sugg, i) => {
+                const layout = CV_LAYOUTS.find(l => l.id === sugg.layout);
+                const palette = CV_PALETTES.find(p => p.id === sugg.palette);
+                const miniHtml = generateCVHtml(
+                  {
+                    name, email, phone, address, idNumber: user.idNumber ?? '', title, summary, skills, languages, languageLevels,
+                    experience, sector, work, education, targetRoles, certifications, interests, photo, linkedin, portfolio,
+                    birthDate, maritalStatus, nationality, drivingLicense, availability, mobility, cvLang,
+                    isJunior: experience === 'Entry-Level',
+                  },
+                  { templateId: templateId(sugg.layout, sugg.palette) }
+                );
+                const scale = 0.235;
+                return (
+                  <div key={i} style={{ background: 'white', borderRadius: '14px', border: '1.5px solid #e5e7eb', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    {i === 0 && (
+                      <div style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.68rem', fontWeight: 800, textAlign: 'center', padding: '0.3rem 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>★ Recommandé pour vous</div>
+                    )}
+                    <div style={{ width: '100%', height: Math.round(1123 * scale), overflow: 'hidden', position: 'relative', background: '#f3f4f6' }}>
+                      <iframe srcDoc={miniHtml} tabIndex={-1} title={`${layout?.name} ${palette?.name}`} style={{ width: 794, height: 1123, border: 'none', transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none' }} sandbox="allow-same-origin" />
+                    </div>
+                    <div style={{ padding: '0.75rem 0.9rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ width: 12, height: 12, borderRadius: '50%', background: palette?.hex, flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#111827' }}>{layout?.name}</span>
+                      </div>
+                      <span style={{ fontSize: '0.72rem', color: '#9ca3af' }}>{palette?.name}</span>
+                      <button
+                        onClick={() => { setLayoutOverride(sugg.layout); setPaletteOverride(sugg.palette); setStep('preview'); }}
+                        style={{ marginTop: 'auto', padding: '0.5rem 0.8rem', borderRadius: '8px', background: '#2563eb', color: 'white', border: 'none', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>
+                        Choisir ce design
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button onClick={() => setStep('cv')} style={{ padding: '0.7rem 1.25rem', borderRadius: '8px', border: '1.5px solid #e5e7eb', background: 'white', color: '#374151', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>← Modifier mon CV</button>
+              <button onClick={() => setStep('preview')} style={{ padding: '0.7rem 1.25rem', borderRadius: '8px', border: '1.5px solid #bfdbfe', background: '#eff6ff', color: '#2563eb', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>Voir les 100 designs →</button>
+            </div>
           </div>
         )}
 

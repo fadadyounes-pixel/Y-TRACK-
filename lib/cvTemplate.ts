@@ -209,6 +209,38 @@ export function parseTemplateId(id: string | undefined): { layout: CVLayout; pal
   return parseTemplateId(auto.templateId);
 }
 
+// Sector → best-matching layout, used to seed the "5 best design suggestions"
+// shown right after a CV is generated (upload or template flow). Candidates
+// are never limited to these 5 — the full 100-combo gallery stays available
+// on the preview step — this is just a fast, sensible starting shortlist.
+const SECTOR_LAYOUT_PREFERENCE: Record<string, string> = {
+  Technology: 'colonne', 'Data Science': 'colonne', Finance: 'classique', Marketing: 'bandeau',
+  Design: 'colonne', Operations: 'chronologie', BTP: 'chronologie', Tourisme: 'accueil',
+  'Agro-alimentaire': 'chronologie', Healthcare: 'accueil', Other: 'classique',
+};
+
+// Picks 5 distinct, well-distributed layout/palette combos: the candidate's
+// deterministic auto-pick first (sector-matched layout + their stable
+// auto-assigned palette), then 4 more diverse combos with palettes varied
+// deterministically from the seed so the same candidate always sees the
+// same 5 options until they explicitly change sector.
+export function suggestTopTemplates(sector: string, seed: string): { layout: string; palette: string }[] {
+  const preferred = SECTOR_LAYOUT_PREFERENCE[sector] || 'classique';
+  const auto = parseTemplateId(pickStyle(seed).templateId);
+  const candidateLayouts = [preferred, 'ats', 'executif', 'duo', 'institution', ...CV_LAYOUTS.map(l => l.id)];
+  const uniqueLayouts: string[] = [];
+  for (const id of candidateLayouts) {
+    if (uniqueLayouts.includes(id) || !LAYOUT_BY_ID[id]) continue;
+    uniqueLayouts.push(id);
+    if (uniqueLayouts.length >= 5) break;
+  }
+  return uniqueLayouts.map((layoutId, i) => {
+    if (i === 0) return { layout: layoutId, palette: auto.palette.id };
+    const palette = CV_PALETTES[hashString(`${seed}:${layoutId}`) % CV_PALETTES.length].id;
+    return { layout: layoutId, palette };
+  });
+}
+
 /* ── Trilingual section labels (CV content language ≠ app UI language) ──── */
 interface Labels {
   profile: string; exp: string; intern: string; edu: string; skills: string; langs: string;

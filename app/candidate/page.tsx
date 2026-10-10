@@ -6,7 +6,6 @@ import Link from 'next/link';
 import PageHeader from '../../components/PageHeader';
 import Icon, { type IconName } from '../../components/Icon';
 import { useAuth } from '../../contexts/AuthContext';
-import { isProfileComplete } from '@/lib/profile';
 import { regionDisplay } from '@/lib/morocco';
 import { scoreCV } from '@/lib/cvScore';
 
@@ -37,10 +36,10 @@ export default function CandidateDashboard() {
     let loadedInfo: Record<string, any> | null = null;
     try { const s = localStorage.getItem(`tm_info_${user.idNumber}`); if (s) loadedInfo = JSON.parse(s); } catch {}
     try { const c = localStorage.getItem(`tm_cv_${user.idNumber}`);   if (c) setCvData(JSON.parse(c)); } catch {}
-    // Mandatory onboarding gate: candidates must complete their profile
-    // before reaching the dashboard, matching the CareerMap flow.
-    if (!isProfileComplete(loadedInfo)) { router.push('/candidate/info'); return; }
-    setInfo(loadedInfo);
+    // No mandatory profile step — the dashboard renders with whatever
+    // info exists locally (possibly none yet, if the candidate hasn't
+    // visited /candidate/info or built a CV).
+    setInfo(loadedInfo || {});
   }, [user, initialized, router]);
 
   if (!initialized || !user || user.role !== 'candidate' || !info) return null;
