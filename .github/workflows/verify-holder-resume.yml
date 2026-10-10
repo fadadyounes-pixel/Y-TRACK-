@@ -1,4 +1,5 @@
 name: Verify holder persistence round-trip
+# re-run: confirming the Blob fallback (PR #111)
 
 # Manual-only diagnostic: proves /api/sheets' Redis-backed save/read path
 # actually round-trips a holder record in production, which is what lets a
