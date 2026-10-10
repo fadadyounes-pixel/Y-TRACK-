@@ -1920,6 +1920,16 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [dlLang, setDlLang]                 = useState(lang);
   const [docxBusy, setDocxBusy]             = useState<"projet" | "technique" | "plan" | null>(null);
   const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
+  // PO/devis upload (optional, offered on the equipment question only) — see
+  // the dialogue step's render block for the control itself.
+  const [poBusy, setPoBusy]                 = useState(false);
+  const [poErr, setPoErr]                   = useState("");
+  // Holds the PO's extracted total MAD amount between answering the equipment
+  // question (17) with it and the cost question (18) becoming current — two
+  // sendMsg() calls can't run back-to-back synchronously (the second would
+  // read qN's stale pre-update value), so the effect below fires the second
+  // one only once qN has actually advanced.
+  const pendingPoAmountRef = useRef<string | null>(null);
   // Keep download language in sync with the UI language unless the user has explicitly overridden it
   useEffect(() => { setDlLang(lang); }, [lang]);
   const fileInputRef  = useRef<HTMLInputElement>(null);
@@ -2698,6 +2708,49 @@ NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON 
     })().catch(() => {});
   };
 
+  // Once sendMsg() has actually advanced to the cost question (18), fire the
+  // PO's extracted amount as that question's answer — see pendingPoAmountRef.
+  useEffect(() => {
+    if (qN === 19 && pendingPoAmountRef.current && !busy) {
+      const amt = pendingPoAmountRef.current;
+      pendingPoAmountRef.current = null;
+      sendMsg(amt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qN, busy]);
+
+  // Optional devis/PO upload, offered only on the equipment question (index
+  // 17 / qN 18): reads the document, has the AI extract the real supplier
+  // amount and equipment description, answers the current (equipment)
+  // question with the description, then queues the amount to answer the
+  // very next (cost) question once it becomes current.
+  const handlePoFile = async (f: File) => {
+    if (f.size > 5 * 1024 * 1024) {
+      setPoErr(lang==="ar"?"الملف كبير جداً (الحد 5 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 5 Mo)":"File too large (max 5 MB)");
+      return;
+    }
+    setPoErr(""); setPoBusy(true);
+    try {
+      const buf = await f.arrayBuffer();
+      const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+      const r = await fetch("/api/parse-po", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({fileBase64: b64, lang}),
+      });
+      const d = await r.json();
+      if (d.totalAmount && d.equipmentSummary) {
+        pendingPoAmountRef.current = `${d.totalAmount} MAD`;
+        sendMsg(d.equipmentSummary);
+      } else {
+        setPoErr(d.error || (lang==="ar"?"تعذر العثور على مبلغ في هذه الوثيقة":lang==="fr"?"Aucun montant trouvé dans ce document":"No amount found in this document"));
+      }
+    } catch {
+      setPoErr(lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file");
+    } finally {
+      setPoBusy(false);
+    }
+  };
+
   const genPlan = async () => {
     // Instant local draft first — same principle as the questionnaire and profile
     // steps: never block the applicant on a network call, especially not for the
@@ -3071,6 +3124,37 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     opacity: busy || !inp.trim() ? .5 : 1, flexShrink: 0}}>
                   {dir === "rtl" ? "←" : "→"}
                 </button>
+              </div>
+            )}
+
+            {/* Optional devis/PO upload — only on the equipment question. If the
+                holder has a real supplier quote, the AI reads it and answers
+                both this question and the next (cost) one with the real
+                figures, instead of the holder typing them. */}
+            {qN === 18 && !busy && (
+              <div style={{marginTop: "10px"}}>
+                <label style={{display: "flex", alignItems: "center", gap: 10, padding: "11px 14px",
+                  borderRadius: 10, border: `1.5px dashed ${Y}`, background: YL,
+                  cursor: poBusy ? "default" : "pointer", opacity: poBusy ? .6 : 1}}>
+                  <span style={{fontSize: 18}}>{poBusy ? "⏳" : "📎"}</span>
+                  <div>
+                    <div style={{fontSize: 12, fontWeight: 600, color: ND, fontFamily: ff(lang), direction: dir as "rtl"|"ltr"}}>
+                      {poBusy
+                        ? (lang==="ar"?"جارٍ قراءة المبلغ...":lang==="fr"?"Lecture du montant...":"Reading the amount...")
+                        : (lang==="ar"?"أو استوردوا عرض ثمن (PDF) — اختياري":lang==="fr"?"Ou importez un devis (PDF/Word) — optionnel":"Or upload a quote/PO (PDF/Word) — optional")}
+                    </div>
+                    <div style={{fontSize: 10, color: GR, fontFamily: ff(lang), direction: dir as "rtl"|"ltr"}}>
+                      {lang==="ar"?"سنقرأ المبلغ والتجهيزات تلقائياً":lang==="fr"?"Le montant et l'équipement seront lus automatiquement":"The amount and equipment will be read automatically"}
+                    </div>
+                  </div>
+                  <input type="file" accept=".pdf,.docx" disabled={poBusy} style={{display: "none"}}
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) handlePoFile(f);
+                    }}/>
+                </label>
+                {poErr && <p style={{color: RE, fontSize: 12, marginTop: 6, fontFamily: ff(lang)}}>{poErr}</p>}
               </div>
             )}
             <div ref={msgEnd}/>
@@ -3703,7 +3787,6 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         })()}
 
       </div>
-      <HelpAgent lang={lang} context={`Porteur: ${user.name} | Étape: ${step} | Projet: ${proj?.projectName || "en cours"} | Secteur: ${proj?.sector || user.profile?.sector || ""} | Score conformité: ${comp?.score != null ? comp.score + "/100" : "non évalué encore"}`}/>
     </div>
   );
 }
