@@ -84,7 +84,7 @@ const RE  = "#C0632F";   // Warning      — errors, "En cours", risk indicators
 /* Logo appears only on the login page via /logo-transparent.png */
 
 /* ── AUTH ────────────────────────────────────────────── */
-const ADMIN_CODE = "@mapadmin";
+const ADMIN_CODE = "yfadad";
 const RE_HOLDER  = /^[A-Z]{2}\d{3,}$/;
 const RE_COORD   = /^@[A-Za-z]{2,}COD$/i;
 
@@ -405,6 +405,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     enter:"Entrez votre identifiant",
     enterHint:"Porteur: CIN (ex: AB123456) · Coordinateur: @NOMCOD · Admin: code admin",
     cinError:"Identifiant non reconnu ou compte coordinateur non créé.",
+    checkingRecords:"Vérification de vos données en cours — réessayez dans un instant.",
     login:"Accéder",
     newAccount:"Créer mon compte",
     existingAccount:"J'ai déjà un compte",
@@ -464,6 +465,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     enter:"أدخل معرّفك",
     enterHint:"حامل المشروع: رقم البطاقة (مثال: AB123456) · المنسق: @NOMCOD · المدير: رمز الإدارة",
     cinError:"المعرّف غير معروف أو لم يتم إنشاء حساب المنسق بعد.",
+    checkingRecords:"جارٍ التحقق من بياناتك — أعد المحاولة بعد لحظة.",
     login:"دخول",
     newAccount:"إنشاء حسابي",
     existingAccount:"لدي حساب بالفعل",
@@ -523,6 +525,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     enter:"Enter your identifier",
     enterHint:"Holder: CIN (e.g. AB123456) · Coordinator: @LASTNAMECOD · Admin: admin code",
     cinError:"Unrecognized identifier or coordinator account not yet created.",
+    checkingRecords:"Checking your records — try again in a moment.",
     login:"Sign In",
     newAccount:"Create my account",
     existingAccount:"I already have an account",
@@ -1184,12 +1187,13 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, se
 /* ════════════════════════════════════════════════════════
    LOGIN SCREEN
 ════════════════════════════════════════════════════════ */
-function Login({lang, setLang, t, onLogin, holders, coords}: {
+function Login({lang, setLang, t, onLogin, holders, coords, syncing}: {
   lang: string; setLang: (l: string) => void; t: any;
-  onLogin: (u: any) => void; holders: any[]; coords: Coord[];
+  onLogin: (u: any) => void; holders: any[]; coords: Coord[]; syncing?: boolean;
 }) {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
+  const [waitSync, setWaitSync] = useState(false);
   const [mode, setMode]       = useState<null | "new">(null);
   const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", region: "", arrondissement: "", sector: "", projType: "", photo: "", coordCode: ""});
   const [formErr, setFormErr] = useState<string[]>([]);
@@ -1223,10 +1227,24 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     if (role === "holder") {
       const existing = holders.find((h:any) => h.id === normalised);
       if (existing) { onLogin({id:normalised, name:existing.profile.firstName, role:"holder", profile:existing.profile}); return; }
+      // Don't offer account creation to someone who might already have a
+      // dossier — their record just hasn't finished loading from the server
+      // yet. Without this guard, a returning holder on a fresh device could
+      // hit "create account" before their saved progress ever arrives, and
+      // end up re-filling the whole application from scratch.
+      if (syncing) { setWaitSync(true); return; }
       setMode("new"); return;
     }
     setErr(true);
   };
+
+  // Once the initial holder/coordinator fetch settles, silently retry a check
+  // that was held back by `syncing` — the holder shouldn't have to notice or
+  // click again for their own data to be found.
+  useEffect(() => {
+    if (!syncing && waitSync) { setWaitSync(false); handleCheck(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncing]);
 
   // Casablanca-Settat is split into 8 préfectures d'arrondissements — shown
   // directly once that region is picked, no intermediate step.
@@ -1539,7 +1557,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
 
           <input
             value={val}
-            onChange={e => {const v=e.target.value; setVal(v.startsWith("@")?v:v.toUpperCase()); setErr(false);}}
+            onChange={e => {const v=e.target.value; setVal(v.startsWith("@")?v:v.toUpperCase()); setErr(false); setWaitSync(false);}}
             onKeyDown={e => e.key === "Enter" && handleCheck()}
             placeholder={t.codePh as string}
             maxLength={30}
@@ -1566,6 +1584,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
           )}
 
           {err && <p style={{color:RE, fontSize:13, marginBottom:10, fontFamily:ff(lang)}}>{t.cinError as string}</p>}
+          {waitSync && <p style={{color:GR, fontSize:13, marginBottom:10, fontFamily:ff(lang)}}>{t.checkingRecords as string}</p>}
 
           <button onClick={handleCheck} disabled={!val.trim()}
             className="login-cont-btn"
@@ -5740,7 +5759,7 @@ export default function IdeaMapPage() {
 
   if (!user) return <>
     <SyncDot/>
-    <Login lang={lang} setLang={setLangDir} t={t} onLogin={onLogin} holders={holders} coords={coords}/>
+    <Login lang={lang} setLang={setLangDir} t={t} onLogin={onLogin} holders={holders} coords={coords} syncing={syncing}/>
   </>;
 
   if (user.role === "holder") {
