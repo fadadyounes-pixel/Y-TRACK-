@@ -167,6 +167,18 @@ const GITHUB_MODELS = [
   "deepseek/DeepSeek-R1",
 ];
 
+// Cloudflare Workers AI — 10,000 free neurons/day, no credit card, on every
+// account including the free plan. OpenAI-compatible endpoint, so this is a
+// drop-in alongside every other `/chat/completions`-shaped provider below.
+// Sign up free: https://dash.cloudflare.com  |  Set env vars:
+// CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN (Account > Workers AI > Read)
+const CLOUDFLARE_MODELS = [
+  "@cf/meta/llama-3.3-70b-instruct-fp8-fast",  // Best quality/speed balance
+  "@cf/mistralai/mistral-small-3.1-24b-instruct", // Strong French/Arabic
+  "@cf/qwen/qwen3-30b-a3b-fp8",                 // Multilingual reasoning
+  "@cf/meta/llama-4-scout-17b-16e-instruct",    // Fast fallback
+];
+
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // Anthropic Claude — reads ANTHROPIC_API_KEY env var.
@@ -548,6 +560,35 @@ async function githubModels(msgs: Msg[], sys: string | undefined, maxTok: number
   throw new Error("GitHub Models exhausted");
 }
 
+// Cloudflare Workers AI — OpenAI-compatible chat completions, 10,000 free
+// neurons/day on every account (no card required). Tries each model in
+// CLOUDFLARE_MODELS in turn, same cycling pattern as groq()/cerebras().
+async function cloudflareWorkersAI(msgs: Msg[], sys: string | undefined, maxTok: number): Promise<string> {
+  const accountId = ev("CLOUDFLARE_ACCOUNT_ID");
+  const key = ev("CLOUDFLARE_API_TOKEN");
+  if (!accountId || !key) throw new Error("no CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_API_TOKEN");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  for (const model of CLOUDFLARE_MODELS) {
+    try {
+      const res = await tFetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: maxTok, messages: all }),
+      });
+      if (res.status === 429) continue;
+      if (res.status === 401 || res.status === 403) throw new Error(`Cloudflare ${res.status}`);
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return stripThink(text);
+    } catch (e: any) {
+      if (e.message?.includes("401") || e.message?.includes("403")) throw e;
+      continue;
+    }
+  }
+  throw new Error("Cloudflare Workers AI all models exhausted");
+}
+
 // Pollinations — a free, community-run OpenAI-compatible gateway that needs
 // NO API key / signup of any kind, unlike every other provider above. Lower
 // reliability than a paid-tier-backed free API (no SLA, no rate-limit
@@ -672,6 +713,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       (m, s, t) => groq(m, s, t, true),        // Fast when GROQ_API_KEY is set
       (m, s, t) => gemini(m, s, t, true),      // Gemini Flash Lite
       deepseek,                                 // DeepSeek-V3 — fast + high quality
+      cloudflareWorkersAI,                      // Edge GPU inference — fast when keyed
     ], messages, system, fastTok, 4000);
     if (fastResult) return fastResult;
     // Sequential fallback — fast path should rarely reach here
@@ -694,7 +736,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
         (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, true),
         deepseek, nvidia, sambanova, anthropic, mistral, together, githubModels,
         (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
-        pollinations,
+        cloudflareWorkersAI, pollinations,
       ]) {
         if (outOfTime()) break;
         const text = await withTimeout(tryOnce(fn, messages, system, fastTok), 6000);
@@ -704,7 +746,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     throw new Error("Fast AI providers busy. Please try again.");
   }
 
-  // JSON / dialogue: race ALL top-tier providers simultaneously — 13 providers in parallel.
+  // JSON / dialogue: race ALL top-tier providers simultaneously — 14 providers in parallel.
   // First valid response wins; orphaned requests complete but are discarded.
   // JSON needs best quality → 9s window. Dialogue needs speed → 6s window.
   const raceWindow = task === "json" ? 9000 : 6000;
@@ -722,6 +764,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     hyperbolic,                                        // DeepSeek-V3 + Qwen2.5-72B — free starter credits
     fireworks,                                         // DeepSeek-V3 + Llama 70B — $1 free credit
     huggingface,                                       // Router to Together/Fireworks/Hyperbolic backends
+    cloudflareWorkersAI,                               // Llama-3.3-70B + Mistral-24B — 10k free neurons/day
     pollinations,                                      // Keyless community gateway — zero-setup redundancy
   ], messages, system, max_tokens, raceWindow);
   if (raceText) return raceText;
@@ -745,7 +788,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       anthropic, githubModels, nvidia, deepseek,
       (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
       sambanova, mistral, together, openrouter,
-      hyperbolic, fireworks, huggingface, pollinations,
+      hyperbolic, fireworks, huggingface, cloudflareWorkersAI, pollinations,
     ]) {
       if (outOfTime()) break;
       const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
@@ -765,7 +808,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, false),
       (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, false),
       anthropic, githubModels, sambanova, together, openrouter,
-      hyperbolic, fireworks, huggingface, pollinations,
+      hyperbolic, fireworks, huggingface, cloudflareWorkersAI, pollinations,
     ]) {
       if (outOfTime()) break;
       const text = await withTimeout(tryOnce(fn, messages, system, max_tokens), 8000);
