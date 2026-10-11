@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rafiq } from "../ai/providers";
 import { extractRawText } from "@/lib/extractDocText";
+import { computeSplit, mapSectorToKey, getSectorBenchmark } from "@/lib/ideamap/dossier/finance";
+import type { Budget, BusinessPlan } from "@/lib/ideamap/dossier/schema";
 
 // Mirrors /api/parse-questionnaire's headroom over Vercel's default serverless
 // timeout — the AI extraction call below goes through the same rafiq() cascade.
@@ -83,6 +85,36 @@ function heuristicProfile(pairs: QAPair[]): ProjectProfile {
   };
 }
 
+// A coordinator uploading a completed application in chat expects the 4
+// documents to be ready immediately, not a profile that still waits on a
+// holder's own dialogue for plan/budget — so this builds the same
+// benchmark-based Budget/BusinessPlan the bulk committee-Excel import
+// synthesizes per row (see parse-committee-excel/route.ts), from the one
+// real number this document reliably gives us: estimatedBudget.
+function synthesizeBudgetAndPlan(profile: ProjectProfile): { budget: Budget; plan: BusinessPlan } {
+  const cout = Math.max(0, Number(profile.estimatedBudget) || 0);
+  const { indhContribution, beneficiaryContribution } = computeSplit(cout);
+  const sectorKey = mapSectorToKey(profile.sector || "", profile.projectName || "");
+  const benchmark = getSectorBenchmark(sectorKey);
+  const budget: Budget = {
+    items: cout ? [{ category: "Équipement", item: profile.activities?.[0] || profile.projectName || "Équipement", quantity: 1, unitPrice: cout, total: cout }] : [],
+    indhContribution, beneficiaryContribution,
+  };
+  const plan: BusinessPlan = {
+    executiveSummary: profile.targetProfile ? `${profile.projectName} — ${profile.targetProfile}` : profile.projectName,
+    problemStatement: profile.localProblem || "",
+    solution: profile.revenueModel || "",
+    marketAnalysis: "",
+    businessModel: `Hypothèse sectorielle: panier moyen ~${benchmark.panierMoyen} MAD, ~${benchmark.clientsJour} clients/jour.`,
+    socialImpact: "",
+    operationalPlan: "",
+    indh_alignment: profile.pillar || "",
+    risks: [],
+    projections: {},
+  };
+  return { budget, plan };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { fileBase64, lang } = await request.json() as { fileBase64: string; lang?: string };
@@ -128,7 +160,9 @@ Réponds UNIQUEMENT avec ce JSON valide, sans markdown ni texte autour:
           { role: "assistant", content: a.question || "—" },
           { role: "user", content: a.answer },
         ]);
-        return NextResponse.json({ msgs, proj: profile });
+        const { budget, plan } = synthesizeBudgetAndPlan(profile);
+        return NextResponse.json({ msgs, proj: profile, budget, plan,
+          assumptions: { source: "benchmark", fields: ["businessModel", "socialImpact", "operationalPlan", "projections"] } });
       }
     } catch {
       // Falls through to the heuristic below.
@@ -140,7 +174,10 @@ Réponds UNIQUEMENT avec ce JSON valide, sans markdown ni texte autour:
       { role: "assistant", content: p.question },
       { role: "user", content: p.answer },
     ]);
-    return NextResponse.json({ msgs, proj: heuristicProfile(pairs) });
+    const heuristicProf = heuristicProfile(pairs);
+    const { budget, plan } = synthesizeBudgetAndPlan(heuristicProf);
+    return NextResponse.json({ msgs, proj: heuristicProf, budget, plan,
+      assumptions: { source: "benchmark", fields: ["businessModel", "socialImpact", "operationalPlan", "projections"] } });
   } catch (err) {
     console.error("parse-application: failed", err);
     return NextResponse.json({ error: "Failed to parse document" }, { status: 500 });

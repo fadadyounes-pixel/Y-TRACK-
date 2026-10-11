@@ -805,7 +805,16 @@ const LangToggle = ({lang, setLang, dark = true}: { lang: string; setLang: (l: s
 // always available too, with no AI round-trip needed to use it.
 function HelpAgent({lang, context, actions, fileHandler}: {
   lang: string; context: string;
-  actions?: {name: string; label: string; run: () => void | Promise<void>}[];
+  // `paramsHint` describes the shape of `params` to the model (e.g. "params:
+  // {amount: number en MAD}") so a natural-language request like "réduis le
+  // montant INDH à 50000" can trigger the action with the right argument,
+  // not just a bare named action with no data.
+  // `hideButton` keeps an action triggerable by the model (named in the
+  // system prompt, fired via the JSON contract) without showing a quick-tap
+  // pill for it — for an action that only makes sense parameterized by what
+  // the user actually typed (e.g. "adjust the INDH amount to X"), a bare
+  // button with no amount attached would do nothing useful if tapped.
+  actions?: {name: string; label: string; paramsHint?: string; hideButton?: boolean; run: (params?: any) => void | Promise<void>}[];
   // Lets this chat accept a dropped/attached file (committee Excel, logo
   // image…) instead of only free text. `onFile` does the real work — the
   // same deterministic import/upload code the dedicated buttons already
@@ -815,11 +824,11 @@ function HelpAgent({lang, context, actions, fileHandler}: {
   fileHandler?: {
     accept: string;
     hint: string;
-    onFile: (file: File, onStep: (label: string) => void) => Promise<{ok: boolean; summary: string}>;
+    onFile: (file: File, onStep: (label: string) => void) => Promise<{ok: boolean; summary: string; actions?: {label:string; run:()=>void|Promise<void>}[]}>;
   };
 }) {
   const [open, setOpen]   = useState(false);
-  const [msgs, setMsgs]   = useState<{role:string;content:string; steps?: string[]}[]>([]);
+  const [msgs, setMsgs]   = useState<{role:string;content:string; steps?: string[]; actions?: {label:string; run:()=>void|Promise<void>}[]}[]>([]);
   const [inp, setInp]     = useState("");
   const [busy, setBusy]   = useState(false);
   const [unread, setUnread] = useState(false);
@@ -843,13 +852,13 @@ function HelpAgent({lang, context, actions, fileHandler}: {
     setFileSteps([]);
     setBusy(true);
     const onStep = (label: string) => { localSteps = [...localSteps, label]; setFileSteps(localSteps); };
-    let result: {ok: boolean; summary: string};
+    let result: {ok: boolean; summary: string; actions?: {label:string; run:()=>void|Promise<void>}[]};
     try {
       result = await fileHandler.onFile(file, onStep);
     } catch {
       result = {ok: false, summary: lang==="ar"?"حدث خطأ غير متوقع أثناء المعالجة.":lang==="fr"?"Une erreur inattendue est survenue pendant le traitement.":"An unexpected error occurred while processing."};
     }
-    setMsgs(p => [...p, {role:"assistant", content: result.summary, steps: localSteps}]);
+    setMsgs(p => [...p, {role:"assistant", content: result.summary, steps: localSteps, actions: result.actions}]);
     setFileSteps(null);
     setUnread(true);
     setBusy(false);
@@ -865,14 +874,14 @@ Quand quelqu'un demande l'éligibilité: pose 2 questions (secteur + budget esti
 Réponds UNIQUEMENT en ${lang === "ar" ? "arabe فصحى بسيطة" : lang === "fr" ? "français simple" : "English"}.
 Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne des chiffres précis quand possible.${
   actions && actions.length > 0
-    ? `\n\nTu peux aussi DÉCLENCHER une action réelle, mais uniquement quand c'est explicitement demandé — jamais par défaut. Actions disponibles: ${actions.map(a => a.name).join(", ")}.
-Si l'utilisateur demande clairement l'une de ces actions (ex: "exporte la liste", "télécharge le fichier excel", "donne-moi le tableau des porteurs"), réponds UNIQUEMENT avec ce JSON, sans markdown ni texte autour:
-{"reply":"brève phrase de confirmation dans la langue de la conversation","action":"<nom_exact_de_l_action>"}
-Dans tous les autres cas (questions, discussion normale), réponds normalement en texte libre — jamais de JSON.`
+    ? `\n\nTu peux aussi DÉCLENCHER une action réelle, mais uniquement quand c'est explicitement demandé — jamais par défaut. Actions disponibles: ${actions.map(a => a.paramsHint ? `${a.name} (${a.paramsHint})` : a.name).join(", ")}.
+Si l'utilisateur demande clairement l'une de ces actions (ex: "exporte la liste", "télécharge le fichier excel", "réduis le montant INDH à 50000"), réponds UNIQUEMENT avec ce JSON, sans markdown ni texte autour:
+{"reply":"brève phrase de confirmation dans la langue de la conversation","action":"<nom_exact_de_l_action>","params":{...}}
+Omets "params" si l'action n'en a pas besoin. Dans tous les autres cas (questions, discussion normale), réponds normalement en texte libre — jamais de JSON.`
     : ""
 }${
   fileHandler
-    ? `\n\nL'utilisateur peut joindre un fichier Excel (import d'un comité) ou une image (logo) directement dans cette conversation via le bouton 📎. Si on te demande comment importer un Excel ou changer le logo, explique simplement d'utiliser ce bouton — ne réponds jamais en JSON pour ça, uniquement en texte libre.`
+    ? `\n\nL'utilisateur peut joindre un fichier directement dans cette conversation via le bouton 📎 : un Excel (import d'un comité), une candidature de porteur déjà remplie (Word/PDF — crée un nouveau dossier complet avec ses 4 documents prêts), un devis/bon de commande (Word/PDF — met à jour le budget du dossier ouvert), ou une image (logo). Si on te demande comment faire l'une de ces choses, explique simplement d'utiliser ce bouton — ne réponds jamais en JSON pour ça, uniquement en texte libre.`
     : ""
 }`;
 
@@ -917,7 +926,7 @@ Dans tous les autres cas (questions, discussion normale), réponds normalement e
               const match = typeof parsed.action === "string" ? actions.find(a => a.name === parsed.action) : null;
               if (match) {
                 display = parsed.reply || text;
-                Promise.resolve(match.run()).catch(() => {});
+                Promise.resolve(match.run(parsed.params)).catch(() => {});
               } else if (typeof parsed.reply === "string") {
                 display = parsed.reply;
               }
@@ -1021,6 +1030,22 @@ Dans tous les autres cas (questions, discussion normale), réponds normalement e
                     color: isUser ? WH : ND, fontSize:"12px", lineHeight:1.65}}>
                     {m.content}
                   </div>
+                  {/* Result buttons attached to this specific message — e.g. the 4
+                      generated documents right after a coordinator uploads an
+                      application, so they never have to leave the chat to get them. */}
+                  {m.actions && m.actions.length > 0 && (
+                    <div style={{display:"flex", flexWrap:"wrap", gap:"6px", maxWidth:"88%"}}>
+                      {m.actions.map((a, ai) => (
+                        <button key={ai} onClick={() => Promise.resolve(a.run()).catch(() => {})}
+                          style={{padding:"6px 11px", borderRadius:"16px", border:"none",
+                            background:`linear-gradient(135deg,${Y},${YD})`, color:WH,
+                            fontSize:"11px", fontWeight:"700", cursor:"pointer",
+                            fontFamily:ff(lang), direction:dir as "rtl"|"ltr"}}>
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1049,9 +1074,9 @@ Dans tous les autres cas (questions, discussion normale), réponds normalement e
           </div>
 
           {/* Quick actions — fire immediately, no AI round-trip needed */}
-          {actions && actions.length > 0 && (
+          {actions && actions.some(a => !a.hideButton) && (
             <div style={{padding:"0 12px 10px", display:"flex", flexWrap:"wrap", gap:"6px"}}>
-              {actions.map((a, i) => (
+              {actions.filter(a => !a.hideButton).map((a, i) => (
                 <button key={i} onClick={() => Promise.resolve(a.run()).catch(() => {})}
                   style={{padding:"6px 11px", borderRadius:"16px", border:"none",
                     background:`linear-gradient(135deg,${Y},${YD})`, color:WH,
@@ -3999,9 +4024,10 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
   // controls already use (never an AI guess at the file's contents), and
   // reports each real step back to HelpAgent as it happens so the chat shows
   // genuine progress rather than a single opaque "please wait".
-  const handleAgentFile = async (f: File, onStep: (label: string) => void): Promise<{ok: boolean; summary: string}> => {
+  const handleAgentFile = async (f: File, onStep: (label: string) => void): Promise<{ok: boolean; summary: string; actions?: {label:string; run:()=>void|Promise<void>}[]}> => {
     const isExcel = /\.(xlsx|xls)$/i.test(f.name);
     const isImage = /^image\//.test(f.type) || /\.(png|jpe?g)$/i.test(f.name);
+    const isDoc = /\.(docx?|pdf)$/i.test(f.name) || f.type === "application/pdf" || /wordprocessingml|msword/.test(f.type);
 
     if (isExcel) {
       if (f.size > 10 * 1024 * 1024) {
@@ -4054,7 +4080,54 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
       }
     }
 
-    return {ok:false, summary: lang==="ar"?"صيغة غير معروفة — أرسل ملف Excel (.xlsx) أو صورة شعار (PNG/JPG)":lang==="fr"?"Format non reconnu — envoyez un fichier Excel (.xlsx) ou une image de logo (PNG/JPG)":"Unrecognized format — send an Excel file (.xlsx) or a logo image (PNG/JPG)"};
+    if (isDoc) {
+      if (f.size > 5 * 1024 * 1024) {
+        return {ok:false, summary: lang==="ar"?"الملف كبير جداً (الحد 5 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 5 Mo)":"File too large (max 5 MB)"};
+      }
+      onStep(lang==="ar"?"قراءة الوثيقة…":lang==="fr"?"Lecture du document…":"Reading the document…");
+      try {
+        const buf = await f.arrayBuffer();
+        const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+        onStep(lang==="ar"?"استخراج ملف المشروع…":lang==="fr"?"Extraction du profil du projet…":"Extracting the project profile…");
+        const r = await fetch("/api/parse-application", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({fileBase64: b64, lang}),
+        });
+        const d = await r.json();
+        if (!d.proj || !d.msgs?.length) {
+          return {ok:false, summary: d.error || (lang==="ar"?"تعذر العثور على إجابات في هذه الوثيقة":lang==="fr"?"Aucune réponse trouvée dans ce document":"No answers found in this document")};
+        }
+        onStep(lang==="ar"?"إنشاء ملف حامل جديد…":lang==="fr"?"Création d'un nouveau dossier porteur…":"Creating a new holder record…");
+        const [firstName, ...rest] = (d.proj.projectName || "Porteur").split(/\s+/);
+        const newHolder = {
+          id: `IM${Date.now().toString().slice(-8)}`,
+          name: firstName,
+          profile: { firstName, lastName: rest.join(" "), coordCode: user.id },
+          msgs: d.msgs, qN: d.msgs.length / 2,
+          proj: d.proj, plan: d.plan, budget: d.budget, comp: null,
+          assumptions: d.assumptions, step: "export", importedFrom: "chat_document",
+        };
+        onImportApplication(newHolder);
+        return {
+          ok: true,
+          summary: lang==="ar"
+            ? `تم إنشاء ملف "${d.proj.projectName}". المستندات جاهزة للتنزيل أدناه.`
+            : lang==="fr"
+            ? `Dossier "${d.proj.projectName}" créé. Les documents sont prêts ci-dessous.`
+            : `Dossier "${d.proj.projectName}" created. Documents are ready below.`,
+          actions: [
+            {label: `🎞️ ${lang==="ar"?"عرض اللجنة":lang==="fr"?"Présentation comité":"Committee deck"}`, run: () => downloadHolderDocument(newHolder, "comite")},
+            {label: `📄 ${lang==="ar"?"بطاقة المشروع":lang==="fr"?"Fiche Projet":"Fiche Projet"}`, run: () => downloadHolderDocument(newHolder, "projet")},
+            {label: `📋 ${lang==="ar"?"البطاقة التقنية":lang==="fr"?"Fiche Technique":"Fiche Technique"}`, run: () => downloadHolderDocument(newHolder, "technique")},
+            {label: `📊 ${lang==="ar"?"خطة الأعمال":lang==="fr"?"Business Plan":"Business Plan"}`, run: () => downloadHolderDocument(newHolder, "plan")},
+          ],
+        };
+      } catch {
+        return {ok:false, summary: lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file"};
+      }
+    }
+
+    return {ok:false, summary: lang==="ar"?"صيغة غير معروفة — أرسل ملف Excel (.xlsx)، وثيقة ترشيح (Word/PDF)، أو صورة شعار (PNG/JPG)":lang==="fr"?"Format non reconnu — envoyez un fichier Excel (.xlsx), une candidature (Word/PDF), ou une image de logo (PNG/JPG)":"Unrecognized format — send an Excel file (.xlsx), an application (Word/PDF), or a logo image (PNG/JPG)"};
   };
 
   // The dossier's 4 files (§1: Présentation comité PPTX + Fiche projet/
@@ -4182,6 +4255,64 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
 
   if (detail) {
     const h = detail;
+
+    // Holder-detail chat: a devis/quote dropped here updates THIS holder's
+    // budget directly — the same parse-po extraction the holder's own PO
+    // upload already uses, just applied by the coordinator instead.
+    const handleDetailFile = async (f: File, onStep: (label: string) => void): Promise<{ok: boolean; summary: string}> => {
+      const isDoc = /\.(docx?|pdf)$/i.test(f.name) || f.type === "application/pdf" || /wordprocessingml|msword/.test(f.type);
+      if (!isDoc) {
+        return {ok:false, summary: lang==="ar"?"صيغة غير معروفة — أرسل ديفيز بصيغة Word أو PDF":lang==="fr"?"Format non reconnu — envoyez un devis au format Word ou PDF":"Unrecognized format — send a quote as Word or PDF"};
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        return {ok:false, summary: lang==="ar"?"الملف كبير جداً (الحد 5 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 5 Mo)":"File too large (max 5 MB)"};
+      }
+      onStep(lang==="ar"?"قراءة الديفيز…":lang==="fr"?"Lecture du devis…":"Reading the quote…");
+      try {
+        const buf = await f.arrayBuffer();
+        const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+        onStep(lang==="ar"?"استخراج المبالغ…":lang==="fr"?"Extraction des montants…":"Extracting the amounts…");
+        const r = await fetch("/api/parse-po", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({fileBase64: b64, lang}),
+        });
+        const d = await r.json();
+        if (!d.totalAmount) return {ok:false, summary: d.error || (lang==="ar"?"تعذر العثور على مبلغ في هذه الوثيقة":lang==="fr"?"Aucun montant trouvé dans ce document":"No amount found in this document")};
+        onStep(lang==="ar"?"تحديث الميزانية…":lang==="fr"?"Mise à jour du budget…":"Updating the budget…");
+        const items = (d.items?.length ? d.items : [{label: d.equipmentSummary || "Équipement", amount: d.totalAmount}])
+          .map((it: any) => ({category: "Équipement", item: it.label || d.equipmentSummary || "Équipement",
+            quantity: 1, unitPrice: it.amount || d.totalAmount, total: it.amount || d.totalAmount}));
+        const total = items.reduce((s: number, it: any) => s + it.total, 0) || d.totalAmount;
+        const indh = Math.min(Math.round(total * 0.9), 100000);
+        const updated = {...h, budget: {items, indhContribution: indh, beneficiaryContribution: Math.max(0, total - indh)}};
+        onImportApplication(updated);
+        setDetail(updated);
+        return {ok:true, summary: lang==="ar"
+          ? `تم تحديث الميزانية: ${total.toLocaleString()} درهم${d.equipmentSummary ? ` (${d.equipmentSummary})` : ""}`
+          : lang==="fr"
+          ? `Budget mis à jour : ${total.toLocaleString()} MAD${d.equipmentSummary ? ` (${d.equipmentSummary})` : ""}`
+          : `Budget updated: ${total.toLocaleString()} MAD${d.equipmentSummary ? ` (${d.equipmentSummary})` : ""}`};
+      } catch {
+        return {ok:false, summary: lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file"};
+      }
+    };
+
+    // Natural-language chat command (e.g. "réduis le montant INDH à 50000")
+    // — reuses the exact same clamp/recompute logic as the Budget card's own
+    // "Enregistrer" button (saveEdit), just triggered by the model instead
+    // of the form.
+    const adjustIndhAmount = (params?: any) => {
+      const amount = Number(params?.amount);
+      if (!isFinite(amount) || amount < 0) return;
+      const total = budgetTotal(h);
+      const indh = Math.max(0, Math.min(amount, total || amount));
+      const updated = {...h, budget: h.budget
+        ? {...h.budget, indhContribution: indh, beneficiaryContribution: Math.max(0, total - indh)}
+        : (total ? {items: [], indhContribution: indh, beneficiaryContribution: Math.max(0, total - indh)} : h.budget)};
+      onImportApplication(updated);
+      setDetail(updated);
+    };
+
     return (
       <div style={{minHeight:"100vh", background:CR, fontFamily:ff(lang), direction:"ltr", display:"flex"}}>
         {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)}/>}
@@ -4278,7 +4409,9 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
                       });
                       const d = await r.json();
                       if (d.proj && d.msgs?.length > 0) {
-                        const updated = {...h, msgs: d.msgs, qN: d.msgs.length / 2, proj: d.proj, step: "profile"};
+                        const updated = {...h, msgs: d.msgs, qN: d.msgs.length / 2, proj: d.proj,
+                          budget: d.budget || h.budget, plan: d.plan || h.plan,
+                          assumptions: d.assumptions || h.assumptions, step: "export"};
                         onImportApplication(updated);
                         setDetail(updated);
                       } else {
@@ -4483,7 +4616,19 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
           </div>
         </div>
         <HelpAgent lang={lang}
-          context={`Coordinateur: ${user.id} | Dossier ouvert: ${h.proj?.projectName || h.name} (${h.id}) | Secteur: ${h.proj?.sector || ""} | Score: ${h.comp?.score != null ? h.comp.score + "/100" : "non évalué"}`}/>
+          context={`Coordinateur: ${user.id} | Dossier ouvert: ${h.proj?.projectName || h.name} (${h.id}) | Secteur: ${h.proj?.sector || ""} | Budget: ${budgetTotal(h) ? budgetTotal(h).toLocaleString()+" MAD, dont INDH "+(h.budget?.indhContribution ?? 0).toLocaleString()+" MAD" : "non défini"} | Score: ${h.comp?.score != null ? h.comp.score + "/100" : "non évalué"}`}
+          actions={[{
+            name: "adjust_indh_amount",
+            label: lang==="ar"?"تعديل مبلغ المبادرة الوطنية":lang==="fr"?"Ajuster le montant INDH":"Adjust INDH amount",
+            paramsHint: "amount: nombre en MAD, le nouveau montant INDH pour ce dossier",
+            hideButton: true,
+            run: adjustIndhAmount,
+          }]}
+          fileHandler={{
+            accept: ".doc,.docx,.pdf,application/pdf",
+            hint: lang==="ar"?"يمكنك أيضاً إرفاق ديفيز (Word/PDF) لتحديث ميزانية هذا الملف، أو اطلب مني تعديل مبلغ المبادرة الوطنية مباشرة 📎.":lang==="fr"?"Vous pouvez aussi joindre ici un devis (Word/PDF) pour mettre à jour le budget de ce dossier, ou me demander d'ajuster le montant INDH directement 📎.":"You can also attach a quote (Word/PDF) to update this dossier's budget, or just ask me to adjust the INDH amount directly 📎.",
+            onFile: handleDetailFile,
+          }}/>
       </div>
     );
   }
@@ -4985,8 +5130,8 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
           run: exportExcel,
         }]}
         fileHandler={{
-          accept: ".xlsx,.xls,image/png,image/jpeg,.png,.jpg,.jpeg",
-          hint: lang==="ar"?"يمكنك أيضاً إرفاق ملف Excel للجنة أو صورة شعار 📎 مباشرة هنا.":lang==="fr"?"Vous pouvez aussi joindre ici un fichier Excel du comité ou une image de logo 📎.":"You can also attach a committee Excel file or a logo image 📎 right here.",
+          accept: ".xlsx,.xls,image/png,image/jpeg,.png,.jpg,.jpeg,.doc,.docx,.pdf,application/pdf",
+          hint: lang==="ar"?"يمكنك أيضاً إرفاق ملف Excel للجنة، وثيقة ترشيح (Word/PDF)، أو صورة شعار 📎 مباشرة هنا.":lang==="fr"?"Vous pouvez aussi joindre ici un fichier Excel du comité, une candidature (Word/PDF), ou une image de logo 📎.":"You can also attach a committee Excel file, an application (Word/PDF), or a logo image 📎 right here.",
           onFile: handleAgentFile,
         }}/>
     </div>
