@@ -169,6 +169,19 @@ const GITHUB_MODELS = [
   "deepseek/DeepSeek-R1",
 ];
 
+// Cloudflare Workers AI — a genuine (not trial-credit) daily free allowance:
+// 10 000 Neurons/day, resets at 00:00 UTC, no card required. OpenAI-compatible
+// endpoint, same chat-completions shape as every other provider here.
+// Sign up free: https://dash.cloudflare.com (Workers AI is enabled by default)
+// Set env vars: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN (API token scoped
+// to the "Workers AI" permission group — the account ID alone isn't a secret
+// but the token is, so it must be created in the dashboard, not minted here).
+const CLOUDFLARE_MODELS = [
+  "@cf/mistralai/mistral-small-3.1-24b-instruct", // 128k ctx, function calling, strong FR/AR
+  "@cf/qwen/qwen3-30b-a3b-fp8",                    // reasoning + function calling, cheap on neurons
+  "@cf/meta/llama-3.1-8b-instruct",                // small/fast fallback, stretches the daily cap
+];
+
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // ─── JSON-mode helper ───────────────────────────────────────────────────────
@@ -550,6 +563,33 @@ async function huggingface(msgs: Msg[], sys: string | undefined, maxTok: number,
   throw new Error("Hugging Face all models exhausted");
 }
 
+// Cloudflare Workers AI — needs two env vars (account ID + token) rather than
+// the single key every other provider here uses, since Cloudflare's account
+// ID is part of the URL path, not a header.
+async function cloudflareWorkersAI(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
+  const accountId = ev("CLOUDFLARE_ACCOUNT_ID");
+  const key = ev("CLOUDFLARE_API_TOKEN");
+  if (!accountId || !key) throw new Error("no CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_API_TOKEN");
+  const all = [...(sys ? [{ role: "system", content: sys }] : []), ...msgs.map(m => ({ role: m.role, content: textOnly(m.content) }))];
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+  for (const model of CLOUDFLARE_MODELS) {
+    try {
+      const res = await fetchChat(url, headers, model, maxTok, all, jsonMode);
+      if (res.status === 429) continue;
+      if (res.status === 401 || res.status === 403) throw new Error("Cloudflare Workers AI 401/403");
+      if (!res.ok) continue;
+      const d = await res.json();
+      const text = d.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (e: any) {
+      if (e.message?.includes("401") || e.message?.includes("403")) throw e;
+      continue;
+    }
+  }
+  throw new Error("Cloudflare Workers AI all models exhausted");
+}
+
 async function githubModels(msgs: Msg[], sys: string | undefined, maxTok: number, jsonMode = false): Promise<string> {
   const key = ev("GITHUB_MODELS_TOKEN");
   if (!key) throw new Error("no GITHUB_MODELS_TOKEN");
@@ -698,7 +738,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     // Sequential fallback — fast path should rarely reach here
     for (const fn of [
       nvidia, sambanova, anthropic, mistral, together, githubModels,
-      hyperbolic, fireworks, huggingface,
+      hyperbolic, fireworks, huggingface, cloudflareWorkersAI,
       (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
       pollinations,
     ]) {
@@ -713,7 +753,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       for (const fn of [
         (m: Msg[], s: string | undefined, t: number) => cerebras(m, s, t, true),
         (m: Msg[], s: string | undefined, t: number) => gemini(m, s, t, true),
-        deepseek, nvidia, sambanova, anthropic, mistral, together, githubModels,
+        deepseek, nvidia, sambanova, anthropic, mistral, together, githubModels, cloudflareWorkersAI,
         (m: Msg[], s: string | undefined, t: number) => groq(m, s, t, true),
         pollinations,
       ]) {
@@ -725,7 +765,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     throw new Error("Fast AI providers busy. Please try again.");
   }
 
-  // JSON / dialogue: race ALL top-tier providers simultaneously — 13 providers in parallel.
+  // JSON / dialogue: race ALL top-tier providers simultaneously — 14 providers in parallel.
   // First valid response wins; orphaned requests complete but are discarded.
   // JSON needs best quality → 9s window. Dialogue needs speed → 6s window.
   // For task:"json", every OpenAI-compatible provider (and Gemini) is asked to
@@ -749,6 +789,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     (m, s, t) => hyperbolic(m, s, t, jsonMode),                                 // DeepSeek-V3 + Qwen2.5-72B — free starter credits
     (m, s, t) => fireworks(m, s, t, jsonMode),                                  // DeepSeek-V3 + Llama 70B — $1 free credit
     (m, s, t) => huggingface(m, s, t, jsonMode),                                // Router to Together/Fireworks/Hyperbolic backends
+    (m, s, t) => cloudflareWorkersAI(m, s, t, jsonMode),                        // Mistral Small 3.1 + Qwen3 — genuine daily free allowance
     pollinations,                                                               // Keyless community gateway — zero-setup redundancy, no jsonMode param
   ], messages, system, max_tokens, raceWindow);
   if (raceText) return raceText;
@@ -785,6 +826,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       (m: Msg[], s: string | undefined, t: number) => hyperbolic(m, s, t, jsonMode),
       (m: Msg[], s: string | undefined, t: number) => fireworks(m, s, t, jsonMode),
       (m: Msg[], s: string | undefined, t: number) => huggingface(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => cloudflareWorkersAI(m, s, t, jsonMode),
       pollinations,
     ]) {
       if (outOfTime()) break;
@@ -815,6 +857,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       (m: Msg[], s: string | undefined, t: number) => hyperbolic(m, s, t, jsonMode),
       (m: Msg[], s: string | undefined, t: number) => fireworks(m, s, t, jsonMode),
       (m: Msg[], s: string | undefined, t: number) => huggingface(m, s, t, jsonMode),
+      (m: Msg[], s: string | undefined, t: number) => cloudflareWorkersAI(m, s, t, jsonMode),
       pollinations,
     ]) {
       if (outOfTime()) break;
