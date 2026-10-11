@@ -20,6 +20,8 @@ This repo hosts **two separate apps** on one Next.js instance:
 
 Each project's `/api/ai` provider cascade (`app/api/ai/providers.ts`) must be capacity-planned and keyed **independently** — adding a free-tier key to one project is never a reason to copy that same key into the other. If both need the same provider, sign up for two separate keys/accounts, one per project, so their free-tier quotas and rate limits never bleed into each other.
 
+**NEVER ask the user to choose or confirm which of the two projects a capacity/env-var change applies to.** The separation above is the standing default — when a change affects AI-provider capacity, apply it to each project independently and explicitly without prompting. The user should never be made to arbitrate between TalentMap and IdeaMap for this; that decision is already made by this rule.
+
 ---
 
 # IdeaMap — Design Brief for Claude
