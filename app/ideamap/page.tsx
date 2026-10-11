@@ -803,25 +803,57 @@ const LangToggle = ({lang, setLang, dark = true}: { lang: string; setLang: (l: s
 // returns something unparseable, the raw text is shown as a normal reply
 // and nothing fires silently; the quick-action chip for each action is
 // always available too, with no AI round-trip needed to use it.
-function HelpAgent({lang, context, actions}: {
+function HelpAgent({lang, context, actions, fileHandler}: {
   lang: string; context: string;
   actions?: {name: string; label: string; run: () => void | Promise<void>}[];
+  // Lets this chat accept a dropped/attached file (committee Excel, logo
+  // image…) instead of only free text. `onFile` does the real work — the
+  // same deterministic import/upload code the dedicated buttons already
+  // use, never a guess by the model — and calls `onStep` as it actually
+  // progresses through each await, so the step log reflects real work
+  // happening rather than a scripted animation.
+  fileHandler?: {
+    accept: string;
+    hint: string;
+    onFile: (file: File, onStep: (label: string) => void) => Promise<{ok: boolean; summary: string}>;
+  };
 }) {
   const [open, setOpen]   = useState(false);
-  const [msgs, setMsgs]   = useState<{role:string;content:string}[]>([]);
+  const [msgs, setMsgs]   = useState<{role:string;content:string; steps?: string[]}[]>([]);
   const [inp, setInp]     = useState("");
   const [busy, setBusy]   = useState(false);
   const [unread, setUnread] = useState(false);
+  const [fileSteps, setFileSteps] = useState<string[] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
 
-  useEffect(() => { endRef.current?.scrollIntoView({behavior:"smooth"}); }, [msgs, busy]);
+  useEffect(() => { endRef.current?.scrollIntoView({behavior:"smooth"}); }, [msgs, busy, fileSteps]);
 
-  const greet = lang === "ar"
+  const greet = (lang === "ar"
     ? "مرحباً! أنا مساعدك الشخصي لمنصة IdeaMap. اسألني عن أي خطوة، وثيقة، أو شرط للمبادرة الوطنية."
     : lang === "fr"
     ? "Bonjour ! Je suis votre assistant IdeaMap. Posez-moi n'importe quelle question sur les étapes, documents ou critères INDH."
-    : "Hi! I'm your IdeaMap assistant. Ask me anything about the steps, documents, or INDH requirements.";
+    : "Hi! I'm your IdeaMap assistant. Ask me anything about the steps, documents, or INDH requirements.")
+    + (fileHandler ? ` ${fileHandler.hint}` : "");
+
+  const handleFile = async (file: File) => {
+    if (!fileHandler || busy) return;
+    let localSteps: string[] = [];
+    setFileSteps([]);
+    setBusy(true);
+    const onStep = (label: string) => { localSteps = [...localSteps, label]; setFileSteps(localSteps); };
+    let result: {ok: boolean; summary: string};
+    try {
+      result = await fileHandler.onFile(file, onStep);
+    } catch {
+      result = {ok: false, summary: lang==="ar"?"حدث خطأ غير متوقع أثناء المعالجة.":lang==="fr"?"Une erreur inattendue est survenue pendant le traitement.":"An unexpected error occurred while processing."};
+    }
+    setMsgs(p => [...p, {role:"assistant", content: result.summary, steps: localSteps}]);
+    setFileSteps(null);
+    setUnread(true);
+    setBusy(false);
+  };
 
   const sys = `Tu es le Superviseur IdeaMap — expert terrain INDH Phase 3 Maroc avec 10 ans d'accompagnement de porteurs.
 CONTEXTE UTILISATEUR: ${context}
@@ -837,6 +869,10 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
 Si l'utilisateur demande clairement l'une de ces actions (ex: "exporte la liste", "télécharge le fichier excel", "donne-moi le tableau des porteurs"), réponds UNIQUEMENT avec ce JSON, sans markdown ni texte autour:
 {"reply":"brève phrase de confirmation dans la langue de la conversation","action":"<nom_exact_de_l_action>"}
 Dans tous les autres cas (questions, discussion normale), réponds normalement en texte libre — jamais de JSON.`
+    : ""
+}${
+  fileHandler
+    ? `\n\nL'utilisateur peut joindre un fichier Excel (import d'un comité) ou une image (logo) directement dans cette conversation via le bouton 📎. Si on te demande comment importer un Excel ou changer le logo, explique simplement d'utiliser ce bouton — ne réponds jamais en JSON pour ça, uniquement en texte libre.`
     : ""
 }`;
 
@@ -964,16 +1000,48 @@ Dans tous les autres cas (questions, discussion normale), réponds normalement e
                 ? (isRtl ? "12px 12px 12px 4px" : "12px 12px 4px 12px")
                 : (isRtl ? "12px 12px 4px 12px" : "12px 12px 12px 4px");
               return (
-                <div key={i} style={{padding:"10px 13px", maxWidth:"88%",
-                  borderRadius: br,
-                  background: isUser ? `linear-gradient(135deg,${N},${ND})` : YL,
-                  color: isUser ? WH : ND, fontSize:"12px", lineHeight:1.65,
-                  alignSelf: isUser ? (isRtl?"flex-start":"flex-end") : (isRtl?"flex-end":"flex-start")}}>
-                  {m.content}
+                <div key={i} style={{display:"flex", flexDirection:"column", gap:"4px",
+                  alignItems: isUser ? (isRtl?"flex-start":"flex-end") : (isRtl?"flex-end":"flex-start")}}>
+                  {/* Completed step log for a file this message resulted from — kept
+                      visible after the fact, not just flashed during processing, so
+                      a coordinator can see what actually happened (e.g. "12 lignes
+                      lues, 11 dossiers créés") rather than only a one-line verdict. */}
+                  {m.steps && m.steps.length > 0 && (
+                    <div style={{display:"flex", flexDirection:"column", gap:"3px", maxWidth:"88%", padding:"2px 2px"}}>
+                      {m.steps.map((s, si) => (
+                        <div key={si} style={{fontSize:"10.5px", color:"#8A97AE", display:"flex", alignItems:"center", gap:"5px"}}>
+                          <span style={{color:"#22C55E"}}>✓</span>{s}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{padding:"10px 13px", maxWidth:"88%",
+                    borderRadius: br,
+                    background: isUser ? `linear-gradient(135deg,${N},${ND})` : YL,
+                    color: isUser ? WH : ND, fontSize:"12px", lineHeight:1.65}}>
+                    {m.content}
+                  </div>
                 </div>
               );
             })}
-            {busy && <div style={{display:"flex", gap:"4px", padding:"4px 0"}}>
+            {/* Live step trace while a file is actually being read/parsed/saved —
+                each line appears only once that real step has happened, so this
+                mirrors genuine progress instead of a scripted loading animation. */}
+            {fileSteps !== null && (
+              <div style={{display:"flex", flexDirection:"column", gap:"4px", padding:"2px 2px",
+                alignSelf: dir==="rtl"?"flex-end":"flex-start"}}>
+                {fileSteps.map((s, si) => (
+                  <div key={si} style={{fontSize:"10.5px", color:"#8A97AE", display:"flex", alignItems:"center", gap:"5px"}}>
+                    <span style={{color:"#22C55E"}}>✓</span>{s}
+                  </div>
+                ))}
+                <div style={{display:"flex", gap:"4px", padding:"2px 0"}}>
+                  {[0,1,2].map(i => <div key={i} style={{width:6, height:6, borderRadius:"50%",
+                    background:Y, animation:`bounce 1s ease ${i*.2}s infinite`}}/>)}
+                </div>
+              </div>
+            )}
+            {busy && fileSteps === null && <div style={{display:"flex", gap:"4px", padding:"4px 0"}}>
               {[0,1,2].map(i => <div key={i} style={{width:7, height:7, borderRadius:"50%",
                 background:Y, animation:`bounce 1s ease ${i*.2}s infinite`}}/>)}
             </div>}
@@ -1013,6 +1081,17 @@ Dans tous les autres cas (questions, discussion normale), réponds normalement e
           {/* Input */}
           <div style={{padding:"10px 12px", borderTop:`1px solid ${CD}`,
             display:"flex", gap:"8px", alignItems:"center"}}>
+            {fileHandler && (<>
+              <input ref={fileInputRef} type="file" accept={fileHandler.accept} style={{display:"none"}}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}/>
+              <button onClick={() => fileInputRef.current?.click()} disabled={busy}
+                title={lang==="ar"?"إرفاق ملف (Excel أو شعار)":lang==="fr"?"Joindre un fichier (Excel ou logo)":"Attach a file (Excel or logo)"}
+                style={{width:36, height:36, borderRadius:"10px", border:`1.5px solid ${CD}`, flexShrink:0,
+                  background:WH, color:ND, fontSize:"15px", cursor: busy?"default":"pointer", opacity: busy?0.5:1,
+                  display:"flex", alignItems:"center", justifyContent:"center"}}>
+                📎
+              </button>
+            </>)}
             <input value={inp} onChange={e => setInp(e.target.value)}
               onKeyDown={e => e.key==="Enter" && send()}
               placeholder={lang==="ar"?"اسألني...":lang==="fr"?"Votre question...":"Ask me..."}
@@ -3914,6 +3993,70 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
     }
   };
 
+  // Lets the assistant chat accept a dropped/attached file directly, instead
+  // of only free text — routes to the exact same deterministic calls the
+  // dedicated "Importer un comité (Excel)" and "Logo de la préfecture"
+  // controls already use (never an AI guess at the file's contents), and
+  // reports each real step back to HelpAgent as it happens so the chat shows
+  // genuine progress rather than a single opaque "please wait".
+  const handleAgentFile = async (f: File, onStep: (label: string) => void): Promise<{ok: boolean; summary: string}> => {
+    const isExcel = /\.(xlsx|xls)$/i.test(f.name);
+    const isImage = /^image\//.test(f.type) || /\.(png|jpe?g)$/i.test(f.name);
+
+    if (isExcel) {
+      if (f.size > 10 * 1024 * 1024) {
+        return {ok:false, summary: lang==="ar"?"الملف كبير جداً (الحد 10 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 10 Mo)":"File too large (max 10 MB)"};
+      }
+      onStep(lang==="ar"?"قراءة ملف Excel…":lang==="fr"?"Lecture du fichier Excel…":"Reading the Excel file…");
+      try {
+        const buf = await f.arrayBuffer();
+        const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+        onStep(lang==="ar"?"تحليل سطور اللجنة…":lang==="fr"?"Analyse des lignes du comité…":"Parsing committee rows…");
+        const r = await fetch("/api/parse-committee-excel", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({fileBase64: b64, coordCode: user.id}),
+        });
+        const d = await r.json();
+        if (d.error) return {ok:false, summary: d.error};
+        const imported: any[] = d.holders || [];
+        onStep(lang==="ar"?`إنشاء ${imported.length} ملف حامل…`:lang==="fr"?`Création de ${imported.length} dossier(s) porteur…`:`Creating ${imported.length} holder record(s)…`);
+        for (const h of imported) onImportApplication(h);
+        const v = d.validation || {};
+        return {ok: !(v.errorCount > 0), summary: lang==="ar"
+          ? `تم استيراد ${imported.length} حامل مشروع — ${v.warningCount||0} تحذير، ${v.errorCount||0} سطر مرفوض`
+          : lang==="fr"
+          ? `${imported.length} porteur(s) importé(s) — ${v.warningCount||0} avertissement(s), ${v.errorCount||0} ligne(s) rejetée(s)`
+          : `${imported.length} holder(s) imported — ${v.warningCount||0} warning(s), ${v.errorCount||0} row(s) rejected`};
+      } catch {
+        return {ok:false, summary: lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file"};
+      }
+    }
+
+    if (isImage) {
+      if (f.size > 2 * 1024 * 1024) {
+        return {ok:false, summary: lang==="ar"?"الملف كبير جداً (الحد 2 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 2 Mo)":"File too large (max 2 MB)"};
+      }
+      onStep(lang==="ar"?"رفع الشعار…":lang==="fr"?"Téléversement du logo…":"Uploading the logo…");
+      try {
+        const buf = await f.arrayBuffer();
+        const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+        const r = await fetch("/api/upload-logo", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({fileBase64: b64, coordCode: user.id, contentType: f.type}),
+        });
+        const d = await r.json();
+        if (!d.url) return {ok:false, summary: d.error || (lang==="ar"?"فشل الرفع":lang==="fr"?"Échec du téléversement":"Upload failed")};
+        onStep(lang==="ar"?"تطبيقه على المستندات…":lang==="fr"?"Application sur les documents…":"Applying it to your documents…");
+        onSaveLogo(d.url);
+        return {ok:true, summary: lang==="ar"?"تم حفظ الشعار وسيظهر في كل المستندات التالية":lang==="fr"?"Logo enregistré — il apparaîtra sur tous vos prochains documents":"Logo saved — it will appear on all your next documents"};
+      } catch {
+        return {ok:false, summary: lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file"};
+      }
+    }
+
+    return {ok:false, summary: lang==="ar"?"صيغة غير معروفة — أرسل ملف Excel (.xlsx) أو صورة شعار (PNG/JPG)":lang==="fr"?"Format non reconnu — envoyez un fichier Excel (.xlsx) ou une image de logo (PNG/JPG)":"Unrecognized format — send an Excel file (.xlsx) or a logo image (PNG/JPG)"};
+  };
+
   // The dossier's 4 files (§1: Présentation comité PPTX + Fiche projet/
   // technique/Business plan DOCX) — Fiche Projet/Technique/Business Plan are
   // real .docx via the shared lib/ideamap/dossier/generators.ts module;
@@ -4840,7 +4983,12 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
           name: "export_excel",
           label: `📊 ${lang==="ar"?"تصدير Excel":lang==="fr"?"Exporter Excel":"Export Excel"}`,
           run: exportExcel,
-        }]}/>
+        }]}
+        fileHandler={{
+          accept: ".xlsx,.xls,image/png,image/jpeg,.png,.jpg,.jpeg",
+          hint: lang==="ar"?"يمكنك أيضاً إرفاق ملف Excel للجنة أو صورة شعار 📎 مباشرة هنا.":lang==="fr"?"Vous pouvez aussi joindre ici un fichier Excel du comité ou une image de logo 📎.":"You can also attach a committee Excel file or a logo image 📎 right here.",
+          onFile: handleAgentFile,
+        }}/>
     </div>
   );
 }
