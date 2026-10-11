@@ -11,6 +11,15 @@ This repo hosts **two separate apps** on one Next.js instance:
 
 **NEVER** touch, redeploy, or modify anything under `app/ideamap/` when working on TalentMap features.
 
+**NEVER** share, mirror, or copy an AI provider API key (or any other environment variable) between the TalentMap Vercel project and the IdeaMap Vercel project. Although both apps are built from this one repo, they are deployed as **two separate, independently-provisioned Vercel projects**:
+
+| App | Vercel project | Domain(s) |
+|---|---|---|
+| **TalentMap** | `talentmaponline` | talentmaponline.org |
+| **IdeaMap** | `y-track` | ideamaponline.org |
+
+Each project's `/api/ai` provider cascade (`app/api/ai/providers.ts`) must be capacity-planned and keyed **independently** — adding a free-tier key to one project is never a reason to copy that same key into the other. If both need the same provider, sign up for two separate keys/accounts, one per project, so their free-tier quotas and rate limits never bleed into each other.
+
 ---
 
 # IdeaMap — Design Brief for Claude
