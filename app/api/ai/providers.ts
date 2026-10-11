@@ -177,9 +177,10 @@ const GITHUB_MODELS = [
 // to the "Workers AI" permission group — the account ID alone isn't a secret
 // but the token is, so it must be created in the dashboard, not minted here).
 const CLOUDFLARE_MODELS = [
+  "@cf/meta/llama-3.3-70b-instruct-fp8-fast",     // Best quality/speed balance
   "@cf/mistralai/mistral-small-3.1-24b-instruct", // 128k ctx, function calling, strong FR/AR
-  "@cf/qwen/qwen3-30b-a3b-fp8",                    // reasoning + function calling, cheap on neurons
-  "@cf/meta/llama-3.1-8b-instruct",                // small/fast fallback, stretches the daily cap
+  "@cf/qwen/qwen3-30b-a3b-fp8",                   // reasoning + function calling, cheap on neurons
+  "@cf/meta/llama-4-scout-17b-16e-instruct",      // fast fallback, stretches the daily cap
 ];
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -581,7 +582,7 @@ async function cloudflareWorkersAI(msgs: Msg[], sys: string | undefined, maxTok:
       if (!res.ok) continue;
       const d = await res.json();
       const text = d.choices?.[0]?.message?.content;
-      if (text) return text;
+      if (text) return stripThink(text);
     } catch (e: any) {
       if (e.message?.includes("401") || e.message?.includes("403")) throw e;
       continue;
@@ -733,6 +734,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
       (m, s, t) => groq(m, s, t, true),        // Fast when GROQ_API_KEY is set
       (m, s, t) => gemini(m, s, t, true),      // Gemini Flash Lite
       deepseek,                                 // DeepSeek-V3 — fast + high quality
+      cloudflareWorkersAI,                      // Edge GPU inference — fast when keyed
     ], messages, system, fastTok, 4000);
     if (fastResult) return fastResult;
     // Sequential fallback — fast path should rarely reach here
@@ -789,7 +791,7 @@ export async function rafiq({ task, messages, system, max_tokens = 1200 }: Rafiq
     (m, s, t) => hyperbolic(m, s, t, jsonMode),                                 // DeepSeek-V3 + Qwen2.5-72B — free starter credits
     (m, s, t) => fireworks(m, s, t, jsonMode),                                  // DeepSeek-V3 + Llama 70B — $1 free credit
     (m, s, t) => huggingface(m, s, t, jsonMode),                                // Router to Together/Fireworks/Hyperbolic backends
-    (m, s, t) => cloudflareWorkersAI(m, s, t, jsonMode),                        // Mistral Small 3.1 + Qwen3 — genuine daily free allowance
+    (m, s, t) => cloudflareWorkersAI(m, s, t, jsonMode),                        // Llama-3.3-70B + Mistral-24B — 10k free neurons/day
     pollinations,                                                               // Keyless community gateway — zero-setup redundancy, no jsonMode param
   ], messages, system, max_tokens, raceWindow);
   if (raceText) return raceText;

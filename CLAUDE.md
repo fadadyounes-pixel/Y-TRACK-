@@ -39,7 +39,7 @@ Three user roles exist:
 |---|---|---|
 | **Holder** (project applicant) | `AB123456` (CIN format) | 9-step guided workflow |
 | **Coordinator** | `@KHALIDCOD` | Dashboard: track all holders |
-| **Admin** | `@adminINDH` | Stats, project list, coordinator management |
+| **Admin** | `yfadad` | Stats, project list, coordinator management |
 
 ---
 
@@ -355,7 +355,7 @@ When generating or reviewing AI prompts, keep these facts accurate:
 
 | Role | Code |
 |---|---|
-| Admin | `@adminINDH` |
+| Admin | `yfadad` |
 | Coordinator (example) | `@KHALIDCOD` (must be added by admin first) |
 | Holder (new) | Any `AB123456`-format CIN — triggers account creation flow |
 | Holder (returning) | Same CIN used during first login |

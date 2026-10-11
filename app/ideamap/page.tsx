@@ -84,7 +84,7 @@ const RE  = "#C0632F";   // Warning      — errors, "En cours", risk indicators
 /* Logo appears only on the login page via /logo-transparent.png */
 
 /* ── AUTH ────────────────────────────────────────────── */
-const ADMIN_CODE = "@mapadmin";
+const ADMIN_CODE = "yfadad";
 const RE_HOLDER  = /^[A-Z]{2}\d{3,}$/;
 const RE_COORD   = /^@[A-Za-z]{2,}COD$/i;
 
@@ -93,12 +93,13 @@ const RE_COORD   = /^@[A-Za-z]{2,}COD$/i;
 // string — these helpers normalize either shape so the rest of the app never has
 // to branch on it.
 type CoordQuestion = {fr: string; ar: string; en: string};
-type Coord = {code: string; name: string; region: string; arrondissement: string; createdAt: number | null; questionnaire?: CoordQuestion[]};
+type Coord = {code: string; name: string; region: string; arrondissement: string; createdAt: number | null; questionnaire?: CoordQuestion[]; logoUrl?: string};
 const normalizeCoord = (c: any): Coord =>
   typeof c === "string"
     ? {code: c, name: c.replace(/^@/, "").replace(/COD$/i, ""), region: "", arrondissement: "", createdAt: null}
     : {code: c.code, name: c.name || c.code.replace(/^@/, "").replace(/COD$/i, ""), region: c.region || "", arrondissement: c.arrondissement || "", createdAt: c.createdAt ?? null,
-       questionnaire: Array.isArray(c.questionnaire) && c.questionnaire.length > 0 ? c.questionnaire : undefined};
+       questionnaire: Array.isArray(c.questionnaire) && c.questionnaire.length > 0 ? c.questionnaire : undefined,
+       logoUrl: typeof c.logoUrl === "string" && c.logoUrl ? c.logoUrl : undefined};
 
 // Runs async tasks with at most `limit` in flight at once, preserving each task's
 // result at its original index. Used to cap how many AI calls one user's action fires
@@ -405,6 +406,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     enter:"Entrez votre identifiant",
     enterHint:"Porteur: CIN (ex: AB123456) · Coordinateur: @NOMCOD · Admin: code admin",
     cinError:"Identifiant non reconnu ou compte coordinateur non créé.",
+    checkingRecords:"Vérification de vos données en cours — réessayez dans un instant.",
     login:"Accéder",
     newAccount:"Créer mon compte",
     existingAccount:"J'ai déjà un compte",
@@ -464,6 +466,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     enter:"أدخل معرّفك",
     enterHint:"حامل المشروع: رقم البطاقة (مثال: AB123456) · المنسق: @NOMCOD · المدير: رمز الإدارة",
     cinError:"المعرّف غير معروف أو لم يتم إنشاء حساب المنسق بعد.",
+    checkingRecords:"جارٍ التحقق من بياناتك — أعد المحاولة بعد لحظة.",
     login:"دخول",
     newAccount:"إنشاء حسابي",
     existingAccount:"لدي حساب بالفعل",
@@ -523,6 +526,7 @@ const TX: Record<string, Record<string, string | string[]>> = {
     enter:"Enter your identifier",
     enterHint:"Holder: CIN (e.g. AB123456) · Coordinator: @LASTNAMECOD · Admin: admin code",
     cinError:"Unrecognized identifier or coordinator account not yet created.",
+    checkingRecords:"Checking your records — try again in a moment.",
     login:"Sign In",
     newAccount:"Create my account",
     existingAccount:"I already have an account",
@@ -799,25 +803,57 @@ const LangToggle = ({lang, setLang, dark = true}: { lang: string; setLang: (l: s
 // returns something unparseable, the raw text is shown as a normal reply
 // and nothing fires silently; the quick-action chip for each action is
 // always available too, with no AI round-trip needed to use it.
-function HelpAgent({lang, context, actions}: {
+function HelpAgent({lang, context, actions, fileHandler}: {
   lang: string; context: string;
   actions?: {name: string; label: string; run: () => void | Promise<void>}[];
+  // Lets this chat accept a dropped/attached file (committee Excel, logo
+  // image…) instead of only free text. `onFile` does the real work — the
+  // same deterministic import/upload code the dedicated buttons already
+  // use, never a guess by the model — and calls `onStep` as it actually
+  // progresses through each await, so the step log reflects real work
+  // happening rather than a scripted animation.
+  fileHandler?: {
+    accept: string;
+    hint: string;
+    onFile: (file: File, onStep: (label: string) => void) => Promise<{ok: boolean; summary: string}>;
+  };
 }) {
   const [open, setOpen]   = useState(false);
-  const [msgs, setMsgs]   = useState<{role:string;content:string}[]>([]);
+  const [msgs, setMsgs]   = useState<{role:string;content:string; steps?: string[]}[]>([]);
   const [inp, setInp]     = useState("");
   const [busy, setBusy]   = useState(false);
   const [unread, setUnread] = useState(false);
+  const [fileSteps, setFileSteps] = useState<string[] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const dir = lang === "ar" ? "rtl" : "ltr";
 
-  useEffect(() => { endRef.current?.scrollIntoView({behavior:"smooth"}); }, [msgs, busy]);
+  useEffect(() => { endRef.current?.scrollIntoView({behavior:"smooth"}); }, [msgs, busy, fileSteps]);
 
-  const greet = lang === "ar"
+  const greet = (lang === "ar"
     ? "مرحباً! أنا مساعدك الشخصي لمنصة IdeaMap. اسألني عن أي خطوة، وثيقة، أو شرط للمبادرة الوطنية."
     : lang === "fr"
     ? "Bonjour ! Je suis votre assistant IdeaMap. Posez-moi n'importe quelle question sur les étapes, documents ou critères INDH."
-    : "Hi! I'm your IdeaMap assistant. Ask me anything about the steps, documents, or INDH requirements.";
+    : "Hi! I'm your IdeaMap assistant. Ask me anything about the steps, documents, or INDH requirements.")
+    + (fileHandler ? ` ${fileHandler.hint}` : "");
+
+  const handleFile = async (file: File) => {
+    if (!fileHandler || busy) return;
+    let localSteps: string[] = [];
+    setFileSteps([]);
+    setBusy(true);
+    const onStep = (label: string) => { localSteps = [...localSteps, label]; setFileSteps(localSteps); };
+    let result: {ok: boolean; summary: string};
+    try {
+      result = await fileHandler.onFile(file, onStep);
+    } catch {
+      result = {ok: false, summary: lang==="ar"?"حدث خطأ غير متوقع أثناء المعالجة.":lang==="fr"?"Une erreur inattendue est survenue pendant le traitement.":"An unexpected error occurred while processing."};
+    }
+    setMsgs(p => [...p, {role:"assistant", content: result.summary, steps: localSteps}]);
+    setFileSteps(null);
+    setUnread(true);
+    setBusy(false);
+  };
 
   const sys = `Tu es le Superviseur IdeaMap — expert terrain INDH Phase 3 Maroc avec 10 ans d'accompagnement de porteurs.
 CONTEXTE UTILISATEUR: ${context}
@@ -833,6 +869,10 @@ Sois bref (2-4 phrases max), concret, basé sur les réalités marocaines. Donne
 Si l'utilisateur demande clairement l'une de ces actions (ex: "exporte la liste", "télécharge le fichier excel", "donne-moi le tableau des porteurs"), réponds UNIQUEMENT avec ce JSON, sans markdown ni texte autour:
 {"reply":"brève phrase de confirmation dans la langue de la conversation","action":"<nom_exact_de_l_action>"}
 Dans tous les autres cas (questions, discussion normale), réponds normalement en texte libre — jamais de JSON.`
+    : ""
+}${
+  fileHandler
+    ? `\n\nL'utilisateur peut joindre un fichier Excel (import d'un comité) ou une image (logo) directement dans cette conversation via le bouton 📎. Si on te demande comment importer un Excel ou changer le logo, explique simplement d'utiliser ce bouton — ne réponds jamais en JSON pour ça, uniquement en texte libre.`
     : ""
 }`;
 
@@ -960,16 +1000,48 @@ Dans tous les autres cas (questions, discussion normale), réponds normalement e
                 ? (isRtl ? "12px 12px 12px 4px" : "12px 12px 4px 12px")
                 : (isRtl ? "12px 12px 4px 12px" : "12px 12px 12px 4px");
               return (
-                <div key={i} style={{padding:"10px 13px", maxWidth:"88%",
-                  borderRadius: br,
-                  background: isUser ? `linear-gradient(135deg,${N},${ND})` : YL,
-                  color: isUser ? WH : ND, fontSize:"12px", lineHeight:1.65,
-                  alignSelf: isUser ? (isRtl?"flex-start":"flex-end") : (isRtl?"flex-end":"flex-start")}}>
-                  {m.content}
+                <div key={i} style={{display:"flex", flexDirection:"column", gap:"4px",
+                  alignItems: isUser ? (isRtl?"flex-start":"flex-end") : (isRtl?"flex-end":"flex-start")}}>
+                  {/* Completed step log for a file this message resulted from — kept
+                      visible after the fact, not just flashed during processing, so
+                      a coordinator can see what actually happened (e.g. "12 lignes
+                      lues, 11 dossiers créés") rather than only a one-line verdict. */}
+                  {m.steps && m.steps.length > 0 && (
+                    <div style={{display:"flex", flexDirection:"column", gap:"3px", maxWidth:"88%", padding:"2px 2px"}}>
+                      {m.steps.map((s, si) => (
+                        <div key={si} style={{fontSize:"10.5px", color:"#8A97AE", display:"flex", alignItems:"center", gap:"5px"}}>
+                          <span style={{color:"#22C55E"}}>✓</span>{s}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{padding:"10px 13px", maxWidth:"88%",
+                    borderRadius: br,
+                    background: isUser ? `linear-gradient(135deg,${N},${ND})` : YL,
+                    color: isUser ? WH : ND, fontSize:"12px", lineHeight:1.65}}>
+                    {m.content}
+                  </div>
                 </div>
               );
             })}
-            {busy && <div style={{display:"flex", gap:"4px", padding:"4px 0"}}>
+            {/* Live step trace while a file is actually being read/parsed/saved —
+                each line appears only once that real step has happened, so this
+                mirrors genuine progress instead of a scripted loading animation. */}
+            {fileSteps !== null && (
+              <div style={{display:"flex", flexDirection:"column", gap:"4px", padding:"2px 2px",
+                alignSelf: dir==="rtl"?"flex-end":"flex-start"}}>
+                {fileSteps.map((s, si) => (
+                  <div key={si} style={{fontSize:"10.5px", color:"#8A97AE", display:"flex", alignItems:"center", gap:"5px"}}>
+                    <span style={{color:"#22C55E"}}>✓</span>{s}
+                  </div>
+                ))}
+                <div style={{display:"flex", gap:"4px", padding:"2px 0"}}>
+                  {[0,1,2].map(i => <div key={i} style={{width:6, height:6, borderRadius:"50%",
+                    background:Y, animation:`bounce 1s ease ${i*.2}s infinite`}}/>)}
+                </div>
+              </div>
+            )}
+            {busy && fileSteps === null && <div style={{display:"flex", gap:"4px", padding:"4px 0"}}>
               {[0,1,2].map(i => <div key={i} style={{width:7, height:7, borderRadius:"50%",
                 background:Y, animation:`bounce 1s ease ${i*.2}s infinite`}}/>)}
             </div>}
@@ -1009,6 +1081,17 @@ Dans tous les autres cas (questions, discussion normale), réponds normalement e
           {/* Input */}
           <div style={{padding:"10px 12px", borderTop:`1px solid ${CD}`,
             display:"flex", gap:"8px", alignItems:"center"}}>
+            {fileHandler && (<>
+              <input ref={fileInputRef} type="file" accept={fileHandler.accept} style={{display:"none"}}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}/>
+              <button onClick={() => fileInputRef.current?.click()} disabled={busy}
+                title={lang==="ar"?"إرفاق ملف (Excel أو شعار)":lang==="fr"?"Joindre un fichier (Excel ou logo)":"Attach a file (Excel or logo)"}
+                style={{width:36, height:36, borderRadius:"10px", border:`1.5px solid ${CD}`, flexShrink:0,
+                  background:WH, color:ND, fontSize:"15px", cursor: busy?"default":"pointer", opacity: busy?0.5:1,
+                  display:"flex", alignItems:"center", justifyContent:"center"}}>
+                📎
+              </button>
+            </>)}
             <input value={inp} onChange={e => setInp(e.target.value)}
               onKeyDown={e => e.key==="Enter" && send()}
               placeholder={lang==="ar"?"اسألني...":lang==="fr"?"Votre question...":"Ask me..."}
@@ -1184,12 +1267,13 @@ const DashSidebar = ({user, navItems, activeTab, onTabChange, onLogout, lang, se
 /* ════════════════════════════════════════════════════════
    LOGIN SCREEN
 ════════════════════════════════════════════════════════ */
-function Login({lang, setLang, t, onLogin, holders, coords}: {
+function Login({lang, setLang, t, onLogin, holders, coords, syncing}: {
   lang: string; setLang: (l: string) => void; t: any;
-  onLogin: (u: any) => void; holders: any[]; coords: Coord[];
+  onLogin: (u: any) => void; holders: any[]; coords: Coord[]; syncing?: boolean;
 }) {
   const [val, setVal]         = useState("");
   const [err, setErr]         = useState(false);
+  const [waitSync, setWaitSync] = useState(false);
   const [mode, setMode]       = useState<null | "new">(null);
   const [form, setForm]       = useState({firstName: "", lastName: "", email: "", phone: "", age: "", gender: "", marital: "", edu: "", occupation: "", region: "", arrondissement: "", sector: "", projType: "", photo: "", coordCode: ""});
   const [formErr, setFormErr] = useState<string[]>([]);
@@ -1223,10 +1307,24 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
     if (role === "holder") {
       const existing = holders.find((h:any) => h.id === normalised);
       if (existing) { onLogin({id:normalised, name:existing.profile.firstName, role:"holder", profile:existing.profile}); return; }
+      // Don't offer account creation to someone who might already have a
+      // dossier — their record just hasn't finished loading from the server
+      // yet. Without this guard, a returning holder on a fresh device could
+      // hit "create account" before their saved progress ever arrives, and
+      // end up re-filling the whole application from scratch.
+      if (syncing) { setWaitSync(true); return; }
       setMode("new"); return;
     }
     setErr(true);
   };
+
+  // Once the initial holder/coordinator fetch settles, silently retry a check
+  // that was held back by `syncing` — the holder shouldn't have to notice or
+  // click again for their own data to be found.
+  useEffect(() => {
+    if (!syncing && waitSync) { setWaitSync(false); handleCheck(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncing]);
 
   // Casablanca-Settat is split into 8 préfectures d'arrondissements — shown
   // directly once that region is picked, no intermediate step.
@@ -1539,7 +1637,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
 
           <input
             value={val}
-            onChange={e => {const v=e.target.value; setVal(v.startsWith("@")?v:v.toUpperCase()); setErr(false);}}
+            onChange={e => {const v=e.target.value; setVal(v.startsWith("@")?v:v.toUpperCase()); setErr(false); setWaitSync(false);}}
             onKeyDown={e => e.key === "Enter" && handleCheck()}
             placeholder={t.codePh as string}
             maxLength={30}
@@ -1566,6 +1664,7 @@ function Login({lang, setLang, t, onLogin, holders, coords}: {
           )}
 
           {err && <p style={{color:RE, fontSize:13, marginBottom:10, fontFamily:ff(lang)}}>{t.cinError as string}</p>}
+          {waitSync && <p style={{color:GR, fontSize:13, marginBottom:10, fontFamily:ff(lang)}}>{t.checkingRecords as string}</p>}
 
           <button onClick={handleCheck} disabled={!val.trim()}
             className="login-cont-btn"
@@ -1702,6 +1801,11 @@ async function generateComitePresentation(
   data: {proj: any; plan: any; budget: any; comp: any; profile: any; name: string; numero?: string},
   lang: string,
   showToast: (msg: string, type?: "error" | "success") => void,
+  // A coordinator's own uploaded letterhead (CoordDash settings), already
+  // fetched and base64-encoded by the caller — generators never fetch
+  // network resources themselves (§2: "must never depend on the AI being
+  // up" extends to any network call). Silently omitted when absent.
+  logoDataUri?: string,
 ) {
   const {proj, plan, budget, comp, profile, name, numero} = data;
   try {
@@ -1747,6 +1851,7 @@ async function generateComitePresentation(
     if (numero) s.addText(`${L.numeroL}: ${numero}`, {x:0.5,y:3.55,w:9,h:0.35,fontSize:11,color:"888888",align:"center",fontFace:"Arial"});
     s.addText(`${name||""} ${profile?.lastName||""}`, {x:0.5,y:4.3,w:9,h:0.4,fontSize:14,color:WHITE,align:"center",fontFace:"Arial"});
     s.addText("INDH Phase 3 · IdeaMap", {x:0.5,y:4.9,w:9,h:0.3,fontSize:10,color:"666666",align:"center"});
+    if (logoDataUri) { try { s.addImage({data: logoDataUri, x:0.35, y:0.3, w:0.9, h:0.9}); } catch {} }
 
     // 2. Identification du porteur
     s = prs.addSlide(); s.background = {color:"FAF7F0"};
@@ -1901,6 +2006,16 @@ function HolderApp({lang, setLang, user, onLogout, t, onSaveProject, initialStat
   const [dlLang, setDlLang]                 = useState(lang);
   const [docxBusy, setDocxBusy]             = useState<"projet" | "technique" | "plan" | null>(null);
   const [toast, setToast]                   = useState<{msg: string; type: "error"|"success"} | null>(null);
+  // PO/devis upload (optional, offered on the equipment question only) — see
+  // the dialogue step's render block for the control itself.
+  const [poBusy, setPoBusy]                 = useState(false);
+  const [poErr, setPoErr]                   = useState("");
+  // Holds the PO's extracted total MAD amount between answering the equipment
+  // question (17) with it and the cost question (18) becoming current — two
+  // sendMsg() calls can't run back-to-back synchronously (the second would
+  // read qN's stale pre-update value), so the effect below fires the second
+  // one only once qN has actually advanced.
+  const pendingPoAmountRef = useRef<string | null>(null);
   // Keep download language in sync with the UI language unless the user has explicitly overridden it
   useEffect(() => { setDlLang(lang); }, [lang]);
   const fileInputRef  = useRef<HTMLInputElement>(null);
@@ -2679,6 +2794,49 @@ NE POSE AUCUNE QUESTION. N'AJOUTE AUCUN TEXTE. Réponds UNIQUEMENT avec ce JSON 
     })().catch(() => {});
   };
 
+  // Once sendMsg() has actually advanced to the cost question (18), fire the
+  // PO's extracted amount as that question's answer — see pendingPoAmountRef.
+  useEffect(() => {
+    if (qN === 19 && pendingPoAmountRef.current && !busy) {
+      const amt = pendingPoAmountRef.current;
+      pendingPoAmountRef.current = null;
+      sendMsg(amt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qN, busy]);
+
+  // Optional devis/PO upload, offered only on the equipment question (index
+  // 17 / qN 18): reads the document, has the AI extract the real supplier
+  // amount and equipment description, answers the current (equipment)
+  // question with the description, then queues the amount to answer the
+  // very next (cost) question once it becomes current.
+  const handlePoFile = async (f: File) => {
+    if (f.size > 5 * 1024 * 1024) {
+      setPoErr(lang==="ar"?"الملف كبير جداً (الحد 5 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 5 Mo)":"File too large (max 5 MB)");
+      return;
+    }
+    setPoErr(""); setPoBusy(true);
+    try {
+      const buf = await f.arrayBuffer();
+      const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+      const r = await fetch("/api/parse-po", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({fileBase64: b64, lang}),
+      });
+      const d = await r.json();
+      if (d.totalAmount && d.equipmentSummary) {
+        pendingPoAmountRef.current = `${d.totalAmount} MAD`;
+        sendMsg(d.equipmentSummary);
+      } else {
+        setPoErr(d.error || (lang==="ar"?"تعذر العثور على مبلغ في هذه الوثيقة":lang==="fr"?"Aucun montant trouvé dans ce document":"No amount found in this document"));
+      }
+    } catch {
+      setPoErr(lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file");
+    } finally {
+      setPoBusy(false);
+    }
+  };
+
   const genPlan = async () => {
     // Instant local draft first — same principle as the questionnaire and profile
     // steps: never block the applicant on a network call, especially not for the
@@ -3052,6 +3210,37 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
                     opacity: busy || !inp.trim() ? .5 : 1, flexShrink: 0}}>
                   {dir === "rtl" ? "←" : "→"}
                 </button>
+              </div>
+            )}
+
+            {/* Optional devis/PO upload — only on the equipment question. If the
+                holder has a real supplier quote, the AI reads it and answers
+                both this question and the next (cost) one with the real
+                figures, instead of the holder typing them. */}
+            {qN === 18 && !busy && (
+              <div style={{marginTop: "10px"}}>
+                <label style={{display: "flex", alignItems: "center", gap: 10, padding: "11px 14px",
+                  borderRadius: 10, border: `1.5px dashed ${Y}`, background: YL,
+                  cursor: poBusy ? "default" : "pointer", opacity: poBusy ? .6 : 1}}>
+                  <span style={{fontSize: 18}}>{poBusy ? "⏳" : "📎"}</span>
+                  <div>
+                    <div style={{fontSize: 12, fontWeight: 600, color: ND, fontFamily: ff(lang), direction: dir as "rtl"|"ltr"}}>
+                      {poBusy
+                        ? (lang==="ar"?"جارٍ قراءة المبلغ...":lang==="fr"?"Lecture du montant...":"Reading the amount...")
+                        : (lang==="ar"?"أو استوردوا عرض ثمن (PDF) — اختياري":lang==="fr"?"Ou importez un devis (PDF/Word) — optionnel":"Or upload a quote/PO (PDF/Word) — optional")}
+                    </div>
+                    <div style={{fontSize: 10, color: GR, fontFamily: ff(lang), direction: dir as "rtl"|"ltr"}}>
+                      {lang==="ar"?"سنقرأ المبلغ والتجهيزات تلقائياً":lang==="fr"?"Le montant et l'équipement seront lus automatiquement":"The amount and equipment will be read automatically"}
+                    </div>
+                  </div>
+                  <input type="file" accept=".pdf,.docx" disabled={poBusy} style={{display: "none"}}
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) handlePoFile(f);
+                    }}/>
+                </label>
+                {poErr && <p style={{color: RE, fontSize: 12, marginTop: 6, fontFamily: ff(lang)}}>{poErr}</p>}
               </div>
             )}
             <div ref={msgEnd}/>
@@ -3684,7 +3873,6 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
         })()}
 
       </div>
-      <HelpAgent lang={lang} context={`Porteur: ${user.name} | Étape: ${step} | Projet: ${proj?.projectName || "en cours"} | Secteur: ${proj?.sector || user.profile?.sector || ""} | Score conformité: ${comp?.score != null ? comp.score + "/100" : "non évalué encore"}`}/>
     </div>
   );
 }
@@ -3692,11 +3880,12 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
 /* ════════════════════════════════════════════════════════
    COORDINATOR DASHBOARD
 ════════════════════════════════════════════════════════ */
-function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questionnaire, onSaveQuestionnaire, onImportApplication}: {
+function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questionnaire, onSaveQuestionnaire, onImportApplication, logoUrl, onSaveLogo}: {
   lang: string; setLang: (l: string) => void; user: any;
   onLogout: () => void; t: any; holders: any[]; syncError?: boolean;
   questionnaire?: CoordQuestion[]; onSaveQuestionnaire: (questions: CoordQuestion[] | undefined) => void;
   onImportApplication: (holder: any) => void;
+  logoUrl?: string; onSaveLogo: (url: string) => void;
 }) {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const [tab, setTab]           = useState("holders");
@@ -3713,6 +3902,22 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
   const [appErr, setAppErr]             = useState("");
   const [excelBusy, setExcelBusy]       = useState(false);
   const [toast, setToast]               = useState<{msg: string; type: "error"|"success"} | null>(null);
+  // Coordinator-side editing of a holder's project profile and budget/INDH
+  // split — holders can only edit their own dossier via the guided flow;
+  // a coordinator needs to correct a figure or override the INDH amount
+  // (e.g. the committee approved less than the computed 90%/100k) without
+  // sending the holder back through the whole dialogue.
+  const [editMode, setEditMode]   = useState(false);
+  const [editProj, setEditProj]   = useState<any>(null);
+  const [editIndh, setEditIndh]   = useState("");
+  // Bulk committee-Excel import (CLAUDE_DOSSIER.md §4) — one row in, one
+  // holder record out, through the same save path any other holder uses.
+  const [xlsBusy, setXlsBusy]     = useState(false);
+  const [xlsErr, setXlsErr]       = useState("");
+  // Coordinator's own letterhead/logo, stamped onto every document
+  // generated for their holders (settings tab).
+  const [logoBusy, setLogoBusy]   = useState(false);
+  const [logoErr, setLogoErr]     = useState("");
 
   // Real .xlsx (not CSV) export of the currently filtered/searched list — the
   // same data the search box already scopes. Also the HelpAgent's one
@@ -3728,6 +3933,130 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
     }
   };
 
+  // Bulk committee-Excel import: parse server-side, then persist each
+  // returned holder through the exact same path a single import uses —
+  // every imported holder is then editable (startEdit/saveEdit above) and
+  // downloadable (downloadHolderDocument) exactly like any other holder.
+  const importCommitteeExcel = async (f: File) => {
+    if (f.size > 10 * 1024 * 1024) {
+      setXlsErr(lang==="ar"?"الملف كبير جداً (الحد 10 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 10 Mo)":"File too large (max 10 MB)");
+      return;
+    }
+    setXlsErr(""); setXlsBusy(true);
+    try {
+      const buf = await f.arrayBuffer();
+      const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+      const r = await fetch("/api/parse-committee-excel", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({fileBase64: b64, coordCode: user.id}),
+      });
+      const d = await r.json();
+      if (d.error) { setXlsErr(d.error); return; }
+      const imported: any[] = d.holders || [];
+      for (const h of imported) onImportApplication(h);
+      const v = d.validation || {};
+      setToast({
+        type: v.errorCount > 0 ? "error" : "success",
+        msg: lang==="ar"
+          ? `تم استيراد ${imported.length} حامل مشروع — ${v.warningCount||0} تحذير، ${v.errorCount||0} سطر مرفوض`
+          : lang==="fr"
+          ? `${imported.length} porteur(s) importé(s) — ${v.warningCount||0} avertissement(s), ${v.errorCount||0} ligne(s) rejetée(s)`
+          : `${imported.length} holder(s) imported — ${v.warningCount||0} warning(s), ${v.errorCount||0} row(s) rejected`,
+      });
+    } catch {
+      setXlsErr(lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file");
+    } finally {
+      setXlsBusy(false);
+    }
+  };
+
+  const uploadLogo = async (f: File) => {
+    if (f.size > 2 * 1024 * 1024) {
+      setLogoErr(lang==="ar"?"الملف كبير جداً (الحد 2 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 2 Mo)":"File too large (max 2 MB)");
+      return;
+    }
+    setLogoErr(""); setLogoBusy(true);
+    try {
+      const buf = await f.arrayBuffer();
+      const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+      const r = await fetch("/api/upload-logo", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({fileBase64: b64, coordCode: user.id, contentType: f.type}),
+      });
+      const d = await r.json();
+      if (d.url) { onSaveLogo(d.url); setToast({type:"success", msg: lang==="ar"?"تم حفظ الشعار":lang==="fr"?"Logo enregistré":"Logo saved"}); }
+      else setLogoErr(d.error || (lang==="ar"?"فشل الرفع":lang==="fr"?"Échec du téléversement":"Upload failed"));
+    } catch {
+      setLogoErr(lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file");
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
+  // Lets the assistant chat accept a dropped/attached file directly, instead
+  // of only free text — routes to the exact same deterministic calls the
+  // dedicated "Importer un comité (Excel)" and "Logo de la préfecture"
+  // controls already use (never an AI guess at the file's contents), and
+  // reports each real step back to HelpAgent as it happens so the chat shows
+  // genuine progress rather than a single opaque "please wait".
+  const handleAgentFile = async (f: File, onStep: (label: string) => void): Promise<{ok: boolean; summary: string}> => {
+    const isExcel = /\.(xlsx|xls)$/i.test(f.name);
+    const isImage = /^image\//.test(f.type) || /\.(png|jpe?g)$/i.test(f.name);
+
+    if (isExcel) {
+      if (f.size > 10 * 1024 * 1024) {
+        return {ok:false, summary: lang==="ar"?"الملف كبير جداً (الحد 10 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 10 Mo)":"File too large (max 10 MB)"};
+      }
+      onStep(lang==="ar"?"قراءة ملف Excel…":lang==="fr"?"Lecture du fichier Excel…":"Reading the Excel file…");
+      try {
+        const buf = await f.arrayBuffer();
+        const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+        onStep(lang==="ar"?"تحليل سطور اللجنة…":lang==="fr"?"Analyse des lignes du comité…":"Parsing committee rows…");
+        const r = await fetch("/api/parse-committee-excel", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({fileBase64: b64, coordCode: user.id}),
+        });
+        const d = await r.json();
+        if (d.error) return {ok:false, summary: d.error};
+        const imported: any[] = d.holders || [];
+        onStep(lang==="ar"?`إنشاء ${imported.length} ملف حامل…`:lang==="fr"?`Création de ${imported.length} dossier(s) porteur…`:`Creating ${imported.length} holder record(s)…`);
+        for (const h of imported) onImportApplication(h);
+        const v = d.validation || {};
+        return {ok: !(v.errorCount > 0), summary: lang==="ar"
+          ? `تم استيراد ${imported.length} حامل مشروع — ${v.warningCount||0} تحذير، ${v.errorCount||0} سطر مرفوض`
+          : lang==="fr"
+          ? `${imported.length} porteur(s) importé(s) — ${v.warningCount||0} avertissement(s), ${v.errorCount||0} ligne(s) rejetée(s)`
+          : `${imported.length} holder(s) imported — ${v.warningCount||0} warning(s), ${v.errorCount||0} row(s) rejected`};
+      } catch {
+        return {ok:false, summary: lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file"};
+      }
+    }
+
+    if (isImage) {
+      if (f.size > 2 * 1024 * 1024) {
+        return {ok:false, summary: lang==="ar"?"الملف كبير جداً (الحد 2 ميغابايت)":lang==="fr"?"Fichier trop volumineux (max 2 Mo)":"File too large (max 2 MB)"};
+      }
+      onStep(lang==="ar"?"رفع الشعار…":lang==="fr"?"Téléversement du logo…":"Uploading the logo…");
+      try {
+        const buf = await f.arrayBuffer();
+        const b64 = btoa(Array.from(new Uint8Array(buf), b => String.fromCharCode(b)).join(""));
+        const r = await fetch("/api/upload-logo", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({fileBase64: b64, coordCode: user.id, contentType: f.type}),
+        });
+        const d = await r.json();
+        if (!d.url) return {ok:false, summary: d.error || (lang==="ar"?"فشل الرفع":lang==="fr"?"Échec du téléversement":"Upload failed")};
+        onStep(lang==="ar"?"تطبيقه على المستندات…":lang==="fr"?"Application sur les documents…":"Applying it to your documents…");
+        onSaveLogo(d.url);
+        return {ok:true, summary: lang==="ar"?"تم حفظ الشعار وسيظهر في كل المستندات التالية":lang==="fr"?"Logo enregistré — il apparaîtra sur tous vos prochains documents":"Logo saved — it will appear on all your next documents"};
+      } catch {
+        return {ok:false, summary: lang==="ar"?"تعذرت قراءة الملف":lang==="fr"?"Impossible de lire le fichier":"Couldn't read the file"};
+      }
+    }
+
+    return {ok:false, summary: lang==="ar"?"صيغة غير معروفة — أرسل ملف Excel (.xlsx) أو صورة شعار (PNG/JPG)":lang==="fr"?"Format non reconnu — envoyez un fichier Excel (.xlsx) ou une image de logo (PNG/JPG)":"Unrecognized format — send an Excel file (.xlsx) or a logo image (PNG/JPG)"};
+  };
+
   // The dossier's 4 files (§1: Présentation comité PPTX + Fiche projet/
   // technique/Business plan DOCX) — Fiche Projet/Technique/Business Plan are
   // real .docx via the shared lib/ideamap/dossier/generators.ts module;
@@ -3738,23 +4067,43 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
   // is always false here.
   const downloadHolderDocument = async (h: any, kind: "projet" | "technique" | "plan" | "comite") => {
     setDocxBusy(kind); setDocxErr("");
+    // A bulk Excel-imported dossier has no holder-confirmed operating
+    // figures (panier moyen, clients/jour, charges) — only sector
+    // benchmarks (CLAUDE_DOSSIER.md §4.3) — so its documents must say so,
+    // never pass off a placeholder as a real figure.
+    const isAssumed = h.assumptions?.source === "benchmark";
     try {
       const data: DossierData = {proj: h.proj, plan: h.plan, budget: h.budget, comp: h.comp, profile: h.profile, name: h.name};
+      // Coordinator's own letterhead (settings tab) — fetched here, not
+      // inside the generators, which never make network calls themselves.
+      // A fetch failure (slow network, blob briefly unreachable) just means
+      // no logo on this one document, never a blocked download.
+      let logoDataUri: string | undefined; let logoBytes: Uint8Array | undefined;
+      if (logoUrl) {
+        try {
+          const resp = await fetch(logoUrl);
+          const buf = await resp.arrayBuffer();
+          logoBytes = new Uint8Array(buf);
+          const b64 = btoa(Array.from(logoBytes, b => String.fromCharCode(b)).join(""));
+          const mime = resp.headers.get("content-type") || "image/png";
+          logoDataUri = `${mime};base64,${b64}`;
+        } catch { /* no logo on this document — not fatal */ }
+      }
       if (kind === "comite") {
-        await generateComitePresentation(pptxLang, {...data, numero: h.id}, lang, (msg) => setDocxErr(msg));
+        await generateComitePresentation(pptxLang, {...data, numero: h.id}, lang, (msg) => setDocxErr(msg), logoDataUri);
         return;
       }
       const docxLib = await import("docx");
       const docxLang = pptxLang as DocxLang;
       let blob: Blob; let filename: string;
       if (kind === "projet") {
-        blob = await buildFicheProjetDoc(docxLib, data, docxLang, false);
+        blob = await buildFicheProjetDoc(docxLib, data, docxLang, isAssumed, logoBytes);
         filename = `FicheProjet_${h.proj?.projectName || h.id}.docx`;
       } else if (kind === "technique") {
-        blob = await buildFicheTechniqueDoc(docxLib, data, docxLang, false);
+        blob = await buildFicheTechniqueDoc(docxLib, data, docxLang, isAssumed, logoBytes);
         filename = `FicheTechnique_${h.proj?.projectName || h.id}.docx`;
       } else {
-        blob = await buildBusinessPlanDoc(docxLib, data, docxLang, false);
+        blob = await buildBusinessPlanDoc(docxLib, data, docxLang, isAssumed, logoBytes);
         filename = `BusinessPlan_${h.proj?.projectName || h.id}.docx`;
       }
       const url = URL.createObjectURL(blob);
@@ -3768,6 +4117,34 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
     }
   };
   const qText = (q: CoordQuestion) => q[lang as "fr"|"ar"|"en"] || q.fr;
+
+  const budgetTotal = (h: any) =>
+    (h.budget?.items?.length ? h.budget.items.reduce((s: number, it: any) => s + (Number(it.total) || 0), 0) : 0)
+    || Number(h.proj?.estimatedBudget) || 0;
+
+  const startEdit = (h: any) => {
+    setEditProj({
+      projectName: h.proj?.projectName || "", sector: h.proj?.sector || "",
+      legalStructure: h.proj?.legalStructure || "", location: h.proj?.location || "",
+      beneficiaries: h.proj?.beneficiaries ?? "", pillar: h.proj?.pillar || "",
+    });
+    setEditIndh(String(h.budget?.indhContribution ?? Math.min(Math.round(budgetTotal(h) * 0.9), 100000)));
+    setEditMode(true);
+  };
+  const cancelEdit = () => { setEditMode(false); setEditProj(null); setEditIndh(""); };
+  const saveEdit = (h: any) => {
+    const total = budgetTotal(h);
+    const indh = Math.max(0, Math.min(Number(editIndh) || 0, total || Number(editIndh) || 0));
+    const updated = {
+      ...h,
+      proj: h.proj ? {...h.proj, ...editProj, beneficiaries: editProj.beneficiaries === "" ? h.proj.beneficiaries : Number(editProj.beneficiaries)} : h.proj,
+      budget: h.budget ? {...h.budget, indhContribution: indh, beneficiaryContribution: Math.max(0, total - indh)}
+        : (total ? {items: [], indhContribution: indh, beneficiaryContribution: Math.max(0, total - indh)} : h.budget),
+    };
+    onImportApplication(updated);
+    setDetail(updated);
+    cancelEdit();
+  };
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -3916,10 +4293,32 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
               </label>
             </Card>
             {h.proj && <Card>
-              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
-                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>📋 {lang==="ar"?"ملف المشروع":lang==="fr"?"Profil du Projet":"Project Profile"}</span>
+              <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"14px"}}>
+                <div style={{display:"flex", alignItems:"center", gap:"7px"}}>
+                  <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>📋 {lang==="ar"?"ملف المشروع":lang==="fr"?"Profil du Projet":"Project Profile"}</span>
+                </div>
+                {!editMode ? (
+                  <button onClick={() => startEdit(h)} style={{padding:"6px 12px", borderRadius:"8px",
+                    border:`1px solid ${Y}`, background:YL, color:N, fontSize:"11px", fontWeight:"700",
+                    fontFamily:ff(lang), cursor:"pointer"}}>
+                    ✏️ {lang==="ar"?"تعديل":lang==="fr"?"Modifier":"Edit"}
+                  </button>
+                ) : (
+                  <div style={{display:"flex", gap:"6px"}}>
+                    <button onClick={() => saveEdit(h)} style={{padding:"6px 12px", borderRadius:"8px",
+                      border:"none", background:GN, color:WH, fontSize:"11px", fontWeight:"700",
+                      fontFamily:ff(lang), cursor:"pointer"}}>
+                      ✓ {lang==="ar"?"حفظ":lang==="fr"?"Enregistrer":"Save"}
+                    </button>
+                    <button onClick={cancelEdit} style={{padding:"6px 12px", borderRadius:"8px",
+                      border:`1px solid ${CD}`, background:WH, color:GR, fontSize:"11px", fontWeight:"700",
+                      fontFamily:ff(lang), cursor:"pointer"}}>
+                      {lang==="ar"?"إلغاء":lang==="fr"?"Annuler":"Cancel"}
+                    </button>
+                  </div>
+                )}
               </div>
-              {[
+              {!editMode ? [
                 {l:"Projet", v:h.proj.projectName, i:"🏢"}, {l:"Secteur", v:h.proj.sector, i:"🏭"},
                 {l:"Structure", v:h.proj.legalStructure, i:"⚖️"}, {l:"Zone", v:h.proj.location, i:"📍"},
                 {l:"Bénéficiaires", v:h.proj.beneficiaries, i:"👥"}, {l:"Axe INDH", v:h.proj.pillar, i:"🏛️"},
@@ -3932,7 +4331,75 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
                   <div><div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>{x.l}</div>
                     <div style={{fontSize:"13px", color:ND, fontWeight:"600"}}>{x.v}</div></div>
                 </div>
-              ))}
+              )) : (
+                <div style={{display:"flex", flexDirection:"column", gap:"8px"}}>
+                  {([
+                    {k:"projectName", l:"Projet"}, {k:"sector", l:"Secteur"},
+                    {k:"legalStructure", l:"Structure"}, {k:"location", l:"Zone"},
+                    {k:"beneficiaries", l:"Bénéficiaires"}, {k:"pillar", l:"Axe INDH"},
+                  ] as const).map(f => (
+                    <div key={f.k}>
+                      <div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase", marginBottom:"3px"}}>{f.l}</div>
+                      <input value={editProj?.[f.k] ?? ""} type={f.k === "beneficiaries" ? "number" : "text"}
+                        onChange={e => setEditProj((p: any) => ({...p, [f.k]: e.target.value}))}
+                        style={{width:"100%", padding:"9px 11px", borderRadius:"8px", border:`1px solid ${CD}`,
+                          fontSize:"13px", fontFamily:ff(lang), color:ND, boxSizing:"border-box"}}/>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>}
+            {(h.budget || h.proj?.estimatedBudget) && <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  💰 {lang==="ar"?"الميزانية والدعم":lang==="fr"?"Budget & contribution INDH":"Budget & INDH contribution"}
+                </span>
+              </div>
+              <div style={{display:"flex", gap:"8px", marginBottom:"7px"}}>
+                <div style={{flex:1, padding:"10px 12px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
+                  <div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>
+                    {lang==="ar"?"الكلفة الإجمالية":lang==="fr"?"Coût total":"Total cost"}
+                  </div>
+                  <div style={{fontSize:"15px", color:ND, fontWeight:"700"}}>{budgetTotal(h).toLocaleString()} MAD</div>
+                </div>
+              </div>
+              {!editMode ? (
+                <div style={{display:"flex", gap:"8px"}}>
+                  <div style={{flex:1, padding:"10px 12px", background:YL, borderRadius:"10px", border:`1px solid ${Y}`}}>
+                    <div style={{fontSize:"9px", color:N, fontWeight:"700", textTransform:"uppercase"}}>
+                      {lang==="ar"?"مساهمة المبادرة":lang==="fr"?"Contribution INDH":"INDH contribution"}
+                    </div>
+                    <div style={{fontSize:"17px", color:N, fontWeight:"800"}}>
+                      {(h.budget?.indhContribution ?? Math.min(Math.round(budgetTotal(h)*0.9), 100000)).toLocaleString()} MAD
+                    </div>
+                  </div>
+                  <div style={{flex:1, padding:"10px 12px", background:CR, borderRadius:"10px", border:`1px solid ${CD}`}}>
+                    <div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase"}}>
+                      {lang==="ar"?"مساهمة الحامل":lang==="fr"?"Apport du porteur":"Holder contribution"}
+                    </div>
+                    <div style={{fontSize:"15px", color:ND, fontWeight:"700"}}>
+                      {(h.budget?.beneficiaryContribution ?? Math.max(0, budgetTotal(h) - Math.min(Math.round(budgetTotal(h)*0.9), 100000))).toLocaleString()} MAD
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{fontSize:"9px", color:GR, fontWeight:"700", textTransform:"uppercase", marginBottom:"3px"}}>
+                    {lang==="ar"?"مساهمة المبادرة (MAD) — أي مبلغ":lang==="fr"?"Contribution INDH (MAD) — tout montant":"INDH contribution (MAD) — any amount"}
+                  </div>
+                  <input value={editIndh} type="number" min={0} max={budgetTotal(h) || undefined}
+                    onChange={e => setEditIndh(e.target.value)}
+                    style={{width:"100%", padding:"9px 11px", borderRadius:"8px", border:`1.5px solid ${Y}`,
+                      fontSize:"15px", fontWeight:"700", fontFamily:ff(lang), color:N, boxSizing:"border-box"}}/>
+                  <div style={{fontSize:"11px", color:GR, marginTop:"5px"}}>
+                    {lang==="ar"
+                      ? `لم تعد محدودة بـ 100,000 درهم تلقائياً — مساهمة الحامل ستصبح ${Math.max(0, budgetTotal(h) - (Number(editIndh)||0)).toLocaleString()} درهم.`
+                      : lang==="fr"
+                      ? `Plus limité automatiquement à 100 000 MAD — l'apport du porteur deviendra ${Math.max(0, budgetTotal(h) - (Number(editIndh)||0)).toLocaleString()} MAD.`
+                      : `No longer auto-capped at 100,000 MAD — the holder's contribution becomes ${Math.max(0, budgetTotal(h) - (Number(editIndh)||0)).toLocaleString()} MAD.`}
+                  </div>
+                </div>
+              )}
             </Card>}
             {h.comp && <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"14px"}}>
@@ -4015,6 +4482,8 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
             </Card>}
           </div>
         </div>
+        <HelpAgent lang={lang}
+          context={`Coordinateur: ${user.id} | Dossier ouvert: ${h.proj?.projectName || h.name} (${h.id}) | Secteur: ${h.proj?.sector || ""} | Score: ${h.comp?.score != null ? h.comp.score + "/100" : "non évalué"}`}/>
       </div>
     );
   }
@@ -4190,7 +4659,21 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
                   ? (lang==="ar"?"جارٍ...":lang==="fr"?"Génération...":"Generating...")
                   : (lang==="ar"?"تصدير Excel":lang==="fr"?"Exporter Excel":"Export Excel")}
               </button>
+              <label style={{padding:"10px 16px", borderRadius:10, border:`1px solid ${Y}`,
+                background: xlsBusy ? CD : YL, color:N, fontSize:"12px", fontWeight:"700",
+                fontFamily:ff(lang), cursor: xlsBusy ? "default" : "pointer", flexShrink:0,
+                display:"flex", alignItems:"center", gap:6}}>
+                📤 {xlsBusy
+                  ? (lang==="ar"?"جارٍ الاستيراد...":lang==="fr"?"Import en cours...":"Importing...")
+                  : (lang==="ar"?"استيراد لائحة اللجنة (Excel)":lang==="fr"?"Importer un comité (Excel)":"Import a committee (Excel)")}
+                <input type="file" accept=".xlsx" disabled={xlsBusy} style={{display:"none"}}
+                  onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importCommitteeExcel(f); }}/>
+              </label>
             </div>
+            {xlsErr && (
+              <div style={{padding:"10px 12px", background:`${RE}12`, border:`1px solid ${RE}44`,
+                borderRadius:8, marginBottom:12, fontSize:12, color:RE}}>{xlsErr}</div>
+            )}
             {filtered.length === 0 ? (
               <div style={{textAlign:"center", padding:"48px 20px"}}>
                 <div style={{fontSize:"56px", marginBottom:"12px"}}>📭</div>
@@ -4324,6 +4807,43 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
                   </div>
                 ))}
               </div>
+            </Card>
+            <Card>
+              <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"10px"}}>
+                <AccBar/><span style={{fontSize:"14px", fontWeight:"700", color:ND}}>
+                  🖼️ {lang==="ar"?"شعار العمالة/الإقليم":lang==="fr"?"Logo de la préfecture":"Prefecture logo"}
+                </span>
+              </div>
+              <p style={{fontSize:12, color:GR, marginBottom:14, lineHeight:1.6}}>
+                {lang==="ar"
+                  ? "سيظهر هذا الشعار على كل الوثائق المولدة لحاملي مشاريعكم (العرض أمام اللجنة، بطاقة المشروع...)."
+                  : lang==="fr"
+                  ? "Ce logo apparaîtra sur tous les documents générés pour vos porteurs (présentation comité, fiche projet...)."
+                  : "This logo will appear on every document generated for your holders (committee presentation, project sheet...)."}
+              </p>
+              {logoErr && <div style={{padding:"10px 12px", background:`${RE}12`, border:`1px solid ${RE}44`,
+                borderRadius:8, marginBottom:12, fontSize:12, color:RE}}>{logoErr}</div>}
+              {logoUrl && (
+                <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:12, padding:10,
+                  background:CR, borderRadius:10, border:`1px solid ${CD}`}}>
+                  <img src={logoUrl} alt="logo" style={{width:44, height:44, objectFit:"contain", borderRadius:6, background:WH}}/>
+                  <span style={{fontSize:12, color:GN, fontWeight:600}}>
+                    {lang==="ar"?"تم التحميل":lang==="fr"?"Logo actif":"Logo active"}
+                  </span>
+                </div>
+              )}
+              <label style={{display:"flex", alignItems:"center", gap:10, padding:"11px 14px",
+                borderRadius:10, border:`1.5px dashed ${Y}`, background:YL, cursor: logoBusy ? "default" : "pointer",
+                opacity: logoBusy ? .6 : 1}}>
+                <span style={{fontSize:20}}>{logoBusy ? "⏳" : "🖼️"}</span>
+                <div style={{fontSize:12, fontWeight:600, color:ND}}>
+                  {logoBusy
+                    ? (lang==="ar"?"جارٍ الرفع...":lang==="fr"?"Envoi en cours...":"Uploading...")
+                    : (lang==="ar"?"استيراد شعار (PNG/JPG)":lang==="fr"?"Importer un logo (PNG/JPG)":"Upload a logo (PNG/JPG)")}
+                </div>
+                <input type="file" accept="image/png,image/jpeg" disabled={logoBusy} style={{display:"none"}}
+                  onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadLogo(f); }}/>
+              </label>
             </Card>
             <Card>
               <div style={{display:"flex", alignItems:"center", gap:"7px", marginBottom:"16px"}}>
@@ -4463,7 +4983,12 @@ function CoordDash({lang, setLang, user, onLogout, t, holders, syncError, questi
           name: "export_excel",
           label: `📊 ${lang==="ar"?"تصدير Excel":lang==="fr"?"Exporter Excel":"Export Excel"}`,
           run: exportExcel,
-        }]}/>
+        }]}
+        fileHandler={{
+          accept: ".xlsx,.xls,image/png,image/jpeg,.png,.jpg,.jpeg",
+          hint: lang==="ar"?"يمكنك أيضاً إرفاق ملف Excel للجنة أو صورة شعار 📎 مباشرة هنا.":lang==="fr"?"Vous pouvez aussi joindre ici un fichier Excel du comité ou une image de logo 📎.":"You can also attach a committee Excel file or a logo image 📎 right here.",
+          onFile: handleAgentFile,
+        }}/>
     </div>
   );
 }
@@ -5594,7 +6119,13 @@ export default function IdeaMapPage() {
     fetch("/api/sheets")
       .then(r => r.json())
       .then(data => {
-        if (data.error) { setSyncError(true); return; }
+        // `error: true` means some piece of this response fell back (e.g.
+        // Redis down, served from the Blob fallback instead) — worth a
+        // sync-status warning, but NOT a reason to discard the payload: the
+        // fallback may well have recovered real holders/coords, and a
+        // returning holder must still be found in them. Only bail out
+        // (keep whatever's cached) when there's truly nothing usable here.
+        if (data.error) setSyncError(true);
         if (data.holders?.length > 0 || data.coords?.length > 0) {
           setHolders(data.holders || []);
           setCoords((data.coords || []).map(normalizeCoord));
@@ -5740,7 +6271,7 @@ export default function IdeaMapPage() {
 
   if (!user) return <>
     <SyncDot/>
-    <Login lang={lang} setLang={setLangDir} t={t} onLogin={onLogin} holders={holders} coords={coords}/>
+    <Login lang={lang} setLang={setLangDir} t={t} onLogin={onLogin} holders={holders} coords={coords} syncing={syncing}/>
   </>;
 
   if (user.role === "holder") {
@@ -5759,10 +6290,16 @@ export default function IdeaMapPage() {
   if (user.role === "coord") return <>
     <SyncDot/>
     <CoordDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
-      t={t} holders={holders} syncError={syncError}
+      t={t} holders={holders.filter(h => (h.profile?.coordCode||"").toUpperCase() === user.id.toUpperCase())} syncError={syncError}
       questionnaire={coords.find(c => c.code.toUpperCase() === user.id.toUpperCase())?.questionnaire}
       onSaveQuestionnaire={(questions: CoordQuestion[] | undefined) => {
         const next = coords.map(c => c.code.toUpperCase() === user.id.toUpperCase() ? {...c, questionnaire: questions} : c);
+        setCoords(next);
+        persistCoords(next);
+      }}
+      logoUrl={coords.find(c => c.code.toUpperCase() === user.id.toUpperCase())?.logoUrl}
+      onSaveLogo={(url: string) => {
+        const next = coords.map(c => c.code.toUpperCase() === user.id.toUpperCase() ? {...c, logoUrl: url} : c);
         setCoords(next);
         persistCoords(next);
       }}
