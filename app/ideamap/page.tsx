@@ -6142,7 +6142,7 @@ export default function IdeaMapPage() {
   if (user.role === "coord") return <>
     <SyncDot/>
     <CoordDash lang={lang} setLang={setLangDir} user={user} onLogout={onLogout}
-      t={t} holders={holders} syncError={syncError}
+      t={t} holders={holders.filter(h => (h.profile?.coordCode||"").toUpperCase() === user.id.toUpperCase())} syncError={syncError}
       questionnaire={coords.find(c => c.code.toUpperCase() === user.id.toUpperCase())?.questionnaire}
       onSaveQuestionnaire={(questions: CoordQuestion[] | undefined) => {
         const next = coords.map(c => c.code.toUpperCase() === user.id.toUpperCase() ? {...c, questionnaire: questions} : c);
