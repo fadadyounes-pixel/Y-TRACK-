@@ -7,6 +7,8 @@ import PageHeader from '../../../components/PageHeader';
 import Icon from '../../../components/Icon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, EDU_LEVELS, LANGUAGES as MATCH_LANGUAGES } from '@/lib/matching';
+import { printHtmlAsPdf } from '@/lib/printHtmlAsPdf';
+import { downloadExcel } from '@/lib/exportExcel';
 
 interface Job {
   id: string;
@@ -165,6 +167,51 @@ export default function CoordinatorJobs() {
 
   const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.9rem', color: '#0f172a', background: 'white', fontFamily: 'inherit' };
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' };
+
+  // ── Export the currently filtered offer list — Excel + direct PDF ──────
+  // Mirrors the pattern already shipped on the candidate CV list, admin
+  // reports and admin generator: a real .xlsx via the shared downloadExcel
+  // helper, and a styled printable HTML handed to printHtmlAsPdf (hidden
+  // iframe + window.print(), no server-side rendering).
+  async function exportJobsExcel() {
+    await downloadExcel(
+      `TalentMap_Offres_${new Date().toISOString().slice(0, 10)}.xlsx`, 'Offres d\'emploi',
+      [
+        { header: 'Titre', key: 'titre' }, { header: 'Entreprise', key: 'entreprise' },
+        { header: 'Secteur', key: 'secteur' }, { header: 'Expérience', key: 'exp' },
+        { header: 'Ville', key: 'ville' }, { header: 'Salaire', key: 'salaire' },
+        { header: 'Formation requise', key: 'formation' }, { header: 'Langues requises', key: 'langues' },
+        { header: 'Compétences', key: 'competences' }, { header: 'Statut', key: 'statut' },
+        { header: 'Publiée le', key: 'date' },
+      ],
+      filtered.map(j => ({
+        titre: j.title, entreprise: j.company, secteur: j.sector, exp: j.experience,
+        ville: j.location, salaire: j.salary || '', formation: j.educationLevel || '',
+        langues: (j.languages || []).join('; '), competences: j.skills.join('; '),
+        statut: j.status === 'Open' ? 'Ouverte' : 'Fermée', date: j.createdAt,
+      })),
+    );
+  }
+
+  function exportJobsPdf() {
+    const now = new Date().toLocaleDateString('fr-MA');
+    const rows = filtered.map(j => `<tr><td>${j.title}</td><td>${j.company}</td><td>${j.sector}</td><td>${j.experience}</td><td>${j.location}</td><td>${j.skills.join(', ') || '—'}</td><td>${j.status === 'Open' ? 'Ouverte' : 'Fermée'}</td></tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>TalentMap — Offres d'emploi</title>
+<style>body{font-family:'Segoe UI',sans-serif;color:#0a1f5c;padding:2rem;max-width:1100px;margin:0 auto}
+h1{color:#0a1f5c}p{color:#6b7280;margin-bottom:2rem}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{background:#0a1f5c;color:white;padding:.55rem .7rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
+td{padding:.55rem .7rem;border-bottom:1px solid #f3f4f6}
+tr:nth-child(even) td{background:#f9fafb}
+.footer{text-align:center;color:#9ca3af;font-size:.75rem;margin-top:2rem;padding-top:1rem;border-top:1px solid #f3f4f6}
+</style></head><body>
+<h1>TalentMap — Offres d'emploi</h1>
+<p>Généré le ${now} · ${filtered.length} offre${filtered.length > 1 ? 's' : ''}</p>
+<table><thead><tr><th>Poste</th><th>Entreprise</th><th>Secteur</th><th>Niveau</th><th>Ville</th><th>Compétences</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>
+<div class="footer">TalentMap Recruitment Platform · ${now}</div>
+</body></html>`;
+    printHtmlAsPdf(html);
+  }
 
   async function generateDescription() {
     if (!title && !sector) return;
@@ -387,6 +434,16 @@ Retourne UNIQUEMENT ce JSON valide sans markdown: {"matches":[{"id":"id exact du
             <option value="Open">Ouvertes</option>
             <option value="Closed">Fermées</option>
           </select>
+          {filtered.length > 0 && (
+            <div style={{ display: 'flex', gap: '0.5rem', marginInlineStart: 'auto' }}>
+              <button onClick={exportJobsPdf} style={{ padding: '0.5rem 0.9rem', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>
+                ↓ PDF
+              </button>
+              <button onClick={exportJobsExcel} style={{ padding: '0.5rem 0.9rem', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>
+                ↓ Excel
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Job list */}

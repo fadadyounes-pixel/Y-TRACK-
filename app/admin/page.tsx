@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import PageHeader from '../../components/PageHeader';
 import Icon, { type IconName } from '../../components/Icon';
+import { printHtmlAsPdf } from '@/lib/printHtmlAsPdf';
+import { downloadExcel } from '@/lib/exportExcel';
 
 /* ── Design tokens (TALENTMAP.md) ───────────────────────────────────────
  * Light theme per the spec's Brand Gradient / Score & Role Badge systems.
@@ -435,15 +437,40 @@ export default function AdminDashboard() {
     setSavingToDb(false);
   }
 
-  function exportGenCSV() {
-    const header = 'Nom,Âge,Téléphone,Email,Adresse,Secteur,Expérience,Compétences,Source';
-    const rows = genResults.map(p => [p.name, p.age || '', p.phone || '', p.email || '', p.address || '', p.sector || '', p.experience || '', (p.skills || []).join('; '), p.source === 'cv' ? 'CV' : 'Liste'].map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(','));
-    const csv = [header, ...rows].join('\n');
-    const a = Object.assign(document.createElement('a'), {
-      href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })),
-      download: `TalentMap_Profils_Generes_${new Date().toISOString().slice(0, 10)}.csv`,
-    });
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  async function exportGenExcel() {
+    await downloadExcel(
+      `TalentMap_Profils_Generes_${new Date().toISOString().slice(0, 10)}.xlsx`, 'Profils générés',
+      [
+        { header: 'Nom', key: 'nom' }, { header: 'Âge', key: 'age' }, { header: 'Téléphone', key: 'tel' },
+        { header: 'Email', key: 'email' }, { header: 'Adresse', key: 'adresse' }, { header: 'Secteur', key: 'secteur' },
+        { header: 'Expérience', key: 'exp' }, { header: 'Compétences', key: 'competences' }, { header: 'Source', key: 'source' },
+      ],
+      genResults.map(p => ({
+        nom: p.name, age: p.age || '', tel: p.phone || '', email: p.email || '', adresse: p.address || '',
+        secteur: p.sector || '', exp: p.experience || '', competences: (p.skills || []).join('; '),
+        source: p.source === 'cv' ? 'CV' : 'Liste',
+      })),
+    );
+  }
+
+  function exportGenPDF() {
+    const now = new Date().toLocaleDateString('fr-MA');
+    const rows = genResults.map(p => `<tr><td>${p.name}</td><td>${p.age || '—'}</td><td>${p.phone || '—'}</td><td>${p.email || '—'}</td><td>${p.address || '—'}</td><td>${p.sector || '—'}</td><td>${(p.skills || []).join(', ') || '—'}</td></tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>TalentMap — Profils générés</title>
+<style>body{font-family:'Segoe UI',sans-serif;color:#111827;padding:2rem;max-width:1100px;margin:0 auto}
+h1{color:#0a1f5c}p{color:#6b7280;margin-bottom:2rem}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{background:#0a1f5c;color:white;padding:.55rem .75rem;text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em}
+td{padding:.55rem .75rem;border-bottom:1px solid #f3f4f6}
+tr:nth-child(even) td{background:#f9fafb}
+.footer{text-align:center;color:#9ca3af;font-size:.75rem;margin-top:2rem;padding-top:1rem;border-top:1px solid #f3f4f6}
+</style></head><body>
+<h1>TalentMap — Profils générés</h1>
+<p>Généré le ${now} · ${genResults.length} profil${genResults.length > 1 ? 's' : ''}</p>
+<table><thead><tr><th>Nom</th><th>Âge</th><th>Téléphone</th><th>Email</th><th>Adresse</th><th>Secteur</th><th>Compétences</th></tr></thead><tbody>${rows}</tbody></table>
+<div class="footer">TalentMap Recruitment Platform · ${now}</div>
+</body></html>`;
+    printHtmlAsPdf(html);
   }
 
   /* ── Derived stats ── */
@@ -519,50 +546,57 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
 <table><thead><tr><th>Nom</th><th>Email</th><th>Secteur</th><th>Expérience</th><th>Compétences</th><th>Score</th></tr></thead><tbody>${cvRows}</tbody></table>` : ''}
 <div class="footer">TalentMap Recruitment Platform · ${now}</div>
 </body></html>`;
-    const blob = new Blob([html], { type: 'text/html' });
-    const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement('a'), { href: url, download: `TalentMap_${type}_${now.replace(/\//g, '-')}.html` });
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    printHtmlAsPdf(html);
   }
 
-  /* ── CSV export ── */
-  function downloadCSV(type: 'Candidates' | 'Jobs' | 'Coordinators') {
-    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    let rows: (string | number)[][] = [];
+  /* ── Excel export (real .xlsx, not CSV) ── */
+  async function downloadExcelReport(type: 'Candidates' | 'Jobs' | 'Coordinators') {
     if (type === 'Candidates') {
-      rows = [
-        ['Nom', 'Email', 'Téléphone', 'Ville', 'Secteur', 'Expérience', 'Formation', 'Langues', 'Compétences', 'Score match', 'Inscrit le'],
-        ...cvs.map((c: any) => [
-          c.name || c.fileName || '', c.email || '', c.phone || '', c.city || '',
-          c.sector || '', c.experience || '', c.educationLevel || '',
-          (c.languages || []).join('; '), (c.skills || []).join('; '),
-          c.matchScore != null ? `${c.matchScore}%` : '',
-          c.uploadedAt ? new Date(c.uploadedAt).toLocaleDateString('fr-MA') : '',
-        ]),
-      ];
+      await downloadExcel(
+        `TalentMap_Candidats_${new Date().toISOString().slice(0, 10)}.xlsx`, 'Candidats',
+        [
+          { header: 'Nom', key: 'nom' }, { header: 'Email', key: 'email' }, { header: 'Téléphone', key: 'tel' },
+          { header: 'Ville', key: 'ville' }, { header: 'Secteur', key: 'secteur' }, { header: 'Expérience', key: 'exp' },
+          { header: 'Formation', key: 'formation' }, { header: 'Langues', key: 'langues' }, { header: 'Compétences', key: 'competences' },
+          { header: 'Score match', key: 'score' }, { header: 'Inscrit le', key: 'date' },
+        ],
+        cvs.map((c: any) => ({
+          nom: c.name || c.fileName || '', email: c.email || '', tel: c.phone || '', ville: c.city || '',
+          secteur: c.sector || '', exp: c.experience || '', formation: c.educationLevel || '',
+          langues: (c.languages || []).join('; '), competences: (c.skills || []).join('; '),
+          score: c.matchScore != null ? `${c.matchScore}%` : '',
+          date: c.uploadedAt ? new Date(c.uploadedAt).toLocaleDateString('fr-MA') : '',
+        })),
+      );
     } else if (type === 'Jobs') {
-      rows = [
-        ['Titre', 'Entreprise', 'Secteur', 'Expérience', 'Ville', 'Formation requise', 'Langues requises', 'Compétences', 'Statut', 'Publiée le'],
-        ...jobs.map(j => [
-          j.title, j.company, j.sector, j.experience, j.location,
-          j.educationLevel || '', (j.languages || []).join('; '),
-          (j.skills || []).join('; '), j.status || 'Active',
-          j.createdAt ? new Date(j.createdAt).toLocaleDateString('fr-MA') : '',
-        ]),
-      ];
+      await downloadExcel(
+        `TalentMap_Offres_${new Date().toISOString().slice(0, 10)}.xlsx`, 'Offres d\'emploi',
+        [
+          { header: 'Titre', key: 'titre' }, { header: 'Entreprise', key: 'entreprise' }, { header: 'Secteur', key: 'secteur' },
+          { header: 'Expérience', key: 'exp' }, { header: 'Ville', key: 'ville' }, { header: 'Formation requise', key: 'formation' },
+          { header: 'Langues requises', key: 'langues' }, { header: 'Compétences', key: 'competences' },
+          { header: 'Statut', key: 'statut' }, { header: 'Publiée le', key: 'date' },
+        ],
+        jobs.map(j => ({
+          titre: j.title, entreprise: j.company, secteur: j.sector, exp: j.experience, ville: j.location,
+          formation: j.educationLevel || '', langues: (j.languages || []).join('; '),
+          competences: (j.skills || []).join('; '), statut: j.status || 'Active',
+          date: j.createdAt ? new Date(j.createdAt).toLocaleDateString('fr-MA') : '',
+        })),
+      );
     } else {
-      rows = [
-        ['Nom', 'Email', 'Code', 'Créé le'],
-        ...coordinators.map(c => [c.name, c.email, c.code, c.createdAt ? new Date(c.createdAt).toLocaleDateString('fr-MA') : '']),
-      ];
+      await downloadExcel(
+        `TalentMap_Coordinateurs_${new Date().toISOString().slice(0, 10)}.xlsx`, 'Coordinateurs',
+        [
+          { header: 'Nom', key: 'nom' }, { header: 'Email', key: 'email' },
+          { header: 'Code', key: 'code' }, { header: 'Créé le', key: 'date' },
+        ],
+        coordinators.map(c => ({
+          nom: c.name, email: c.email, code: c.code,
+          date: c.createdAt ? new Date(c.createdAt).toLocaleDateString('fr-MA') : '',
+        })),
+      );
     }
-    const csv = rows.map(r => r.map(esc).join(',')).join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), { href: url, download: `TalentMap_${type}_${new Date().toISOString().slice(0, 10)}.csv` });
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   }
 
   /* ── Sidebar nav ── */
@@ -1195,7 +1229,8 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                       <div style={{ padding: '1rem 1.3rem', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem' }}>
                         <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: NAVY, textTransform: 'uppercase', letterSpacing: '.04em' }}>Profils générés ({genResults.length})</h2>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button onClick={exportGenCSV} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${GREEN}`, background: WHITE, color: GREEN, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}><Icon name="download" size={13}/>CSV</button>
+                          <button onClick={exportGenPDF} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${RED}`, background: WHITE, color: RED, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}><Icon name="download" size={13}/>PDF</button>
+                          <button onClick={exportGenExcel} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.85rem', borderRadius: 7, border: `1.5px solid ${GREEN}`, background: WHITE, color: GREEN, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}><Icon name="download" size={13}/>Excel</button>
                           <button onClick={saveGeneratedToDb} disabled={savingToDb} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.85rem', borderRadius: 7, border: 'none', background: savedToDb ? GREEN : COBALT, color: '#ffffff', fontSize: '0.78rem', fontWeight: 700, cursor: savingToDb ? 'wait' : 'pointer' }}>
                             {savingToDb ? <><Icon name="refresh" size={13}/>Enregistrement…</> : savedToDb ? <><Icon name="check" size={13}/>Enregistré</> : <><Icon name="save" size={13}/>Enregistrer dans la base candidats</>}
                           </button>
@@ -1307,14 +1342,14 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
                           padding: '0.65rem', borderRadius: 8, border: 'none',
                           background: r.color, color: '#ffffff', fontSize: '0.85rem', fontWeight: 700,
                           cursor: 'pointer', fontFamily: 'inherit',
-                        }}><Icon name="download" size={14}/>HTML</button>
+                        }}><Icon name="download" size={14}/>PDF</button>
                         {r.type !== 'Full' && (
-                          <button onClick={() => downloadCSV(r.type as 'Candidates' | 'Jobs' | 'Coordinators')} style={{
+                          <button onClick={() => downloadExcelReport(r.type as 'Candidates' | 'Jobs' | 'Coordinators')} style={{
                             flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem',
                             padding: '0.65rem', borderRadius: 8, border: `1.5px solid ${r.color}`,
                             background: WHITE, color: r.color, fontSize: '0.85rem', fontWeight: 700,
                             cursor: 'pointer', fontFamily: 'inherit',
-                          }}><Icon name="download" size={14}/>CSV</button>
+                          }}><Icon name="download" size={14}/>Excel</button>
                         )}
                       </div>
                     </div>

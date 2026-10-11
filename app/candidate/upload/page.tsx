@@ -14,6 +14,7 @@ import {
 } from '@/lib/cvTemplate';
 import { scoreCV, scoreBandStyle } from '@/lib/cvScore';
 import { cvAgentSystemPrompt } from '@/lib/cvAgent';
+import { printHtmlAsPdf } from '@/lib/printHtmlAsPdf';
 
 const SKILL_SUGGESTIONS: Record<string, string[]> = {
   Technology:         ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'SQL', 'Docker', 'Git', 'REST APIs', 'SAP'],
@@ -368,30 +369,7 @@ export default function CandidateUpload() {
   // ── PDF download — opens browser print dialog directly (no popup) ──────────
   function downloadPDF() {
     if (!cvHtml) return;
-    // Inject a hidden iframe so the print dialog opens on the current page
-    // instead of a new popup tab (avoids popup blockers, feels instant).
-    const blob = new Blob([cvHtml], { type: 'text/html;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    const cleanup = () => {
-      if (document.body.contains(iframe)) document.body.removeChild(iframe);
-      URL.revokeObjectURL(url);
-    };
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch { cleanup(); }
-      setTimeout(cleanup, 60000);
-    };
-    // Safety fallback if onload never fires
-    setTimeout(() => {
-      try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch {}
-      setTimeout(cleanup, 60000);
-    }, 1500);
+    printHtmlAsPdf(cvHtml);
   }
 
   // ── Extract readable text from any non-image file via the server ──────────

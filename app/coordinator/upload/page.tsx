@@ -7,6 +7,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import PageHeader from '../../../components/PageHeader';
 import Icon, { type IconName } from '../../../components/Icon';
 import { inferEducationLevel } from '@/lib/matching';
+import { printHtmlAsPdf } from '@/lib/printHtmlAsPdf';
+import { downloadExcel } from '@/lib/exportExcel';
 
 const MAX_CVS = 150;
 const CONCURRENCY = 6;
@@ -442,16 +444,43 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
     setCvList([]); queueRef.current = []; fileMapRef.current.clear(); activeRef.current = 0;
   }
 
-  function exportCSV() {
+  async function exportExcelList() {
     const done = cvList.filter(c => c.status === 'done');
-    const header = 'Nom,Email,Téléphone,Secteur,Expérience,Formation,Langues,Compétences,Résumé,Fichier,CV Amélioré';
-    const rows = done.map(c => [c.name, c.email, c.phone, c.sector, c.experience, c.education || '', (c.languages || []).join('; '), c.skills.join('; '), c.summary, c.fileName, c.enhanceStatus === 'enhanced' ? 'Oui' : 'Non'].map(v => `"${(v || '').replace(/"/g, '""')}"`).join(','));
-    const csv = [header, ...rows].join('\n');
-    const a = Object.assign(document.createElement('a'), {
-      href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })),
-      download: `Candidats_TalentMap_${new Date().toISOString().slice(0, 10)}.csv`,
-    });
-    a.click();
+    await downloadExcel(
+      `Candidats_TalentMap_${new Date().toISOString().slice(0, 10)}.xlsx`, 'Candidats',
+      [
+        { header: 'Nom', key: 'nom' }, { header: 'Email', key: 'email' }, { header: 'Téléphone', key: 'tel' },
+        { header: 'Secteur', key: 'secteur' }, { header: 'Expérience', key: 'exp' }, { header: 'Formation', key: 'formation' },
+        { header: 'Langues', key: 'langues' }, { header: 'Compétences', key: 'competences' }, { header: 'Résumé', key: 'resume' },
+        { header: 'Fichier', key: 'fichier' }, { header: 'CV Amélioré', key: 'ameliore' },
+      ],
+      done.map(c => ({
+        nom: c.name, email: c.email, tel: c.phone, secteur: c.sector, exp: c.experience,
+        formation: c.education || '', langues: (c.languages || []).join('; '), competences: c.skills.join('; '),
+        resume: c.summary, fichier: c.fileName, ameliore: c.enhanceStatus === 'enhanced' ? 'Oui' : 'Non',
+      })),
+    );
+  }
+
+  function exportPdfList() {
+    const done = cvList.filter(c => c.status === 'done');
+    const now = new Date().toLocaleDateString('fr-MA');
+    const rows = done.map(c => `<tr><td>${c.name}</td><td>${c.email || '—'}</td><td>${c.phone || '—'}</td><td>${c.sector || '—'}</td><td>${c.experience || '—'}</td><td>${c.skills.join(', ') || '—'}</td></tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>TalentMap — Candidats importés</title>
+<style>body{font-family:'Segoe UI',sans-serif;color:#0a1f5c;padding:2rem;max-width:1100px;margin:0 auto}
+h1{color:#0a1f5c}p{color:#6b7280;margin-bottom:2rem}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{background:#0a1f5c;color:white;padding:.55rem .75rem;text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em}
+td{padding:.55rem .75rem;border-bottom:1px solid #f3f4f6}
+tr:nth-child(even) td{background:#f9fafb}
+.footer{text-align:center;color:#9ca3af;font-size:.75rem;margin-top:2rem;padding-top:1rem;border-top:1px solid #f3f4f6}
+</style></head><body>
+<h1>TalentMap — Candidats importés</h1>
+<p>Généré le ${now} · ${done.length} candidat${done.length > 1 ? 's' : ''}</p>
+<table><thead><tr><th>Nom</th><th>Email</th><th>Téléphone</th><th>Secteur</th><th>Expérience</th><th>Compétences</th></tr></thead><tbody>${rows}</tbody></table>
+<div class="footer">TalentMap Recruitment Platform · ${now}</div>
+</body></html>`;
+    printHtmlAsPdf(html);
   }
 
   // ── Bulk "download all" — every original uploaded file, zipped client-side
@@ -555,8 +584,13 @@ Retourne UNIQUEMENT ce JSON valide sans markdown:
               </button>
             )}
             {done > 0 && (
-              <button onClick={exportCSV} className="action-btn" style={{ padding: '8px 16px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                ↓ Exporter CSV
+              <button onClick={exportPdfList} className="action-btn" style={{ padding: '8px 16px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                ↓ PDF
+              </button>
+            )}
+            {done > 0 && (
+              <button onClick={exportExcelList} className="action-btn" style={{ padding: '8px 16px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                ↓ Excel
               </button>
             )}
             {total > 0 && (
