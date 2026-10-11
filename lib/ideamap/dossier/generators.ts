@@ -134,9 +134,14 @@ function body(docxLib: any, text?: string) {
 // finance.ts) — but a document should say that plainly rather than leave
 // it implied by a number elsewhere. Shared across all three generators so
 // the framing (and its wording) stays identical everywhere it appears.
-function titleBlock(docxLib: any, titleKey: keyof typeof T, proj: ProjectProfile | null, lang: Lang) {
-  const { Paragraph, TextRun, HeadingLevel, AlignmentType } = docxLib;
+function titleBlock(docxLib: any, titleKey: keyof typeof T, proj: ProjectProfile | null, lang: Lang, logoBytes?: Uint8Array) {
+  const { Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun } = docxLib;
+  const logo = logoBytes ? [new Paragraph({
+    children: [new ImageRun({ data: logoBytes, type: "png", transformation: { width: 90, height: 90 } })],
+    alignment: AlignmentType.CENTER, spacing: { after: 120 },
+  })] : [];
   return [
+    ...logo,
     new Paragraph({ text: tr(titleKey, lang), heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER }),
     new Paragraph({ children: [new TextRun({ text: proj?.projectName || "", bold: true, size: 28, color: "2A5CE0" })],
       alignment: AlignmentType.CENTER, spacing: { after: 80 } }),
@@ -193,11 +198,11 @@ function committeeRecordTable(docxLib: any, data: DossierData, lang: Lang) {
   ]);
 }
 
-export async function buildFicheProjetDoc(docxLib: any, data: DossierData, lang: Lang, isAssumed: boolean) {
+export async function buildFicheProjetDoc(docxLib: any, data: DossierData, lang: Lang, isAssumed: boolean, logoBytes?: Uint8Array) {
   const { Document, Packer } = docxLib;
   const { proj, profile } = data;
   const doc = new Document({ sections: [{ children: [
-    ...titleBlock(docxLib, "ficheProjet", proj, lang),
+    ...titleBlock(docxLib, "ficheProjet", proj, lang, logoBytes),
     heading(docxLib, tr("ficheComite", lang)),
     committeeRecordTable(docxLib, data, lang),
     heading(docxLib, tr("detailsComplementaires", lang)),
@@ -216,7 +221,7 @@ export async function buildFicheProjetDoc(docxLib: any, data: DossierData, lang:
   return Packer.toBlob(doc);
 }
 
-export async function buildFicheTechniqueDoc(docxLib: any, data: DossierData, lang: Lang, isAssumed: boolean) {
+export async function buildFicheTechniqueDoc(docxLib: any, data: DossierData, lang: Lang, isAssumed: boolean, logoBytes?: Uint8Array) {
   const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, Packer } = docxLib;
   const { proj, budget } = data;
   const total = budget?.items?.reduce((s, x) => s + (x.total || 0), 0) || 0;
@@ -231,7 +236,7 @@ export async function buildFicheTechniqueDoc(docxLib: any, data: DossierData, la
     new TableCell({ children: [new Paragraph({ text: `${Number(it.total || 0).toLocaleString()} MAD` })] }),
   ] }));
   const doc = new Document({ sections: [{ children: [
-    ...titleBlock(docxLib, "ficheTechnique", proj, lang),
+    ...titleBlock(docxLib, "ficheTechnique", proj, lang, logoBytes),
     heading(docxLib, tr("equipements", lang)),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
@@ -255,13 +260,13 @@ export async function buildFicheTechniqueDoc(docxLib: any, data: DossierData, la
   return Packer.toBlob(doc);
 }
 
-export async function buildBusinessPlanDoc(docxLib: any, data: DossierData, lang: Lang, isAssumed: boolean) {
+export async function buildBusinessPlanDoc(docxLib: any, data: DossierData, lang: Lang, isAssumed: boolean, logoBytes?: Uint8Array) {
   const { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, Packer } = docxLib;
   const { proj, plan } = data;
   const border = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
   const projEntries = plan?.projections ? Object.entries(plan.projections) : [];
   const doc = new Document({ sections: [{ children: [
-    ...titleBlock(docxLib, "businessPlan", proj, lang),
+    ...titleBlock(docxLib, "businessPlan", proj, lang, logoBytes),
     heading(docxLib, tr("resumeExec", lang)), ...body(docxLib, plan?.executiveSummary),
     heading(docxLib, tr("problematique", lang)), ...body(docxLib, plan?.problemStatement),
     heading(docxLib, tr("solution", lang)), ...body(docxLib, plan?.solution),
