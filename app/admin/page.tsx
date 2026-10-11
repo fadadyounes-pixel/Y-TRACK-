@@ -1322,7 +1322,7 @@ ${(type === 'Candidates' || type === 'Full') ? `<h2>Candidats (${cvs.length})</h
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: NAVY, marginBottom: 4 }}>Rapports</h2>
                 <p style={{ fontSize: '0.82rem', color: MUTED, marginBottom: '1.5rem' }}>
-                  Exportez les données de la plateforme en HTML téléchargeable.
+                  Exportez les données de la plateforme en PDF ou en Excel.
                 </p>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
