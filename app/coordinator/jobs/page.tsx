@@ -7,6 +7,8 @@ import PageHeader from '../../../components/PageHeader';
 import Icon from '../../../components/Icon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { computeMatch, EDU_LEVELS, LANGUAGES as MATCH_LANGUAGES } from '@/lib/matching';
+import { printHtmlAsPdf } from '@/lib/printHtmlAsPdf';
+import { downloadExcel } from '@/lib/exportExcel';
 
 interface Job {
   id: string;
@@ -62,6 +64,9 @@ export default function CoordinatorJobs() {
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [coordCvs, setCoordCvs] = useState<any[]>([]);
   const [descLoading, setDescLoading] = useState(false);
+  const [aiMatches, setAiMatches] = useState<Record<string, { id: string; score: number; profilage: string }[]>>({});
+  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [aiError, setAiError] = useState<Record<string, string>>({});
 
   useEffect(() => {
     // Gate on `initialized` — without it, this fires during the brief window
@@ -163,6 +168,51 @@ export default function CoordinatorJobs() {
   const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.9rem', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '0.9rem', color: '#0f172a', background: 'white', fontFamily: 'inherit' };
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' };
 
+  // ── Export the currently filtered offer list — Excel + direct PDF ──────
+  // Mirrors the pattern already shipped on the candidate CV list, admin
+  // reports and admin generator: a real .xlsx via the shared downloadExcel
+  // helper, and a styled printable HTML handed to printHtmlAsPdf (hidden
+  // iframe + window.print(), no server-side rendering).
+  async function exportJobsExcel() {
+    await downloadExcel(
+      `TalentMap_Offres_${new Date().toISOString().slice(0, 10)}.xlsx`, 'Offres d\'emploi',
+      [
+        { header: 'Titre', key: 'titre' }, { header: 'Entreprise', key: 'entreprise' },
+        { header: 'Secteur', key: 'secteur' }, { header: 'Expérience', key: 'exp' },
+        { header: 'Ville', key: 'ville' }, { header: 'Salaire', key: 'salaire' },
+        { header: 'Formation requise', key: 'formation' }, { header: 'Langues requises', key: 'langues' },
+        { header: 'Compétences', key: 'competences' }, { header: 'Statut', key: 'statut' },
+        { header: 'Publiée le', key: 'date' },
+      ],
+      filtered.map(j => ({
+        titre: j.title, entreprise: j.company, secteur: j.sector, exp: j.experience,
+        ville: j.location, salaire: j.salary || '', formation: j.educationLevel || '',
+        langues: (j.languages || []).join('; '), competences: j.skills.join('; '),
+        statut: j.status === 'Open' ? 'Ouverte' : 'Fermée', date: j.createdAt,
+      })),
+    );
+  }
+
+  function exportJobsPdf() {
+    const now = new Date().toLocaleDateString('fr-MA');
+    const rows = filtered.map(j => `<tr><td>${j.title}</td><td>${j.company}</td><td>${j.sector}</td><td>${j.experience}</td><td>${j.location}</td><td>${j.skills.join(', ') || '—'}</td><td>${j.status === 'Open' ? 'Ouverte' : 'Fermée'}</td></tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>TalentMap — Offres d'emploi</title>
+<style>body{font-family:'Segoe UI',sans-serif;color:#0a1f5c;padding:2rem;max-width:1100px;margin:0 auto}
+h1{color:#0a1f5c}p{color:#6b7280;margin-bottom:2rem}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{background:#0a1f5c;color:white;padding:.55rem .7rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
+td{padding:.55rem .7rem;border-bottom:1px solid #f3f4f6}
+tr:nth-child(even) td{background:#f9fafb}
+.footer{text-align:center;color:#9ca3af;font-size:.75rem;margin-top:2rem;padding-top:1rem;border-top:1px solid #f3f4f6}
+</style></head><body>
+<h1>TalentMap — Offres d'emploi</h1>
+<p>Généré le ${now} · ${filtered.length} offre${filtered.length > 1 ? 's' : ''}</p>
+<table><thead><tr><th>Poste</th><th>Entreprise</th><th>Secteur</th><th>Niveau</th><th>Ville</th><th>Compétences</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>
+<div class="footer">TalentMap Recruitment Platform · ${now}</div>
+</body></html>`;
+    printHtmlAsPdf(html);
+  }
+
   async function generateDescription() {
     if (!title && !sector) return;
     setDescLoading(true);
@@ -182,6 +232,68 @@ export default function CoordinatorJobs() {
       if (text) setDescription(text);
     } catch {}
     setDescLoading(false);
+  }
+
+  // ── AI advanced search: deep candidate profiling for a job offer ──────
+  // The deterministic computeMatch() score (skills/experience/education/
+  // language overlap) already ranks the whole CV pool instantly and for
+  // free — kept as the always-available default. This goes further: it
+  // prefilters to the strongest ~30 candidates with that same deterministic
+  // score (so the prompt stays bounded even with 100+ imported CVs), then
+  // asks the AI to actually reason about fit — transferable skills,
+  // seniority, sector relevance, anything useful in the free-text summary —
+  // and write a one-line "profilage" explaining why each pick fits (or
+  // doesn't fully). Results are cached per job in state; re-running is a
+  // deliberate action, not an automatic re-fetch on every render.
+  async function runAiProfiling(job: Job) {
+    if (aiLoading[job.id]) return;
+    setAiLoading(p => ({ ...p, [job.id]: true }));
+    setAiError(p => ({ ...p, [job.id]: '' }));
+    try {
+      const shortlist = coordCvs
+        .map(cv => ({ cv, score: computeMatch(cv, job).total }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 30)
+        .map(({ cv }) => cv);
+      if (shortlist.length === 0) {
+        setAiError(p => ({ ...p, [job.id]: 'Aucun CV importé à analyser.' }));
+        setAiLoading(p => ({ ...p, [job.id]: false }));
+        return;
+      }
+      const candidateLines = shortlist.map((cv, i) =>
+        `${i + 1}. id=${cv.id} | ${cv.name || cv.fileName || 'Candidat'} | Secteur: ${cv.sector || '?'} | Niveau: ${cv.experience || '?'} | Formation: ${cv.education || cv.educationLevel || '?'} | Langues: ${(cv.languages || []).join(', ') || '?'} | Compétences: ${(cv.skills || []).slice(0, 8).join(', ')} | Résumé: ${(cv.summary || '').slice(0, 160)}`
+      ).join('\n');
+      const r = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `OFFRE:\nPoste: ${job.title}\nEntreprise: ${job.company}\nSecteur: ${job.sector}\nNiveau requis: ${job.experience}\nCompétences requises: ${job.skills.join(', ') || 'non précisé'}\nFormation requise: ${job.educationLevel || 'non précisé'}\nLangues requises: ${(job.languages || []).join(', ') || 'non précisé'}\nDescription: ${job.description || 'non précisé'}\n\nCANDIDATS PRÉSÉLECTIONNÉS:\n${candidateLines}`,
+          }],
+          system: `Tu es un recruteur senior expert du marché de l'emploi marocain, spécialisé en profilage approfondi de candidats. On te donne une offre d'emploi et une liste de candidats déjà présélectionnés par mots-clés. Va au-delà du simple mot-clé : évalue la pertinence réelle de l'expérience, les compétences transférables, le niveau de séniorité, l'adéquation sectorielle, et toute information utile du résumé.
+Classe les meilleurs candidats du plus pertinent au moins pertinent (maximum 8 — n'inclus pas un candidat clairement inadapté juste pour atteindre ce nombre). Pour chacun, donne un score de pertinence 0-100 et une phrase de "profilage" en français expliquant précisément pourquoi ce candidat correspond bien, ou ses limites.
+Retourne UNIQUEMENT ce JSON valide sans markdown: {"matches":[{"id":"id exact du candidat tel que fourni","score":N,"profilage":"phrase d'explication concrète"}]}`,
+          task: 'json',
+          max_tokens: 1200,
+        }),
+      });
+      const data = await r.json();
+      const text = data.content?.[0]?.text || '';
+      const m = text.match(/\{[\s\S]*\}/);
+      const parsed = m ? JSON.parse(m[0]) : null;
+      const matches = Array.isArray(parsed?.matches)
+        ? parsed.matches
+            .filter((x: any) => x && typeof x.id === 'string' && shortlist.some(cv => cv.id === x.id))
+            .map((x: any) => ({ id: x.id, score: Math.max(0, Math.min(100, Math.round(Number(x.score) || 0))), profilage: String(x.profilage || '').slice(0, 300) }))
+            .slice(0, 8)
+        : [];
+      if (matches.length > 0) setAiMatches(p => ({ ...p, [job.id]: matches }));
+      else setAiError(p => ({ ...p, [job.id]: "Le profilage IA n'a pas abouti — réessayez dans quelques secondes." }));
+    } catch {
+      setAiError(p => ({ ...p, [job.id]: "Le profilage IA n'a pas abouti — réessayez dans quelques secondes." }));
+    }
+    setAiLoading(p => ({ ...p, [job.id]: false }));
   }
 
   return (
@@ -322,6 +434,16 @@ export default function CoordinatorJobs() {
             <option value="Open">Ouvertes</option>
             <option value="Closed">Fermées</option>
           </select>
+          {filtered.length > 0 && (
+            <div style={{ display: 'flex', gap: '0.5rem', marginInlineStart: 'auto' }}>
+              <button onClick={exportJobsPdf} style={{ padding: '0.5rem 0.9rem', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>
+                ↓ PDF
+              </button>
+              <button onClick={exportJobsExcel} style={{ padding: '0.5rem 0.9rem', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}>
+                ↓ Excel
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Job list */}
@@ -386,7 +508,62 @@ export default function CoordinatorJobs() {
                         <div style={{ padding: '0.9rem', background: '#f9fafb', borderRadius: '8px', fontSize: '0.82rem', color: '#6b7280', textAlign: 'center' }}>
                           Aucun CV importé. <Link href="/coordinator/upload" style={{ color: '#2563eb', fontWeight: 600 }}>Importer des CVs →</Link>
                         </div>
-                      ) : (() => {
+                      ) : (<>
+                        {/* AI advanced-search profilage */}
+                        <div style={{ marginBottom: '0.9rem' }}>
+                          <button
+                            onClick={() => runAiProfiling(j)}
+                            disabled={aiLoading[j.id]}
+                            style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 700, background: aiLoading[j.id] ? '#9ca3af' : 'linear-gradient(135deg,#7C3AED,#5B21B6)' as any, border: 'none', borderRadius: '7px', padding: '0.4rem 0.9rem', cursor: aiLoading[j.id] ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                            {aiLoading[j.id] ? <><Icon name="refresh" size={13}/>Profilage IA en cours…</> : <><Icon name="robot" size={13}/>{aiMatches[j.id] ? 'Relancer le profilage IA' : 'Lancer le profilage IA avancé'}</>}
+                          </button>
+                          {aiError[j.id] && (
+                            <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#991b1b' }}>{aiError[j.id]}</div>
+                          )}
+                          {aiMatches[j.id] && aiMatches[j.id].length > 0 && (
+                            <div style={{ marginTop: '0.7rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              {aiMatches[j.id].map(match => {
+                                const cv = coordCvs.find(c => c.id === match.id);
+                                if (!cv) return null;
+                                const sc = match.score;
+                                const scoreColor = sc >= 70 ? '#5B21B6' : sc >= 45 ? '#92400e' : '#6b7280';
+                                const scoreBg = sc >= 70 ? '#F5F3FF' : sc >= 45 ? '#fefce8' : '#f9fafb';
+                                const scoreBorder = sc >= 70 ? '#DDD6FE' : sc >= 45 ? '#fde68a' : '#e5e7eb';
+                                return (
+                                  <div key={match.id} style={{ padding: '0.65rem 0.85rem', borderRadius: '9px', background: scoreBg, border: `1px solid ${scoreBorder}` }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                                      <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: sc >= 70 ? '#7C3AED' : sc >= 45 ? '#eab308' : '#d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '0.8rem', flexShrink: 0 }}>
+                                        {sc}%
+                                      </div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0a1f5c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cv.name || cv.fileName}</div>
+                                        <div style={{ fontSize: '0.72rem', color: '#6b7280' }}>{cv.sector} · {cv.experience}{cv.phone ? ` · ${cv.phone}` : ''}</div>
+                                      </div>
+                                      {cv.email ? (
+                                        <a href={`mailto:${cv.email}?subject=Offre: ${j.title} chez ${j.company}`} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.73rem', color: scoreColor, fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none', padding: '0.25rem 0.6rem', borderRadius: '5px', border: `1px solid ${scoreBorder}`, background: 'white', flexShrink: 0 }}>
+                                          <Icon name="mail" size={12}/>Contacter
+                                        </a>
+                                      ) : null}
+                                    </div>
+                                    {match.profilage && (
+                                      <div style={{ marginTop: '0.45rem', fontSize: '0.78rem', color: '#374151', lineHeight: 1.55, fontStyle: 'italic', paddingLeft: '0.1rem' }}>
+                                        <Icon name="sparkles" size={11} color="#7C3AED"/> {match.profilage}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.1rem' }}>
+                                Profilage IA — présélection sur {Math.min(coordCvs.length, 30)} candidats, analyse approfondie au-delà des mots-clés
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '0.4rem' }}>
+                          Classement rapide (mots-clés)
+                        </div>
+                        {(() => {
                         const ranked = coordCvs
                           .map(cv => ({ ...cv, score: computeMatch(cv, j).total }))
                           .sort((a, b) => b.score - a.score)
@@ -420,6 +597,7 @@ export default function CoordinatorJobs() {
                           </div>
                         );
                       })()}
+                      </>)}
                     </div>
                   )}
                 </div>

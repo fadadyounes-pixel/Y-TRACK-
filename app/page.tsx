@@ -193,7 +193,10 @@ export default function Home() {
       </div>
 
       {/* ── Footer ── */}
-      <div style={{ borderTop: '1px solid #e5e7eb', padding: '1.5rem', textAlign: 'center' }}>
+      <div style={{ borderTop: '1px solid #e5e7eb', padding: '1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
+        <Link href="/about" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1d4ed8', textDecoration: 'none' }}>
+          Project details →
+        </Link>
         <p style={{ fontSize: '0.75rem', color: '#9ca3af', margin: 0 }}>
           © 2026 TalentMap
         </p>

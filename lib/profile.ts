@@ -7,32 +7,26 @@
  * set defined here is what /candidate/info uses to compute its own progress
  * bar, so the gate and the form always agree on what "complete" means.
  */
-import { CASABLANCA_SETTAT, PREFECTURE_CASABLANCA } from './morocco';
+import { CASABLANCA_SETTAT } from './morocco';
 
 export interface CandidateProfile {
+  fullName?: string;
   firstName?: string;
   lastName?: string;
   phone?: string;
-  city?: string;
-  cin?: string;
+  email?: string;
+  age?: string;
   region?: string;
+  // One of the 8 préfectures d'arrondissements of Casablanca — only required
+  // when region === Casablanca-Settat.
   prefecture?: string;
-  arrondissement?: string;
-  sector?: string;
-  experience?: string;
-  diploma?: string;
-  languages?: string[];
 }
 
 export function isProfileComplete(p: CandidateProfile | null | undefined): boolean {
   if (!p) return false;
   const prefectureOk = p.region === CASABLANCA_SETTAT ? !!p.prefecture : true;
-  const arrondissementOk = p.prefecture === PREFECTURE_CASABLANCA ? !!p.arrondissement : true;
   return !!(
-    p.firstName && p.lastName && p.phone && p.city && p.cin && p.region &&
-    prefectureOk && arrondissementOk &&
-    p.sector && p.experience && p.diploma &&
-    p.languages && p.languages.length > 0
+    p.fullName && p.phone && p.email && p.age && p.region && prefectureOk
   );
 }
 
