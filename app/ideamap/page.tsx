@@ -1110,7 +1110,7 @@ Omets "params" si l'action n'en a pas besoin. Dans tous les autres cas (question
               <input ref={fileInputRef} type="file" accept={fileHandler.accept} style={{display:"none"}}
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}/>
               <button onClick={() => fileInputRef.current?.click()} disabled={busy}
-                title={lang==="ar"?"إرفاق ملف (Excel أو شعار)":lang==="fr"?"Joindre un fichier (Excel ou logo)":"Attach a file (Excel or logo)"}
+                title={lang==="ar"?"إرفاق ملف":lang==="fr"?"Joindre un fichier":"Attach a file"}
                 style={{width:36, height:36, borderRadius:"10px", border:`1.5px solid ${CD}`, flexShrink:0,
                   background:WH, color:ND, fontSize:"15px", cursor: busy?"default":"pointer", opacity: busy?0.5:1,
                   display:"flex", alignItems:"center", justifyContent:"center"}}>
